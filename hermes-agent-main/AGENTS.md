@@ -1130,3 +1130,37 @@ not the specific names.
 
 Reviewers should reject new change-detector tests; authors should convert
 them into invariants before re-requesting review.
+
+## Cursor Cloud specific instructions
+
+The git checkout lives at **`/workspace/hermes-agent-main/`** (not the repo root). Run all `hermes` / `scripts/run_tests.sh` commands from that directory.
+
+### Python / CLI
+
+- Prefer **`.venv`** (`source .venv/bin/activate`). `scripts/run_tests.sh` auto-detects `.venv`, then `venv`.
+- Refresh deps: `export UV_NO_CONFIG=1 && uv pip install -e ".[all,dev]"` (see `CONTRIBUTING.md`).
+- First-time setup: `./setup-hermes.sh` creates **`venv/`** and prompts for the wizard — pipe `printf 'n\n'` to skip the interactive wizard.
+- User state: `~/.hermes/config.yaml` + `~/.hermes/.env` (secrets only). Seed config with `cp cli-config.yaml.example ~/.hermes/config.yaml` if missing.
+- **`scripts/run_tests.sh` must be executable** (`chmod +x scripts/run_tests.sh`). Pass pytest flags after `--`, e.g. `scripts/run_tests.sh tests/foo.py -- -q`.
+
+### Node (TUI + dashboard)
+
+- **TUI / dashboard chat:** `cd ui-tui && npm install && npm run build` before `hermes --tui` or dashboard PTY chat.
+- **Dashboard static UI:** prebuilt assets ship in `hermes_cli/web_dist/`. Rebuild only if you change `web/`: `cd web && npm install && npm run build`.
+- Root `npm install` is optional (browser automation via `agent-browser`).
+
+### Running services (manual — not in the VM update script)
+
+| Service | Command | Notes |
+|---------|---------|--------|
+| Dashboard | `hermes dashboard --host 127.0.0.1 --port 9119 --no-open` | Public API: `http://127.0.0.1:9119/api/status` (no auth). Bind is loopback by default. |
+| Gateway | `hermes gateway run` | Required for scheduled cron delivery and messaging; cron jobs created via CLI alone do not run until the gateway tick loop is up. |
+| LLM chat | `hermes` / `hermes chat -q "..."` | Needs a provider key in `~/.hermes/.env` (e.g. `OPENROUTER_API_KEY`). `hermes doctor` reports missing keys. |
+
+Use **tmux** for long-running `hermes dashboard` / `hermes gateway run` processes in Cloud Agent VMs.
+
+### Smoke checks without an LLM key
+
+- `hermes doctor`, `hermes tools list`, `hermes cron list`, `hermes skills list`
+- `scripts/run_tests.sh tests/test_hermes_constants.py -- -q`
+- `curl -sS http://127.0.0.1:9119/api/status` while the dashboard is running
