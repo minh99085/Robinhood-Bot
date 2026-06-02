@@ -1,0 +1,56 @@
+{
+  "attempt": {
+    "live_order_attempt_id": "mla-clean-001", "canary_plan_id": "cp-clean-001",
+    "ts_ms": 1764547200000, "venue": "kalshi", "environment": "demo",
+    "client_order_id": "mlt-kalshi-20260101-abcd1234-1", "exchange_order_id": "demo-order-1",
+    "status": "FILLED", "acknowledged": 1, "submitted": 1, "filled_quantity": "1",
+    "avg_fill_price": "0.50", "notional_filled": "0.50", "notional_submitted": "0.50",
+    "fee": "1", "request_payload_hash": "h-clean", "risk_decision_id": "rd-clean",
+    "safety_envelope_decision_id": "se-clean", "network_call_count": 1
+  },
+  "plan": {
+    "canary_plan_id": "cp-clean-001", "venue": "kalshi", "environment": "demo",
+    "market_ticker": "CLEAN-DEMO-MKT", "side": "BUY", "outcome": "YES", "order_type": "FOK",
+    "time_in_force": "fill_or_kill", "limit_price": "0.50", "quantity": "1", "notional": "0.50",
+    "expected_payload_hash": "h-clean", "source_dry_run_intent_id": "dri-clean",
+    "readiness_report_id": "rr-clean", "approval_batch_id": "ab-clean",
+    "arming_token_id": "at-clean", "source_shadow_session_id": "ss-clean",
+    "source_shadow_decision_id": "sd-clean", "risk_decision_id": "rd-clean",
+    "safety_envelope_decision_id": "se-clean"
+  },
+  "dry_run_intent": {
+    "venue": "kalshi", "market_ticker": "CLEAN-DEMO-MKT", "side": "BUY", "outcome": "YES",
+    "order_type": "FOK", "venue_payload_json": "{}", "unsigned": 1, "unsent": 1
+  },
+  "reconciliation": {
+    "reconciliation_id": "rc-clean-001", "live_order_attempt_id": "mla-clean-001", "status": "PASS",
+    "exchange_order_status": "executed", "local_order_status": "FILLED", "filled_quantity": "1",
+    "local_filled_quantity": "1", "fee": "1", "position_delta": "1"
+  },
+  "emergency_cancels": [],
+  "account_snapshots": [{"venue": "kalshi"}, {"venue": "kalshi"}],
+  "safety_decision": {"allowed": 1, "ts_ms": 1764547199000, "config_hash": "cfg"},
+  "research": {
+    "estimate_id": "est-clean", "p_ensemble": "0.62", "confidence": "0.7", "evidence_score": "0.8",
+    "source_count": 3, "ambiguity_score": "0.05"
+  },
+  "audit_events": [
+    {"event_type": "idempotency_key_persisted", "audit_chain_hash": "a1", "actor": "cli"},
+    {"event_type": "last_chance_before_submit", "audit_chain_hash": "a2", "actor": "cli"},
+    {"event_type": "reconciled", "audit_chain_hash": "a3", "actor": "cli"}
+  ],
+  "market_data": {
+    "bbo_age_ms": 120, "orderbook_age_ms": 120, "spread": "0.01", "depth_at_limit": "50",
+    "venue_status": "ready", "market_status": "open", "fill_price": "0.50",
+    "horizons": {
+      "0": {"best_bid": "0.49", "best_ask": "0.51"},
+      "5000": {"best_bid": "0.495", "best_ask": "0.515"},
+      "30000": {"best_bid": "0.50", "best_ask": "0.52"},
+      "60000": {"best_bid": "0.50", "best_ask": "0.52"},
+      "300000": {"best_bid": "0.505", "best_ask": "0.525"},
+      "900000": {"best_bid": "0.51", "best_ask": "0.53"},
+      "3600000": {"best_bid": "0.515", "best_ask": "0.535"}
+    }
+  },
+  "audit_chain_valid": true
+}

@@ -1,0 +1,45 @@
+{
+  "evidence": {
+    "clean_demo_canary_count": 6, "unresolved_canary_count": 0, "failed_canary_count": 0,
+    "renewed_shadow_hours": 60, "renewed_shadow_decisions": 800,
+    "guarded_live_conformance_status": "PASS", "micro_live_conformance_status": "PASS",
+    "post_canary_eligibility_status": "eligible", "latest_post_canary_analysis_id": "pca-ready",
+    "latest_shadow_report_id": "rr-ready", "missing_evidence": [], "stale_evidence": []
+  },
+  "attestations": [
+    {"attestation_id": "att-jur", "ts_ms": 1764547200000, "reviewer_id": "lab_manager",
+     "venue": "kalshi", "jurisdiction_reviewed": 1, "eligibility_confirmed_by_operator": 1,
+     "venue_terms_reviewed": 1, "prohibited_market_categories_reviewed": 1,
+     "tax_reporting_out_of_scope_acknowledged": 1, "legal_advice_not_provided_acknowledged": 1,
+     "confirmation_text": "I have independently reviewed venue eligibility, jurisdiction, and account authorization outside this bot. This is not legal advice.",
+     "expires_ts_ms": 4070908800000, "status": "ACTIVE"},
+    {"attestation_id": "att-acct", "ts_ms": 1764547200000, "reviewer_id": "lab_manager",
+     "venue": "kalshi", "jurisdiction_reviewed": 1, "eligibility_confirmed_by_operator": 1,
+     "venue_terms_reviewed": 0, "prohibited_market_categories_reviewed": 0,
+     "tax_reporting_out_of_scope_acknowledged": 1, "legal_advice_not_provided_acknowledged": 1,
+     "confirmation_text": "I have independently verified account readiness, permissions, and funding/collateral outside this bot. No funds were moved by this bot.",
+     "expires_ts_ms": 4070908800000, "status": "ACTIVE"},
+    {"attestation_id": "att-venue", "ts_ms": 1764547200000, "reviewer_id": "lab_manager",
+     "venue": "kalshi", "jurisdiction_reviewed": 0, "eligibility_confirmed_by_operator": 1,
+     "venue_terms_reviewed": 1, "prohibited_market_categories_reviewed": 1,
+     "tax_reporting_out_of_scope_acknowledged": 1, "legal_advice_not_provided_acknowledged": 1,
+     "confirmation_text": "I have independently reviewed the venue terms and prohibited market/category restrictions outside this bot.",
+     "expires_ts_ms": 4070908800000, "status": "ACTIVE"}
+  ],
+  "custody": {"custody_plan_present": true, "rotation_plan_present": true,
+              "revocation_plan_present": true, "readonly_trading_separated": true},
+  "venues": ["kalshi", "polymarket"],
+  "scan_blobs": [],
+  "change_control": {
+    "change_id": "cc-ready", "ts_ms": 1764547200000, "requester_id": "lab_manager",
+    "reviewers": ["alice", "bob"], "review_id": "r-ready",
+    "intended_scope": "production_canary_design_review_only",
+    "no_execution_statement": "This authorizes design review and drafting a Phase 12 plan only; it does not enable production execution.",
+    "approval_status": "APPROVED_DESIGN_ONLY", "expires_ts_ms": 4070908800000
+  },
+  "human_checklist": {
+    "checklist_id": "hc-ready", "ts_ms": 1764547200000, "reviewer_id": "alice",
+    "review_id": "r-ready", "all_required_items_passed": 1, "status": "PASS_DESIGN_ONLY",
+    "confirmation_text": "I have manually reviewed the production-canary design dossier."
+  }
+}

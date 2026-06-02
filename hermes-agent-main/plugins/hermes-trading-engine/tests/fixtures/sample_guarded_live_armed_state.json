@@ -1,0 +1,6 @@
+{
+  "state": "ARMED_DRY_RUN_ONLY",
+  "mode": "dry_run_only",
+  "no_live_execution": true,
+  "note": "Informational fixture only. Arming is DRY-RUN ONLY and can never enable live execution."
+}

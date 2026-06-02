@@ -1,0 +1,64 @@
+# Controlled paper-trading campaign configuration.
+#
+# PAPER MODE ONLY. This campaign never places real orders, never enables Micro
+# Live, and never touches a production execution path. The preflight check
+# aborts (with a red warning) if any live-trading config is detected.
+
+campaign_name: controlled_paper_campaign_001
+
+# ---- duration / cadence ----
+duration_days: 7
+catalog_refresh_seconds: 600
+score_refresh_seconds: 60
+campaign_report_frequency_seconds: 3600   # hourly
+
+# ---- universe / selection (mirrors the Universe Manager) ----
+market_scan_limit: 1000
+market_shortlist_limit: 100
+market_live_watchlist_limit: 80
+trade_candidate_limit: 20
+
+# ---- paper risk limits (HARD paper caps) ----
+max_open_trades: 3
+max_daily_new_trades: 10
+max_trade_size_paper_usd: 25
+max_total_paper_exposure_usd: 100
+starting_paper_cash_usd: 500
+
+# ---- market quality thresholds ----
+min_market_liquidity_usd: 1000
+min_24h_volume_usd: 500
+max_allowed_spread: 0.04
+min_top_of_book_depth_usd: 100
+
+# ---- signal / trade-entry requirements ----
+min_net_edge: 0.025          # 2.5% net edge required
+fee_bps: 0.0                 # assumed taker fee (bps) for net-edge math
+slippage_impact_coeff: 0.5   # slippage = coeff * (size / top_of_book_depth)
+max_slippage: 0.03
+
+# ---- exit rules ----
+take_profit_edge_capture: 0.60   # capture 60% of expected edge
+stop_loss_percent: 0.12          # 12% adverse move
+max_holding_hours: 48
+exit_if_net_edge_below: 0.005    # 0.5%
+no_resolution_hold_mode: true    # never hold into resolution
+
+# ---- signal source + recursive feedback loop ----
+# "research" sources fair value from the Phase-5 Grok research engine
+# (research-only: Grok estimates probability + evidence, never places orders).
+# Real Grok calls require XAI_API_KEY/GROK_API_KEY and RESEARCH_MODE=online_paper;
+# otherwise it uses cached estimates or a clearly-labelled offline research stub.
+signal_model: research
+feedback_enabled: true   # closed-trade outcomes recursively calibrate future signals
+
+# ---- safety toggles (all must stay true for preflight to pass) ----
+risk_gates_enabled: true
+duplicate_prevention_enabled: true
+universe_manager_enabled: true
+dashboard_enabled: true
+logging_enabled: true
+paper_simulator_enabled: true
+
+# ---- max-drawdown guard (paper) ----
+max_paper_drawdown_pct: 0.20     # 20% of starting cash

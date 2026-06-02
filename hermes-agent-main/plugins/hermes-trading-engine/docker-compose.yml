@@ -1,0 +1,407 @@
+services:
+  hermes-trading-engine:
+    build: .
+    container_name: hermes-trading-engine
+    ports:
+      - "8800:8800"
+    volumes:
+      - hte_data:/data
+    environment:
+      HTE_ENGINE_NAME: "HermesTradingEngine"
+      HTE_STARTING_BALANCE: "${HTE_STARTING_BALANCE:-500}"
+      # Paper starting balance (fake money). Default $500; override any time by
+      # adding HTE_STARTING_BALANCE=<amount> to your .env file.
+      # PAPER_STARTING_BALANCE: "10000"   # alternative training default
+      # ---- SAFE DEFAULTS (paper only; no real orders exist) ----
+      # Engine always boots in PAPER. Autotrade is OFF by default; flip to "1"
+      # only when you intentionally want the paper bot to open simulated trades.
+      HTE_MODE: "paper"
+      HTE_AUTOTRADE: "${HTE_AUTOTRADE:-1}"
+      # ---- Polymarket-only PAPER training (full-throttle, PAPER ONLY) ----
+      # The legacy crypto/stock pulse engine NEVER opens when POLYMARKET_ONLY_MODE
+      # is set; Polymarket paper training runs in engine.training (scan -> rank ->
+      # probability -> edge -> RiskEngine -> PaperBroker). No real orders ever.
+      POLYMARKET_ONLY_MODE: "${POLYMARKET_ONLY_MODE:-1}"
+      HTE_TRADING_UNIVERSE: "polymarket"
+      DISABLE_CRYPTO_TRADING: "1"
+      DISABLE_STOCK_TRADING: "1"
+      DISABLE_ARBITRAGE_TRADING: "1"
+      DISABLE_BTC_PULSE_TRADING: "1"     # BTC pulse is diagnostics-only, never the trade path
+      # Training Engine v2 mode: disabled | observe_only | paper_train (default observe_only)
+      POLYMARKET_TRAINING_MODE: "${POLYMARKET_TRAINING_MODE:-observe_only}"
+      # cautious | balanced | aggressive  (default: cautious)
+      HTE_AGGRESSIVENESS: "cautious"
+      HTE_PULSE_ROUND_SECONDS: "300"
+      HTE_DAILY_LOSS_LIMIT: "0.10"
+      HTE_MAX_EXPOSURE: "0.50"
+      HTE_CRYPTO_SYMBOLS: "BTCUSDT,ETHUSDT,SOLUSDT"
+      HTE_STOCK_SYMBOLS: "AAPL,NVDA,TSLA,SPY"
+      # ---- Grok intelligence layer (RESEARCH ONLY; key in .env: GROK_API_KEY or XAI_API_KEY) ----
+      # Grok may research and propose; it can never execute and never sets order size.
+      GROK_API_KEY: "${GROK_API_KEY:-}"
+      XAI_API_KEY: "${XAI_API_KEY:-}"
+      GROK_MODEL: "${GROK_MODEL:-grok-4.3}"
+      HTE_GROK_TIMEOUT_MS: "4000"
+      HTE_GROK_MAX_TOKENS: "2048"
+      HTE_GROK_TEMPERATURE: "0.1"
+      # ---- Cross-exchange arbitrage: PERMANENTLY DISABLED (DEPRECATED) ----
+      # Arbitrage trading has been REMOVED in favour of Polymarket-only PAPER
+      # training. These vars are inert: ARB_EXECUTION_ENABLED is ignored (the
+      # disable is a hard module constant), the loop never starts, the dashboard
+      # panel is hidden, and POST /api/arb/* always returns disabled.
+      ARB_EXECUTION_ENABLED: "false"   # ignored — arbitrage is permanently off
+      ARB_SIMULATE_OPPS: "0"           # deprecated
+      # ---- Polymarket CLOB market data (Phase 2; READ-ONLY) ----
+      # OFF by default. When enabled, the engine subscribes (read-only) to
+      # trending-market token ids and feeds order-book freshness to the
+      # RiskEngine. No orders are ever submitted from this feed.
+      POLYMARKET_CLOB_ENABLED: "0"
+      POLYMARKET_WS_URL: "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+      POLYMARKET_CLOB_MAX_ASSETS: "20"
+      POLYMARKET_CLOB_STALE_MS: "3000"
+      POLYMARKET_CLOB_PERSIST_RAW: "1"
+      POLYMARKET_CLOB_SUBSCRIBE_TRENDING: "1"
+      # ---- Adaptive Polymarket Market Universe Manager (selection only) ----
+      # Scans a large catalog, filters + scores + tiers markets, and produces a
+      # live watchlist + trade-candidate shortlist. It NEVER places/cancels/sizes
+      # an order; the RiskEngine + paper OMS remain the only execution path, and
+      # live order-book subscription stays gated by POLYMARKET_CLOB_ENABLED above.
+      # Pipeline: scan 1000 -> shortlist 100 -> live-watch 80 -> trade top 20 -> hold <= 3.
+      MARKET_SCAN_LIMIT: "1000"            # full catalog scan (hard max 2000)
+      MARKET_SHORTLIST_LIMIT: "100"        # ranked shortlist (hard max 200)
+      MARKET_LIVE_WATCHLIST_LIMIT: "80"    # Tier B size (hard max 120)
+      MARKET_TRADE_CANDIDATE_LIMIT: "20"   # Tier A size (hard max 25)
+      MAX_OPEN_POLYMARKET_TRADES: "3"      # default max open PM positions
+      MAX_OPEN_TRADES_HARD_CAP: "8"        # absolute ceiling (paper clamps to 5)
+      MIN_MARKET_LIQUIDITY_USD: "1000"
+      MIN_MARKET_VOLUME_24H_USD: "500"
+      MAX_ALLOWED_SPREAD: "0.04"
+      MIN_TOP_OF_BOOK_DEPTH_USD: "100"
+      CATALOG_REFRESH_SECONDS: "600"       # full catalog refresh cadence (paper)
+      SCORE_REFRESH_SECONDS: "60"          # score refresh cadence
+      # ---- Polymarket PAPER Training Engine (engine.training; PAPER ONLY) ----
+      # MICRO_LIVE / production / guarded-live stay OFF for training. The
+      # canonical (default-OFF) definitions live in the Phase 8-11 safety block
+      # below — do NOT redefine them here (YAML rejects duplicate keys).
+      # Polymarket paper-training pipeline sizes (selection only).
+      POLYMARKET_CLOB_SUBSCRIBE_TRENDING_TRAINING: "1"
+      POLYMARKET_USE_UNIVERSE_MANAGER: "1"
+      POLYMARKET_SCAN_LIMIT: "1000"
+      POLYMARKET_SHORTLIST_LIMIT: "150"
+      POLYMARKET_LIVE_WATCH_LIMIT: "100"
+      POLYMARKET_TRADE_CANDIDATE_LIMIT: "30"
+      POLYMARKET_MAX_OPEN_TRADES: "5"
+      POLYMARKET_MAX_OPEN_TRADES_HARD_CAP: "8"
+      POLYMARKET_MIN_NET_EDGE: "0.03"
+      POLYMARKET_BASE_UNCERTAINTY: "0.01"
+      POLYMARKET_ALLOW_OFFLINE_STUB_TRADING: "0"
+      POLYMARKET_REQUIRE_RESEARCH_OR_MODEL_EDGE: "1"
+      # v2 probability shrink + edge gates (trade only TRUE edge, never price extremes)
+      POLYMARKET_BASE_SHRINK_FACTOR: "0.25"
+      POLYMARKET_MAX_SHRINK_FACTOR: "0.60"
+      POLYMARKET_MIN_SHRINK_FACTOR: "0.05"
+      POLYMARKET_MAX_SPREAD: "0.08"
+      POLYMARKET_MIN_DEPTH_AT_PRICE: "50"
+      POLYMARKET_MIN_EVIDENCE_SCORE: "0.50"
+      POLYMARKET_MIN_SOURCE_COUNT: "2"
+      POLYMARKET_MAX_AMBIGUITY_SCORE: "0.35"
+      POLYMARKET_PAPER_FIXED_NOTIONAL_USD: "5"
+      POLYMARKET_USE_KELLY_FOR_SIZE: "0"
+      POLYMARKET_USE_KELLY_FOR_DIAGNOSTICS: "1"
+      POLYMARKET_LEARNER_ENABLED: "1"
+      POLYMARKET_MIN_BUCKET_SAMPLES: "20"
+      POLYMARKET_LEARNER_EWMA_ALPHA: "0.05"
+      POLYMARKET_MARKOUT_HORIZONS_SECONDS: "5,30,60,300,900,3600"
+      # Paper risk limits (small, fail-closed).
+      PAPER_MAX_ORDER_NOTIONAL_USD: "5"
+      PAPER_MAX_MARKET_EXPOSURE_USD: "20"
+      PAPER_MAX_TOTAL_EXPOSURE_USD: "100"
+      PAPER_MAX_DAILY_LOSS_USD: "50"
+      PAPER_MAX_OPEN_ORDERS: "20"
+      # (PAPER_REJECT_ON_STALE_BOOK is set once in the Paper OMS block below)
+      # Scan speed (separate scan loop from trade loop).
+      POLYMARKET_SCAN_INTERVAL_SECONDS: "60"
+      POLYMARKET_METADATA_CACHE_TTL_SECONDS: "60"
+      POLYMARKET_INCREMENTAL_REFRESH: "1"
+      POLYMARKET_ASYNC_SCAN: "1"
+      POLYMARKET_MAX_CONCURRENT_REQUESTS: "8"
+      POLYMARKET_RATE_LIMIT_SLEEP_MS: "100"
+      POLYMARKET_SCAN_TIMEOUT_SECONDS: "20"
+      # Recursive feedback loop.
+      POLYMARKET_TRAINING_FEEDBACK_INTERVAL_SECONDS: "300"
+      POLYMARKET_TRAINING_SIGNAL_MODEL: "research"
+      POLYMARKET_TRAINING_FEEDBACK_ENABLED: "1"
+      # ---- Paper OMS / PaperBroker (Phase 3; PAPER ONLY, no real execution) ----
+      # The internal OMS routes every risk-approved order to a simulated broker.
+      # Conservative fee/slippage; CLOB-backed fills when a book exists, else a
+      # reference-price fallback. Prediction-market reference fills default OFF
+      # (CLOB-only) so PM paper fills use real local book state.
+      PAPER_MAX_FILL_DEPTH_FRACTION: "0.35"
+      PAPER_TAKER_FEE_BPS: "30"
+      PAPER_MAKER_FEE_BPS: "10"
+      PAPER_SLIPPAGE_BPS: "25"
+      PAPER_LATENCY_MS: "250"
+      PAPER_ALLOW_REFERENCE_PRICE_FILLS: "1"
+      # Fill PAPER Polymarket orders at the market's implied price when no live
+      # CLOB book is subscribed. Without this, paper PM orders are rejected as
+      # 'missing_orderbook'. Default ON for paper (100% simulated); set to 0 to
+      # require a live CLOB book instead.
+      PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS: "${PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS:-1}"
+      PAPER_RESTING_ORDER_FILL_ON_CROSS: "1"
+      PAPER_REJECT_ON_STALE_BOOK: "1"
+      PAPER_DEFAULT_TIME_IN_FORCE: "IOC"
+      # ---- Deterministic replay / backtest (Phase 4; OFFLINE; no network, no Grok) ----
+      # Replay is an offline CLI tool (scripts/run_replay.py). It never submits
+      # live orders and never calls Grok. These are the default knobs.
+      REPLAY_DEFAULT_INITIAL_CASH: "10000"
+      REPLAY_DEFAULT_SEED: "42"
+      REPLAY_STRATEGY_TICK_MS: "1000"
+      REPLAY_EQUITY_SNAPSHOT_MS: "1000"
+      REPLAY_OUTPUT_DIR: "replay_artifacts"
+      REPLAY_ALLOW_GROK_NETWORK: "0"
+      REPLAY_USE_CACHED_GROK: "1"
+      REPLAY_END_OPEN_ORDER_POLICY: "cancel"
+      REPLAY_MARK_TO_MARKET: "1"
+      # ---- Phase 5: Grok research/probability engine (research-ONLY) ----
+      # Grok may research + estimate probability. It NEVER executes, sizes, or
+      # bypasses the RiskEngine. Default mode is offline_cache (no network).
+      RESEARCH_MODE: "${RESEARCH_MODE:-offline_cache}"   # disabled|offline_cache|online_paper|online_shadow|guarded_live_readonly
+      # GROK_MODEL defined once above (Grok intelligence layer block)
+      GROK_BASE_URL: "${GROK_BASE_URL:-https://api.x.ai/v1}"
+      GROK_USE_RESPONSES_API: "1"
+      GROK_ENABLE_WEB_SEARCH: "0"
+      GROK_ENABLE_X_SEARCH: "0"
+      GROK_ENABLE_FUNCTION_TOOLS: "1"
+      GROK_REASONING_EFFORT: "low"
+      GROK_TIMEOUT_SECONDS: "30"
+      GROK_MAX_RETRIES: "2"
+      GROK_STORE_RESPONSES: "0"
+      RESEARCH_STORE_PROMPTS: "0"
+      # Budget (fail-closed)
+      RESEARCH_MAX_REQUESTS_PER_MINUTE: "6"
+      RESEARCH_MAX_REQUESTS_PER_HOUR: "60"
+      RESEARCH_MAX_REQUESTS_PER_DAY: "300"
+      RESEARCH_MAX_REQUESTS_PER_MARKET_PER_DAY: "12"
+      RESEARCH_MAX_DAILY_COST_USD: "5"
+      RESEARCH_DISABLE_ON_BUDGET_EXCEEDED: "1"
+      # Caching / quality gates
+      RESEARCH_CACHE_TTL_SECONDS: "900"
+      RESEARCH_ESTIMATE_STALE_SECONDS: "900"
+      RESEARCH_MIN_SOURCE_COUNT: "2"
+      RESEARCH_MIN_EVIDENCE_SCORE: "0.35"
+      RESEARCH_MAX_AMBIGUITY_SCORE: "0.35"
+      # Strategy integration (OFF by default — current behavior preserved)
+      RESEARCH_USE_IN_STRATEGY: "0"
+      RESEARCH_ALLOW_TRADE_PROPOSALS: "0"
+      RESEARCH_ENSEMBLE_MARKET_WEIGHT: "0.50"
+      RESEARCH_ENSEMBLE_LLM_WEIGHT: "0.30"
+      RESEARCH_ENSEMBLE_MODEL_WEIGHT: "0.20"
+      RESEARCH_EXTREME_PROB_CLAMP_LOW: "0.05"
+      RESEARCH_EXTREME_PROB_CLAMP_HIGH: "0.95"
+      # Replay uses cached estimates only; never the network unless explicitly overridden.
+      REPLAY_USE_CACHED_RESEARCH: "1"
+      # XAI_API_KEY / GROK_API_KEY are defined once above (Grok intelligence block);
+      # provide their values via .env or secrets (NEVER committed/logged).
+      # ---- Phase 6: venue-neutral layer + Kalshi (READ-ONLY market data) ----
+      # No order placement / cancellation / private user channels exist. Kalshi
+      # disabled by default; missing credentials degrade gracefully (Polymarket
+      # keeps working). Keys are never logged, persisted, or sent to Grok.
+      VENUES_ENABLED: "${VENUES_ENABLED:-polymarket}"   # e.g. "polymarket,kalshi"
+      VENUE_METADATA_SYNC_INTERVAL_SECONDS: "300"
+      VENUE_REQUIRE_RESOLUTION_RULES: "1"
+      VENUE_MAX_SETTLEMENT_AMBIGUITY: "0.35"
+      KALSHI_ENABLED: "${KALSHI_ENABLED:-0}"
+      KALSHI_ENV: "${KALSHI_ENV:-demo}"   # demo | prod
+      KALSHI_REST_BASE_URL: "${KALSHI_REST_BASE_URL:-}"
+      KALSHI_WS_URL: "${KALSHI_WS_URL:-}"
+      KALSHI_ACCESS_KEY_ID: "${KALSHI_ACCESS_KEY_ID:-}"
+      KALSHI_PRIVATE_KEY_PATH: "${KALSHI_PRIVATE_KEY_PATH:-}"
+      KALSHI_PRIVATE_KEY_PEM: "${KALSHI_PRIVATE_KEY_PEM:-}"
+      KALSHI_PRIVATE_KEY_PASSWORD: "${KALSHI_PRIVATE_KEY_PASSWORD:-}"
+      KALSHI_SYNC_OPEN_MARKETS: "1"
+      KALSHI_SYNC_SERIES: "1"
+      KALSHI_MARKET_STATUS_FILTER: "open"
+      KALSHI_MAX_MARKETS: "100"
+      KALSHI_REQUEST_TIMEOUT_SECONDS: "15"
+      KALSHI_MAX_RETRIES: "2"
+      KALSHI_WS_ENABLED: "${KALSHI_WS_ENABLED:-0}"
+      KALSHI_WS_CHANNELS: "orderbook_delta,ticker,trade,market_lifecycle_v2"
+      KALSHI_WS_MAX_MARKETS: "50"
+      KALSHI_WS_STALE_MS: "3000"
+      KALSHI_WS_HEARTBEAT_SECONDS: "15"
+      KALSHI_WS_RECONNECT_MIN_SECONDS: "1"
+      KALSHI_WS_RECONNECT_MAX_SECONDS: "60"
+      KALSHI_WS_PERSIST_RAW: "1"
+      KALSHI_WS_SUBSCRIBE_OPEN_MARKETS: "0"
+      PAPER_ALLOW_KALSHI_REFERENCE_PRICE_FILLS: "0"
+      # ---- Phase 7: shadow-mode orchestration (NO live orders) ----
+      # Runs the full decision stack on live read-only data; records would-have-
+      # traded decisions; simulates fills via PaperBroker; produces a readiness
+      # report. NEVER submits/cancels real orders, uses a live broker, signs a
+      # wallet, calls a Kalshi order endpoint, or subscribes to private channels.
+      SHADOW_ENABLED: "${SHADOW_ENABLED:-0}"
+      SHADOW_MODE: "shadow_live"
+      SHADOW_VENUES: "${SHADOW_VENUES:-polymarket}"
+      SHADOW_START_ON_BOOT: "0"
+      SHADOW_DECISION_INTERVAL_MS: "5000"
+      SHADOW_MAX_CANDIDATES_PER_CYCLE: "20"
+      SHADOW_DEFAULT_NOTIONAL_USD: "5"
+      SHADOW_MIN_EDGE_AFTER_COSTS: "0.04"
+      SHADOW_MAX_STALE_MS: "3000"
+      SHADOW_USE_RESEARCH: "1"
+      SHADOW_ALLOW_ONLINE_RESEARCH: "0"
+      SHADOW_USE_CACHED_RESEARCH: "1"
+      SHADOW_MIN_DECISIONS_FOR_READINESS: "200"
+      SHADOW_MIN_RUNTIME_HOURS_FOR_READINESS: "24"
+      SHADOW_REQUIRED_VENUE_UPTIME_PCT: "0.98"
+      SHADOW_MAX_DRAWDOWN_PCT: "0.10"
+      SHADOW_OUTPUT_DIR: "shadow_artifacts"
+      SHADOW_KILL_SWITCH_PATH: "./SHADOW_KILL_SWITCH"
+      # ---- Phase 8: guarded-live DESIGN/DRY-RUN-ONLY skeleton ----
+      # Even with GUARDED_LIVE_ENABLED=1, real execution stays DISABLED. No real
+      # order submit/cancel, no live broker, no wallet signing, no Kalshi order
+      # placement, no private user channels. Forbidden execution env vars are
+      # rejected by the secret policy.
+      GUARDED_LIVE_ENABLED: "${GUARDED_LIVE_ENABLED:-0}"
+      GUARDED_LIVE_MODE: "design_only"
+      GUARDED_LIVE_DRY_RUN_ONLY: "1"
+      GUARDED_LIVE_REQUIRED_SHADOW_STATUS: "READY_FOR_MANUAL_REVIEW"
+      GUARDED_LIVE_REQUIRED_APPROVALS: "2"
+      GUARDED_LIVE_REQUIRE_TYPED_CONFIRMATION: "1"
+      GUARDED_LIVE_BLOCK_NETWORK: "1"
+      GUARDED_LIVE_BLOCK_SIGNING: "1"
+      GUARDED_LIVE_FORBID_ORDER_ENDPOINTS: "1"
+      GUARDED_LIVE_CONFORMANCE_REQUIRED: "1"
+      GUARDED_LIVE_MAX_ORDER_NOTIONAL_USD: "1"
+      GUARDED_LIVE_SECRET_POLICY_STRICT: "1"
+      GUARDED_LIVE_KILL_SWITCH_PATH: "./GUARDED_LIVE_KILL_SWITCH"
+      GLOBAL_KILL_SWITCH_PATH: "./KILL_SWITCH"
+      # Phase 9 micro-live: DISABLED by default. Real submission is CLI-only,
+      # one-canary-only, FOK-only, demo-only, and hard-capped to $1 in code.
+      # The source build lock is a module constant (not env) and defaults False.
+      MICRO_LIVE_BUILD_ENABLED: "${MICRO_LIVE_BUILD_ENABLED:-0}"
+      MICRO_LIVE_ENABLED: "${MICRO_LIVE_ENABLED:-0}"
+      MICRO_LIVE_ENV: "${MICRO_LIVE_ENV:-demo}"
+      MICRO_LIVE_ALLOW_PRODUCTION: "${MICRO_LIVE_ALLOW_PRODUCTION:-0}"
+      MICRO_LIVE_ACKNOWLEDGE_REAL_MONEY_RISK: "${MICRO_LIVE_ACKNOWLEDGE_REAL_MONEY_RISK:-}"
+      MICRO_LIVE_CLI_ONLY: "${MICRO_LIVE_CLI_ONLY:-1}"
+      MICRO_LIVE_ONE_ORDER_PER_TOKEN: "${MICRO_LIVE_ONE_ORDER_PER_TOKEN:-1}"
+      MICRO_LIVE_MAX_ORDERS_PER_DAY: "${MICRO_LIVE_MAX_ORDERS_PER_DAY:-1}"
+      MICRO_LIVE_MAX_ORDER_NOTIONAL_USD: "${MICRO_LIVE_MAX_ORDER_NOTIONAL_USD:-1}"
+      MICRO_LIVE_ALLOWED_VENUES: "${MICRO_LIVE_ALLOWED_VENUES:-kalshi}"
+      MICRO_LIVE_ALLOWED_ENVIRONMENTS: "${MICRO_LIVE_ALLOWED_ENVIRONMENTS:-demo}"
+      MICRO_LIVE_ALLOWED_ORDER_TYPES: "${MICRO_LIVE_ALLOWED_ORDER_TYPES:-FOK}"
+      MICRO_LIVE_ALLOWED_TIF: "${MICRO_LIVE_ALLOWED_TIF:-fill_or_kill}"
+      MICRO_LIVE_REQUIRE_PHASE8_CONFORMANCE: "${MICRO_LIVE_REQUIRE_PHASE8_CONFORMANCE:-1}"
+      MICRO_LIVE_REQUIRE_SHADOW_READY: "${MICRO_LIVE_REQUIRE_SHADOW_READY:-1}"
+      MICRO_LIVE_REQUIRE_APPROVALS: "${MICRO_LIVE_REQUIRE_APPROVALS:-1}"
+      MICRO_LIVE_REQUIRE_ARMING_TOKEN: "${MICRO_LIVE_REQUIRE_ARMING_TOKEN:-1}"
+      MICRO_LIVE_KILL_SWITCH_PATH: "./MICRO_LIVE_KILL_SWITCH"
+      KALSHI_MICRO_LIVE_ENABLED: "${KALSHI_MICRO_LIVE_ENABLED:-0}"
+      KALSHI_MICRO_LIVE_ENV: "${KALSHI_MICRO_LIVE_ENV:-demo}"
+      POLYMARKET_MICRO_LIVE_ENABLED: "${POLYMARKET_MICRO_LIVE_ENABLED:-0}"
+      MICRO_LIVE_OUTPUT_DIR: "${MICRO_LIVE_OUTPUT_DIR:-micro_live_artifacts}"
+      # Phase 10 post-canary analysis & scaling VETO. Analysis only; never scales,
+      # never enables production execution, never enables autonomous live.
+      POST_CANARY_ENABLED: "${POST_CANARY_ENABLED:-1}"
+      POST_CANARY_AUTO_ANALYZE_AFTER_SUBMIT: "${POST_CANARY_AUTO_ANALYZE_AFTER_SUBMIT:-1}"
+      POST_CANARY_REQUIRE_ANALYSIS_BEFORE_NEXT_CANARY: "${POST_CANARY_REQUIRE_ANALYSIS_BEFORE_NEXT_CANARY:-1}"
+      POST_CANARY_ALLOW_READONLY_REFRESH: "${POST_CANARY_ALLOW_READONLY_REFRESH:-0}"
+      POST_CANARY_MAX_SLIPPAGE_BPS: "${POST_CANARY_MAX_SLIPPAGE_BPS:-50}"
+      POST_CANARY_ALLOW_PARTIAL_FILL: "${POST_CANARY_ALLOW_PARTIAL_FILL:-0}"
+      POST_CANARY_MIN_CLEAN_DEMO_CANARIES_FOR_PROD_REVIEW: "${POST_CANARY_MIN_CLEAN_DEMO_CANARIES_FOR_PROD_REVIEW:-5}"
+      POST_CANARY_SIZE_INCREASE_ALLOWED: "0"
+      POST_CANARY_AUTONOMOUS_LIVE_ALLOWED: "0"
+      POST_CANARY_PRODUCTION_CANARY_IMPLEMENTED: "0"
+      POST_CANARY_OUTPUT_DIR: "${POST_CANARY_OUTPUT_DIR:-post_canary_artifacts}"
+      # Phase 11 production-canary DESIGN REVIEW. Review only; never enables
+      # production execution / cancellation / signing / size increase / autonomous live.
+      PRODUCTION_REVIEW_ENABLED: "${PRODUCTION_REVIEW_ENABLED:-1}"
+      PRODUCTION_REVIEW_ALLOW_READONLY_ACCOUNT_SNAPSHOT: "${PRODUCTION_REVIEW_ALLOW_READONLY_ACCOUNT_SNAPSHOT:-0}"
+      PRODUCTION_REVIEW_ALLOW_PRODUCTION_NETWORK: "${PRODUCTION_REVIEW_ALLOW_PRODUCTION_NETWORK:-0}"
+      PRODUCTION_REVIEW_MOCK_ONLY_CONFORMANCE: "${PRODUCTION_REVIEW_MOCK_ONLY_CONFORMANCE:-1}"
+      PRODUCTION_REVIEW_MIN_CLEAN_DEMO_CANARIES: "${PRODUCTION_REVIEW_MIN_CLEAN_DEMO_CANARIES:-5}"
+      PRODUCTION_REVIEW_MIN_RENEWED_SHADOW_HOURS: "${PRODUCTION_REVIEW_MIN_RENEWED_SHADOW_HOURS:-48}"
+      PRODUCTION_REVIEW_REQUIRE_CHANGE_CONTROL: "${PRODUCTION_REVIEW_REQUIRE_CHANGE_CONTROL:-1}"
+      PRODUCTION_REVIEW_ENABLE_PRODUCTION_EXECUTION: "0"
+      PRODUCTION_REVIEW_ALLOW_SIZE_INCREASE: "0"
+      PRODUCTION_REVIEW_ALLOW_AUTONOMOUS_LIVE: "0"
+      PRODUCTION_REVIEW_ALLOW_DASHBOARD_SUBMIT: "0"
+      PRODUCTION_REVIEW_ALLOW_API_SUBMIT: "0"
+      PRODUCTION_REVIEW_OUTPUT_DIR: "${PRODUCTION_REVIEW_OUTPUT_DIR:-production_review_artifacts}"
+      GUARDED_LIVE_OUTPUT_DIR: "guarded_live_artifacts"
+      # ARB_* sizing/scan params below are DEPRECATED — arbitrage is permanently
+      # disabled and never runs. Retained only for backwards compatibility.
+      ARB_MIN_TRADE_USD: "25"
+      ARB_MAX_TRADE_USD: "500"
+      ARB_MIN_EXECUTION_NET_PCT: "0.25"
+    restart: unless-stopped
+
+  # Polymarket-only PAPER training engine (full-throttle, PAPER ONLY). Shares the
+  # SAME /data volume as the dashboard so the "Polymarket Training" panel shows
+  # it. Refuses to start if any live flag is detected. No real orders, no Micro
+  # Live, no production execution, no live-submit path; Grok stays research-only.
+  hermes-training:
+    build: .
+    container_name: hermes-training
+    depends_on:
+      - hermes-trading-engine
+    volumes:
+      - hte_data:/data
+    environment:
+      HTE_DATA_DIR: "/data"
+      HTE_MODE: "paper"
+      POLYMARKET_ONLY_MODE: "1"
+      DISABLE_BTC_PULSE_TRADING: "1"
+      POLYMARKET_TRAINING_MODE: "${POLYMARKET_TRAINING_MODE:-paper_train}"
+      POLYMARKET_CLOB_ENABLED: "1"
+      RESEARCH_MODE: "${RESEARCH_MODE:-online_paper}"
+      GROK_API_KEY: "${GROK_API_KEY:-}"
+      XAI_API_KEY: "${XAI_API_KEY:-}"
+      MICRO_LIVE_ENABLED: "0"
+      KALSHI_MICRO_LIVE_ENABLED: "0"
+      POLYMARKET_MICRO_LIVE_ENABLED: "0"
+      PRODUCTION_REVIEW_ENABLE_PRODUCTION_EXECUTION: "0"
+      GUARDED_LIVE_ENABLED: "0"
+      POLYMARKET_ALLOW_OFFLINE_STUB_TRADING: "0"
+      POLYMARKET_REQUIRE_RESEARCH_OR_MODEL_EDGE: "1"
+      PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS: "0"
+      PAPER_MAX_ORDER_NOTIONAL_USD: "5"
+      PAPER_MAX_TOTAL_EXPOSURE_USD: "100"
+      PAPER_MAX_DAILY_LOSS_USD: "50"
+    command: >
+      python scripts/start_polymarket_paper_training.py
+      --minutes 100000 --tick-seconds ${POLYMARKET_TRAINING_TICK_SECONDS:-30}
+      --catalog ${POLYMARKET_TRAINING_CATALOG:-gamma}
+      --realtime
+    restart: unless-stopped
+
+  # Runs the controlled PAPER campaign INSIDE Docker, sharing the SAME /data
+  # volume as the dashboard above, so the dashboard's "Paper Campaign" panel
+  # shows it automatically (no folder mismatch, no PyYAML install needed).
+  # PAPER ONLY: no live orders, no submit path; Grok stays research-only.
+  # Catalog: CAMPAIGN_CATALOG=synthetic (offline default) or gamma (real markets).
+  hermes-campaign:
+    build: .
+    container_name: hermes-campaign
+    depends_on:
+      - hermes-trading-engine
+    volumes:
+      - hte_data:/data
+    environment:
+      HTE_DATA_DIR: "/data"
+      HTE_MODE: "paper"
+      HTE_AUTOTRADE: "0"
+      RESEARCH_MODE: "${RESEARCH_MODE:-online_paper}"
+      GROK_API_KEY: "${GROK_API_KEY:-}"
+      XAI_API_KEY: "${XAI_API_KEY:-}"
+    command: >
+      python scripts/run_paper_campaign.py
+      --minutes 100000 --tick-seconds 30
+      --catalog ${CAMPAIGN_CATALOG:-synthetic}
+      --signal ${CAMPAIGN_SIGNAL:-research}
+      --realtime
+    restart: unless-stopped
+
+volumes:
+  hte_data:

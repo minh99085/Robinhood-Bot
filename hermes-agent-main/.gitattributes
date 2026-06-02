@@ -14,3 +14,10 @@ docker/stage2-hook.sh text eol=lf
 
 # Shell scripts are LF everywhere — CRLF breaks `#!` shebang resolution.
 *.sh text eol=lf
+
+# Hermes Trading Engine (standalone plugin container, build: .) — keep its
+# Docker build files LF so a CRLF checkout on a Windows build host can't
+# trip the build. The engine runs uvicorn/Python (no shell entrypoint), so
+# this is belt-and-suspenders rather than load-bearing.
+plugins/hermes-trading-engine/Dockerfile text eol=lf
+plugins/hermes-trading-engine/docker-compose.yml text eol=lf

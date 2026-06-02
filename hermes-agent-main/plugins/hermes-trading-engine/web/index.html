@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hermes Trading Engine · Paper</title>
+  <!-- ?v=15 cache-buster -->
+  <link rel="stylesheet" href="/static/styles.css?v=15" />
+  <style>
+    .hero-stats { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 12px; }
+    .hero-stats > div { display: flex; flex-direction: column; }
+    .hero-stats b { font-size: 15px; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .hero-stats b.green { color: var(--green); }
+    .hero-stats span { font-size: 8px; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; margin-top: 2px; }
+    .train-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; }
+    @media (max-width: 700px) { .train-grid { grid-template-columns: 1fr; } }
+    .train-stats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 10px; color: var(--dim); }
+    .train-stats > div { display: flex; flex-direction: column; }
+    .train-stats b { color: var(--text); font-size: 14px; }
+    .train-sub { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+    .train-break { font-size: 10px; margin-top: 4px; }
+    .train-break .brk { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid var(--line); }
+    .train-break .g { color: var(--green); } .train-break .r { color: var(--red); }
+    .train-note { display: none; }
+    .train-note.show { display: block; border: 1px solid var(--green-soft); background: rgba(47,209,127,.10);
+      color: var(--green); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 11px; animation: glow 1.6s infinite; }
+    @keyframes glow { 50% { box-shadow: 0 0 0 3px rgba(47,209,127,.18); } }
+    #pnl-spark { height: 60px; }
+    .arb-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+    @media (max-width: 700px) { .arb-cards { grid-template-columns: repeat(2, 1fr); } }
+    .arb-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+    .arb-card .lbl { font-size: 8px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+    .arb-card .val { font-size: 18px; color: var(--text); margin-top: 2px; }
+    .arb-card .val.g { color: var(--green); } .arb-card .val.r { color: var(--red); }
+    .arb-opps, .arb-trades { font-size: 10px; margin-top: 4px; }
+    .arb-row { display: grid; gap: 6px; padding: 3px 0; border-bottom: 1px solid var(--line); align-items: center; }
+    .arb-opps .arb-row { grid-template-columns: 52px 1fr 50px 24px; }
+    .arb-trades .arb-row { grid-template-columns: 1fr 70px 60px 64px; }
+    .arb-row .sym { color: var(--text); } .arb-row .net.g { color: var(--green); } .arb-row .net.r { color: var(--red); }
+    .arb-row.profit { color: var(--green); } .arb-row.loss { color: var(--red); } .arb-row.incident { color: var(--gold); }
+    .arb-row .tier { text-align: center; border: 1px solid var(--line-2); border-radius: 3px; font-size: 8px; }
+    .arb-off { opacity: .5; }
+  </style>
+</head>
+<body>
+  <div class="mode-tint paper" id="mode-tint"></div>
+
+  <div class="wrap">
+
+    <div class="topbar">
+      <div class="left">
+        <span class="logo">&#9889;</span>
+        <span>HERMES AGENT &middot; BTC 5MIN MARKOV SCALPER</span>
+      </div>
+      <div class="right">
+        <span class="conn-dot" id="conn"></span>
+        <span>ROUND <b id="round">#----</b></span>
+        <span class="clock" id="clock">--:--:-- UTC</span>
+        <div class="mode-switch">
+          <span class="mode-pill paper" id="mode-pill">PAPER TRADING &middot; SIMULATED</span>
+          <label class="toggle" title="Switch trading mode">
+            <input type="checkbox" id="mode-toggle" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="circuit-banner" id="circuit-banner"></div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <span><span class="accent">&#9650;</span> BTC TRADING ENGINE &middot; PAPER P&amp;L <span style="color:#9a9ab0;font-weight:400">(SIMULATED)</span></span>
+        <span class="badge gold" id="lab-badge">5MIN LAB &middot; PAPER</span>
+      </div>
+      <div class="hero">
+        <div class="pnl" id="pnl">$0</div>
+        <div class="sub" id="pnl-sub">total P&amp;L &middot; equity <b>$0</b> &middot; Sharpe <b>0.0</b></div>
+        <div class="hero-stats">
+          <div><b class="green" id="lat">0ms</b><span>latency</span></div>
+          <div><b id="winrate">0%</b><span>win rate</span></div>
+          <div><b id="uptime">0s</b><span>uptime</span></div>
+          <div><b id="hero-trades">0</b><span>trades</span></div>
+          <div><b id="wallet">----</b><span>account</span></div>
+        </div>
+      </div>
+      <div class="readiness" id="readiness">
+        <span>LIVE readiness <b id="rd-score">0</b>/100</span>
+        <span class="track"><span class="fill" id="rd-fill" style="width:0%"></span></span>
+        <span id="rd-checks"></span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="col">
+
+        <div class="panel">
+          <div class="pulse-head">
+            <div class="panel-title" style="margin:0;">
+              <span><span class="accent">&#9889;</span> BTC 5MIN PULSE <span class="badge live" style="margin-left:6px;">LIVE</span></span>
+            </div>
+            <div class="bet-tag" id="bet-tag"></div>
+          </div>
+          <div class="pulse-q">Will BTC be above or below the opening price when the round closes?</div>
+          <div class="pulse-grid">
+            <div class="kv"><div class="label">Price to beat</div><div class="val gold" id="price-beat">$0.00</div></div>
+            <div class="kv"><div class="label">Current price</div><div class="val" id="price-now">$0.00</div>
+              <div class="delta" id="delta">$0.00</div></div>
+            <div class="countdown" id="countdown">--:--<small>MINS &middot; SECS</small></div>
+          </div>
+          <div class="odds" style="margin-bottom:8px;">
+            <div class="odd up" id="odd-up">48&cent;<small>UP</small></div>
+            <div class="odd down" id="odd-down">52&cent;<small>DOWN</small></div>
+          </div>
+          <div class="edge-line" id="edge-line"></div>
+          <canvas id="pulse-chart" height="140"></canvas>
+          <div class="brain-line" id="brain-line">
+            <span class="grok">&#129504; GROK BRAIN</span>
+            <span class="chip off" id="brain-chip">OFF</span>
+            <span class="why" id="brain-why">Add an xAI API key to enable the LLM decision layer.</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <span><span class="accent">&#9650;</span> MONTE CARLO &middot; <span id="mc-paths">500</span> PATHS &middot; 5MIN</span>
+            <span class="badge" id="mc-conv">--</span>
+          </div>
+          <div class="mc-grid">
+            <canvas id="mc-fan" height="140"></canvas>
+            <div class="mc-stats">
+              <canvas id="mc-radial" height="110"></canvas>
+              <div class="prob"><span class="up">P(UP)</span><span class="big up" id="p-up">--</span></div>
+              <div class="prob"><span class="down">P(DOWN)</span><span class="big down" id="p-down">--</span></div>
+              <div class="prob"><span>E[S]</span><span id="mc-exp">--</span></div>
+            </div>
+          </div>
+          <canvas id="mc-hist" height="56" style="margin-top:8px;"></canvas>
+        </div>
+
+      </div>
+
+      <div class="col">
+
+        <div class="panel">
+          <div class="panel-title">
+            <span><span class="accent">&#9650;</span> MARKOV REGIME MODEL &middot; LIVE</span>
+            <span id="regime-tag" class="badge">3-STATE</span>
+          </div>
+          <div class="markov-grid">
+            <div>
+              <div class="matrix" id="matrix"></div>
+              <div class="state-now" id="state-now"></div>
+            </div>
+            <div>
+              <div class="stat-bars" id="stat-bars"></div>
+              <canvas id="state-graph" height="110"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <span><span class="accent">&#9650;</span> PATTERN SCANNER &middot; M15 / M5</span>
+            <span class="badge" id="bias-tag">NEUTRAL</span>
+          </div>
+          <div class="patterns">
+            <div class="pat" id="pat-bos"><div class="name">BOS</div><div class="state">&mdash;</div></div>
+            <div class="pat" id="pat-choch"><div class="name">CHoCH</div><div class="state">&mdash;</div></div>
+            <div class="pat" id="pat-sweep"><div class="name">Liq. Sweep</div><div class="state">&mdash;</div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <span><span class="accent">&#9650;</span> TRADE LOG</span>
+            <div class="controls">
+              <button class="btn" id="btn-auto">AUTOTRADE</button>
+              <button class="btn" id="btn-reset">RESET</button>
+            </div>
+          </div>
+          <div class="trades" id="trades"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- PolymarketTrainingPanel -->
+    <div class="panel" id="pmtrain-panel">
+      <div class="panel-head">
+        <span><span class="accent">&#9650;</span> POLYMARKET PAPER TRAINING <span style="color:var(--dim)">(scan &middot; rank &middot; edge &middot; learn)</span></span>
+        <span class="badge" id="pmtrain-status">PAPER</span>
+      </div>
+      <div class="arb-cards" id="pmtrain-cards"></div>
+      <div style="font-size:10px;margin-top:6px;" id="pmtrain-detail"></div>
+      <div style="font-size:9px;color:var(--dim);margin-top:8px;" id="pmtrain-note"></div>
+    </div>
+
+    <!-- ArbitragePanel — REMOVED: arbitrage is permanently disabled (Polymarket-only PAPER training). Hidden by default. -->
+    <div class="panel" id="arb-panel" style="display:none">
+      <div class="panel-title">
+        <span><span class="accent">&#9650;</span> CROSS-EXCHANGE ARBITRAGE <span style="color:var(--dim)">(Coinbase / Kraken / Bitstamp)</span></span>
+        <div class="controls">
+          <button class="btn" id="btn-arb">ARBITRAGE</button>
+          <span class="badge" id="arb-status">SCANNING</span>
+        </div>
+      </div>
+      <div class="circuit-banner" id="arb-incident"></div>
+      <div class="arb-cards" id="arb-cards"></div>
+      <div class="train-grid">
+        <div>
+          <div class="train-sub">live opportunities (net % after fees)</div>
+          <div class="arb-opps" id="arb-opps"></div>
+        </div>
+        <div>
+          <div class="train-sub">executed &mdash; quoted% &rarr; actual%</div>
+          <div class="arb-trades" id="arb-trades"></div>
+        </div>
+      </div>
+      <div style="font-size:9px;color:var(--dim);margin-top:8px;" id="arb-note"></div>
+    </div>
+
+    <!-- TrainingMetricsPanel -->
+    <div class="panel">
+      <div class="panel-title">
+        <span><span class="accent">&#9650;</span> TRAINING PIPELINE</span>
+        <span class="badge" id="phase-badge">PHASE 1 &middot; OBSERVATION</span>
+      </div>
+      <div class="train-note" id="train-note"></div>
+      <div class="train-grid">
+        <div>
+          <div class="train-sub">paper P&amp;L curve</div>
+          <canvas id="pnl-spark" height="60"></canvas>
+          <div class="train-stats" id="train-stats"></div>
+        </div>
+        <div>
+          <div class="train-sub">phase progress</div>
+          <div class="readiness" style="margin-top:4px;"><span class="track"><span class="fill" id="phase-fill" style="width:0%"></span></span></div>
+          <div style="font-size:10px;color:var(--dim);margin-top:4px;" id="phase-prog"></div>
+          <div class="train-sub" style="margin-top:10px;">per-market breakdown</div>
+          <div class="train-break" id="train-markets"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      <span class="warn">PAPER TRADING SIMULATION &mdash; NO REAL MONEY, NO REAL ORDERS.</span><br/>
+      No real-exchange execution adapter is connected; LIVE mode is armed simulation (safeguards active).
+      Simulated trades run against live public market data. Not financial advice.
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="live-modal">
+    <div class="modal">
+      <h3>&#9888; Switch to live trading?</h3>
+      <p>You are about to use <b>REAL FUNDS</b>. Orders would execute on real exchanges.
+         This cannot be undone per session. Type <b>CONFIRM</b> to proceed.</p>
+      <p style="color:var(--dim);font-size:10px;">Note: no execution adapter is connected yet, so this arms
+         the safeguards in simulation — no real order is sent.</p>
+      <input type="text" id="confirm-input" placeholder="type CONFIRM" autocomplete="off" />
+      <label class="ack"><input type="checkbox" id="confirm-ack" />
+        <span>I understand this uses real money and real exchange accounts.</span></label>
+      <div class="err" id="modal-err"></div>
+      <div class="row">
+        <button class="btn" id="modal-cancel">Cancel</button>
+        <button class="btn danger" id="modal-confirm" disabled>Go LIVE</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=15"></script>
+</body>
+</html>

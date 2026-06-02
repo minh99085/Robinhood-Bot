@@ -1,0 +1,5 @@
+name: hermes-trading-engine
+version: 0.1.0
+description: "Paper-trading engine + dashboard for crypto, stocks, and Polymarket. Simulated only — never places real orders. Adds agent tools to read P&L and toggle the autonomous paper bot."
+author: "NousResearch community"
+kind: tools

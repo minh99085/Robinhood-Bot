@@ -1,0 +1,9 @@
+{"ts_ms": 1700000000000, "event_type": "new_market", "venue": "polymarket", "market": "mkt1", "asset_id": "tokA", "question": "Will it rain tomorrow?"}
+{"ts_ms": 1700000001000, "event_type": "book", "venue": "polymarket", "market": "mkt1", "asset_id": "tokA", "bids": [{"price": "0.40", "size": "500"}, {"price": "0.39", "size": "300"}], "asks": [{"price": "0.45", "size": "500"}, {"price": "0.46", "size": "300"}], "tick_size": "0.01"}
+{"ts_ms": 1700000002000, "event_type": "best_bid_ask", "venue": "polymarket", "market": "mkt1", "asset_id": "tokA", "best_bid": "0.41", "best_ask": "0.44"}
+{"ts_ms": 1700000003000, "event_type": "price_change", "venue": "polymarket", "market": "mkt1", "asset_id": "tokA", "price_changes": [{"side": "BUY", "price": "0.42", "size": "350"}]}
+{"ts_ms": 1700000004000, "event_type": "price_change", "venue": "polymarket", "market": "mkt1", "asset_id": "tokA", "price_changes": [{"side": "SELL", "price": "0.44", "size": "250"}]}
+{"ts_ms": 1700000005000, "event_type": "tick_size_change", "venue": "polymarket", "market": "mkt1", "asset_id": "tokA", "new_tick_size": "0.001"}
+{"ts_ms": 1700000006000, "event_type": "book", "venue": "polymarket", "market": "mkt1", "asset_id": "tokA", "bids": [{"price": "0.43", "size": "400"}], "asks": [{"price": "0.44", "size": "400"}], "tick_size": "0.001"}
+{"ts_ms": 1700000007000, "event_type": "last_trade_price", "venue": "polymarket", "market": "mkt1", "asset_id": "tokA", "price": "0.44", "size": "10", "side": "BUY"}
+{"ts_ms": 1700000008000, "event_type": "market_resolved", "venue": "polymarket", "market": "mkt1", "asset_id": "tokA", "winning_outcome": "YES"}

@@ -1,0 +1,19 @@
+{
+  "report_id": "fixture-ready-001",
+  "shadow_session_id": "fixture-shadow-001",
+  "overall_status": "READY_FOR_MANUAL_REVIEW",
+  "recommended_next_step": "manual_review_for_guarded_live_design",
+  "metrics_summary": {
+    "fill_ratio": 0.42,
+    "edge_capture_ratio": 0.22,
+    "reject_rate": 0.31,
+    "max_drawdown_pct": 0.03,
+    "total_pnl": 18.5,
+    "stale_book_rate": 0.0,
+    "sequence_gap_rate": 0.0,
+    "venue_uptime_pct": 0.995,
+    "brier_score": 0.17,
+    "log_loss": 0.48,
+    "ece": 0.04
+  }
+}

@@ -1,0 +1,10 @@
+
+post_canary_artifacts/
+micro_live_artifacts/
+production_review_artifacts/
+production_review_dossier/
+shadow_artifacts/
+replay_artifacts/
+guarded_live_artifacts/
+polymarket_training_reports/
+*.sqlite3

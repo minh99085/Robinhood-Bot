@@ -1,0 +1,8 @@
+{"event_type": "kalshi_market_lifecycle_v2", "venue": "kalshi", "ts_ms": 1000, "market_id": "FED-23DEC-T3.00", "market_ticker": "FED-23DEC-T3.00", "status": "open", "type": "market_lifecycle_v2"}
+{"event_type": "kalshi_orderbook_snapshot", "venue": "kalshi", "ts_ms": 1100, "market_id": "FED-23DEC-T3.00", "market_ticker": "FED-23DEC-T3.00", "seq": 1, "yes": [[42, 100], [41, 200]], "no": [[37, 150], [36, 250]]}
+{"event_type": "kalshi_ticker", "venue": "kalshi", "ts_ms": 1150, "market_id": "FED-23DEC-T3.00", "market_ticker": "FED-23DEC-T3.00", "yes_bid": 42, "yes_ask": 63, "no_bid": 37, "no_ask": 58}
+{"event_type": "kalshi_orderbook_delta", "venue": "kalshi", "ts_ms": 1200, "market_id": "FED-23DEC-T3.00", "market_ticker": "FED-23DEC-T3.00", "seq": 2, "side": "yes", "price": 43, "delta": 50}
+{"event_type": "kalshi_trade", "venue": "kalshi", "ts_ms": 1250, "market_id": "FED-23DEC-T3.00", "market_ticker": "FED-23DEC-T3.00", "yes_price": 43, "count": 10, "taker_side": "yes"}
+{"event_type": "kalshi_orderbook_delta", "venue": "kalshi", "ts_ms": 1300, "market_id": "FED-23DEC-T3.00", "market_ticker": "FED-23DEC-T3.00", "seq": 4, "side": "yes", "price": 44, "delta": 20}
+{"event_type": "kalshi_orderbook_snapshot", "venue": "kalshi", "ts_ms": 1400, "market_id": "FED-23DEC-T3.00", "market_ticker": "FED-23DEC-T3.00", "seq": 5, "yes": [[44, 120], [43, 80]], "no": [[36, 200]]}
+{"event_type": "kalshi_market_lifecycle_v2", "venue": "kalshi", "ts_ms": 2000, "market_id": "FED-23DEC-T3.00", "market_ticker": "FED-23DEC-T3.00", "status": "settled", "result": "yes", "type": "market_lifecycle_v2"}

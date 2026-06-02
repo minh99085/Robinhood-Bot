@@ -1,0 +1,25 @@
+"""Pytest bootstrap for the Hermes Trading Engine plugin tests.
+
+Puts the plugin root (the directory that contains the ``engine`` package) on
+``sys.path`` so ``import engine...`` works when these tests are run directly
+(``pytest plugins/hermes-trading-engine/tests``), and pins a writable temp
+data dir + clears Grok credentials before the ``engine`` package is imported.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+_PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+if str(_PLUGIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_ROOT))
+
+# Engine config reads these at import time — set safe values up front.
+os.environ.setdefault("HTE_DATA_DIR", tempfile.mkdtemp(prefix="hte-test-data-"))
+os.environ["HTE_AUTOTRADE"] = "0"
+os.environ["HTE_MODE"] = "paper"
+for _k in ("GROK_API_KEY", "XAI_API_KEY"):
+    os.environ.pop(_k, None)

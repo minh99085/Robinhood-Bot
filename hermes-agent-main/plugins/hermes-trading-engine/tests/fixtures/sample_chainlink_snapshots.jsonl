@@ -1,0 +1,9 @@
+{"feed_key": "ETH/USD", "answer_raw": 300000000000, "decimals": 8, "updated_at": 1700000000, "round_id": 1, "observed_ts": 1700000000, "chain": "ethereum"}
+{"feed_key": "ETH/USD", "answer_raw": 301500000000, "decimals": 8, "updated_at": 1700000600, "round_id": 2, "observed_ts": 1700000600, "chain": "ethereum"}
+{"feed_key": "ETH/USD", "answer_raw": 303000000000, "decimals": 8, "updated_at": 1700001200, "round_id": 3, "observed_ts": 1700001200, "chain": "ethereum"}
+{"feed_key": "ETH/USD", "answer_raw": 305000000000, "decimals": 8, "updated_at": 1700001800, "round_id": 4, "observed_ts": 1700001800, "chain": "ethereum"}
+{"feed_key": "BTC/USD", "answer_raw": 6000000000000, "decimals": 8, "updated_at": 1700000000, "round_id": 1, "observed_ts": 1700000000, "chain": "ethereum"}
+{"feed_key": "BTC/USD", "answer_raw": 6050000000000, "decimals": 8, "updated_at": 1700000600, "round_id": 2, "observed_ts": 1700000600, "chain": "ethereum"}
+{"feed_key": "BTC/USD", "answer_raw": 6100000000000, "decimals": 8, "updated_at": 1700001200, "round_id": 3, "observed_ts": 1700001200, "chain": "ethereum"}
+{"feed_key": "EUR/USD", "answer_raw": 108000000, "decimals": 8, "updated_at": 1700000000, "round_id": 1, "observed_ts": 1700000000, "chain": "ethereum"}
+{"feed_key": "EUR/USD", "answer_raw": 108200000, "decimals": 8, "updated_at": 1700000600, "round_id": 2, "observed_ts": 1700000600, "chain": "ethereum"}
