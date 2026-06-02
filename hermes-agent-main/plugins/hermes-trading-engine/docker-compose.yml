@@ -38,6 +38,12 @@ services:
       HTE_STOCK_SYMBOLS: "AAPL,NVDA,TSLA,SPY"
       # ---- Grok intelligence layer (RESEARCH ONLY; key in .env: GROK_API_KEY or XAI_API_KEY) ----
       # Grok may research and propose; it can never execute and never sets order size.
+      # Grok research layer is ON by default: GROK_BRAIN_ONLINE=1 plus
+      # RESEARCH_MODE=online_paper (set in the research block below) permit live
+      # xAI research calls. Grok only actually runs when GROK_API_KEY/XAI_API_KEY
+      # is set in .env; with no key it stays gracefully off. Research-only either
+      # way (never sizes/approves/arms/places an order).
+      GROK_BRAIN_ONLINE: "${GROK_BRAIN_ONLINE:-1}"
       GROK_API_KEY: "${GROK_API_KEY:-}"
       XAI_API_KEY: "${XAI_API_KEY:-}"
       GROK_MODEL: "${GROK_MODEL:-grok-4.3}"
@@ -52,10 +58,10 @@ services:
       ARB_EXECUTION_ENABLED: "false"   # ignored — arbitrage is permanently off
       ARB_SIMULATE_OPPS: "0"           # deprecated
       # ---- Polymarket CLOB market data (Phase 2; READ-ONLY) ----
-      # OFF by default. When enabled, the engine subscribes (read-only) to
-      # trending-market token ids and feeds order-book freshness to the
-      # RiskEngine. No orders are ever submitted from this feed.
-      POLYMARKET_CLOB_ENABLED: "0"
+      # ON: the engine subscribes (read-only) to trending-market token ids and
+      # feeds order-book freshness to the RiskEngine. This is a market-data
+      # INPUT only — no orders are ever submitted from this feed.
+      POLYMARKET_CLOB_ENABLED: "1"
       POLYMARKET_WS_URL: "wss://ws-subscriptions-clob.polymarket.com/ws/market"
       POLYMARKET_CLOB_MAX_ASSETS: "20"
       POLYMARKET_CLOB_STALE_MS: "3000"
@@ -164,8 +170,9 @@ services:
       REPLAY_MARK_TO_MARKET: "1"
       # ---- Phase 5: Grok research/probability engine (research-ONLY) ----
       # Grok may research + estimate probability. It NEVER executes, sizes, or
-      # bypasses the RiskEngine. Default mode is offline_cache (no network).
-      RESEARCH_MODE: "${RESEARCH_MODE:-offline_cache}"   # disabled|offline_cache|online_paper|online_shadow|guarded_live_readonly
+      # bypasses the RiskEngine. Default is ON (online_paper): live xAI research
+      # when GROK_API_KEY/XAI_API_KEY is present, research-only otherwise.
+      RESEARCH_MODE: "${RESEARCH_MODE:-online_paper}"   # disabled|offline_cache|online_paper|online_shadow|guarded_live_readonly
       # GROK_MODEL defined once above (Grok intelligence layer block)
       GROK_BASE_URL: "${GROK_BASE_URL:-https://api.x.ai/v1}"
       GROK_USE_RESPONSES_API: "1"
@@ -373,33 +380,6 @@ services:
       python scripts/start_polymarket_paper_training.py
       --minutes 100000 --tick-seconds ${POLYMARKET_TRAINING_TICK_SECONDS:-30}
       --catalog ${POLYMARKET_TRAINING_CATALOG:-gamma}
-      --realtime
-    restart: unless-stopped
-
-  # Runs the controlled PAPER campaign INSIDE Docker, sharing the SAME /data
-  # volume as the dashboard above, so the dashboard's "Paper Campaign" panel
-  # shows it automatically (no folder mismatch, no PyYAML install needed).
-  # PAPER ONLY: no live orders, no submit path; Grok stays research-only.
-  # Catalog: CAMPAIGN_CATALOG=synthetic (offline default) or gamma (real markets).
-  hermes-campaign:
-    build: .
-    container_name: hermes-campaign
-    depends_on:
-      - hermes-trading-engine
-    volumes:
-      - hte_data:/data
-    environment:
-      HTE_DATA_DIR: "/data"
-      HTE_MODE: "paper"
-      HTE_AUTOTRADE: "0"
-      RESEARCH_MODE: "${RESEARCH_MODE:-online_paper}"
-      GROK_API_KEY: "${GROK_API_KEY:-}"
-      XAI_API_KEY: "${XAI_API_KEY:-}"
-    command: >
-      python scripts/run_paper_campaign.py
-      --minutes 100000 --tick-seconds 30
-      --catalog ${CAMPAIGN_CATALOG:-synthetic}
-      --signal ${CAMPAIGN_SIGNAL:-research}
       --realtime
     restart: unless-stopped
 

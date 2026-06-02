@@ -174,6 +174,29 @@ def _snapshot() -> dict:
             snap["arb"] = _arb.snapshot()
         except Exception:  # noqa: BLE001
             pass
+        # Replay / backtest runs (offline; read-only) so the dashboard
+        # "Replay / backtest" panel populates from the persisted replay_*
+        # tables. Never triggers a run — that's POST /api/replay/run or
+        # scripts/run_replay.py. Enrich each shown run with the headline
+        # metrics the panel renders (metrics live in a separate table).
+        try:
+            runs = _store.get_replay_runs(20)
+            for r in runs[:6]:
+                try:
+                    m = _store.get_replay_metrics(r.get("replay_run_id", "")) or {}
+                    cal = m.get("calibration") if isinstance(m.get("calibration"), dict) else {}
+                    r.update({
+                        "ending_equity": m.get("ending_equity"),
+                        "total_pnl": m.get("total_pnl"),
+                        "max_drawdown": m.get("max_drawdown"),
+                        "fill_ratio": m.get("fill_ratio"),
+                        "brier": cal.get("brier_score"),
+                    })
+                except Exception:  # noqa: BLE001
+                    pass
+            snap["replay"] = {"recent_runs": runs}
+        except Exception:  # noqa: BLE001
+            pass
     return snap
 
 
@@ -430,28 +453,6 @@ def favicon():
     # of a scary 404 in the console. Purely cosmetic.
     from fastapi import Response
     return Response(status_code=204)
-
-
-@app.get("/api/campaign/status")
-def api_campaign_status() -> dict:
-    """Controlled PAPER campaign status (read-only; reads the cached campaign
-    JSON written by scripts/run_paper_campaign.py). Never starts a campaign or
-    touches any execution path."""
-    import glob
-    import json as _json
-    import os as _os
-    data_dir = _engine.s.data_dir
-    # exclude the feedback-state file (campaign_feedback_*.json) which also matches
-    files = sorted(f for f in glob.glob(str(data_dir / "campaign_*.json"))
-                   if "feedback" not in _os.path.basename(f))
-    if not files:
-        return {"available": False, "reason": "no campaign has been run yet — "
-                "run scripts/run_paper_campaign.py", "mode": "PAPER / SIMULATED"}
-    try:
-        with open(files[-1], "r", encoding="utf-8") as f:
-            return {"available": True, **_json.load(f)}
-    except Exception as exc:  # noqa: BLE001
-        return {"available": False, "reason": f"could not read campaign status: {exc}"}
 
 
 @app.get("/api/market-data/status")

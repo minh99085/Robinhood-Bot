@@ -251,67 +251,6 @@ function renderMarketUniversePanel() {
   }).catch(() => { /* universe panel is non-critical */ });
 }
 
-function renderCampaignPanel() {
-  // Read-only PAPER campaign status panel. No live/submit controls.
-  const now = Date.now();
-  if (now - (window._cmpFetchTs || 0) < 5000) return;
-  window._cmpFetchTs = now;
-  fetch("/api/campaign/status").then((r) => r.json()).then((c) => {
-    let panel = document.getElementById("campaign-panel");
-    if (!panel) {
-      panel = document.createElement("section");
-      panel.id = "campaign-panel";
-      panel.style.cssText =
-        "margin:16px;padding:12px 16px;border:1px solid #2a2a3a;border-radius:10px;" +
-        "background:#14141c;font:13px/1.5 system-ui,sans-serif;color:#cfcfe0";
-      (document.querySelector(".wrap") || document.body).appendChild(panel);
-    }
-    const esc = (t) => String(t == null ? "" : t).replace(/</g, "&lt;");
-    let head = '<div style="margin-bottom:6px"><b style="color:#fff">Paper Campaign ' +
-      '<span style="color:#7fd1c4;font-weight:400">(PAPER / SIMULATED — no real orders)</span></b></div>';
-    if (!c.available) {
-      panel.innerHTML = head + `<div style="color:#9a9ab0">${esc(c.reason || "no campaign yet")}</div>`;
-      return;
-    }
-    const pf = c.pass_fail || {};
-    const decisionColor = pf.decision === "PASS" ? "#5cff9d" : "#ff5c5c";
-    const rej = c.rejection_reasons || {};
-    const rejStr = Object.keys(rej).length
-      ? Object.entries(rej).map(([k, v]) => `${esc(k)}:${v}`).join("  ") : "none";
-    const top = (c.top_candidates || []).slice(0, 10).map((m, i) =>
-      `<div style="display:flex;gap:8px;padding:1px 0"><span style="color:#888;min-width:22px">#${i + 1}</span>` +
-      `<span style="color:${m.tier === "A" ? "#5cff9d" : "#7fd1c4"};min-width:18px">${esc(m.tier)}</span>` +
-      `<span style="min-width:56px">${esc(m.score)}</span><span style="flex:1">${esc(m.question)}</span></div>`
-    ).join("") || '<div style="color:#777">none</div>';
-    panel.innerHTML = head +
-      `<div style="margin-bottom:4px">campaign <b>${esc(c.campaign_name)}</b> &middot; status <b>${esc(c.status)}</b>` +
-      ` &middot; uptime ${esc(c.uptime_seconds)}s &middot; ticks ${esc(c.ticks)}` +
-      ` &middot; <b style="color:${decisionColor}">${esc(pf.decision || "?")}</b></div>` +
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px">' +
-      `<span>scanned <b>${c.total_markets_scanned}</b></span>` +
-      `<span>passed <b>${c.markets_passing_filters}</b></span>` +
-      `<span>Tier A <b style="color:#5cff9d">${c.tier_a_count}</b></span>` +
-      `<span>Tier B <b style="color:#7fd1c4">${c.tier_b_count}</b></span>` +
-      `<span>rejected mkts <b>${c.rejected_market_count}</b></span>` +
-      `<span>open <b>${c.current_open_trades}</b>/<b>${c.max_open_trades}</b></span>` +
-      `<span>rej orders <b>${c.rejected_order_count}</b></span></div>` +
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px">' +
-      `<span>cash <b>${c.paper_cash_balance}</b></span>` +
-      `<span>exposure <b>${c.paper_exposure}</b></span>` +
-      `<span>realized <b>${c.realized_pnl}</b></span>` +
-      `<span>unrealized <b>${c.unrealized_pnl}</b></span>` +
-      `<span>total P&L <b>${c.total_paper_pnl}</b></span>` +
-      `<span>win rate <b>${c.win_rate}</b></span>` +
-      `<span>avg edge <b>${c.avg_edge_at_entry}</b></span>` +
-      `<span>avg slip <b>${c.avg_slippage}</b></span>` +
-      `<span>fill rate <b>${c.fill_rate}</b></span>` +
-      `<span>maxDD <b>${c.max_drawdown_pct}</b></span>` +
-      `<span>risk gate <b>${esc(c.risk_gate_status)}</b></span></div>` +
-      `<div style="color:#9a9ab0;margin:2px 0">rejection reasons: ${esc(rejStr)}</div>` +
-      '<div style="color:#9a9ab0;margin:6px 0 2px">top 10 candidates</div>' + top;
-  }).catch(() => { /* campaign panel is non-critical */ });
-}
-
 function renderMicroLivePanel() {
   // Read-only status panel. NO submit/cancel/wallet/api-key/production buttons by design.
   const now = Date.now();
@@ -953,7 +892,6 @@ function render(s) {
   try { renderShadowPanel(); } catch (e) { /* shadow panel is non-critical */ }
   try { renderGuardedLivePanel(); } catch (e) { /* guarded-live panel is non-critical */ }
   try { renderMarketUniversePanel(); } catch (e) { /* universe panel is non-critical */ }
-  try { renderCampaignPanel(); } catch (e) { /* campaign panel is non-critical */ }
   try { renderMicroLivePanel(); } catch (e) { /* micro-live panel is non-critical */ }
   try { renderPostCanaryPanel(); } catch (e) { /* post-canary panel is non-critical */ }
   try { renderProductionReviewPanel(); } catch (e) { /* production-review panel is non-critical */ }
