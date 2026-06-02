@@ -39,6 +39,15 @@ def _clamp(x: float, lo: float = 0.0, hi: float = 1.0) -> float:
         return lo
 
 
+def market_relevance_weight(market_relevance: float) -> float:
+    """Scale factor in ``[0, 1]`` for the research/LLM weight from market-SPECIFIC
+    relevance: evidence that does not actually pertain to THIS market should not
+    move its probability. Neutral-ish floor (0.4) so weakly-tagged-but-valid
+    evidence still contributes a little (Signal Generation; advisory only)."""
+    r = max(0.0, min(1.0, float(market_relevance)))
+    return round(0.4 + 0.6 * r, 6)
+
+
 def _liq_quality(liq: float) -> float:
     """Liquidity regime quality in [0, 1] (log-scaled, $100k -> ~1.0)."""
     liq = max(0.0, float(liq or 0.0))

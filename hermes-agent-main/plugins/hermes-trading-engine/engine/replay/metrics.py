@@ -652,6 +652,31 @@ def bregman_certification_metrics(certs: Optional[list] = None, *,
     }
 
 
+def calibration_validation_report(rows: list[dict], *, segments=("category",)) -> dict:
+    """Calibration validation headline for real-money readiness: Brier, log loss,
+    ECE, slope/intercept, credible-interval coverage, uncertainty-vs-error
+    correlation, research contribution, and per-segment calibration.
+
+    Rows carry ``predicted`` + ``realized_outcome`` (+ optional ``ci_low/ci_high``,
+    ``uncertainty``, ``p_market``/``p_research``/``p_final``, and segment keys).
+    Pure — delegates to :mod:`engine.replay.calibration` (Strategy Optimization +
+    Live Monitoring)."""
+    from . import calibration as _c
+    pairs = [(float(r["predicted"]), int(r["realized_outcome"])) for r in (rows or [])
+             if r.get("predicted") is not None and r.get("realized_outcome") is not None]
+    slope, intercept = _c.calibration_slope_intercept(pairs) if pairs else (1.0, 0.0)
+    return {
+        "n": len(pairs),
+        "brier": _c.brier_score(pairs), "log_loss": _c.log_loss(pairs),
+        "ece": _c.expected_calibration_error(pairs),
+        "calibration_slope": slope, "calibration_intercept": intercept,
+        "ci_coverage": _c.confidence_interval_coverage(rows),
+        "uncertainty_error_correlation": _c.uncertainty_error_correlation(rows),
+        "research_contribution": _c.research_contribution_summary(rows),
+        "by_segment": {seg: _c.calibration_report_by(rows, key=seg) for seg in segments},
+    }
+
+
 def market_quality_uplift(all_trades: list[dict], selected_trades: list[dict]) -> dict:
     """Market-quality uplift: how much the after-cost net edge improves when the
     profitability governor restricts trading to its SELECTED markets vs trading

@@ -326,6 +326,76 @@ def feedback_uncertainty(est: "ProbabilityEstimate") -> float:
     return max(0.0, min(1.0, hi - lo))
 
 
+def bayesian_shrink(p_raw: float, p_market: float, *, evidence_quality: float = 1.0,
+                    effective_sample_size: float = 100.0, ambiguity: float = 0.0,
+                    chainlink_stale: bool = False, calibration_instability: float = 0.0,
+                    prior_strength: float = 20.0) -> float:
+    """Shrink a raw probability toward the MARKET price (the conjugate prior) when
+    the supporting evidence is weak, the sample size is low, settlement ambiguity
+    is high, Chainlink is stale, or calibration is unstable.
+
+    The market mid is the prior mean; the raw estimate is the likelihood. The
+    posterior weight on the raw estimate falls as any risk channel worsens — a
+    stale linked oracle pins the estimate to the market. Result is clamped to
+    ``[0.02, 0.98]``. Quant scope — *Statistical & Probabilistic Modeling* +
+    *Risk Management* (prevents false confidence; never increases deviation)."""
+    if chainlink_stale:
+        return round(max(0.02, min(0.98, float(p_market))), 6)
+    ess = max(0.0, float(effective_sample_size))
+    sample_term = 1.0 - ess / (ess + max(1e-9, float(prior_strength)))
+    shrink = (0.4 * (1.0 - _u01(evidence_quality))
+              + 0.4 * _u01(ambiguity)
+              + 0.4 * _u01(sample_term)
+              + 0.4 * _u01(calibration_instability))
+    shrink = max(0.0, min(1.0, shrink))
+    p = float(p_market) + (1.0 - shrink) * (float(p_raw) - float(p_market))
+    return round(max(0.02, min(0.98, p)), 6)
+
+
+def uncertainty_size_multiplier(total_uncertainty: float, *,
+                                max_uncertainty: float = 0.6) -> float:
+    """Probability-aggressiveness cap in ``[0, 1]``: high uncertainty strictly
+    REDUCES position size (1.0 at zero uncertainty, 0.0 at/above ``max_uncertainty``).
+    Monotonically non-increasing in uncertainty — weak evidence can never inflate
+    size. Quant scope — *Risk Management & Portfolio Optimization*."""
+    mu = max(1e-9, float(max_uncertainty))
+    return round(max(0.0, min(1.0, 1.0 - max(0.0, float(total_uncertainty)) / mu)), 6)
+
+
+def uncertainty_blocks_trade(total_uncertainty: float, *,
+                             block_threshold: float = 0.6) -> bool:
+    """True when total fair-probability uncertainty is too high to trade (the
+    aggressiveness cap reaches its floor). The trade is blocked, never up-sized."""
+    return float(total_uncertainty) >= float(block_threshold)
+
+
+def calibrated_distribution(*, mean: float, ci_low: float, ci_high: float,
+                            uncertainty_components: Optional[dict] = None,
+                            effective_sample_size: float = 0.0,
+                            evidence_quality: float = 0.0,
+                            no_trade_reason: str = "") -> dict:
+    """A calibrated probability DISTRIBUTION (not just a point estimate): mean +
+    credible interval + uncertainty decomposition + effective sample size +
+    evidence quality + no-trade reason. The single object real-money candidates
+    must carry (Statistical & Probabilistic Modeling + Compliance)."""
+    return {
+        "mean": round(float(mean), 6),
+        "ci_low": round(float(ci_low), 6), "ci_high": round(float(ci_high), 6),
+        "interval_width": round(abs(float(ci_high) - float(ci_low)), 6),
+        "uncertainty_components": dict(uncertainty_components or {}),
+        "effective_sample_size": round(float(effective_sample_size), 4),
+        "evidence_quality": round(float(evidence_quality), 6),
+        "no_trade_reason": no_trade_reason or "",
+    }
+
+
+def _u01(x: float) -> float:
+    try:
+        return max(0.0, min(1.0, float(x)))
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def timing_decay_proxy(est: "ProbabilityEstimate") -> float:
     """Pre-trade timing-decay proxy in [0,1] for the profitability governor: a
     wider spread + lower liquidity + staler book means a directional edge decays

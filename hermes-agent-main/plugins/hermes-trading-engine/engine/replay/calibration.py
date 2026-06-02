@@ -132,6 +132,103 @@ def match_predictions(predictions: list[dict], outcomes: list[dict]) -> dict:
             "rows": rows}
 
 
+def calibration_report_by(rows: list[dict], *, key: str, buckets: int = 10) -> dict:
+    """Per-segment calibration report (Brier / log-loss / ECE / slope / intercept
+    / n) grouped by ``key`` (category / market_type / liquidity / ttr bucket).
+
+    Each row carries ``predicted`` (probability) + ``realized_outcome`` (0/1) +
+    the grouping field. Pure + divide-by-zero safe (Live Monitoring + Strategy
+    Optimization)."""
+    groups: dict[str, list] = defaultdict(list)
+    for r in rows or []:
+        p = r.get("predicted", r.get("predicted_probability"))
+        y = r.get("realized_outcome", r.get("outcome"))
+        if p is None or y is None:
+            continue
+        groups[str(r.get(key, "unknown"))].append((float(p), int(y)))
+    out: dict = {}
+    for g, pairs in groups.items():
+        out[g] = {
+            "n": len(pairs), "brier": brier_score(pairs), "log_loss": log_loss(pairs),
+            "ece": expected_calibration_error(pairs, buckets),
+        }
+        slope, intercept = calibration_slope_intercept(pairs)
+        out[g]["slope"], out[g]["intercept"] = slope, intercept
+    return out
+
+
+def confidence_interval_coverage(rows: list[dict], *, buckets: int = 10) -> float:
+    """Credible-interval coverage in ``[0, 1]``: bin predictions by mean, then the
+    realized frequency of each bin should fall inside that bin's mean credible
+    interval. Coverage is the fraction of (non-empty) bins whose realized
+    frequency lies within ``[mean(ci_low), mean(ci_high)]``. Well-calibrated +
+    honest intervals -> high coverage; over-confident (too-tight) intervals -> low.
+
+    Rows carry ``predicted`` (mean), ``ci_low``, ``ci_high``, ``realized_outcome``."""
+    bins: dict[int, list] = defaultdict(list)
+    for r in rows or []:
+        p = r.get("predicted")
+        y = r.get("realized_outcome")
+        if p is None or y is None:
+            continue
+        idx = min(buckets - 1, max(0, int(float(p) * buckets)))
+        bins[idx].append((float(r.get("ci_low", p)), float(r.get("ci_high", p)), int(y)))
+    if not bins:
+        return 0.0
+    covered = 0
+    for _idx, items in bins.items():
+        freq = sum(y for _lo, _hi, y in items) / len(items)
+        lo = sum(lo for lo, _hi, _y in items) / len(items)
+        hi = sum(hi for _lo, hi, _y in items) / len(items)
+        if lo - 1e-9 <= freq <= hi + 1e-9:
+            covered += 1
+    return round(covered / len(bins), 6)
+
+
+def uncertainty_error_correlation(rows: list[dict]) -> float:
+    """Pearson correlation between predicted ``uncertainty`` and realized
+    ``abs_error`` (|predicted − outcome|). Positive => uncertainty tracks error
+    (a trustworthy uncertainty estimate). Rows carry ``uncertainty`` +
+    (``abs_error`` or ``predicted`` + ``realized_outcome``)."""
+    xs, ys = [], []
+    for r in rows or []:
+        u = r.get("uncertainty")
+        if u is None:
+            continue
+        if "abs_error" in r:
+            e = float(r["abs_error"])
+        elif r.get("predicted") is not None and r.get("realized_outcome") is not None:
+            e = abs(float(r["predicted"]) - float(r["realized_outcome"]))
+        else:
+            continue
+        xs.append(float(u))
+        ys.append(e)
+    n = len(xs)
+    if n < 2:
+        return 0.0
+    mx, my = sum(xs) / n, sum(ys) / n
+    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    vx = sum((x - mx) ** 2 for x in xs)
+    vy = sum((y - my) ** 2 for y in ys)
+    if vx <= 0 or vy <= 0:
+        return 0.0
+    return round(cov / ((vx * vy) ** 0.5), 6)
+
+
+def research_contribution_summary(rows: list[dict]) -> dict:
+    """Mean research contribution (how much of the research view survived
+    calibration) across rows carrying ``p_market`` / ``p_research`` / ``p_final``.
+    Advisory metric — research never sizes/approves (Compliance)."""
+    from engine.research.validators import research_contribution
+    vals = []
+    for r in rows or []:
+        if all(k in r for k in ("p_market", "p_research", "p_final")):
+            vals.append(research_contribution(r["p_market"], r["p_research"], r["p_final"]))
+    return {"n": len(vals),
+            "mean_research_contribution": round(sum(vals) / len(vals), 6) if vals else 0.0,
+            "max_research_contribution": round(max(vals), 6) if vals else 0.0}
+
+
 def calibration_slope_intercept(pairs: list[tuple[float, int]]) -> tuple[float, float]:
     """Cox calibration slope + intercept (1.0 / 0.0 == perfectly calibrated)."""
     from engine.calibration_models import calibration_slope_intercept as _csi

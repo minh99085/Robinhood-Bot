@@ -81,6 +81,13 @@ class ProbabilityEstimator:
                                 source_coverage=float(output.source_coverage_score))
         decayed_conf = confidence_decay(output.confidence, scores)
         research_uncertainty = research_uncertainty_from(scores)
+        # market-SPECIFIC relevance (ties evidence to THIS market's question), and
+        # the research contribution that survives into the ensemble (advisory only).
+        from .market_rules import market_specific_relevance_score
+        from .validators import research_contribution
+        market_relevance = market_specific_relevance_score(
+            output.evidence, question=str(output.resolution_notes or ""),
+            asset=str(output.market_id or ""))
 
         blend = self.ensemble.combine(
             p_market=p_market, p_llm=p_cal, p_model=p_model,
@@ -123,6 +130,11 @@ class ProbabilityEstimator:
                          "calibration_method": getattr(self.calibration, "method", "shrink"),
                          "calibration_version": self.calibration.version,
                          "evidence_scores": scores.to_dict(),
+                         "market_relevance_score": market_relevance,
+                         "research_contribution": research_contribution(
+                             p_market if p_market is not None else blend["p_ensemble"],
+                             p_cal if p_cal is not None else blend["p_ensemble"],
+                             blend["p_ensemble"]),
                          "key_assumptions": list(output.key_assumptions or []),
                          "do_not_trade_if": list(output.do_not_trade_if or [])})
         return bundle

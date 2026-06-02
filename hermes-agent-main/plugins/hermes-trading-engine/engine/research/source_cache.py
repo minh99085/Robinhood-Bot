@@ -88,3 +88,18 @@ class SourceCache:
 
     def size(self) -> int:
         return len(self._by_hash)
+
+
+def diversity_index(sources: list) -> float:
+    """Independent-source diversity in ``[0, 1]`` over a source list: distinct
+    ``(source_type, normalized_url)`` pairs scaled (1 source -> 0, 4+ -> 1). Used
+    by the evidence-control layer to reward corroboration over a single echoed
+    claim (Data Acquisition / Evidence Preprocessing)."""
+    keys = set()
+    for s in sources or []:
+        st = (s.get("source_type") if isinstance(s, dict) else getattr(s, "source_type", "")) or ""
+        url = (s.get("normalized_url") if isinstance(s, dict)
+               else getattr(s, "normalized_url", "")) or (
+            s.get("source_url") if isinstance(s, dict) else getattr(s, "source_url", "")) or ""
+        keys.add((str(st), normalize_url(str(url)) if url else ""))
+    return round(max(0.0, min(1.0, (len(keys) - 1) / 3.0)), 6)

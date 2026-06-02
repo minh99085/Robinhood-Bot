@@ -10,7 +10,14 @@ from __future__ import annotations
 from typing import Optional
 
 from .schemas import EvidenceItem
-from .source_cache import SourceCache, content_hash, normalize_url
+from .source_cache import (SourceCache, _DEFAULT_CRED, content_hash, normalize_url)
+
+
+def source_quality_weight(source_type: str) -> float:
+    """Source-type reliability weight in ``[0, 1]`` (official/exchange high, social
+    low). The single source-quality dial the evidence-control layer applies so a
+    high-credibility source outranks a social post (Compliance/Security)."""
+    return float(_DEFAULT_CRED.get(str(source_type or "unknown"), 0.3))
 
 
 class EvidenceStore:

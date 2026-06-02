@@ -23,6 +23,33 @@ _AMBIGUOUS_TERMS = [
 ]
 
 
+def market_specific_relevance_score(evidence: list, *, question: str = "",
+                                    asset: str = "") -> float:
+    """Mean market-SPECIFIC relevance of an evidence set in ``[0, 1]``.
+
+    How tightly each evidence claim ties to THIS market's question + underlying
+    asset (keyword overlap with the question, plus an explicit asset mention) —
+    distinct from settlement-rule relevance, which is about the resolution source.
+    Empty evidence -> 0. Pure + deterministic (Evidence Preprocessing)."""
+    from .evidence_scoring import _keywords  # shared keyword extractor
+
+    items = list(evidence or [])
+    if not items:
+        return 0.0
+    q_kw = _keywords(f"{question} {asset}")
+    asset_l = str(asset or "").strip().lower()
+    scores = []
+    for e in items:
+        claim = (e.get("claim", "") if isinstance(e, dict) else getattr(e, "claim", "")) or ""
+        c_kw = _keywords(str(claim))
+        overlap = (len(q_kw & c_kw) / float(len(q_kw))) if q_kw and c_kw else 0.0
+        asset_hit = 1.0 if (asset_l and asset_l in str(claim).lower()) else 0.0
+        rel = (e.get("relevance", 0.0) if isinstance(e, dict)
+               else getattr(e, "relevance", 0.0)) or 0.0
+        scores.append(max(0.0, min(1.0, 0.5 * overlap + 0.3 * asset_hit + 0.2 * float(rel))))
+    return round(sum(scores) / len(scores), 6)
+
+
 class MarketRuleParser:
     def __init__(self):
         self.scorer = AmbiguityScorer()
@@ -64,6 +91,13 @@ class MarketRuleParser:
     def is_settlement_ambiguous(self, summary: MarketRuleSummary,
                                 threshold: float = 0.5) -> bool:
         return is_settlement_ambiguous(getattr(summary, "ambiguity_score", 0.0), threshold)
+
+    def market_relevance(self, summary: MarketRuleSummary, evidence: list) -> float:
+        """Market-SPECIFIC relevance of an evidence set to THIS market's question
+        + outcome (distinct from settlement-rule relevance). Advisory only."""
+        return market_specific_relevance_score(
+            evidence or [], question=getattr(summary, "question", "") or "",
+            asset=getattr(summary, "outcome", "") or "")
 
     def evidence_relevance(self, summary: MarketRuleSummary, evidence: list) -> float:
         """Settlement-rule relevance of an evidence set to this market's rules.

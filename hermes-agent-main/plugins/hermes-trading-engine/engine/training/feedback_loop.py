@@ -133,6 +133,13 @@ class FeedbackLoop:
         self._last_summary = self.summary()
         return self._last_summary
 
+    def calibration_instability(self) -> float:
+        """Calibration instability in [0,1] from the learner (dispersion of per-
+        bucket reliability gaps) — feeds the Bayesian shrink so an unstable
+        calibrator is trusted less. 0 when the learner cannot report it."""
+        fn = getattr(self.learner, "calibration_instability", None)
+        return float(fn()) if callable(fn) else 0.0
+
     def summary(self) -> dict:
         return {
             "enabled": self.enabled,
@@ -140,6 +147,7 @@ class FeedbackLoop:
             "edge_adjustment": self.edge_adjustment(),
             "suppressed_dirty_labels": self.suppressed,
             "label_quality": self.label_quality_report(),
+            "calibration_instability": self.calibration_instability(),
             "calibrator": self.calibrator.summary(),
             "learner": self.learner.summary(),
         }

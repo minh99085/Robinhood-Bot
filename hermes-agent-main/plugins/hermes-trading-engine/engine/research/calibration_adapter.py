@@ -77,6 +77,38 @@ class CalibrationAdapter:
             return round(self._calibrator.transform(p), 6)
         return round(0.5 + (p - 0.5) * (1.0 - self.shrink), 6)
 
+    def transform_with_distribution(self, p_raw: Optional[float], *,
+                                    market_p: Optional[float] = None, z: float = 1.0,
+                                    evidence_quality: float = 1.0, ambiguity: float = 0.0,
+                                    chainlink_stale: bool = False,
+                                    calibration_instability: float = 0.0) -> dict:
+        """Calibrated probability DISTRIBUTION (mean + credible interval +
+        effective sample size + method), optionally Bayesian-shrunk toward the
+        market price when evidence is weak / sample low / ambiguous / stale /
+        unstable. Research-only: transforms a probability, never sizes/approves."""
+        from engine.training.probability_stack import bayesian_shrink
+        if p_raw is None:
+            return {"mean": None, "ci_low": None, "ci_high": None,
+                    "method": self.method, "effective_sample_size": 0.0}
+        if self._calibrator is not None:
+            mean, lo, hi = self._calibrator.transform_with_interval(float(p_raw), z=z)
+            ess = float(self._calibrator.effective_sample_size)
+        else:
+            mean = self.apply(p_raw) or 0.5
+            half = 0.5 * self.shrink + 0.1
+            lo, hi = max(0.0, mean - half), min(1.0, mean + half)
+            ess = 0.0
+        if market_p is not None:
+            shrunk = bayesian_shrink(mean, float(market_p), evidence_quality=evidence_quality,
+                                     effective_sample_size=ess, ambiguity=ambiguity,
+                                     chainlink_stale=chainlink_stale,
+                                     calibration_instability=calibration_instability)
+            # keep the interval centered on the shrunk mean (width preserved)
+            half = abs(hi - lo) / 2.0
+            mean, lo, hi = shrunk, max(0.0, shrunk - half), min(1.0, shrunk + half)
+        return {"mean": round(mean, 6), "ci_low": round(lo, 6), "ci_high": round(hi, 6),
+                "method": self.method, "effective_sample_size": round(ess, 4)}
+
     def to_artifact(self) -> dict:
         """Export the fitted calibration artifact (for replay + training reports).
 

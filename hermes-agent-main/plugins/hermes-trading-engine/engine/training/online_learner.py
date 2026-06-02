@@ -277,6 +277,21 @@ class OnlineLearner:
             return 0.0
         return round(sum(r["gap"] for r in rows) / len(rows), 4)
 
+    def calibration_instability(self) -> float:
+        """Calibration INSTABILITY in [0,1]: the dispersion (std) of the
+        per-probability-bucket reliability gaps, normalized. 0 = uniformly
+        calibrated across buckets; high = calibration error swings bucket-to-bucket
+        (an unstable calibrator the Bayesian shrink must distrust). Feeds
+        :func:`engine.training.probability_stack.bayesian_shrink`."""
+        rows = [r for r in self.calibration_table() if r["n"] >= self.min_bucket_samples]
+        gaps = [float(r["gap"]) for r in rows]
+        if len(gaps) < 2:
+            return 0.0
+        mean = sum(gaps) / len(gaps)
+        var = sum((g - mean) ** 2 for g in gaps) / len(gaps)
+        # normalize: a 0.25 std is treated as fully unstable
+        return round(max(0.0, min(1.0, (var ** 0.5) / 0.25)), 6)
+
     # -- active-learning feedback-value inputs -------------------------------
     def category_samples(self, category: str) -> int:
         """Number of resolved samples recorded for a category (drives the
