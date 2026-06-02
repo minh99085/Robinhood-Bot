@@ -47,7 +47,7 @@ FAILURE_MODES = (
     "invalid_simplex", "missing_leg", "no_executable_price", "stale_book",
     "tick_size_changed", "depth_too_thin", "spread_too_wide",
     "settlement_ambiguity", "chainlink_stale_or_irrelevant", "no_positive_edge",
-    "zero_quantity",
+    "zero_quantity", "market_closed", "partial_fill_breaks_hedge",
 )
 
 
@@ -67,6 +67,49 @@ class CertifiedLeg:
         for k, v in list(d.items()):
             if isinstance(v, float):
                 d[k] = round(v, 6)
+        return d
+
+
+@dataclass
+class BregmanCertificate:
+    """Institutional-grade Bregman certificate (the full proof / rejection record).
+
+    Captures the market set + outcome legs, executable prices, size, required
+    capital, worst-case PnL, the full cost-drag decomposition (fee / spread /
+    slippage / tick-rounding), depth sufficiency, all-leg fill probability,
+    stale-book + settlement-ambiguity scores, settlement consistency, and the
+    failure modes. ``risk_free`` is True ONLY when full hedge + all-leg
+    executability + positive worst-case PnL + settlement consistency are proven.
+    """
+
+    group_id: str
+    group_type: str
+    market_set: list
+    outcome_legs: list
+    executable_prices: list
+    size: float
+    required_capital: float
+    worst_case_pnl: float
+    fee_drag: float
+    spread_drag: float
+    slippage_drag: float
+    tick_rounding_drag: float
+    depth_sufficiency: float
+    fill_probability: float
+    stale_book_score: float
+    settlement_ambiguity_score: float
+    full_hedge: bool
+    all_leg_executable: bool
+    settlement_consistent: bool
+    certified: bool
+    risk_free: bool
+    failure_modes: list = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        d = dict(self.__dict__)
+        for k, v in list(d.items()):
+            if isinstance(v, float):
+                d[k] = round(v, 8)
         return d
 
 
@@ -92,6 +135,7 @@ class CertifiedBregmanOpportunity:
     risk_free: bool
     cost_per_set: float = 0.0
     sets: float = 0.0
+    certificate: Optional["BregmanCertificate"] = None
 
     @property
     def is_opportunity(self) -> bool:
@@ -116,6 +160,7 @@ class CertifiedBregmanOpportunity:
             "certified": self.certified, "risk_free": self.risk_free,
             "cost_per_set": round(self.cost_per_set, 6),
             "sets": round(self.sets, 6), "is_opportunity": self.is_opportunity,
+            "certificate": self.certificate.to_dict() if self.certificate else None,
         }
 
 
@@ -151,9 +196,42 @@ class BregmanArbitrageEngine:
     def certify(self, group: SimplexGroup, *, now: Optional[float] = None,
                 fill_model=None, min_all_leg_fill_prob: float = 0.95
                 ) -> CertifiedBregmanOpportunity:
+        from engine.market_data.orderbook import stale_book_score as _stale_score
         method = self.divergence_method
         gap = divergence_gap(group.observed_prices, method=method)
         failures: list[str] = []
+
+        # settlement-consistency + book-quality scores computable from the raw
+        # legs even on an early reject (so the certificate always carries them).
+        max_amb = max((float(l.ambiguity_score or 0.0) for l in group.legs), default=0.0)
+        stale_sc = max((1.0 if (l.stale or not l.fresh_book)
+                        else (_stale_score(l.book_age_s) if l.book_age_s is not None else 0.0)
+                        for l in group.legs), default=0.0)
+        settlement_consistent = bool(group.mutually_exclusive and group.exhaustive
+                                     and max_amb <= self.max_ambiguity)
+
+        def _certificate(*, certified: bool, risk_free: bool, exec_prices=None,
+                         sets: float = 0.0, required_capital: float = 0.0,
+                         worst_case_pnl: float = 0.0, drags=None,
+                         depth_suff: float = 0.0, fill_prob: float = 0.0,
+                         all_exec: bool = False) -> BregmanCertificate:
+            dr = drags or {"fee": 0.0, "spread": 0.0, "slippage": 0.0, "tick": 0.0}
+            return BregmanCertificate(
+                group_id=group.group_id, group_type=group.group_type,
+                market_set=[l.market_id for l in group.legs],
+                outcome_legs=[f"{l.market_id}:{l.outcome}" for l in group.legs],
+                executable_prices=list(exec_prices or []), size=float(sets),
+                required_capital=float(required_capital),
+                worst_case_pnl=float(worst_case_pnl),
+                fee_drag=float(dr["fee"]), spread_drag=float(dr["spread"]),
+                slippage_drag=float(dr["slippage"]), tick_rounding_drag=float(dr["tick"]),
+                depth_sufficiency=float(depth_suff), fill_probability=float(fill_prob),
+                stale_book_score=float(stale_sc), settlement_ambiguity_score=float(max_amb),
+                full_hedge=bool(group.mutually_exclusive and group.exhaustive),
+                all_leg_executable=bool(all_exec),
+                settlement_consistent=settlement_consistent,
+                certified=bool(certified), risk_free=bool(risk_free),
+                failure_modes=list(failures))
 
         def reject(reason: str) -> CertifiedBregmanOpportunity:
             if reason not in failures:
@@ -164,7 +242,8 @@ class BregmanArbitrageEngine:
                 worst_case_pnl=0.0, profit_lower_bound=0.0, divergence_gap=gap,
                 divergence_method=method, failure_modes=failures,
                 fill_feasibility=0.0, persistence_score=0.0,
-                no_trade_reason=reason, certified=False, risk_free=False)
+                no_trade_reason=reason, certified=False, risk_free=False,
+                certificate=_certificate(certified=False, risk_free=False))
 
         ok, why = validate_simplex(group)
         if not ok:
@@ -173,18 +252,21 @@ class BregmanArbitrageEngine:
                 else why)
 
         # --- per-leg feasibility + cost (conservative: rounds against us) ---
-        slip = self.slippage_bps / 10000.0
-        fee = self.taker_fee_bps / 10000.0
+        from engine.execution.slippage import drag_breakdown
         cost_per_set = 0.0
         exec_prices: list[float] = []
         depth_qty: list[float] = []
         spreads: list[float] = []
+        # cost-drag accumulators (per set): fee / spread / slippage / tick-rounding
+        drag = {"fee": 0.0, "spread": 0.0, "slippage": 0.0, "tick": 0.0}
         for leg in group.legs:
             if leg.ask is None or leg.ask <= 0.0:
                 failures.append("missing_leg")
                 return reject("no_executable_price")
             if not leg.fresh_book or leg.stale:
                 return reject("stale_book")
+            if not getattr(leg, "accepting_orders", True):
+                return reject("market_closed")
             if leg.tick_size_dirty:
                 return reject("tick_size_changed")
             if leg.chainlink_no_trade or not leg.chainlink_relevant:
@@ -198,9 +280,15 @@ class BregmanArbitrageEngine:
                     return reject("spread_too_wide")
             if leg.depth_usd < self.min_depth_usd:
                 return reject("depth_too_thin")
-            # conservative executable price: tick-round UP, then fee + slippage
-            px = _round_up_to_tick(float(leg.ask), leg.tick_size)
-            px = px * (1.0 + slip) + px * fee
+            # conservative executable price + cost-drag decomposition (tick-up,
+            # slippage, fee — only ever WORSE than the touch).
+            b = drag_breakdown(float(leg.ask), leg.bid, leg.tick_size,
+                               slippage_bps=self.slippage_bps, fee_bps=self.taker_fee_bps)
+            px = float(b["exec_price"])
+            drag["tick"] += float(b["tick_rounding"])
+            drag["slippage"] += float(b["slippage"])
+            drag["fee"] += float(b["fee"])
+            drag["spread"] += float(b["half_spread"])
             exec_prices.append(px)
             cost_per_set += px
             depth_qty.append(leg.depth_usd / px if px > 0 else 0.0)
@@ -226,14 +314,18 @@ class BregmanArbitrageEngine:
 
         full_hedge = group.mutually_exclusive and group.exhaustive
         all_executable = all(l.executable for l in group.legs)
-        certified = full_hedge and all_executable and worst_case_pnl > 0.0
+        certified = (full_hedge and all_executable and worst_case_pnl > 0.0
+                     and settlement_consistent)
         risk_free = certified and worst_case_pnl > 0.0 and full_hedge and all_executable
 
-        # CLOB v2 fill-risk gate (PAPER realism): a full hedge is only risk-free
-        # if EVERY leg can actually fill. When a fill model is supplied, compute
-        # the all-leg fill probability; if it is below the floor, the hedge can
-        # break under partial fills, so it is NOT risk-free. Conservative: this
-        # only ever REMOVES the risk-free label, never adds one.
+        # all-leg fill probability — ALWAYS computed for the certificate. With a
+        # supplied fill model it is the modelled product; otherwise a deterministic
+        # depth-headroom proxy (1.0 only when every leg has ample depth headroom).
+        depth_suff = min((depth_usd_l / max(1e-9, sets * px)
+                          for depth_usd_l, px in
+                          ((l.depth_usd, p) for l, p in zip(group.legs, exec_prices))),
+                         default=0.0)
+        depth_suff = max(0.0, min(1.0, depth_suff))
         if fill_model is not None and group.legs:
             all_leg_fill = 1.0
             for leg, px in zip(group.legs, exec_prices):
@@ -242,10 +334,23 @@ class BregmanArbitrageEngine:
                     spread=float(sp), depth_usd=float(leg.depth_usd),
                     order_usd=float(sets * px), aggressiveness=1.0,
                     stale=bool(leg.stale or not leg.fresh_book))
-            if all_leg_fill < float(min_all_leg_fill_prob):
-                if "partial_fill_breaks_hedge" not in failures:
-                    failures.append("partial_fill_breaks_hedge")
-                risk_free = False
+        else:
+            # depth-headroom proxy: full confidence only when every leg can absorb
+            # the order ~1.5x over at the touch (conservative, deterministic).
+            all_leg_fill = 1.0
+            for leg, px in zip(group.legs, exec_prices):
+                order_usd = sets * px
+                headroom = leg.depth_usd / max(1e-9, order_usd * 1.5)
+                all_leg_fill *= max(0.0, min(1.0, headroom))
+
+        # CLOB v2 fill-risk gate (PAPER realism): a full hedge is only risk-free
+        # if EVERY leg can actually fill. If the all-leg fill probability is below
+        # the floor, the hedge can break under partial fills, so it is NOT
+        # risk-free. Conservative: only ever REMOVES the risk-free label.
+        if fill_model is not None and group.legs and all_leg_fill < float(min_all_leg_fill_prob):
+            if "partial_fill_breaks_hedge" not in failures:
+                failures.append("partial_fill_breaks_hedge")
+            risk_free = False
 
         certified_legs = [
             CertifiedLeg(market_id=l.market_id, outcome=l.outcome,
@@ -263,7 +368,12 @@ class BregmanArbitrageEngine:
             fill_feasibility=fill_feasibility, persistence_score=persistence,
             no_trade_reason="" if certified else "not_certified",
             certified=certified, risk_free=risk_free,
-            cost_per_set=cost_per_set, sets=sets)
+            cost_per_set=cost_per_set, sets=sets,
+            certificate=_certificate(
+                certified=certified, risk_free=risk_free, exec_prices=exec_prices,
+                sets=sets, required_capital=required_capital,
+                worst_case_pnl=worst_case_pnl, drags=drag, depth_suff=depth_suff,
+                fill_prob=all_leg_fill, all_exec=all_executable))
         logger.info("bregman certify group=%s certified=%s risk_free=%s "
                     "profit_lb=%.6f cost/set=%.4f sets=%.2f gap=%.6f",
                     group.group_id, certified, risk_free, profit_lower_bound,

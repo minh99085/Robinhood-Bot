@@ -599,6 +599,59 @@ def institutional_metrics(*, equity_rows: Optional[list] = None,
 # --------------------------------------------------------------------------- #
 # anti-overfitting: in-sample vs out-of-sample report
 # --------------------------------------------------------------------------- #
+def bregman_certification_metrics(certs: Optional[list] = None, *,
+                                  bundles: Optional[list] = None) -> dict:
+    """Institutional Bregman certification report (Bregman arbitrage monitoring).
+
+    ``certs``: ``CertifiedBregmanOpportunity`` (objects or ``.to_dict()``).
+    ``bundles``: ``BundleExecutionResult`` (objects or dicts) for the hedge-break
+    rate. Reports certified vs rejected counts, the false-positive rate (an opp
+    labelled certified/tradable yet NOT actually profitable after costs — must be
+    0), the worst-case-PnL distribution, the rejection-reason histogram, and the
+    realized hedge-break rate. Pure + divide-by-zero safe."""
+    def g(o, k, d=None):
+        return (o.get(k, d) if isinstance(o, dict) else getattr(o, k, d))
+
+    cs = certs or []
+    certified = [c for c in cs if bool(g(c, "certified", False))]
+    rejected = [c for c in cs if not bool(g(c, "certified", False))]
+    tradable = [c for c in cs if bool(g(c, "is_opportunity", g(c, "certified", False))
+                                       and _f(g(c, "profit_lower_bound", 0.0)) > 0.0)]
+    # false positive: certified/tradable yet worst-case PnL is NOT positive
+    false_positives = sum(1 for c in certified
+                          if _f(g(c, "worst_case_pnl", 0.0)) <= 0.0
+                          or _f(g(c, "profit_lower_bound", 0.0)) <= 0.0)
+    wcs = sorted(_f(g(c, "worst_case_pnl", 0.0)) for c in certified)
+    reasons: Counter = Counter()
+    for c in rejected:
+        reasons[g(c, "no_trade_reason", "") or "rejected"] += 1
+
+    def _pct(vals, p):
+        if not vals:
+            return 0.0
+        i = min(len(vals) - 1, max(0, int(p * len(vals))))
+        return round(vals[i], 6)
+
+    bs = bundles or []
+    broken = sum(1 for b in bs if not bool(g(b, "hedge_complete", g(b, "fully_hedged", False))))
+    return {
+        "scanned": len(cs),
+        "certified_count": len(certified),
+        "rejected_count": len(rejected),
+        "opportunity_count": len(tradable),
+        "false_positive_rate": round(false_positives / len(certified), 6) if certified else 0.0,
+        "worst_case_pnl": {
+            "min": round(wcs[0], 6) if wcs else 0.0,
+            "max": round(wcs[-1], 6) if wcs else 0.0,
+            "mean": round(sum(wcs) / len(wcs), 6) if wcs else 0.0,
+            "p05": _pct(wcs, 0.05), "p95": _pct(wcs, 0.95),
+            "positive_rate": round(sum(1 for w in wcs if w > 0.0) / len(wcs), 6) if wcs else 0.0,
+        },
+        "hedge_break_rate": round(broken / len(bs), 6) if bs else 0.0,
+        "rejection_reasons": dict(reasons),
+    }
+
+
 def after_cost_expectancy(trades: list[dict]) -> float:
     """Mean realized PnL per trade after all costs (fees + slippage already in
     ``realized_pnl``). Live-readiness input (Backtesting + CLOB v2 Execution): a

@@ -470,6 +470,22 @@ class RiskEngine:
 # can avoid concentrating risk in one correlated cluster (Risk Management &
 # Portfolio Optimization). Every individual order still passes the RiskEngine.
 # --------------------------------------------------------------------------- #
+def bregman_trade_allowed(opp) -> bool:
+    """Risk-layer gate: a Bregman opportunity may be SIZED + sent to the
+    RiskEngine only when it is fully CERTIFIED with a strictly-positive certified
+    profit lower bound (and, when a certificate is attached, a proven risk-free
+    full hedge). A non-certified candidate may only be LOGGED — never approved or
+    up-sized. Quant scope — *Bregman arbitrage priority* + *Compliance/Security*."""
+    if opp is None:
+        return False
+    certified = bool(getattr(opp, "certified", False))
+    positive = float(getattr(opp, "profit_lower_bound", 0.0) or 0.0) > 0.0
+    cert = getattr(opp, "certificate", None)
+    if cert is not None and not bool(getattr(cert, "risk_free", False)):
+        return False
+    return certified and positive
+
+
 def risk_gate_violations(positions: list, *, max_market_exposure: float,
                          max_total_exposure: float, max_order_notional: float,
                          open_positions: Optional[list] = None) -> int:

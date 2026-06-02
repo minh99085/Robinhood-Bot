@@ -67,6 +67,33 @@ class SlippageModel:
         return {"slippage_bps": str(self.slippage_bps), "spread_aware": self.spread_aware}
 
 
+def drag_breakdown(ask: float, bid: Optional[float], tick: float, *,
+                   slippage_bps: float, fee_bps: float) -> dict:
+    """Decompose a BUY leg's conservative executable price into its cost drags.
+
+    Bregman-certification primitive (CLOB v2 Execution + Risk): the executable
+    price is the best ask rounded UP to the next tick, then loaded with slippage
+    + taker fee — only ever WORSE than the touch. Returns per-share
+    ``base`` (ask), ``tick_rounding`` (tick-up), ``slippage``, ``fee``,
+    ``half_spread`` (ask − mid; diagnostic, already in the ask), and the final
+    ``exec_price``. Pure + deterministic so certification is reproducible."""
+    import math as _math
+    a = max(0.0, float(ask))
+    t = float(tick or 0.0)
+    px_tick = (_math.ceil(a / t - 1e-9) * t) if t > 0 else a
+    slip = px_tick * (float(slippage_bps) / 10000.0)
+    fee = px_tick * (float(fee_bps) / 10000.0)
+    half_spread = max(0.0, (a - float(bid)) / 2.0) if bid is not None else 0.0
+    return {
+        "base": round(a, 8),
+        "tick_rounding": round(px_tick - a, 8),
+        "slippage": round(slip, 8),
+        "fee": round(fee, 8),
+        "half_spread": round(half_spread, 8),
+        "exec_price": round(px_tick + slip + fee, 8),
+    }
+
+
 def markout_bps(fill_price, ref_price, side: str) -> Optional[Decimal]:
     """Adverse-selection markout in bps (favourable > 0, adverse < 0).
 

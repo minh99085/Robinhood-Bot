@@ -288,3 +288,35 @@ class OrderbookState:
             tick_size=str(self.tick_size) if self.tick_size is not None else None,
             last_update_ms=self.last_update_ms, sequence=self.sequence,
             resolved=self.resolved, tick_size_dirty=self.tick_size_dirty)
+
+
+# --------------------------------------------------------------------------- #
+# Bregman-certification book-quality primitives (pure; CLOB v2 + Risk)
+# --------------------------------------------------------------------------- #
+def stale_book_score(book_age_s, *, max_age_s: float = 30.0) -> float:
+    """Book staleness in ``[0, 1]`` (0 = fresh, 1 = at/over the stale horizon).
+
+    Bregman-certification input: a certified hedge must execute against FRESH
+    books on every leg; a high stale score is a hard reject. Unknown age -> 1.0
+    (treated as stale; fail-closed)."""
+    if book_age_s is None:
+        return 1.0
+    try:
+        age = max(0.0, float(book_age_s))
+    except (TypeError, ValueError):
+        return 1.0
+    horizon = max(1e-9, float(max_age_s))
+    return round(min(1.0, age / horizon), 6)
+
+
+def depth_sufficiency(order_usd: float, depth_usd: float) -> float:
+    """Top-of-book depth sufficiency in ``[0, 1]`` for an intended order size.
+
+    Bregman-certification input: ``1.0`` when the book can fully absorb the order
+    at the touch, scaling down as the order exceeds available depth. Divide-by-zero
+    safe (no order -> 1.0; no depth -> 0.0)."""
+    o = max(0.0, float(order_usd or 0.0))
+    d = max(0.0, float(depth_usd or 0.0))
+    if o <= 0.0:
+        return 1.0
+    return round(min(1.0, d / o), 6)

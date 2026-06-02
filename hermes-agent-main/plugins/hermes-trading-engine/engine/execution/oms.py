@@ -363,6 +363,27 @@ class OrderManagementSystem:
             "last_reconciliation": self.recon.last_report,
         }
 
+    def bregman_hedge_preflight(self, opp) -> dict:
+        """Read-only preflight before a (future) certified Bregman hedge.
+
+        A fully-hedged Bregman set may only be routed when the OMS is healthy
+        (not degraded, last reconciliation clean) AND the opportunity is
+        certified risk-free. Returns ``{ok, reasons}``; ``ok=False`` means the
+        hedge MUST NOT be placed (it stays a logged candidate). Never submits.
+        Quant scope — *CLOB v2 Execution* + *Risk Management* + *Compliance*."""
+        from .reconciliation import report_is_clean
+        reasons: list = []
+        if self.degraded:
+            reasons.append(f"oms_degraded:{self.degraded_reason}")
+        if not report_is_clean(self.recon.last_report):
+            reasons.append("reconciliation_not_clean")
+        cert = getattr(opp, "certificate", None)
+        if not bool(getattr(opp, "certified", False)):
+            reasons.append("not_certified")
+        elif cert is not None and not bool(getattr(cert, "risk_free", False)):
+            reasons.append("certificate_not_risk_free")
+        return {"ok": not reasons, "reasons": reasons}
+
     def readiness_execution_summary(self) -> dict:
         """Execution-realism + reconciliation snapshot for the live-readiness gate
         (CLOB v2 Execution + Compliance). Read-only: reports whether the OMS is

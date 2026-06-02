@@ -50,6 +50,8 @@ class SimplexLeg:
     chainlink_no_trade: bool = False
     chainlink_relevant: bool = True   # True when unlinked OR linked+relevant
     synthetic_price: bool = False     # ask derived (e.g. 1 - bid), not a real book
+    accepting_orders: bool = True     # False when the market has closed / halted
+    book_age_s: Optional[float] = None  # age of the quote (drives stale-book score)
 
     @property
     def spread(self) -> Optional[float]:

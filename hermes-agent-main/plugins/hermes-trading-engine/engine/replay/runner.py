@@ -539,6 +539,13 @@ class ReplayRunner:
             "dependency_graph": graph_report,
             "cluster_exposure": cluster_exposure,
             "overfit": self._overfit_report(),
+            # Institutional Bregman certification report (certified / rejected /
+            # false-positive rate / worst-case-PnL distribution / hedge-break
+            # rate). Empty + well-defined when the episode produced no Bregman
+            # certifications (replay policies are directional by default).
+            "bregman_certification": met.bregman_certification_metrics(
+                getattr(self, "_bregman_certs", []),
+                bundles=getattr(self, "_bregman_bundles", [])),
             "variant_attribution": met.variant_attribution(self.orders, self.fills),
             "execution_diagnostics": met.execution_diagnostics(self.orders, self.fills),
             "counts": {"orders": len(self.orders), "fills": len(self.fills),

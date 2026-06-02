@@ -99,6 +99,23 @@ def is_explorable(reason: str, *, aggressive_weak_research: bool = False) -> boo
     return bool(aggressive_weak_research) and is_weak_research_reason(reason)
 
 
+def bregman_preempts_directional(opp) -> bool:
+    """Whether a Bregman opportunity may PREEMPT all directional trades.
+
+    Bregman is the flagship priority-1 strategy, but it only outranks directional
+    edge AFTER its certificate passes: certified, strictly-positive profit lower
+    bound, and (when attached) a proven risk-free full hedge. A non-certified
+    candidate never preempts — directional evaluation proceeds normally. Quant
+    scope — *Signal Generation (Bregman priority)* + *Compliance/Security*."""
+    if opp is None:
+        return False
+    cert = getattr(opp, "certificate", None)
+    if cert is not None and not bool(getattr(cert, "risk_free", False)):
+        return False
+    return bool(getattr(opp, "certified", False)
+                and float(getattr(opp, "profit_lower_bound", 0.0) or 0.0) > 0.0)
+
+
 def overfit_adjusted_min_edge(base: float, penalty: float, *,
                               conservative: float = 0.03) -> float:
     """Raise the minimum net-edge threshold toward a conservative value as the

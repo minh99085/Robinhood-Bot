@@ -127,6 +127,26 @@ class PaperPolicy:
         slip = float(fq.get("slippage_forecast_bps", 0.0) or 0.0) / 10000.0
         return round(float(getattr(edge, "net_edge", 0.0)) * fill_p - slip, 6)
 
+    @staticmethod
+    def bregman_candidate_log(opp) -> dict:
+        """DOWNGRADE record for a NON-certified Bregman opportunity.
+
+        When a Bregman certificate fails, the strategy may only LOG the candidate —
+        it must never build a proposal, approve a trade, or increase size. This
+        returns an audit-only record (``trade_approved`` is always False). Quant
+        scope — *Compliance/Security* + *Bregman arbitrage priority*."""
+        return {
+            "group_id": getattr(opp, "group_id", ""),
+            "group_type": getattr(opp, "group_type", ""),
+            "certified": bool(getattr(opp, "certified", False)),
+            "risk_free": bool(getattr(opp, "risk_free", False)),
+            "profit_lower_bound": round(float(getattr(opp, "profit_lower_bound", 0.0) or 0.0), 6),
+            "failure_modes": list(getattr(opp, "failure_modes", []) or []),
+            "no_trade_reason": getattr(opp, "no_trade_reason", ""),
+            "trade_approved": False,        # candidate-only; never approved
+            "notional_usd": 0.0,            # never sized
+        }
+
     def explore_size(self) -> float:
         """Small exploratory size for an active-learning paper trade, hard-clamped
         to the paper order-notional ceiling (can never bypass risk caps)."""
