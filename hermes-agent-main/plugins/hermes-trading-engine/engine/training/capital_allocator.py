@@ -38,6 +38,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+import math
+
 from .portfolio import cvar as _cvar
 from .portfolio import kelly_size_usd, max_drawdown as _max_drawdown
 
@@ -49,7 +51,7 @@ __all__ = [
     "DrawdownGovernorLimits", "drawdown_governor",
     "PortfolioConstraints", "check_portfolio_constraints",
     "CapitalCandidate", "AllocationDecision", "AdaptiveCapitalAllocator",
-    "summarize_sizing_rejections",
+    "summarize_sizing_rejections", "sharpe_ratio", "sortino_ratio", "calmar_ratio",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -599,11 +601,51 @@ class AdaptiveCapitalAllocator:
             "expected_shortfall": es,
             "cvar": es,
             "max_drawdown": dd,
+            "sharpe": sharpe_ratio(returns),
+            "sortino": sortino_ratio(returns),
+            "calmar": calmar_ratio(returns, equity_curve),
             "concentration": concentration,
             "capital_efficiency": capital_efficiency,
             "feedback_per_risk_unit": feedback_per_risk_unit,
             "rejected_sizing_reasons": summarize_sizing_rejections(decisions),
         }
+
+
+def _mean(xs) -> float:
+    xs = list(xs)
+    return sum(xs) / len(xs) if xs else 0.0
+
+
+def sharpe_ratio(returns) -> float:
+    """Sharpe ratio of a return series (mean / stdev). 0 with <2 points or no
+    dispersion. Deterministic, stdlib-only."""
+    xs = [float(r) for r in (returns or [])]
+    if len(xs) < 2:
+        return 0.0
+    mu = _mean(xs)
+    var = _mean([(x - mu) ** 2 for x in xs])
+    sd = math.sqrt(var)
+    return round(mu / sd, 6) if sd > _EPS else 0.0
+
+
+def sortino_ratio(returns) -> float:
+    """Sortino ratio (mean / downside deviation). Penalises only negative returns."""
+    xs = [float(r) for r in (returns or [])]
+    if len(xs) < 2:
+        return 0.0
+    mu = _mean(xs)
+    downs = [min(0.0, x) ** 2 for x in xs]
+    dd = math.sqrt(_mean(downs))
+    return round(mu / dd, 6) if dd > _EPS else 0.0
+
+
+def calmar_ratio(returns, equity_curve) -> float:
+    """Calmar ratio (total return / max drawdown). 0 when there is no drawdown."""
+    mdd = _max_drawdown(list(equity_curve or []))
+    if mdd <= _EPS:
+        return 0.0
+    total_return = sum(float(r) for r in (returns or []))
+    return round(total_return / mdd, 6)
 
 
 def summarize_sizing_rejections(decisions) -> dict:

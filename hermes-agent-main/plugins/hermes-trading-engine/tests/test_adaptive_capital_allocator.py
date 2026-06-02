@@ -107,7 +107,8 @@ def test_capital_allocation_report_shape():
         equity_curve=[100, 101, 99, 102], feedback_events=4)
     for key in ("expected_return", "expected_shortfall", "cvar", "concentration",
                 "capital_efficiency", "feedback_per_risk_unit", "bucket_allocations",
-                "total_allocated", "rejected_sizing_reasons"):
+                "total_allocated", "rejected_sizing_reasons", "sharpe", "sortino",
+                "calmar", "max_drawdown"):
         assert key in rep
     assert rep["cvar"] >= 0.0
     assert 0.0 <= rep["concentration"] <= 1.0
@@ -122,6 +123,24 @@ def test_summarize_sizing_rejections_counts_reasons():
     reasons = summarize_sizing_rejections(decisions)
     assert isinstance(reasons, dict)
     assert sum(reasons.values()) == 2  # two negative-expectancy rejections
+
+
+def test_no_negative_expectancy_strategy_is_ever_funded_in_batch():
+    # Validation guard: across a mixed batch, NO approved decision may have a
+    # non-positive after-cost edge unless it is in the tiny-exploration bucket.
+    a = _alloc()
+    cands = [_positive(net=0.05, market="p1"),
+             _positive(net=-0.04, market="n1"),               # plain negative -> reject
+             _positive(net=0.04, strategy="statistical_mispricing", market="p2")]
+    explore = _positive(net=-0.06, market="x1")
+    explore.exploration = True
+    cands.append(explore)
+    decisions = a.allocate_batch(cands)
+    for d in decisions:
+        if d.approved and d.notional_usd > 0.0:
+            assert (d.net_after_cost_edge > 0.0) or (d.exploration and d.bucket == BUCKET_EXPLORATION)
+    rep = a.capital_allocation_report(decisions)
+    assert rep["sharpe"] == rep["sharpe"]  # not NaN
 
 
 def test_drawdown_downgrade_blocks_all_allocation():
