@@ -88,6 +88,27 @@ class PaperPolicy:
             return min(kelly, float(cfg.max_kelly_size_usd)), "fractional_kelly", kelly
         return float(cfg.fixed_notional_usd), "fixed", kelly
 
+    def fill_quality_estimate(self, edge: EdgeResult, est: ProbabilityEstimate, rec,
+                              *, order_usd: Optional[float] = None) -> dict:
+        """Forward CLOB v2 fill-quality estimate for a directional paper proposal
+        (fill probability / partial-fill risk / slippage forecast). Read-only
+        analytics that let the trainer prefer realistically-fillable trades; it
+        never sizes or places an order."""
+        from .execution_quality import (fill_probability, partial_fill_risk,
+                                         slippage_forecast)
+        spread = float(getattr(est, "spread", 0.0) or 0.0)
+        depth = float(getattr(rec, "top_depth_usd", 0.0) or 0.0)
+        notional = (order_usd if order_usd is not None
+                    else float(getattr(self.cfg, "fixed_notional_usd", 0.0)))
+        stale = not bool(getattr(est, "fresh_book", True))
+        max_spread = float(getattr(self.cfg, "max_spread", 0.08))
+        return {
+            "fill_probability": fill_probability(spread, depth, notional, stale=stale,
+                                                 max_spread=max_spread),
+            "partial_fill_risk": partial_fill_risk(notional, depth),
+            "slippage_forecast_bps": slippage_forecast(notional, depth),
+        }
+
     def explore_size(self) -> float:
         """Small exploratory size for an active-learning paper trade, hard-clamped
         to the paper order-notional ceiling (can never bypass risk caps)."""

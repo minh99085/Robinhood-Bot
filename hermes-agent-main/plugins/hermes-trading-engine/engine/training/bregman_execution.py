@@ -148,7 +148,8 @@ class BregmanArbitrageEngine:
         self.divergence_method = divergence_method
 
     # -- certification -------------------------------------------------------
-    def certify(self, group: SimplexGroup, *, now: Optional[float] = None
+    def certify(self, group: SimplexGroup, *, now: Optional[float] = None,
+                fill_model=None, min_all_leg_fill_prob: float = 0.95
                 ) -> CertifiedBregmanOpportunity:
         method = self.divergence_method
         gap = divergence_gap(group.observed_prices, method=method)
@@ -228,6 +229,24 @@ class BregmanArbitrageEngine:
         certified = full_hedge and all_executable and worst_case_pnl > 0.0
         risk_free = certified and worst_case_pnl > 0.0 and full_hedge and all_executable
 
+        # CLOB v2 fill-risk gate (PAPER realism): a full hedge is only risk-free
+        # if EVERY leg can actually fill. When a fill model is supplied, compute
+        # the all-leg fill probability; if it is below the floor, the hedge can
+        # break under partial fills, so it is NOT risk-free. Conservative: this
+        # only ever REMOVES the risk-free label, never adds one.
+        if fill_model is not None and group.legs:
+            all_leg_fill = 1.0
+            for leg, px in zip(group.legs, exec_prices):
+                sp = leg.spread if leg.spread is not None else 0.0
+                all_leg_fill *= fill_model.fill_probability(
+                    spread=float(sp), depth_usd=float(leg.depth_usd),
+                    order_usd=float(sets * px), aggressiveness=1.0,
+                    stale=bool(leg.stale or not leg.fresh_book))
+            if all_leg_fill < float(min_all_leg_fill_prob):
+                if "partial_fill_breaks_hedge" not in failures:
+                    failures.append("partial_fill_breaks_hedge")
+                risk_free = False
+
         certified_legs = [
             CertifiedLeg(market_id=l.market_id, outcome=l.outcome,
                          token_id=l.token_id or f"{l.market_id}:{l.outcome}",
@@ -285,3 +304,160 @@ class BregmanArbitrageEngine:
         """A Bregman opportunity outranks a directional trade ONLY when certified
         with a strictly-positive profit lower bound after all costs."""
         return bool(opp.certified and opp.profit_lower_bound > 0.0)
+
+
+# --------------------------------------------------------------------------- #
+# Multi-leg bundle execution simulator (PAPER ONLY)
+# --------------------------------------------------------------------------- #
+@dataclass
+class BundleLegResult:
+    market_id: str
+    outcome: str
+    requested_qty: float
+    filled_qty: float
+    fill_price: float
+    fraction: float
+    status: str          # "filled" | "partial" | "unfilled" | "cancelled"
+
+    def to_dict(self) -> dict:
+        d = dict(self.__dict__)
+        for k, v in list(d.items()):
+            if isinstance(v, float):
+                d[k] = round(v, 6)
+        return d
+
+
+@dataclass
+class BundleExecutionResult:
+    """Outcome of simulating a certified Bregman bundle against realistic fills."""
+
+    group_id: str
+    total_legs: int
+    filled_legs: int
+    fully_hedged: bool
+    hedge_complete: bool
+    failure_mode: str
+    realized_cost: float
+    realized_pnl: float
+    partial_fill_rate: float
+    cancelled: bool
+    timed_out: bool
+    leg_results: list
+
+    def to_dict(self) -> dict:
+        return {
+            "group_id": self.group_id, "total_legs": self.total_legs,
+            "filled_legs": self.filled_legs, "fully_hedged": self.fully_hedged,
+            "hedge_complete": self.hedge_complete, "failure_mode": self.failure_mode,
+            "realized_cost": round(self.realized_cost, 6),
+            "realized_pnl": round(self.realized_pnl, 6),
+            "partial_fill_rate": round(self.partial_fill_rate, 6),
+            "cancelled": self.cancelled, "timed_out": self.timed_out,
+            "leg_results": [l.to_dict() for l in self.leg_results],
+        }
+
+
+class BregmanBundleExecutionSimulator:
+    """Simulate executing a certified Bregman bundle leg-by-leg with realistic
+    fills, a per-bundle timeout, cancel-on-leg-failure, and failure-mode
+    reporting (CLOB v2 simulation + Bregman execution risk).
+
+    The key realism: a certified "buy the complete set" hedge is only risk-free
+    if EVERY leg fully fills. If any leg partials or fails (or the bundle times
+    out), the hedge is BROKEN — the filled legs are an unhedged basket whose
+    worst case (the missing leg wins) is a loss. PAPER ONLY; never submits."""
+
+    def __init__(self, *, fill_model=None, timeout_ms: int = 2000,
+                 cancel_on_leg_failure: bool = True, full_fill_tolerance: float = 1e-6):
+        from ..execution.paper_broker import RealisticFillModel
+        self.fill_model = fill_model or RealisticFillModel()
+        self.timeout_ms = int(timeout_ms)
+        self.cancel_on_leg_failure = bool(cancel_on_leg_failure)
+        self.tol = float(full_fill_tolerance)
+
+    def simulate(self, opp: CertifiedBregmanOpportunity, *,
+                 leg_fill_fractions: Optional[list] = None,
+                 leg_latencies_ms: Optional[list] = None,
+                 now: Optional[float] = None) -> BundleExecutionResult:
+        legs = list(opp.legs)
+        n = len(legs)
+        sets = float(opp.sets)
+        cost_per_set = float(opp.cost_per_set)
+        # group payout is $1 per share for a complete set (one outcome resolves YES)
+        payout = 1.0
+
+        leg_results: list = []
+        cum_latency = 0.0
+        timed_out = False
+        cancelled = False
+        realized_cost = 0.0
+        fully_filled = 0
+        partial_or_failed = 0
+
+        for i, leg in enumerate(legs):
+            px = float(leg.executable_price)
+            req = float(leg.quantity)
+            # latency / timeout
+            cum_latency += float(leg_latencies_ms[i]) if (leg_latencies_ms
+                                                          and i < len(leg_latencies_ms)) else 0.0
+            if self.timeout_ms and cum_latency > self.timeout_ms:
+                timed_out = True
+                leg_results.append(BundleLegResult(
+                    market_id=leg.market_id, outcome=leg.outcome, requested_qty=req,
+                    filled_qty=0.0, fill_price=px, fraction=0.0, status="cancelled"))
+                partial_or_failed += 1
+                cancelled = True
+                continue
+
+            # fill fraction: explicit override, else modeled from leg depth
+            if leg_fill_fractions is not None and i < len(leg_fill_fractions):
+                frac = max(0.0, min(1.0, float(leg_fill_fractions[i])))
+            else:
+                frac = self.fill_model.fill_fraction(order_usd=sets * px,
+                                                     depth_usd=float(leg.depth_usd))
+            filled = req * frac
+            realized_cost += filled * px
+            if frac >= 1.0 - self.tol:
+                status = "filled"
+                fully_filled += 1
+            elif filled > 0:
+                status = "partial"
+                partial_or_failed += 1
+            else:
+                status = "unfilled"
+                partial_or_failed += 1
+            leg_results.append(BundleLegResult(
+                market_id=leg.market_id, outcome=leg.outcome, requested_qty=req,
+                filled_qty=filled, fill_price=px, fraction=frac, status=status))
+            # cancel the rest of the bundle once a leg fails to fully fill
+            if status != "filled" and self.cancel_on_leg_failure and i < n - 1:
+                cancelled = True
+                for j in range(i + 1, n):
+                    lj = legs[j]
+                    leg_results.append(BundleLegResult(
+                        market_id=lj.market_id, outcome=lj.outcome,
+                        requested_qty=float(lj.quantity), filled_qty=0.0,
+                        fill_price=float(lj.executable_price), fraction=0.0,
+                        status="cancelled"))
+                    partial_or_failed += 1
+                break
+
+        fully_hedged = (fully_filled == n) and not timed_out
+        if fully_hedged:
+            failure_mode = ""
+            realized_pnl = sets * (payout - cost_per_set)        # the certified profit
+        elif timed_out:
+            failure_mode = "timeout"
+            # filled legs are unhedged; worst case the missing leg wins => lose cost
+            realized_pnl = -realized_cost
+        else:
+            failure_mode = "partial_fill_breaks_hedge"
+            realized_pnl = -realized_cost
+        partial_fill_rate = round(partial_or_failed / n, 6) if n else 0.0
+
+        return BundleExecutionResult(
+            group_id=opp.group_id, total_legs=n, filled_legs=fully_filled,
+            fully_hedged=fully_hedged, hedge_complete=fully_hedged,
+            failure_mode=failure_mode, realized_cost=round(realized_cost, 6),
+            realized_pnl=round(realized_pnl, 6), partial_fill_rate=partial_fill_rate,
+            cancelled=cancelled, timed_out=timed_out, leg_results=leg_results)

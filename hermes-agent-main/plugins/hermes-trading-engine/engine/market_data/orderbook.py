@@ -79,6 +79,12 @@ class OrderbookState:
         self.last_trade_size: Optional[Decimal] = None
         self.last_trade_side: Optional[str] = None
         self.last_trade_ms: int = 0
+        # EWMA of |Δmid|/mid — a cheap realized-volatility proxy that feeds the
+        # CLOB v2 realistic fill/slippage model (more volatile book => lower fill
+        # probability + wider slippage). Updated on each book update.
+        self._last_mid: Optional[Decimal] = None
+        self._vol_ewma: float = 0.0
+        self._vol_alpha: float = 0.2
 
     # ------------------------------------------------------------------ #
     @property
@@ -136,10 +142,27 @@ class OrderbookState:
             return None
         return _now_ms() - self.last_update_ms
 
+    def recent_volatility(self) -> float:
+        """EWMA realized mid volatility proxy (fractional |Δmid|/mid)."""
+        return round(float(self._vol_ewma), 8)
+
+    def _update_volatility(self) -> None:
+        mid = self.midpoint
+        if mid is None or mid <= 0:
+            return
+        if self._last_mid is not None and self._last_mid > 0:
+            try:
+                ret = abs(float(mid) - float(self._last_mid)) / float(self._last_mid)
+            except (ZeroDivisionError, ValueError):
+                ret = 0.0
+            self._vol_ewma = (1.0 - self._vol_alpha) * self._vol_ewma + self._vol_alpha * ret
+        self._last_mid = mid
+
     # ------------------------------------------------------------------ #
     def _recompute_best(self) -> None:
         self.best_bid = max(self.bids) if self.bids else None
         self.best_ask = min(self.asks) if self.asks else None
+        self._update_volatility()
 
     def _touch(self, ts_ms: Optional[int] = None, sequence: Optional[str] = None) -> None:
         self.last_update_ms = int(ts_ms) if ts_ms else _now_ms()

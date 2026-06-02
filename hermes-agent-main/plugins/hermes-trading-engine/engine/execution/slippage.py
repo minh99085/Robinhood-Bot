@@ -40,5 +40,40 @@ class SlippageModel:
         adjusted = price - penalty            # receive less
         return adjusted if adjusted > 0 else Decimal(0)
 
+    def impact_adjust(self, price, side: str, *, spread: Optional[Decimal] = None,
+                      order_usd: float = 0.0, depth_usd: float = 0.0,
+                      volatility: float = 0.0,
+                      impact_coeff: Decimal = Decimal("0.5")) -> Decimal:
+        """Size- and volatility-aware slippage (CLOB v2 realism).
+
+        Adds, on top of the base bps + half-spread, a market-impact term that
+        grows with the order's share of executable depth and a volatility term.
+        Still ONLY ever makes the price worse (never improves it)."""
+        price = D(price)
+        penalty = price * self.slippage_bps / Decimal(10000)
+        if self.spread_aware and spread is not None:
+            penalty += D(spread) / Decimal(2)
+        depth = max(1e-9, float(depth_usd))
+        share = max(0.0, float(order_usd)) / depth
+        # impact grows ~ with the depth share; volatility widens it further
+        impact_frac = float(impact_coeff) * share + 0.5 * max(0.0, float(volatility))
+        penalty += price * D(str(round(impact_frac, 10)))
+        if side == OrderSide.BUY:
+            return price + penalty
+        adjusted = price - penalty
+        return adjusted if adjusted > 0 else Decimal(0)
+
     def as_dict(self) -> dict:
         return {"slippage_bps": str(self.slippage_bps), "spread_aware": self.spread_aware}
+
+
+def markout_bps(fill_price, ref_price, side: str) -> Optional[Decimal]:
+    """Adverse-selection markout in bps (favourable > 0, adverse < 0).
+
+    BUY is favourable when the reference (later mid/touch) is ABOVE the fill;
+    SELL when it is below. Used to attribute execution quality on paper fills."""
+    fp, rp = D(fill_price), D(ref_price)
+    if fp <= 0:
+        return None
+    sign = Decimal(1) if str(side).upper() == "BUY" else Decimal(-1)
+    return sign * (rp - fp) / fp * Decimal(10000)

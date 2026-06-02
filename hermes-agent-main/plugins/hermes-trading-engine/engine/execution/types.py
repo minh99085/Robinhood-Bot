@@ -230,6 +230,15 @@ class ExecutionResult:
     reject_reason: Optional[str] = None
     resting: bool = False
     remaining: Decimal = Decimal(0)
+    # ---- CLOB v2 realistic-fill diagnostics (additive; default = neutral) ----
+    # Populated only by the realistic fill path; the deterministic path leaves
+    # these at their defaults so existing behaviour/serialization is unchanged.
+    realistic: bool = False
+    fill_probability: Optional[float] = None
+    fill_fraction: Optional[float] = None
+    partial_fill: bool = False
+    queue_position: Optional[float] = None
+    adverse_selection_bps: Optional[Decimal] = None
 
     @property
     def filled_quantity(self) -> Decimal:

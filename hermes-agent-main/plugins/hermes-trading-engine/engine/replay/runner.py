@@ -497,6 +497,7 @@ class ReplayRunner:
             "calibration": getattr(self, "_calibration", {}),
             "dependency_graph": graph_report,
             "cluster_exposure": cluster_exposure,
+            "execution_diagnostics": met.execution_diagnostics(self.orders, self.fills),
             "counts": {"orders": len(self.orders), "fills": len(self.fills),
                        "proposals": len(self.proposals), "equity_points": len(self.equity_rows)},
             "no_live_orders": True,

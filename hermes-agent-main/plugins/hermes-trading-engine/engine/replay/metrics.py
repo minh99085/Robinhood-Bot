@@ -462,6 +462,43 @@ def chainlink_replay_analytics(signals: Optional[list] = None) -> dict:
     }
 
 
+def execution_diagnostics(orders: list, fills: list, *, bundles: Optional[list] = None) -> dict:
+    """Realistic-execution diagnostics for PAPER/replay reports (CLOB v2 sim +
+    Monitoring): fill rate, partial-fill rate, average slippage (fill vs limit),
+    average adverse markout, and failed-bundle rate. Defensive + divide-by-zero
+    safe; works off plain order/fill/bundle dicts."""
+    orders = orders or []
+    fills = fills or []
+    bundles = bundles or []
+    n_orders = len(orders)
+    filled = [o for o in orders if str(o.get("status")) in ("FILLED", "PARTIALLY_FILLED")]
+    partials = [o for o in orders if str(o.get("status")) == "PARTIALLY_FILLED"]
+
+    slips, markouts = [], []
+    for f in fills:
+        lp = _f(f.get("limit_price")) if f.get("limit_price") not in (None, "") else None
+        px = _f(f.get("price"))
+        side = str(f.get("side", "BUY")).upper()
+        if lp and px and lp > 0:
+            # signed slippage in bps (positive = paid worse than limit on a BUY)
+            slips.append((px - lp) / lp * 10000.0 if side == "BUY" else (lp - px) / lp * 10000.0)
+        mk = f.get("markout_bps")
+        if mk not in (None, ""):
+            markouts.append(_f(mk))
+
+    failed_bundles = sum(1 for b in bundles if not b.get("fully_hedged", True))
+    return {
+        "order_count": n_orders,
+        "fill_count": len(filled),
+        "fill_rate": round(len(filled) / n_orders, 6) if n_orders else 0.0,
+        "partial_fill_rate": round(len(partials) / n_orders, 6) if n_orders else 0.0,
+        "avg_slippage_bps": round(sum(slips) / len(slips), 4) if slips else 0.0,
+        "avg_markout_bps": round(sum(markouts) / len(markouts), 4) if markouts else 0.0,
+        "bundle_count": len(bundles),
+        "failed_bundle_rate": round(failed_bundles / len(bundles), 6) if bundles else 0.0,
+    }
+
+
 def dependency_graph_metrics(graph) -> dict:
     """Market-dependency-graph report artifact for replay/training reports
     (Monitoring + Bregman arbitrage structure). Defensive: ``None`` graph -> {}."""
