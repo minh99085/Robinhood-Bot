@@ -443,7 +443,51 @@ class ReplayRunner:
                 self.out_store.set_replay_metric(self.run_id, name, None, value)
 
     # ------------------------------------------------------------------ #
+    def _dependency_graph_report(self) -> tuple:
+        """Build a market-dependency-graph + cluster-exposure report artifact from
+        the replay's proposals/positions (Monitoring + Risk). Best-effort: any
+        failure yields empty artifacts and never breaks the replay report."""
+        try:
+            from types import SimpleNamespace
+
+            from . import metrics as _met
+            from .event_loader import ReplayEventLoader  # noqa: F401 (kept for parity)
+            from engine.training.dependency_graph import MarketDependencyGraph
+
+            meta: dict = {}
+            for p in self.proposals:
+                mid = p.get("market_id")
+                if not mid:
+                    continue
+                payload = p.get("payload_json")
+                q = ""
+                if isinstance(payload, str):
+                    q = payload
+                meta.setdefault(mid, {"question": q,
+                                      "group_key": (p.get("payload") or {}).get("event") or mid})
+            recs = [SimpleNamespace(market_id=mid, group_key=m.get("group_key", mid),
+                                    category="", question=m.get("question", ""), yes_price=None,
+                                    clob_token_ids=[], spread=0.0, top_depth_usd=0.0,
+                                    has_resolution_text=True, book_age_s=None, end_ts=None,
+                                    raw={}) for mid, m in meta.items()]
+            graph = MarketDependencyGraph.build(recs) if recs else None
+            positions = []
+            for pos in self.positions:
+                try:
+                    qty = float(pos.get("quantity") or 0.0)
+                    px = float(pos.get("avg_price") or 0.0)
+                except (TypeError, ValueError):
+                    continue
+                positions.append({"market_id": pos.get("market_id"),
+                                  "notional": abs(qty * px),
+                                  "side": "BUY" if qty >= 0 else "SELL"})
+            return (_met.dependency_graph_metrics(graph),
+                    _met.cluster_exposure_metrics(positions, graph))
+        except Exception:  # noqa: BLE001
+            return {}, {}
+
     def _build_report(self) -> dict:
+        graph_report, cluster_exposure = self._dependency_graph_report()
         return {
             "replay_run_id": self.run_id, "status": self.status, "error": self.error,
             "config_hash": self.config_hash, "seed": self.seed,
@@ -451,6 +495,8 @@ class ReplayRunner:
             "event_count": len(self.events),
             "metrics": getattr(self, "metrics", {}),
             "calibration": getattr(self, "_calibration", {}),
+            "dependency_graph": graph_report,
+            "cluster_exposure": cluster_exposure,
             "counts": {"orders": len(self.orders), "fills": len(self.fills),
                        "proposals": len(self.proposals), "equity_points": len(self.equity_rows)},
             "no_live_orders": True,

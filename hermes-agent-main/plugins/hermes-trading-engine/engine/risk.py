@@ -459,3 +459,34 @@ class RiskEngine:
             adjusted_notional=proposal.notional if approved else None,
             limits_snapshot=self.limits.as_dict(),
         )
+
+
+# --------------------------------------------------------------------------- #
+# Market-dependency-graph exposure netting (ADDITIVE, read-only).
+#
+# This does NOT alter the mandatory RiskEngine gate above — it is a portfolio-
+# level helper that nets correlated/same-event exposures over a
+# :class:`engine.training.dependency_graph.MarketDependencyGraph` so the trainer
+# can avoid concentrating risk in one correlated cluster (Risk Management &
+# Portfolio Optimization). Every individual order still passes the RiskEngine.
+# --------------------------------------------------------------------------- #
+def cluster_exposure_report(graph, positions: list, *,
+                            max_cluster_exposure_usd: float = 50.0) -> dict:
+    """Per-correlated-cluster gross/net exposure + the clusters breaching the cap.
+
+    ``graph`` is a MarketDependencyGraph; ``positions`` are
+    ``{market_id, notional, side}`` dicts. Same-event exhaustive hedges net down;
+    overexposure is flagged on gross. Defensive: missing graph/positions -> empty.
+    PAPER-aware, read-only — never sizes/places an order."""
+    if graph is None or not positions:
+        return {"clusters": {}, "overexposed": [],
+                "max_cluster_exposure_usd": max_cluster_exposure_usd}
+    try:
+        from engine.training.dependency_graph import ClusterExposureNetter
+        netter = ClusterExposureNetter(graph, max_cluster_exposure_usd=max_cluster_exposure_usd)
+        return {"clusters": netter.cluster_exposures(positions),
+                "overexposed": netter.overexposed(positions),
+                "max_cluster_exposure_usd": max_cluster_exposure_usd}
+    except Exception:  # noqa: BLE001 — netting must never break risk evaluation
+        return {"clusters": {}, "overexposed": [],
+                "max_cluster_exposure_usd": max_cluster_exposure_usd}

@@ -43,6 +43,9 @@ NO_TRADE_REASONS = (
     "ambiguity_too_high", "evidence_too_weak", "stale_research",
     "duplicate_event_exposure", "max_open_trades", "risk_rejected",
     "paperbroker_rejected", "chainlink_stale_or_irrelevant",
+    # market-dependency-graph correlated-cluster exposure cap (additive; only
+    # ever makes the gate stricter — see engine.training.dependency_graph).
+    "correlated_cluster_exposure",
 )
 
 # The decisive trade reason and the two NEAR-MISS reasons. A near-miss passed
@@ -110,7 +113,9 @@ class EdgeEngine:
         return no_ask, no_bid
 
     def evaluate(self, est: ProbabilityEstimate, rec, *, outcome: str = "YES",
-                 open_event_groups: Optional[set] = None, open_trades: int = 0) -> EdgeResult:
+                 open_event_groups: Optional[set] = None, open_trades: int = 0,
+                 cluster_id: Optional[str] = None,
+                 open_clusters: Optional[set] = None) -> EdgeResult:
         cfg = self.cfg
         outcome = outcome.upper()
         if outcome == "NO":
@@ -162,6 +167,12 @@ class EdgeEngine:
             return no("stale_research")
         if open_event_groups is not None and rec.group_key in open_event_groups:
             return no("duplicate_event_exposure")
+        # Market-dependency-graph correlated-cluster cap: refuse a trade that would
+        # add to an already-open correlated cluster (prevents overexposure to one
+        # cluster). Optional + additive — only tightens when the trainer wires a
+        # graph cluster map; default (None) is a no-op.
+        if open_clusters and cluster_id is not None and cluster_id in open_clusters:
+            return no("correlated_cluster_exposure")
         if open_trades >= int(cfg.max_open_trades):
             return no("max_open_trades")
 
@@ -211,13 +222,16 @@ class EdgeEngine:
             chainlink_no_trade=cl_block)
 
     def best_side(self, est: ProbabilityEstimate, rec, *, open_event_groups=None,
-                  open_trades: int = 0) -> EdgeResult:
+                  open_trades: int = 0, cluster_id: Optional[str] = None,
+                  open_clusters: Optional[set] = None) -> EdgeResult:
         """Evaluate BUY YES and BUY NO; return the tradable side with higher net
         edge (or the YES no-trade result if neither trades)."""
-        yes = self.evaluate(est, rec, outcome="YES",
-                            open_event_groups=open_event_groups, open_trades=open_trades)
-        no = self.evaluate(est, rec, outcome="NO",
-                           open_event_groups=open_event_groups, open_trades=open_trades)
+        yes = self.evaluate(est, rec, outcome="YES", open_event_groups=open_event_groups,
+                            open_trades=open_trades, cluster_id=cluster_id,
+                            open_clusters=open_clusters)
+        no = self.evaluate(est, rec, outcome="NO", open_event_groups=open_event_groups,
+                           open_trades=open_trades, cluster_id=cluster_id,
+                           open_clusters=open_clusters)
         tradables = [r for r in (yes, no) if r.should_trade]
         if tradables:
             return max(tradables, key=lambda r: r.net_edge)

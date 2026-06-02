@@ -194,6 +194,20 @@ def annotate_feedback_value(scored: list, *, learner=None, category_target: int 
     return scored
 
 
+def annotate_clusters(scored: list, graph, *, correlated: bool = True) -> list:
+    """Annotate ranked candidate dicts with their dependency-graph ``cluster_id``
+    (correlated cluster by default) so active-learning diversity + risk netting
+    can avoid over-trading one correlated cluster. Additive — ordering unchanged."""
+    if graph is None:
+        return scored
+    for d in scored:
+        rec = d.get("record")
+        if rec is None:
+            continue
+        d["cluster_id"] = graph.cluster_of(getattr(rec, "market_id", ""), correlated=correlated)
+    return scored
+
+
 class CandidateRanker:
     """Thin stateful wrapper that folds in learned category reliability and an
     optional Chainlink relevance boost (fresh-only)."""

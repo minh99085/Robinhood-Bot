@@ -462,6 +462,40 @@ def chainlink_replay_analytics(signals: Optional[list] = None) -> dict:
     }
 
 
+def dependency_graph_metrics(graph) -> dict:
+    """Market-dependency-graph report artifact for replay/training reports
+    (Monitoring + Bregman arbitrage structure). Defensive: ``None`` graph -> {}."""
+    if graph is None:
+        return {}
+    try:
+        return graph.to_report()
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def cluster_exposure_metrics(positions: Optional[list], graph, *,
+                             max_cluster_exposure_usd: float = 50.0) -> dict:
+    """Per-correlated-cluster exposure (gross + same-event-hedged net) + the
+    clusters breaching the cap (Risk / Portfolio Optimization). Proves the graph
+    nets offsetting same-event hedges and flags correlated-cluster overexposure.
+    Defensive: missing graph/positions -> empty summary."""
+    if graph is None or not positions:
+        return {"clusters": {}, "overexposed": [], "max_cluster_exposure_usd": max_cluster_exposure_usd}
+    try:
+        from engine.training.dependency_graph import ClusterExposureNetter
+        netter = ClusterExposureNetter(graph, max_cluster_exposure_usd=max_cluster_exposure_usd)
+        exposures = netter.cluster_exposures(positions)
+        return {
+            "clusters": exposures,
+            "overexposed": netter.overexposed(positions),
+            "max_cluster_exposure_usd": max_cluster_exposure_usd,
+            "gross_total": round(sum(v["gross"] for v in exposures.values()), 6),
+            "net_total": round(sum(v["net"] for v in exposures.values()), 6),
+        }
+    except Exception:  # noqa: BLE001
+        return {"clusters": {}, "overexposed": [], "max_cluster_exposure_usd": max_cluster_exposure_usd}
+
+
 def institutional_metrics(*, equity_rows: Optional[list] = None,
                           equities: Optional[list] = None,
                           trades: Optional[list] = None,

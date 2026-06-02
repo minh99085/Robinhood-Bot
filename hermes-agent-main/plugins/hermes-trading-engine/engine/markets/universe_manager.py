@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -226,6 +227,44 @@ def _group_key(raw: dict) -> str:
         if raw.get(k):
             return f"{k}:{raw[k]}"
     return f"market:{raw.get('id') or raw.get('slug') or id(raw)}"
+
+
+# Canonical macro / crypto asset detection for the market dependency graph
+# (Data Acquisition & Ingestion). Maps free-text questions to a coarse asset key
+# so markets referencing the same underlying can be linked as correlated, even
+# across different events. Deterministic, offline, public keywords (no secrets).
+ASSET_KEYWORDS = (
+    ("BTC", ("btc", "bitcoin", "xbt")),
+    ("ETH", ("eth", "ethereum", "ether")),
+    ("SOL", ("sol", "solana")),
+    ("DOGE", ("doge", "dogecoin")),
+    ("LINK", ("chainlink", "link/usd")),
+    ("FED_RATES", ("fomc", "federal reserve", "interest rate", "rate cut",
+                   "rate hike", "powell", "the fed ")),
+    ("CPI_INFLATION", ("cpi", "inflation")),
+    ("SPX", ("s&p 500", "s&p500", "sp500", "spx", "s&p")),
+    ("GOLD", ("gold", "xau")),
+    ("US_ELECTION", ("presidential", "president", "election")),
+)
+
+
+_ASSET_PATTERNS = tuple(
+    (asset, tuple(re.compile(r"\b" + re.escape(kw) + r"\b", re.IGNORECASE) for kw in kws))
+    for asset, kws in ASSET_KEYWORDS)
+
+
+def detect_asset(text: str) -> str:
+    """Return a coarse asset key for ``text`` (``""`` when none matches).
+
+    Word-boundary match over public keyword lists (so "sol" matches "Solana" but
+    not "resolved"); the first matching asset in priority order wins. Used by the
+    dependency graph to add ``related_asset`` edges between markets on the same
+    underlying."""
+    t = text or ""
+    for asset, patterns in _ASSET_PATTERNS:
+        if any(p.search(t) for p in patterns):
+            return asset
+    return ""
 
 
 @dataclass

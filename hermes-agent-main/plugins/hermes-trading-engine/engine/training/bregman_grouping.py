@@ -288,6 +288,42 @@ def group_markets(records: list, *, chainlink=None, now: Optional[float] = None,
     return groups
 
 
+def groups_from_graph(graph, records: list, *, chainlink=None, now: Optional[float] = None,
+                      include_binary: bool = True) -> list[SimplexGroup]:
+    """Build simplex groups from a :class:`MarketDependencyGraph`'s structural
+    clusters (combinatorial Bregman grouping).
+
+    Each same-event cluster becomes one event group whose legs are ALL cluster
+    members (so a multi-leg hedge is assembled combinatorially rather than only
+    from a single ``group_key``). A cluster is marked ``exhaustive`` only when the
+    graph carries an EXHAUSTIVE edge among its members, so an incomplete event is
+    never mislabelled as a full hedge. Singletons optionally become binary groups.
+    """
+    by_id = {}
+    for r in records or []:
+        mid = str(_rec_attr(r, "market_id", "") or "")
+        if mid and mid not in by_id:
+            by_id[mid] = r
+
+    groups: list[SimplexGroup] = []
+    for cluster in graph.same_event_groups():
+        members = sorted(cluster)
+        recs = [by_id[m] for m in members if m in by_id]
+        if not recs:
+            continue
+        if len(recs) >= 2:
+            exhaustive = graph.cluster_is_exhaustive(members)
+            gk = str(_rec_attr(recs[0], "group_key", "") or members[0])
+            groups.append(build_event_group(
+                recs, group_id=f"event:{gk}",
+                group_type="exhaustive_event" if exhaustive else "mutually_exclusive",
+                exhaustive=exhaustive, mutually_exclusive=True,
+                chainlink=chainlink, now=now))
+        elif include_binary:
+            groups.append(build_binary_group(recs[0]))
+    return groups
+
+
 def build_range_bucket_group(market_id: str, buckets: list[dict], *,
                              group_id: Optional[str] = None) -> SimplexGroup:
     """Build an exhaustive group from contiguous numeric range buckets.

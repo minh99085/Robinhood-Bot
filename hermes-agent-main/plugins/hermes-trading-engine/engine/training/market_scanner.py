@@ -48,6 +48,7 @@ class ScanResult:
     reject_reasons: dict = field(default_factory=dict)
     groups: list = field(default_factory=list)         # EventGroup (over kept)
     features: list = field(default_factory=list)        # InstitutionalFeatures (shortlist)
+    graph: object = None                                # MarketDependencyGraph (shortlist)
     feature_coverage: float = 0.0
     null_rate: float = 0.0
     stale_rate: float = 0.0
@@ -66,6 +67,7 @@ class ScanResult:
             "stale_rate": round(self.stale_rate, 4),
             "group_coverage": round(self.group_coverage, 4),
             "cache_hits": self.cache_hits,
+            "dependency_graph": self.graph.to_report() if self.graph is not None else {},
             "latency_ms": round(self.latency_ms, 2), "ts": self.ts,
         }
 
@@ -187,6 +189,20 @@ class MarketScanner:
                 d["features"] = f
                 features.append(f)
 
+        # --- market dependency graph over the shortlist (structure + risk) ---
+        # Feeds combinatorial Bregman grouping, exposure netting, and aggressive
+        # diversification. Built over the shortlist to bound cost; never trades.
+        graph = None
+        if getattr(self.cfg, "dependency_graph_enabled", True) and recs:
+            try:
+                from .dependency_graph import MarketDependencyGraph
+                graph = MarketDependencyGraph.build(recs)
+                for d in shortlist:
+                    d["cluster_id"] = graph.cluster_of(
+                        getattr(d["record"], "market_id", ""), correlated=True)
+            except Exception:  # noqa: BLE001 — graph must never break a scan
+                graph = None
+
         cov = feature_coverage(features)
         clob_stale_ms = float(getattr(self.cfg, "clob_stale_ms", 3000.0))
         stale = sum(1 for r in recs
@@ -198,7 +214,7 @@ class MarketScanner:
         res = ScanResult(
             scanned=len(raw_catalog), kept=len(kept), shortlisted=len(shortlist),
             records=recs, shortlist=shortlist, reject_reasons=reasons,
-            groups=groups, features=features,
+            groups=groups, features=features, graph=graph,
             feature_coverage=cov["coverage"], null_rate=cov["null_rate"],
             stale_rate=round(stale_rate, 4), group_coverage=gm.get("group_coverage", 0.0),
             cache_hits=cache_hits, latency_ms=latency_ms, ts=now)
