@@ -107,7 +107,10 @@ class GrokBrain:
         self.base_url = (os.getenv("GROK_BASE_URL") or os.getenv("HTE_GROK_BASE_URL")
                          or "https://api.x.ai/v1").rstrip("/")
         self.refresh_seconds = float(os.getenv("HTE_GROK_REFRESH_SECONDS", "30"))
-        self.timeout_s = float(os.getenv("HTE_GROK_TIMEOUT_MS", "4000")) / 1000.0
+        # grok-4.x is a reasoning model: a 4s read timeout reliably trips
+        # "xAI The read operation timed out". Default to 30s; override via
+        # HTE_GROK_TIMEOUT_MS. Connect stays short (fail fast on a bad endpoint).
+        self.timeout_s = float(os.getenv("HTE_GROK_TIMEOUT_MS", "30000")) / 1000.0
         self.max_tokens = int(os.getenv("HTE_GROK_MAX_TOKENS", "2048"))
         self.temperature = float(os.getenv("HTE_GROK_TEMPERATURE", "0.1"))
         self.regime_interval = float(os.getenv("HTE_GROK_REGIME_INTERVAL", "300"))
@@ -244,7 +247,10 @@ class GrokBrain:
                     {"role": "user", "content": json.dumps(user_payload, default=str)}]
         last = ""
         try:
-            with httpx.Client(timeout=timeout) as c:
+            # Generous READ budget (reasoning latency) with a short CONNECT so a
+            # dead endpoint still fails fast instead of hanging the whole budget.
+            _to = httpx.Timeout(timeout, connect=min(5.0, timeout))
+            with httpx.Client(timeout=_to) as c:
                 for model in self._candidates():
                     payload = {"model": model, "messages": messages,
                                "temperature": self.temperature, "max_tokens": self.max_tokens}

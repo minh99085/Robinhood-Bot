@@ -980,9 +980,25 @@ async function renderPmTraining() {
     `<div>risk approvals/rejections: ${risk.approvals || 0}/${risk.rejections || 0}</div>` +
     `<div>top no-trade reasons: ${topReasons}</div>` +
     `<div>baselines: ${blLine}</div>`;
+  // Plain-English status. NOTE: safety.live_detected is the live-EXECUTION
+  // safety flag (true only if a forbidden real-order flag is on); in PAPER mode
+  // it is correctly false. It is NOT a data-connection signal — so we show a
+  // separate, accurate "live data" indicator (real Polymarket markets / CLOB
+  // order books / Chainlink feeds the bot is actually reading right now).
+  const cl = s.chainlink || {};
+  const scannedN = scan.scanned || 0;
+  const subsN = scan.subscribed_assets || subs.subscribed_assets || 0;
+  const clFeeds = cl.feeds_scanned || 0;
+  const dataBits = [];
+  if (scannedN > 0) dataBits.push(`${scannedN} Polymarket markets`);
+  if (subsN > 0) dataBits.push(`${subsN} live order books`);
+  if (clFeeds > 0) dataBits.push(`${clFeeds} Chainlink feeds`);
+  const dataOn = dataBits.length > 0;
   $("pmtrain-note").textContent =
-    `PAPER ONLY \u00B7 polymarket_only=${s.polymarket_only} \u00B7 preflight_ok=${safety.ok} ` +
-    `\u00B7 live_detected=${safety.live_detected} \u00B7 arbitrage_disabled=` +
+    `PAPER ONLY (no real orders) \u00B7 live data: ` +
+    `${dataOn ? "ON \u2014 " + dataBits.join(", ") : "OFF (waiting for first scan)"} ` +
+    `\u00B7 live execution: ${safety.live_detected ? "ON \u26A0" : "OFF (safe)"} ` +
+    `\u00B7 preflight_ok=${safety.ok} \u00B7 arbitrage_disabled=` +
     `${(safety.checks || {}).arbitrage_disabled}`;
 }
 renderPmTraining();

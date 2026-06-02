@@ -47,7 +47,9 @@ services:
       GROK_API_KEY: "${GROK_API_KEY:-}"
       XAI_API_KEY: "${XAI_API_KEY:-}"
       GROK_MODEL: "${GROK_MODEL:-grok-4.3}"
-      HTE_GROK_TIMEOUT_MS: "4000"
+      # grok-4.x reasons before answering; 4s reliably trips
+      # "xAI The read operation timed out". 30s read budget (override as needed).
+      HTE_GROK_TIMEOUT_MS: "${HTE_GROK_TIMEOUT_MS:-30000}"
       HTE_GROK_MAX_TOKENS: "2048"
       HTE_GROK_TEMPERATURE: "0.1"
       # ---- Cross-exchange arbitrage: PERMANENTLY DISABLED (DEPRECATED) ----
