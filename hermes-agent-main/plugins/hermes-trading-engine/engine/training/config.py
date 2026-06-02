@@ -178,6 +178,20 @@ class TrainingConfig:
     leg_failure_haircut: float = 0.5
     chainlink_freshness_penalty_weight: float = 0.5
     settlement_ambiguity_penalty_weight: float = 0.5
+    # ---- adaptive capital allocation (micro-live readiness; PAPER ONLY) ----
+    # Capital flows only to proven, calibrated, after-cost edge. These knobs only
+    # ever TIGHTEN the mandatory risk gate; certified Bregman is first priority.
+    capital_allocation_enabled: bool = True
+    capital_min_after_cost_edge: float = 0.0          # min after-cost edge to fund
+    max_correlated_cluster_exposure_usd: float = 40.0  # correlated-cluster cap
+    max_strategy_exposure_usd: float = 40.0            # per-strategy bucket cap
+    max_open_capital_lock_usd: float = 100.0           # total deployed capital lock
+    # drawdown governor (reduce / pause / downgrade on degraded conditions)
+    dd_governor_max_loss_streak: int = 5               # reduce above this streak
+    dd_governor_pause_loss_streak: int = 10            # pause strategy above this
+    dd_governor_soft_fraction: float = 0.5             # reduce once dd budget used
+    dd_governor_calibration_limit: float = 0.15        # calibration-instability ceil
+    dd_governor_execution_floor: float = 0.5           # min realised fill quality
     # ---- research advisory gates (research is NEVER allowed to override) ----
     # When research confidence is high, the market is held to a stricter ambiguity
     # bar (research can never push a trade on an ambiguous market).
@@ -331,6 +345,25 @@ class TrainingConfig:
         self.cvar_alpha = min(0.999, max(0.5, self.cvar_alpha))
         self.kelly_max_fraction = max(0.0, min(self.kelly_max_fraction, 0.5))
         self.leg_failure_haircut = max(0.0, min(self.leg_failure_haircut, 1.0))
+        # adaptive capital allocation clamps (only ever TIGHTEN the risk gate)
+        self.capital_min_after_cost_edge = max(0.0, min(
+            float(self.capital_min_after_cost_edge), 1.0))
+        self.max_correlated_cluster_exposure_usd = max(0.0, min(
+            float(self.max_correlated_cluster_exposure_usd), 2000.0))
+        self.max_strategy_exposure_usd = max(0.0, min(
+            float(self.max_strategy_exposure_usd), 2000.0))
+        self.max_open_capital_lock_usd = max(0.0, min(
+            float(self.max_open_capital_lock_usd), 5000.0))
+        self.dd_governor_max_loss_streak = max(1, min(
+            int(self.dd_governor_max_loss_streak), 100000))
+        self.dd_governor_pause_loss_streak = max(
+            int(self.dd_governor_max_loss_streak),
+            min(int(self.dd_governor_pause_loss_streak), 100000))
+        self.dd_governor_soft_fraction = max(0.0, min(float(self.dd_governor_soft_fraction), 1.0))
+        self.dd_governor_calibration_limit = max(0.0, min(
+            float(self.dd_governor_calibration_limit), 1.0))
+        self.dd_governor_execution_floor = max(0.0, min(
+            float(self.dd_governor_execution_floor), 1.0))
         # capital-preservation hard ceilings (tiny; cannot be raised by env/config)
         self.live_micro_canary_notional_usd = max(0.0, min(self.live_micro_canary_notional_usd, 25.0))
         self.live_canary_notional_usd = max(0.0, min(self.live_canary_notional_usd, 100.0))
@@ -449,6 +482,17 @@ class TrainingConfig:
             cvar_alpha=_envf("POLYMARKET_CVAR_ALPHA", 0.95),
             kelly_max_fraction=_envf("POLYMARKET_KELLY_MAX_FRACTION", 0.05),
             leg_failure_haircut=_envf("POLYMARKET_LEG_FAILURE_HAIRCUT", 0.5),
+            capital_allocation_enabled=_envb("POLYMARKET_CAPITAL_ALLOCATION_ENABLED", True),
+            capital_min_after_cost_edge=_envf("POLYMARKET_CAPITAL_MIN_AFTER_COST_EDGE", 0.0),
+            max_correlated_cluster_exposure_usd=_envf(
+                "POLYMARKET_MAX_CORRELATED_CLUSTER_EXPOSURE_USD", 40.0),
+            max_strategy_exposure_usd=_envf("POLYMARKET_MAX_STRATEGY_EXPOSURE_USD", 40.0),
+            max_open_capital_lock_usd=_envf("POLYMARKET_MAX_OPEN_CAPITAL_LOCK_USD", 100.0),
+            dd_governor_max_loss_streak=_envi("POLYMARKET_DD_GOVERNOR_MAX_LOSS_STREAK", 5),
+            dd_governor_pause_loss_streak=_envi("POLYMARKET_DD_GOVERNOR_PAUSE_LOSS_STREAK", 10),
+            dd_governor_soft_fraction=_envf("POLYMARKET_DD_GOVERNOR_SOFT_FRACTION", 0.5),
+            dd_governor_calibration_limit=_envf("POLYMARKET_DD_GOVERNOR_CALIBRATION_LIMIT", 0.15),
+            dd_governor_execution_floor=_envf("POLYMARKET_DD_GOVERNOR_EXECUTION_FLOOR", 0.5),
             chainlink_freshness_penalty_weight=_envf("POLYMARKET_CHAINLINK_FRESHNESS_PENALTY", 0.5),
             settlement_ambiguity_penalty_weight=_envf("POLYMARKET_AMBIGUITY_PENALTY", 0.5),
             research_high_confidence=_envf("POLYMARKET_RESEARCH_HIGH_CONFIDENCE", 0.8),
