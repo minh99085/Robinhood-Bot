@@ -347,6 +347,15 @@ def build_range_bucket_group(market_id: str, buckets: list[dict], *,
                         mutually_exclusive=True, exhaustive=True)
 
 
+def group_after_cost_edge(cost_per_set: float, *, payout: float = 1.0) -> float:
+    """After-cost edge per complete set for a Bregman group: ``payout − cost_per_set``.
+
+    Profitability-governor input (Bregman priority): a complete-set group is only
+    worth trading when buying one share of every leg costs strictly less than the
+    $1 payout AFTER the certifier's fee/slippage/tick-up loading. Pure helper."""
+    return round(float(payout) - float(cost_per_set), 8)
+
+
 def build_synthetic_bundle(group_id: str, legs: list[SimplexLeg], *,
                            exhaustive: bool = True,
                            mutually_exclusive: bool = True) -> SimplexGroup:

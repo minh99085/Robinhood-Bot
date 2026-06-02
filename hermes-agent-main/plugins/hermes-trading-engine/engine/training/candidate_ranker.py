@@ -208,6 +208,47 @@ def annotate_clusters(scored: list, graph, *, correlated: bool = True) -> list:
     return scored
 
 
+def annotate_profitability(scored: list, cfg, *, memory=None, decay=None,
+                           aggressive: bool = False, profitability_first: bool = False,
+                           now: Optional[float] = None) -> list:
+    """Annotate ranked candidate dicts with an ``after_cost_score`` + ``timing``
+    decision (Profitability Governor; Signal Generation + Risk Management).
+
+    The after-cost score is a pre-trade PROXY: the market-quality base score haircut
+    by an estimated cost drag (spread + slippage + fee proxies) — so a fat-spread
+    book ranks below a tight one at equal quality. When ``profitability_first`` the
+    shortlist is RE-RANKED by after-cost score (shift from trade count toward net
+    profitability); otherwise it is purely additive (ordering unchanged). A
+    graylisted market gets a ``tiny_exploration`` (aggressive) or ``skip`` timing.
+    Never sizes or places an order."""
+    from .profitability_governor import (STATE_CLEAN, profitability_score,
+                                         timing_decision)
+    max_spread = max(1e-6, float(getattr(cfg, "max_spread",
+                                         getattr(cfg, "max_allowed_spread", 0.08))))
+    slip = float(getattr(cfg, "slippage_bps", 25.0)) / 10000.0
+    fee = float(getattr(cfg, "taker_fee_bps", 0.0)) / 10000.0
+    for d in scored:
+        rec = d.get("record")
+        if rec is None:
+            continue
+        base = float(d.get("score", 0.0)) / 100.0
+        spread = float(getattr(rec, "spread", 0.0) or 0.0)
+        # cost drag proxy in edge-units: half-spread crossing + slippage + fee
+        cost_proxy = min(1.0, (0.5 * spread + slip + fee) / max_spread)
+        net_proxy = base * (1.0 - cost_proxy)
+        d["after_cost_score"] = round(net_proxy * 100.0, 3)
+        d["profitability_score"] = profitability_score(net_proxy - 0.5, scale=0.25)
+        state = memory.state(getattr(rec, "market_id", "")) if memory is not None else STATE_CLEAN
+        d["graylist_state"] = state
+        d["timing"] = timing_decision(
+            net_edge=net_proxy - 0.5, decay_factor=1.0, graylist_state=state,
+            aggressive=aggressive, min_net_edge=-0.5)
+    if profitability_first:
+        scored.sort(key=lambda x: (x.get("after_cost_score", 0.0),
+                                   getattr(x.get("record"), "market_id", "")), reverse=True)
+    return scored
+
+
 class CandidateRanker:
     """Thin stateful wrapper that folds in learned category reliability and an
     optional Chainlink relevance boost (fresh-only)."""

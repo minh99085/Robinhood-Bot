@@ -110,6 +110,14 @@ def _markdown(runner, summary, metrics, calib, charts, overfit=None) -> str:
         f"- {', '.join(metrics.get('warnings', [])) or 'none'}",
         "- Queue priority is approximated; hidden/iceberg liquidity not modeled; replay quality depends on raw-event quality; unresolved markets are excluded from realized calibration.",
     ]
+    prof = metrics.get("profitability_truth") or {}
+    uplift = metrics.get("market_quality_uplift") or {}
+    if prof or uplift:
+        lines += ["", "## Profitability truth (after-cost net edge)",
+                  f"- gross={prof.get('gross_edge')} total_cost={prof.get('total_cost')} "
+                  f"net={prof.get('net_edge')} edge_survival={prof.get('edge_survival')}",
+                  f"- market-quality uplift (selected vs all): {uplift.get('uplift')} "
+                  f"(rejected {uplift.get('rejected_count')})"]
     lr = metrics.get("live_readiness") or {}
     if lr:
         v = lr.get("verdict", lr) or {}

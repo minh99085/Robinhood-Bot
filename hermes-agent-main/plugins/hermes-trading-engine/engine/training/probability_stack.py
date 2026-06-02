@@ -326,6 +326,17 @@ def feedback_uncertainty(est: "ProbabilityEstimate") -> float:
     return max(0.0, min(1.0, hi - lo))
 
 
+def timing_decay_proxy(est: "ProbabilityEstimate") -> float:
+    """Pre-trade timing-decay proxy in [0,1] for the profitability governor: a
+    wider spread + lower liquidity + staler book means a directional edge decays
+    faster before it can fill. Read-only; feeds the after-cost edge net-out."""
+    spread = float(getattr(est, "spread", 0.0) or 0.0)
+    stale = float(getattr(est, "stale_score", 0.0) or 0.0)
+    liq = float(getattr(est, "liquidity_usd", 0.0) or 0.0)
+    liq_q = _liq_quality(liq)
+    return max(0.0, min(1.0, 0.5 * min(1.0, spread / 0.08) + 0.3 * (1.0 - liq_q) + 0.2 * stale))
+
+
 def overfit_adjusted_shrink(base: float, penalty: float, *,
                             conservative: float = 0.25) -> float:
     """Pull the shrink-toward-market factor back to a conservative value as the

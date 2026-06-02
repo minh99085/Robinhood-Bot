@@ -267,6 +267,36 @@ def detect_asset(text: str) -> str:
     return ""
 
 
+def classify_market_type(rec) -> str:
+    """Coarse market-type label for the edge-decay model: ``binary`` (YES/NO),
+    ``range`` (contiguous numeric buckets), ``categorical`` (>2 mutually-exclusive
+    outcomes), ``scalar``, or ``unknown``. Read-only — used to set how fast an
+    edge decays (binary books persist longest; scalar/range race fastest)."""
+    raw = (rec.get("raw", {}) if isinstance(rec, dict) else getattr(rec, "raw", {})) or {}
+    explicit = str(raw.get("market_type") or raw.get("marketType") or "").strip().lower()
+    if explicit in ("binary", "range", "categorical", "scalar"):
+        return explicit
+    if raw.get("range_buckets") or raw.get("rangeBuckets") or raw.get("is_range"):
+        return "range"
+    text = f"{raw.get('question', '')} {raw.get('title', '')}".lower()
+    if any(w in text for w in ("between", "range", "how many", "what price", "level of")):
+        return "range"
+    oc = raw.get("outcomeCount") or raw.get("outcome_count")
+    try:
+        n = int(oc) if oc is not None else None
+    except (TypeError, ValueError):
+        n = None
+    if n is None:
+        outs = raw.get("outcomes") or raw.get("outcomePrices")
+        n = len(outs) if isinstance(outs, (list, tuple)) else None
+    if n == 2:
+        return "binary"
+    if n is not None and n > 2:
+        return "categorical"
+    # a single-market YES/NO Polymarket binary is the default shape
+    return "binary" if raw else "unknown"
+
+
 @dataclass
 class MarketRecord:
     market_id: str

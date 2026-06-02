@@ -271,6 +271,22 @@ def _markdown(status: dict, run_id: str) -> str:
             a(f"- **AUTO-DOWNGRADED to conservative paper mode** (kill-switch: "
               f"{', '.join(ks.get('triggered', []))})")
         a("")
+    prof = status.get("profitability", {}) or {}
+    if prof:
+        truth = prof.get("truth", {}) or {}
+        a("## 17c. Profitability truth (gross edge vs after-cost reality)")
+        a(f"- net expectancy: {prof.get('net_expectancy')} · profit_factor: "
+          f"{prof.get('profit_factor')} · edge_survival: {prof.get('edge_survival')}")
+        if truth:
+            a(f"- gross={truth.get('gross_edge')} − fees={truth.get('fees')} "
+              f"spread={truth.get('spread')} slippage={truth.get('slippage')} "
+              f"fill_fail={truth.get('fill_failure')} adverse={truth.get('adverse_selection')} "
+              f"ambiguity={truth.get('label_ambiguity')} timing={truth.get('timing_decay')} "
+              f"-> NET={truth.get('net_edge')}")
+        a(f"- rejected bad markets: {prof.get('rejected_bad_markets', 0)} "
+          f"(graylist {prof.get('rejected_graylisted', 0)} / blacklist "
+          f"{prof.get('rejected_blacklisted', 0)})")
+        a("")
     lr = status.get("live_readiness", {}) or {}
     if lr:
         from .live_readiness import readiness_markdown

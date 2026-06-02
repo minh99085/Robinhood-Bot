@@ -652,6 +652,22 @@ def bregman_certification_metrics(certs: Optional[list] = None, *,
     }
 
 
+def market_quality_uplift(all_trades: list[dict], selected_trades: list[dict]) -> dict:
+    """Market-quality uplift: how much the after-cost net edge improves when the
+    profitability governor restricts trading to its SELECTED markets vs trading
+    everything. ``*_trades`` carry ``net_edge`` (after costs). Positive uplift
+    proves the governor raises net profitability (Strategy Optimization)."""
+    def _mean_net(rows):
+        vals = [_f(t.get("net_edge")) for t in (rows or [])]
+        return (sum(vals) / len(vals)) if vals else 0.0
+    base = _mean_net(all_trades)
+    sel = _mean_net(selected_trades)
+    return {"all_net_edge": round(base, 6), "selected_net_edge": round(sel, 6),
+            "uplift": round(sel - base, 6),
+            "rejected_count": max(0, len(all_trades or []) - len(selected_trades or [])),
+            "selected_count": len(selected_trades or [])}
+
+
 def optimistic_vs_realistic_pnl(optimistic_pnls: list, realistic_pnls: list) -> dict:
     """Compare optimistic (guaranteed-fill) PnL with realistic (probabilistic +
     partial + slippage) PnL. ``realistic_is_conservative`` is True when realistic

@@ -51,7 +51,19 @@ NO_TRADE_REASONS = (
     # ambiguous market is held to a stricter ambiguity bar (research can never
     # override settlement ambiguity). Additive — only ever stricter.
     "research_confident_but_ambiguous",
+    # profitability governor: edge does not survive costs/timing, or the market is
+    # graylisted/blacklisted for repeated bad after-cost behaviour. Hard gate —
+    # only ever makes the engine MORE selective.
+    "negative_after_cost_edge", "graylisted_market",
 )
+
+# Profitability-governor hard-gate reasons (a candidate rejected here is NEVER
+# live-ready; aggressive paper may still explore a graylisted market tiny+labeled).
+PROFITABILITY_GATE_REASONS = frozenset({"negative_after_cost_edge", "graylisted_market"})
+
+
+def is_profitability_gate_reason(reason: str) -> bool:
+    return reason in PROFITABILITY_GATE_REASONS
 
 # Weak-research reasons: in AGGRESSIVE paper mode these near-quality misses may
 # be explored with a tiny, explicitly-labelled paper trade (never bypassing a

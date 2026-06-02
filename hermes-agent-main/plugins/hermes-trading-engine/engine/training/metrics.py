@@ -276,6 +276,65 @@ def metric_trend(history: list, key: str) -> float:
     return round(vals[-1] - vals[0], 6)
 
 
+def after_cost_profitability_by(trades: list, *, key: str) -> dict:
+    """Group closed trades by ``key`` (market / event / category / liquidity /
+    spread / strategy) and report per-group after-cost net expectancy + win rate
+    + trade count (Profitability Governor reporting). Pure + side-effect-free.
+
+    Each trade dict carries ``net_edge`` (or ``realized_pnl``) + the grouping
+    field; ``liquidity``/``spread`` keys are bucketed via the helpers above."""
+    out: dict = {}
+    for t in trades or []:
+        if key == "liquidity":
+            g = liquidity_bucket(t.get("liquidity", 0.0))
+        elif key == "spread":
+            g = spread_bucket(t.get("spread", 0.0))
+        else:
+            g = str(t.get(key, "unknown"))
+        d = out.setdefault(g, {"n": 0, "net_sum": 0.0, "wins": 0})
+        d["n"] += 1
+        net = float(t.get("net_edge", t.get("realized_pnl", 0.0)) or 0.0)
+        d["net_sum"] += net
+        d["wins"] += int(net > 0.0)
+    for g, d in out.items():
+        n = max(1, d["n"])
+        d["net_expectancy"] = round(d["net_sum"] / n, 6)
+        d["win_rate"] = round(d["wins"] / n, 6)
+        d.pop("net_sum", None)
+    return out
+
+
+def profitability_summary(closed_trades: list, *, memory=None) -> dict:
+    """After-cost profitability headline for the training report.
+
+    Reports net expectancy, profit factor, edge-survival (net/gross), and the
+    rejected-bad-market counts from the graylist memory. ``closed_trades`` carry
+    ``net_edge``/``realized_pnl`` and optionally ``gross_edge``. Pure."""
+    rows = closed_trades or []
+    nets = [float(t.get("net_edge", t.get("realized_pnl", 0.0)) or 0.0) for t in rows]
+    grosses = [float(t.get("gross_edge", 0.0) or 0.0) for t in rows]
+    wins = sum(n for n in nets if n > 0.0)
+    losses = -sum(n for n in nets if n < 0.0)
+    net_sum = sum(nets)
+    gross_sum = sum(grosses)
+    rep = {
+        "trades": len(rows),
+        "net_expectancy": round(net_sum / len(rows), 6) if rows else 0.0,
+        "net_total": round(net_sum, 6),
+        "profit_factor": round(wins / losses, 6) if losses > 1e-12 else (
+            float("inf") if wins > 0 else 0.0),
+        "win_rate": round(sum(1 for n in nets if n > 0) / len(rows), 6) if rows else 0.0,
+        "edge_survival": round(net_sum / gross_sum, 6) if gross_sum > 1e-12 else 0.0,
+    }
+    if memory is not None:
+        m = memory.to_report()
+        rep["rejected_graylisted"] = m.get("graylist_count", 0)
+        rejected_blacklisted = m.get("blacklist_count", 0)
+        rep["rejected_blacklisted"] = rejected_blacklisted
+        rep["rejected_bad_markets"] = rep["rejected_graylisted"] + rejected_blacklisted
+    return rep
+
+
 def variant_attribution_table(experiment: dict) -> list:
     """Flatten an experiment report's per-variant metrics into report rows.
 
