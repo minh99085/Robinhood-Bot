@@ -312,6 +312,13 @@ class TrainingCampaignController:
              store=None, algorithm_freeze_mode: bool = False) -> "TrainingCampaignController":
         data = json.loads(Path(state_path).read_text(encoding="utf-8"))
         state = CampaignState.from_dict(data)
+        # Reconstruct the campaign's ACTUAL thresholds from the persisted file so a
+        # status/report script (no live trainer) renders a faithful verdict — fall
+        # back to the institutional defaults only when none were persisted.
+        if thresholds is None and isinstance(data.get("thresholds"), dict):
+            fields = {f for f in CampaignThresholds.__dataclass_fields__}
+            thresholds = CampaignThresholds(
+                **{k: v for k, v in data["thresholds"].items() if k in fields})
         return cls(campaign_name=state.campaign_name, thresholds=thresholds,
                    algorithm_freeze_mode=algorithm_freeze_mode or state.algorithm_freeze_mode,
                    state_path=state_path, store=store, state=state)
@@ -579,6 +586,7 @@ class TrainingCampaignController:
     def persist(self) -> None:
         if self.state_path:
             payload = dict(self.state.to_dict())
+            payload["thresholds"] = self.thresholds.to_dict()
             payload["report"] = self.report()
             self.state_path.parent.mkdir(parents=True, exist_ok=True)
             self.state_path.write_text(json.dumps(payload, indent=2, default=str),

@@ -1282,12 +1282,18 @@ class PolymarketPaperTrainer:
         pnl = self.pnl_summary()
         dash = self.aggressive_dashboard()
         breg_ev = ev.get("bregman", {}) or {}
-        # resolved / clean settlement labels from the learner's label states
-        states = dict(getattr(self.learner, "label_states", {}) or {})
-        total_labelled = sum(int(v) for v in states.values())
-        unresolved = int(states.get("unresolved", 0))
-        resolved_labels = max(0, total_labelled - unresolved)
-        clean_labels = int(states.get("clean", states.get("trainable", 0)))
+        # Settlement-label evidence (Statistical & Probabilistic Modeling):
+        # CLEAN labels are ONLY clean-trainable (resolved_yes / resolved_no) — the
+        # learner's ``clean_trained`` counter, which excludes every dirty state
+        # (void / ambiguous / partially_invalid / stale_resolution / unresolved).
+        # RESOLVED labels are settled decisions (clean + dirty-but-settled),
+        # excluding still-unresolved markets.
+        lq = self.learner.label_quality()
+        label_states = dict(lq.get("label_states", {}) or {})
+        clean_labels = int(lq.get("clean_trained", 0))
+        suppressed = int(lq.get("suppressed", 0))
+        unresolved = int(label_states.get("unresolved", 0))
+        resolved_labels = clean_labels + max(0, suppressed - unresolved)
         # Bregman candidates = certified opportunities + rejected candidates
         bregman_candidates = int(getattr(self, "bregman_opportunity_count", 0)) \
             + int(getattr(self, "bregman_rejected", 0))
