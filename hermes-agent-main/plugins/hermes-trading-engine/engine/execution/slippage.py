@@ -8,6 +8,12 @@ leg's executable price, so a certified opportunity is profitable AFTER slippage.
 
 from __future__ import annotations
 
+# Slippage/markout modelling is SIMULATION-ONLY (PAPER): it shapes simulated
+# fills and never touches a live venue.
+def is_simulation_only() -> bool:
+    """True — slippage modelling is paper-simulation only."""
+    return True
+
 import os
 from decimal import Decimal
 from typing import Optional

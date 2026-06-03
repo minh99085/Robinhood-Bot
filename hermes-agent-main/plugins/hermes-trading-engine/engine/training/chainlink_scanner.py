@@ -14,5 +14,8 @@ from engine.chainlink_scanner import (ChainlinkScanner, ChainlinkSignal,
                                       ChainlinkScanSnapshot, LINK_MIN_RELEVANCE,
                                       MAX_PROB_ADJUSTMENT)
 
+# Chainlink scanning is READ-ONLY + advisory-only (never triggers a trade).
+READ_ONLY = True
+
 __all__ = ["ChainlinkScanner", "ChainlinkSignal", "ChainlinkScanSnapshot",
-           "LINK_MIN_RELEVANCE", "MAX_PROB_ADJUSTMENT"]
+           "LINK_MIN_RELEVANCE", "MAX_PROB_ADJUSTMENT", "READ_ONLY"]

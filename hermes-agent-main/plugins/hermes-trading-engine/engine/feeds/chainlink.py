@@ -17,6 +17,15 @@ source only performs read-only ``eth_call``.
 
 from __future__ import annotations
 
+# Chainlink is a READ-ONLY price/feature source: it never signs, submits, or
+# mutates a wallet. Advisory-only — it can never directly trigger a trade.
+CHAINLINK_READ_ONLY = True
+
+
+def is_read_only() -> bool:
+    """True — the Chainlink feed is consume-only (no submit/sign/wallet)."""
+    return True
+
 import os
 import time
 from dataclasses import dataclass

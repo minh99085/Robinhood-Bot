@@ -78,6 +78,11 @@ def run(argv=None) -> int:
                     default="paper_train", help="training mode (PAPER ONLY either way)")
     ap.add_argument("--data-dir", default=None, help="data dir for status + campaign state")
     # ---- institutional paper-training campaign (PAPER ONLY) ----
+    ap.add_argument("--campaign-safe-profile", action="store_true",
+                    help="apply the institutional campaign-safe profile: aggressive paper + "
+                         "campaign + algorithm freeze + read-only CLOB + read-only Chainlink + "
+                         "realistic fills + clean-label guard, with ALL live paths disabled "
+                         "and fail-closed. PAPER ONLY.")
     ap.add_argument("--aggressive-paper", action="store_true",
                     help="use the AGGRESSIVE paper-training profile (more paper trades, "
                          "more feedback). Still PAPER ONLY; hard risk caps unchanged.")
@@ -129,13 +134,35 @@ def run(argv=None) -> int:
         overrides["campaign_target_min_resolved_labels"] = args.target_resolved_labels
     if args.target_bregman_candidates is not None:
         overrides["campaign_target_min_bregman_candidates"] = args.target_bregman_candidates
-    if args.aggressive_paper:
+    if args.campaign_safe_profile:
+        # institutional campaign-safe profile implies aggressive paper + campaign.
+        overrides["campaign_enabled"] = True
+        cfg = TrainingConfig.institutional_campaign_defaults(**overrides)
+    elif args.aggressive_paper:
         cfg = TrainingConfig.aggressive_paper(**overrides)
     else:
         cfg = TrainingConfig.from_env()
         for k, v in overrides.items():
             setattr(cfg, k, v)
         cfg.__post_init__()  # re-apply freeze/clamp invariants after overrides
+
+    # Campaign-safe startup safety validation (fail-closed). Runs whenever the
+    # safe profile is engaged; refuses to start if any live/unsafe flag is set.
+    if args.campaign_safe_profile or cfg.campaign_safe_profile:
+        from engine.training.campaign_controller import campaign_safety_check
+        safety = campaign_safety_check(cfg)
+        print("Campaign-safe profile — resolved safety config:")
+        for k in ("campaign_safe_profile", "clob_read_only_enabled",
+                  "chainlink_read_only_enabled", "realistic_fill_enabled",
+                  "clean_label_guard_enabled", "live_disabled", "micro_live_disabled",
+                  "guarded_live_disabled", "btc_autotrade_disabled", "risk_gates_required",
+                  "startup_safety_passed"):
+            print(f"  {'OK ' if safety.get(k) else 'XX '} {k}: {safety.get(k)}")
+        if not safety["passed"]:
+            print(f"\n\033[91m*** REFUSING TO START: campaign safety failed "
+                  f"({safety['fail_closed_reason']}). ***\033[0m")
+            return 2
+        print("campaign-safe startup safety PASSED — PAPER ONLY, no live path.\n")
     cfg.mode = args.mode  # start-paper explicitly drives paper training
     data_dir = Path(args.data_dir) if args.data_dir else None
     trainer = PolymarketPaperTrainer(cfg, data_dir=data_dir)

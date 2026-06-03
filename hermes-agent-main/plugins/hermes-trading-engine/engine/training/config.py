@@ -282,6 +282,17 @@ class TrainingConfig:
     campaign_target_min_resolved_labels: int = 100
     campaign_target_min_bregman_candidates: int = 50
     campaign_max_bregman_false_positives: int = 0
+    # ---- campaign-safe profile (read-only realism features; fail-closed) ----
+    # These only ever TIGHTEN safety: read-only CLOB/Chainlink, realistic fills,
+    # the clean-label guard, and a mandatory RiskEngine. They never enable a live
+    # path. Default OFF (NOT a global production default); turned on only by
+    # ``institutional_campaign_defaults()`` / ``--campaign-safe-profile``.
+    campaign_safe_profile: bool = False
+    clob_read_only: bool = True            # CLOB v2 feed is consume-only (no submit)
+    chainlink_read_only: bool = True       # Chainlink is price/feature-only (advisory)
+    realistic_fill_enabled: bool = False   # slippage+depth fills, no fantasy fills
+    clean_label_guard: bool = True         # only clean settled labels train (mandatory)
+    risk_engine_enabled: bool = True       # RiskEngine is mandatory (no bypass)
     # ---- run / sim ----
     take_profit: float = 0.05
     stop_loss: float = 0.05
@@ -335,6 +346,21 @@ class TrainingConfig:
             0, int(self.campaign_target_min_bregman_candidates))
         self.campaign_max_bregman_false_positives = max(
             0, int(self.campaign_max_bregman_false_positives))
+        # Campaign-safe profile: force every read-only / realism / guard invariant
+        # ON and every fantasy-fill / promotion path OFF — even if constructed
+        # with unsafe overrides. This NEVER enables a live path.
+        if bool(self.campaign_safe_profile):
+            self.campaign_enabled = True
+            self.algorithm_freeze_mode = True
+            self.aggressive_can_promote_params = False
+            self.clob_read_only = True
+            self.chainlink_read_only = True
+            self.realistic_fill_enabled = True
+            self.clean_label_guard = True
+            self.risk_engine_enabled = True
+            self.allow_pm_reference_price_fills = False
+            self.reject_on_stale_book = True
+            self.disable_btc_pulse_trading = True
         # hard PAPER clamps (cannot exceed even if env is misconfigured)
         self.fixed_notional_usd = max(0.0, min(self.fixed_notional_usd, 50.0))
         self.max_kelly_size_usd = max(0.0, min(self.max_kelly_size_usd, 50.0))
@@ -416,6 +442,15 @@ class TrainingConfig:
 
     @classmethod
     def from_env(cls) -> "TrainingConfig":
+        # Campaign-safe profile shortcut: when the operator sets the safe-profile
+        # env, resolve to the canonical institutional campaign defaults (aggressive
+        # paper + all read-only realism features ON, every live path OFF). This is
+        # opt-in and never a global production default.
+        if _envb("POLYMARKET_CAMPAIGN_SAFE_PROFILE", False):
+            overrides = {}
+            if os.getenv("POLYMARKET_CAMPAIGN_NAME"):
+                overrides["campaign_name"] = os.getenv("POLYMARKET_CAMPAIGN_NAME")
+            return cls.institutional_campaign_defaults(**overrides)
         ucfg = um.UniverseConfig.from_env()
         mode = (os.getenv("POLYMARKET_TRAINING_MODE") or "observe_only").strip().lower()
         return cls(
@@ -551,6 +586,12 @@ class TrainingConfig:
                 "POLYMARKET_CAMPAIGN_TARGET_MIN_BREGMAN_CANDIDATES", 50),
             campaign_max_bregman_false_positives=_envi(
                 "POLYMARKET_CAMPAIGN_MAX_BREGMAN_FALSE_POSITIVES", 0),
+            campaign_safe_profile=_envb("POLYMARKET_CAMPAIGN_SAFE_PROFILE", False),
+            clob_read_only=_envb("POLYMARKET_CLOB_READ_ONLY", True),
+            chainlink_read_only=_envb("CHAINLINK_READ_ONLY", True),
+            realistic_fill_enabled=_envb("POLYMARKET_REALISTIC_FILL_ENABLED", False),
+            clean_label_guard=_envb("POLYMARKET_CLEAN_LABEL_GUARD", True),
+            risk_engine_enabled=_envb("POLYMARKET_RISK_ENGINE_ENABLED", True),
             experiments_enabled=_envb("POLYMARKET_EXPERIMENTS_ENABLED", False),
             experiment_id=(os.getenv("POLYMARKET_EXPERIMENT_ID") or "exp_default").strip(),
             bregman_first_budget=_envb("POLYMARKET_BREGMAN_FIRST_BUDGET", True),
@@ -656,6 +697,44 @@ class TrainingConfig:
         )
         base.update(overrides)
         return cls(**base)
+
+    @classmethod
+    def institutional_campaign_defaults(cls, **overrides) -> "TrainingConfig":
+        """Campaign-safe institutional profile (PAPER ONLY; fail-closed).
+
+        Builds on :meth:`aggressive_paper` and turns on EVERY read-only learning +
+        realism feature for the multi-day institutional campaign while keeping
+        every live-money path disabled:
+
+        ENABLED: aggressive paper learning, campaign mode, algorithm freeze
+        (no parameter promotion), read-only Polymarket CLOB v2 feed, read-only
+        Chainlink scanner/features, realistic-fill simulation (slippage + depth,
+        NO fantasy reference-price fills, stale books rejected), the clean-label
+        guard (only clean settled labels train), a mandatory RiskEngine, and
+        Bregman certification monitoring + campaign evidence collection.
+
+        DISABLED: live trading, micro-live, guarded-live, real order submission,
+        wallet mutation, the legacy BTC pulse autotrade, and legacy cross-exchange
+        arbitrage. ``__post_init__`` re-asserts every safety invariant so these
+        can never be flipped off by an override. NOT a global production default.
+        """
+        base = dict(
+            campaign_safe_profile=True,
+            campaign_enabled=True,
+            campaign_name="institutional_paper_campaign",
+            algorithm_freeze_mode=True,
+            # read-only realism features ON
+            clob_enabled=True, clob_read_only=True, subscribe_trending=True,
+            chainlink_enabled=True, chainlink_read_only=True,
+            realistic_fill_enabled=True,
+            allow_pm_reference_price_fills=False, reject_on_stale_book=True,
+            # mandatory guards ON
+            clean_label_guard=True, risk_engine_enabled=True,
+            # legacy / live paths OFF
+            disable_btc_pulse_trading=True,
+        )
+        base.update(overrides)
+        return cls.aggressive_paper(**base)
 
 
 def AggressivePaperTrainingConfig(**overrides) -> "TrainingConfig":

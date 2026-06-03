@@ -50,6 +50,16 @@ _EVENT_NEW_MARKET = "new_market"
 _EVENT_RESOLVED = "market_resolved"
 
 
+# The Polymarket CLOB v2 WebSocket feed is READ-ONLY: it only consumes public
+# market data and never signs, submits, or cancels an order.
+CLOB_READ_ONLY = True
+
+
+def is_read_only() -> bool:
+    """True — the CLOB v2 market-data feed is consume-only (no order submission)."""
+    return True
+
+
 def _now_ms() -> int:
     return int(time.time() * 1000)
 

@@ -39,7 +39,7 @@ from typing import Optional
 
 __all__ = [
     "CampaignState", "CampaignThresholds", "CampaignProgress", "CampaignEvidence",
-    "CampaignVerdict", "TrainingCampaignController", "campaign_json", "campaign_markdown",
+    "CampaignVerdict", "TrainingCampaignController",     "campaign_json", "campaign_markdown", "campaign_safety_check",
     "VERDICT_BLOCKED", "VERDICT_CONTINUE", "VERDICT_PAPER_QUALIFIED",
     "VERDICT_MICRO_CANARY_READY", "CAMPAIGN_BLOCKERS",
 ]
@@ -152,6 +152,7 @@ class CampaignState:
     stop_requested: bool = False
     runs: dict = field(default_factory=dict)        # run_id -> latest cumulative snapshot
     latest_run_id: Optional[str] = None
+    safety_profile: Optional[dict] = None           # resolved campaign-safe profile
 
     def to_dict(self) -> dict:
         return {
@@ -159,7 +160,7 @@ class CampaignState:
             "algorithm_freeze_mode": bool(self.algorithm_freeze_mode),
             "started_ts": self.started_ts, "last_update_ts": self.last_update_ts,
             "stop_requested": bool(self.stop_requested), "runs": self.runs,
-            "latest_run_id": self.latest_run_id,
+            "latest_run_id": self.latest_run_id, "safety_profile": self.safety_profile,
         }
 
     @classmethod
@@ -171,7 +172,8 @@ class CampaignState:
             algorithm_freeze_mode=bool(d.get("algorithm_freeze_mode", False)),
             started_ts=d.get("started_ts"), last_update_ts=d.get("last_update_ts"),
             stop_requested=bool(d.get("stop_requested", False)),
-            runs=dict(d.get("runs") or {}), latest_run_id=d.get("latest_run_id"))
+            runs=dict(d.get("runs") or {}), latest_run_id=d.get("latest_run_id"),
+            safety_profile=d.get("safety_profile"))
 
 
 # --------------------------------------------------------------------------- #
@@ -272,6 +274,8 @@ class TrainingCampaignController:
         self.state_path = Path(state_path) if state_path else None
         self.store = store
         self.run_id = run_id
+        # Resolved campaign-safe profile (set by the trainer); read-only.
+        self.safety_profile: Optional[dict] = None
         if state is not None:
             self.state = state
             self.algorithm_freeze_mode = self.algorithm_freeze_mode or state.algorithm_freeze_mode
@@ -319,9 +323,11 @@ class TrainingCampaignController:
             fields = {f for f in CampaignThresholds.__dataclass_fields__}
             thresholds = CampaignThresholds(
                 **{k: v for k, v in data["thresholds"].items() if k in fields})
-        return cls(campaign_name=state.campaign_name, thresholds=thresholds,
+        ctrl = cls(campaign_name=state.campaign_name, thresholds=thresholds,
                    algorithm_freeze_mode=algorithm_freeze_mode or state.algorithm_freeze_mode,
                    state_path=state_path, store=store, state=state)
+        ctrl.safety_profile = state.safety_profile
+        return ctrl
 
     # -- ingest -------------------------------------------------------------
     def update(self, snapshot: dict) -> CampaignVerdict:
@@ -571,6 +577,7 @@ class TrainingCampaignController:
             "progress": prog.to_dict(),
             "thresholds": self.thresholds.to_dict(),
             "no_live_orders": ev.live_orders == 0,
+            "safety_profile": self.safety_profile,
             "note": "PAPER ONLY — this campaign never enables live trading.",
         }
 
@@ -584,6 +591,8 @@ class TrainingCampaignController:
                 pass
 
     def persist(self) -> None:
+        if self.safety_profile is not None:
+            self.state.safety_profile = self.safety_profile
         if self.state_path:
             payload = dict(self.state.to_dict())
             payload["thresholds"] = self.thresholds.to_dict()
@@ -622,6 +631,89 @@ class TrainingCampaignController:
 # --------------------------------------------------------------------------- #
 # rendering
 # --------------------------------------------------------------------------- #
+def _arbitrage_permanently_disabled() -> bool:
+    try:
+        from engine.arb.execution import ARBITRAGE_PERMANENTLY_DISABLED
+        return bool(ARBITRAGE_PERMANENTLY_DISABLED)
+    except Exception:  # noqa: BLE001 — absence == disabled (fail closed)
+        return True
+
+
+_MICRO_LIVE_FLAGS = ("MICRO_LIVE_ENABLED", "KALSHI_MICRO_LIVE_ENABLED",
+                     "POLYMARKET_MICRO_LIVE_ENABLED", "MICRO_LIVE_ALLOW_PRODUCTION")
+
+
+def campaign_safety_check(cfg) -> dict:
+    """Startup safety validation for the campaign-safe profile (PAPER ONLY).
+
+    Confirms every read-only / realism / guard invariant is ON and every
+    live-money / fantasy-fill / promotion path is OFF, reading both the config
+    and the live environment. Returns the resolved safety profile plus
+    ``passed`` / ``fail_closed_reason`` — FAIL CLOSED: any live or unsafe flag
+    blocks the campaign from starting. This never enables a live path."""
+    from .config import FORBIDDEN_LIVE_FLAGS, _envb
+
+    forbidden_on = [f for f in FORBIDDEN_LIVE_FLAGS if _envb(f, False)]
+    is_paper = (bool(getattr(cfg, "is_paper_only", True))
+                and str(getattr(cfg, "mode", "paper_train")) == "paper_train")
+    live_disabled = (not forbidden_on) and is_paper
+    micro_live_disabled = not any(_envb(f, False) for f in _MICRO_LIVE_FLAGS)
+    guarded_live_disabled = not _envb("GUARDED_LIVE_ENABLED", False)
+    btc_autotrade_disabled = (not _envb("HTE_AUTOTRADE", False)
+                              and not _envb("BTC_AUTOTRADE_ENABLED", False)
+                              and bool(getattr(cfg, "disable_btc_pulse_trading", True)))
+    legacy_arbitrage_disabled = (not _envb("ARB_EXECUTION_ENABLED", False)
+                                 and _arbitrage_permanently_disabled())
+    clob_read_only = ((not bool(getattr(cfg, "clob_enabled", False)))
+                      or bool(getattr(cfg, "clob_read_only", True)))
+    chainlink_read_only = ((not bool(getattr(cfg, "chainlink_enabled", False)))
+                           or bool(getattr(cfg, "chainlink_read_only", True)))
+    realistic_fill = (bool(getattr(cfg, "realistic_fill_enabled", False))
+                      and bool(getattr(cfg, "reject_on_stale_book", True))
+                      and not bool(getattr(cfg, "allow_pm_reference_price_fills", False)))
+
+    checks = {
+        "campaign_enabled": bool(getattr(cfg, "campaign_enabled", False)),
+        "aggressive_paper": bool(getattr(cfg, "exploration_enabled", False)
+                                 and getattr(cfg, "experiments_enabled", False)),
+        "algorithm_freeze": (bool(getattr(cfg, "algorithm_freeze_mode", False))
+                             and not bool(getattr(cfg, "aggressive_can_promote_params", False))),
+        "clob_read_only": clob_read_only,
+        "chainlink_read_only": chainlink_read_only,
+        "realistic_fill": realistic_fill,
+        "clean_label_guard": bool(getattr(cfg, "clean_label_guard", False)),
+        "risk_gates_required": bool(getattr(cfg, "risk_engine_enabled", False)),
+        "live_disabled": live_disabled,
+        "micro_live_disabled": micro_live_disabled,
+        "guarded_live_disabled": guarded_live_disabled,
+        "btc_autotrade_disabled": btc_autotrade_disabled,
+        "legacy_arbitrage_disabled": legacy_arbitrage_disabled,
+        "no_wallet_mutation": live_disabled,  # a paper config can never sign/submit
+    }
+    passed = all(checks.values())
+    fail_closed_reason = None if passed else next(n for n, v in checks.items() if not v)
+    return {
+        "passed": passed,
+        "startup_safety_passed": passed,
+        "fail_closed_reason": fail_closed_reason,
+        "checks": checks,
+        # resolved safety profile (for status/report rendering)
+        "campaign_safe_profile": bool(getattr(cfg, "campaign_safe_profile", False)),
+        "clob_read_only_enabled": (bool(getattr(cfg, "clob_enabled", False))
+                                   and bool(getattr(cfg, "clob_read_only", True))),
+        "chainlink_read_only_enabled": (bool(getattr(cfg, "chainlink_enabled", False))
+                                        and bool(getattr(cfg, "chainlink_read_only", True))),
+        "realistic_fill_enabled": realistic_fill,
+        "clean_label_guard_enabled": bool(getattr(cfg, "clean_label_guard", False)),
+        "live_disabled": live_disabled,
+        "micro_live_disabled": micro_live_disabled,
+        "guarded_live_disabled": guarded_live_disabled,
+        "btc_autotrade_disabled": btc_autotrade_disabled,
+        "risk_gates_required": bool(getattr(cfg, "risk_engine_enabled", False)),
+        "note": "PAPER ONLY — campaign-safe profile never enables a live path.",
+    }
+
+
 def campaign_json(report: dict) -> str:
     return json.dumps(report, indent=2, default=str, sort_keys=True)
 
@@ -663,6 +755,22 @@ def campaign_markdown(report: dict) -> str:
       f"ece={ev.get('ece')}")
     a(f"- risk_violations={ev.get('risk_violations')}  ·  live_orders="
       f"{ev.get('live_orders')}  ·  readiness_state={ev.get('live_readiness_state')}")
-    a("")
+    sp = r.get("safety_profile") or {}
+    if sp:
+        a("## Campaign-safe profile")
+        a(f"- campaign_safe_profile: {sp.get('campaign_safe_profile')} · startup_safety_passed: "
+          f"{sp.get('startup_safety_passed')}")
+        a(f"- clob_read_only: {sp.get('clob_read_only_enabled')} · chainlink_read_only: "
+          f"{sp.get('chainlink_read_only_enabled')} · realistic_fill: "
+          f"{sp.get('realistic_fill_enabled')} · clean_label_guard: "
+          f"{sp.get('clean_label_guard_enabled')}")
+        a(f"- live_disabled: {sp.get('live_disabled')} · micro_live_disabled: "
+          f"{sp.get('micro_live_disabled')} · guarded_live_disabled: "
+          f"{sp.get('guarded_live_disabled')} · btc_autotrade_disabled: "
+          f"{sp.get('btc_autotrade_disabled')} · risk_gates_required: "
+          f"{sp.get('risk_gates_required')}")
+        if sp.get("fail_closed_reason"):
+            a(f"- fail_closed_reason: {sp.get('fail_closed_reason')}")
+        a("")
     a("_PAPER ONLY. The campaign verdict never enables live trading._")
     return "\n".join(L) + "\n"

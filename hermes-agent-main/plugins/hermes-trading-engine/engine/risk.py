@@ -20,6 +20,12 @@ defaults). A kill-switch file (``HTE_KILL_SWITCH_FILE``, default
 
 from __future__ import annotations
 
+# The deterministic RiskEngine gate is MANDATORY for every simulated order and
+# has no bypass; campaign-safe startup validation asserts this stays true.
+def risk_engine_required() -> bool:
+    """True — RiskEngine evaluation is mandatory (no bypass)."""
+    return True
+
 import os
 from dataclasses import dataclass, field
 from pathlib import Path

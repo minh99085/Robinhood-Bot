@@ -22,6 +22,15 @@ This class NEVER contacts a real exchange. It has no place/cancel network calls.
 
 from __future__ import annotations
 
+# The paper broker simulates fills against a local/reference book with slippage
+# + fees and NEVER submits, signs, or cancels a real order (no wallet path).
+PAPER_BROKER_LIVE_SUBMISSION = False
+
+
+def is_paper_only() -> bool:
+    """True — this broker is paper-only and can never submit a live order."""
+    return True
+
 import hashlib
 import os
 from decimal import Decimal

@@ -104,6 +104,22 @@ def run(argv=None) -> int:
               f"{ev.get('realistic_fill_expectancy')}")
         print(f"  next required evidence: {camp.get('next_target')}")
         print(f"  blockers: {', '.join(camp.get('blockers', [])) or 'none'}")
+    sp = st.get("campaign_safety") or (camp.get("safety_profile") if camp else None) or {}
+    if sp:
+        print("=" * 56)
+        print(f"  CAMPAIGN-SAFE PROFILE: {sp.get('campaign_safe_profile')} · "
+              f"startup_safety_passed: {sp.get('startup_safety_passed')}")
+        print(f"  clob_read_only: {sp.get('clob_read_only_enabled')} · "
+              f"chainlink_read_only: {sp.get('chainlink_read_only_enabled')} · "
+              f"realistic_fill: {sp.get('realistic_fill_enabled')} · "
+              f"clean_label_guard: {sp.get('clean_label_guard_enabled')}")
+        print(f"  live_disabled: {sp.get('live_disabled')} · "
+              f"micro_live_disabled: {sp.get('micro_live_disabled')} · "
+              f"guarded_live_disabled: {sp.get('guarded_live_disabled')} · "
+              f"btc_autotrade_disabled: {sp.get('btc_autotrade_disabled')} · "
+              f"risk_gates_required: {sp.get('risk_gates_required')}")
+        if sp.get("fail_closed_reason"):
+            print(f"  fail_closed_reason: {sp.get('fail_closed_reason')}")
     return 0
 
 

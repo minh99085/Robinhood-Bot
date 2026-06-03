@@ -311,12 +311,18 @@ class PolymarketPaperTrainer:
         self.campaign = None
         self._campaign_error = None
         self._campaign_baseline_calibration = None
+        self._campaign_safety = None
         if bool(getattr(self.cfg, "campaign_enabled", False)):
             try:
-                from .campaign_controller import TrainingCampaignController
+                from .campaign_controller import (TrainingCampaignController,
+                                                  campaign_safety_check)
                 self.campaign = TrainingCampaignController.from_config(
                     self.cfg, state_path=self.data_dir / "polymarket_training_campaign.json",
                     store=self.tstore, run_id=self.run_id)
+                # Resolved campaign-safe profile (read-only realism + live-paths-off,
+                # fail-closed). Read-only; never enables a live path.
+                self._campaign_safety = campaign_safety_check(self.cfg)
+                self.campaign.safety_profile = self._campaign_safety
             except Exception as exc:  # noqa: BLE001 — campaign must never crash training
                 self.campaign = None
                 self._campaign_error = f"init_failed:{exc}"
@@ -1407,6 +1413,8 @@ class PolymarketPaperTrainer:
             except Exception as exc:  # noqa: BLE001 — status must never crash
                 out["training_campaign"] = {"enabled": True, "error": str(exc),
                                             "no_live_orders": True}
+        if self._campaign_safety is not None:
+            out["campaign_safety"] = self._campaign_safety
         return out
 
     def _status_core(self) -> dict:
