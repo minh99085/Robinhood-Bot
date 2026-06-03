@@ -118,6 +118,12 @@ def run(argv=None) -> int:
               f"guarded_live_disabled: {sp.get('guarded_live_disabled')} · "
               f"btc_autotrade_disabled: {sp.get('btc_autotrade_disabled')} · "
               f"risk_gates_required: {sp.get('risk_gates_required')}")
+        if "news_scanner_enabled" in sp:
+            print(f"  news_scanner: {sp.get('news_scanner_enabled')} · "
+                  f"provider_mode: {sp.get('news_provider_mode')} · "
+                  f"read_only: {sp.get('news_read_only')} · "
+                  f"replay_safe: {sp.get('news_replay_timestamp_safe')} · "
+                  f"cannot_trigger_live_orders: {sp.get('news_cannot_trigger_live_orders')}")
         if sp.get("fail_closed_reason"):
             print(f"  fail_closed_reason: {sp.get('fail_closed_reason')}")
     return 0
