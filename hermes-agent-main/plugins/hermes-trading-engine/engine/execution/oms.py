@@ -416,12 +416,16 @@ class OrderManagementSystem:
             total += qty * px
         return round(total, 6)
 
-    def canary_live_blocked(self) -> bool:
-        """True when the micro-live CANARY rollback kill switch is engaged, so no
-        live order may proceed. Read-only; default disabled. Live Trading &
-        Monitoring + Compliance — additive, never enables live execution."""
+    def canary_rollback_engaged(self, kill_switch_path: Optional[str] = None) -> bool:
+        """True when the canary rollback kill switch file is engaged, so no live
+        order may proceed. Checks the file directly (no cross-package import, to
+        respect the OMS<->live boundary). Read-only; default disabled. Live
+        Trading & Monitoring + Compliance — never enables live execution."""
+        import os
+        from pathlib import Path
+        path = kill_switch_path or os.getenv("CANARY_ROLLBACK_KILL_SWITCH_PATH",
+                                             "./CANARY_ROLLBACK_KILL_SWITCH")
         try:
-            from engine.micro_live.canary import CanaryController
-            return CanaryController().is_rolled_back()
-        except Exception:  # noqa: BLE001 — monitoring must never break the OMS
+            return bool(path) and Path(path).exists()
+        except OSError:
             return False
