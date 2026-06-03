@@ -394,7 +394,21 @@ services:
       HTE_DATA_DIR: "/data"
       HTE_MODE: "paper"
       POLYMARKET_ONLY_MODE: "1"
-      DISABLE_BTC_PULSE_TRADING: "1"
+      DISABLE_BTC_PULSE_TRADING: "1"     # legacy BTC pulse autotrade NEVER trades
+      # ---- BTC 5-min Pulse PAPER-ONLY isolated training experiment ----
+      # This is the service that actually RUNS the training loop, so the BTC
+      # Pulse env MUST live here (the dashboard service only reads status JSON).
+      # Set BTC_PULSE_ENABLED=1 in your .env to unfreeze the paper experiment.
+      # PAPER ONLY: never a live order, never a wallet, never legacy autotrade,
+      # never writes the Polymarket learner. Fail-closed on unsafe flags.
+      BTC_PULSE_ENABLED: "${BTC_PULSE_ENABLED:-0}"
+      BTC_PULSE_PAPER_ONLY: "${BTC_PULSE_PAPER_ONLY:-1}"
+      BTC_PULSE_ISOLATED_LEARNING: "${BTC_PULSE_ISOLATED_LEARNING:-1}"
+      BTC_PULSE_ALLOW_TRANSFER_LEARNING: "${BTC_PULSE_ALLOW_TRANSFER_LEARNING:-0}"
+      BTC_PULSE_LIVE_ENABLED: "${BTC_PULSE_LIVE_ENABLED:-0}"
+      BTC_AUTOTRADE_ENABLED: "${BTC_AUTOTRADE_ENABLED:-0}"
+      BTC_PULSE_TICK_SECONDS: "${BTC_PULSE_TICK_SECONDS:-30}"
+      BTC_PULSE_ROUND_SECONDS: "${BTC_PULSE_ROUND_SECONDS:-300}"
       POLYMARKET_TRAINING_MODE: "${POLYMARKET_TRAINING_MODE:-paper_train}"
       POLYMARKET_CLOB_ENABLED: "1"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----
@@ -433,11 +447,15 @@ services:
       PAPER_MAX_ORDER_NOTIONAL_USD: "5"
       PAPER_MAX_TOTAL_EXPOSURE_USD: "100"
       PAPER_MAX_DAILY_LOSS_USD: "50"
+    # BTC_PULSE_ENABLED=1 (above) unfreezes the pulse experiment on its own.
+    # BTC_PULSE_CLI_FLAGS lets power users pass explicit flags too, e.g.
+    #   BTC_PULSE_CLI_FLAGS="--btc-pulse --btc-pulse-tick-seconds 30"
     command: >
       python scripts/start_polymarket_paper_training.py
       --minutes 100000 --tick-seconds ${POLYMARKET_TRAINING_TICK_SECONDS:-10}
       --catalog ${POLYMARKET_TRAINING_CATALOG:-gamma}
       --realtime
+      ${BTC_PULSE_CLI_FLAGS:-}
     restart: unless-stopped
 
 volumes:
