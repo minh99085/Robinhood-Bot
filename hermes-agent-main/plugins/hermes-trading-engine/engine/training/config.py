@@ -329,6 +329,31 @@ class TrainingConfig:
     btc_pulse_require_positive_ev: bool = True
     btc_pulse_require_risk_gate: bool = True
     btc_pulse_require_realistic_fill: bool = True
+    # ---- 10x Feedback Accelerator (PAPER ONLY; default OFF) ----
+    # Increases TRAINING FEEDBACK (decisions, shadow labels, no-trade labels,
+    # tiny exploration trades) WITHOUT loosening any hard safety gate. Only soft
+    # paper-training gates relax, and only for tiny exploration. Exploration is
+    # tiny/capped/labeled/isolated and never counts as live-readiness proof until
+    # cleanly resolved + validated.
+    feedback_accelerator_enabled: bool = False
+    feedback_accelerator_target_multiplier: int = 10
+    feedback_accelerator_mode: str = "paper_only"
+    exploration_tiny_size_enabled: bool = True
+    exploration_notional_fraction: float = 0.002   # very small (of equity)
+    exploration_max_trades_per_hour: int = 30
+    exploration_max_daily_loss: float = 20.0
+    exploration_max_event_exposure: float = 5.0
+    exploration_max_category_exposure: float = 10.0
+    exploration_min_book_freshness_required: bool = True
+    exploration_requires_realistic_fill: bool = True
+    exploration_requires_risk_gate: bool = True
+    exploration_can_use_soft_edge: bool = True
+    exploration_can_bypass_hard_gate: bool = False   # MUST stay False (invariant)
+    exploration_counts_for_readiness: bool = False
+    shadow_decision_logging_enabled: bool = True
+    no_trade_labeling_enabled: bool = True
+    btc_pulse_feedback_acceleration_enabled: bool = True
+    polymarket_feedback_acceleration_enabled: bool = True
     # ---- run / sim ----
     take_profit: float = 0.05
     stop_loss: float = 0.05
@@ -434,6 +459,29 @@ class TrainingConfig:
             self.btc_pulse_legacy_autotrade_enabled = False
             self.btc_pulse_require_risk_gate = True
             self.btc_pulse_require_realistic_fill = True
+        # Feedback Accelerator (PAPER ONLY): exploration MUST keep every hard gate
+        # required and can NEVER bypass a hard gate. These are hard invariants —
+        # re-asserted even if constructed with unsafe overrides.
+        self.exploration_can_bypass_hard_gate = False
+        self.exploration_requires_realistic_fill = True
+        self.exploration_requires_risk_gate = True
+        self.exploration_min_book_freshness_required = True
+        self.feedback_accelerator_mode = "paper_only"
+        self.feedback_accelerator_target_multiplier = max(
+            1, min(int(self.feedback_accelerator_target_multiplier), 20))
+        self.exploration_notional_fraction = max(
+            0.0, min(float(self.exploration_notional_fraction), 0.02))
+        self.exploration_max_trades_per_hour = max(
+            0, min(int(self.exploration_max_trades_per_hour), 100000))
+        self.exploration_max_daily_loss = max(
+            0.0, min(float(self.exploration_max_daily_loss), 100.0))
+        self.exploration_max_event_exposure = max(
+            0.0, min(float(self.exploration_max_event_exposure), 50.0))
+        self.exploration_max_category_exposure = max(
+            0.0, min(float(self.exploration_max_category_exposure), 200.0))
+        if bool(self.campaign_safe_profile):
+            # Exploration trades NEVER count as proven readiness edge in a campaign.
+            self.exploration_counts_for_readiness = False
         # hard PAPER clamps (cannot exceed even if env is misconfigured)
         self.fixed_notional_usd = max(0.0, min(self.fixed_notional_usd, 50.0))
         self.max_kelly_size_usd = max(0.0, min(self.max_kelly_size_usd, 50.0))
@@ -593,11 +641,13 @@ class TrainingConfig:
             markout_horizons_s=tuple(_env_csv_floats(
                 "POLYMARKET_MARKOUT_HORIZONS_SECONDS", "5,30,60,300,900,3600")),
             feedback_enabled=_envb("POLYMARKET_TRAINING_FEEDBACK_ENABLED", True),
-            exploration_enabled=_envb("POLYMARKET_EXPLORATION_ENABLED", False),
+            exploration_enabled=(_envb("POLYMARKET_EXPLORATION_ENABLED", False)
+                                 or _envb("EXPLORATION_ENABLED", False)),
             exploration_rate=_envf("POLYMARKET_EXPLORATION_RATE", 0.0),
             exploration_notional_usd=_envf("POLYMARKET_EXPLORATION_NOTIONAL_USD", 2.0),
             exploration_min_edge=_envf("POLYMARKET_EXPLORATION_MIN_EDGE", -0.01),
-            active_learning_enabled=_envb("POLYMARKET_ACTIVE_LEARNING_ENABLED", False),
+            active_learning_enabled=(_envb("POLYMARKET_ACTIVE_LEARNING_ENABLED", False)
+                                     or _envb("ACTIVE_LEARNING_ENABLED", False)),
             exploration_split=_envf("POLYMARKET_EXPLORATION_SPLIT", 0.5),
             category_sample_target=_envi("POLYMARKET_CATEGORY_SAMPLE_TARGET", 50),
             max_explore_per_category=_envi("POLYMARKET_MAX_EXPLORE_PER_CATEGORY", 3),
@@ -692,6 +742,16 @@ class TrainingConfig:
             btc_pulse_require_positive_ev=_envb("BTC_PULSE_REQUIRE_POSITIVE_EV", True),
             btc_pulse_require_risk_gate=_envb("BTC_PULSE_REQUIRE_RISK_GATE", True),
             btc_pulse_require_realistic_fill=_envb("BTC_PULSE_REQUIRE_REALISTIC_FILL", True),
+            feedback_accelerator_enabled=_envb("FEEDBACK_ACCELERATOR_ENABLED", False),
+            feedback_accelerator_target_multiplier=_envi("FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER", 10),
+            exploration_tiny_size_enabled=_envb("EXPLORATION_TINY_SIZE_ENABLED", True),
+            exploration_counts_for_readiness=_envb("EXPLORATION_COUNTS_FOR_READINESS", False),
+            shadow_decision_logging_enabled=_envb("SHADOW_DECISION_LOGGING_ENABLED", True),
+            no_trade_labeling_enabled=_envb("NO_TRADE_LABELING_ENABLED", True),
+            btc_pulse_feedback_acceleration_enabled=_envb(
+                "BTC_PULSE_FEEDBACK_ACCELERATION_ENABLED", True),
+            polymarket_feedback_acceleration_enabled=_envb(
+                "POLYMARKET_FEEDBACK_ACCELERATION_ENABLED", True),
             experiments_enabled=_envb("POLYMARKET_EXPERIMENTS_ENABLED", False),
             experiment_id=(os.getenv("POLYMARKET_EXPERIMENT_ID") or "exp_default").strip(),
             bregman_first_budget=_envb("POLYMARKET_BREGMAN_FIRST_BUDGET", True),

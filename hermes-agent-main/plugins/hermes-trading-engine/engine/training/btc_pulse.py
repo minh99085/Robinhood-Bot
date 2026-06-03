@@ -149,6 +149,14 @@ class BtcPulsePaperTrainer:
         self.last_error: Optional[str] = None
         self.kill_switch_active = False
 
+        # feedback acceleration (PAPER ONLY): record a shadow decision on
+        # near-threshold no-trade rounds so every round yields a learning sample.
+        # NEVER forces a trade when the signal is off or EV is clearly negative.
+        self.accel_enabled = (bool(getattr(cfg, "feedback_accelerator_enabled", False))
+                              and bool(getattr(cfg, "btc_pulse_feedback_acceleration_enabled", True)))
+        self.near_threshold_floor = -0.03
+        self.shadow_decisions = 0
+
         # active round
         self._round: Optional[dict] = None
 
@@ -248,13 +256,22 @@ class BtcPulsePaperTrainer:
             self.rejection_reasons[reject] = self.rejection_reasons.get(reject, 0) + 1
             if reject in ("negative_ev", "below_ev_threshold"):
                 self.ev_negative_rejected_count += 1
+            # Feedback acceleration: when a round is a NEAR-THRESHOLD no-trade
+            # (EV just below break-even), record a shadow decision so the round
+            # still yields a learning sample. This NEVER opens a position and
+            # NEVER fires when the signal is off or EV is clearly negative.
+            shadow = (self.accel_enabled and reject in ("negative_ev", "below_ev_threshold")
+                      and ev_frac >= self.near_threshold_floor)
+            if shadow:
+                self.shadow_decisions += 1
             # a no-trade is still a useful (isolated) training sample
             self._round = {
                 "decision": decision, "traded": False, "stake": 0.0, "fill_frac": 0.0,
                 "resolve_tick": self.ticks + self._ticks_per_round, "no_trade_reason": reject,
+                "shadow": shadow,
             }
-            return {"frozen": False, "event": "no_trade", "reason": reject,
-                    "round": self.rounds_seen, **self.namespace()}
+            return {"frozen": False, "event": "shadow_decision" if shadow else "no_trade",
+                    "reason": reject, "round": self.rounds_seen, **self.namespace()}
 
         # approved -> open a paper position (NO real order, ever)
         stake = round(min(self.max_notional, max(0.0, self.max_notional)), 2)
@@ -450,6 +467,8 @@ class BtcPulsePaperTrainer:
             "btc_pulse_rounds_seen": self.rounds_seen,
             "btc_pulse_decisions": self.decisions,
             "btc_pulse_no_trade_decisions": self.no_trade_decisions,
+            "btc_pulse_shadow_decisions": self.shadow_decisions,
+            "btc_pulse_feedback_acceleration_enabled": bool(self.accel_enabled),
             "btc_pulse_paper_trades": self.paper_trades,
             "btc_pulse_rejected_trades": self.rejected_trades,
             "btc_pulse_rejection_reasons": dict(self.rejection_reasons),

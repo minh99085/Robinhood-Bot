@@ -116,6 +116,21 @@ def run(argv=None) -> int:
                     help="BTC Pulse tick seconds (default 30)")
     ap.add_argument("--btc-pulse-round-seconds", type=int, default=None,
                     help="BTC Pulse round seconds (default 300)")
+    # ---- 10x Feedback Accelerator (PAPER ONLY) ----
+    ap.add_argument("--feedback-accelerator", action="store_true",
+                    help="enable the PAPER-ONLY 10x feedback accelerator (more "
+                         "decisions, shadow labels, no-trade labels, tiny capped "
+                         "exploration). Hard safety gates never loosen.")
+    ap.add_argument("--target-feedback-multiplier", type=int, default=None,
+                    help="target feedback multiplier (default 10, max 20)")
+    ap.add_argument("--tiny-exploration", action="store_true", default=None,
+                    help="enable tiny capped exploration trades (paper only)")
+    ap.add_argument("--shadow-decisions", action="store_true", default=None,
+                    help="log shadow decisions for rejected candidates")
+    ap.add_argument("--no-trade-labels", action="store_true", default=None,
+                    help="record no-trade decisions as labeled learning samples")
+    ap.add_argument("--active-learning", action="store_true", default=None,
+                    help="prioritize high learning-value candidates")
     args = ap.parse_args(argv)
 
     pf = preflight()
@@ -159,6 +174,21 @@ def run(argv=None) -> int:
         overrides["btc_pulse_tick_seconds"] = args.btc_pulse_tick_seconds
     if args.btc_pulse_round_seconds is not None:
         overrides["btc_pulse_round_seconds"] = args.btc_pulse_round_seconds
+    # Feedback accelerator overrides (PAPER ONLY).
+    if args.feedback_accelerator or _envb("FEEDBACK_ACCELERATOR_ENABLED", False):
+        overrides["feedback_accelerator_enabled"] = True
+        overrides["exploration_enabled"] = True
+    if args.target_feedback_multiplier is not None:
+        overrides["feedback_accelerator_target_multiplier"] = args.target_feedback_multiplier
+    if args.tiny_exploration:
+        overrides["exploration_tiny_size_enabled"] = True
+        overrides["exploration_enabled"] = True
+    if args.shadow_decisions:
+        overrides["shadow_decision_logging_enabled"] = True
+    if args.no_trade_labels:
+        overrides["no_trade_labeling_enabled"] = True
+    if args.active_learning:
+        overrides["active_learning_enabled"] = True
     if args.campaign_safe_profile:
         # institutional campaign-safe profile implies aggressive paper + campaign.
         overrides["campaign_enabled"] = True
@@ -207,6 +237,34 @@ def run(argv=None) -> int:
             return 2
         print("BTC Pulse preflight OK — PAPER ONLY, isolated, no live orders, "
               "no legacy autotrade.\n")
+    # 10x Feedback Accelerator (PAPER ONLY): raise SOFT capacity knobs (more
+    # candidates / decisions per tick) so feedback scales ~target x. Hard risk
+    # caps are NEVER touched. Only soft gates relax, and only for tiny exploration.
+    if bool(getattr(cfg, "feedback_accelerator_enabled", False)):
+        from engine.training.feedback_accelerator import (apply_feedback_accelerator,
+                                                          resolve_soft_gates)
+        rep = apply_feedback_accelerator(cfg)
+        sg = resolve_soft_gates(cfg)
+        print("10x Feedback Accelerator — PAPER ONLY (soft gates only; hard gates locked):")
+        print(f"  enabled: True · mode: {cfg.feedback_accelerator_mode} · "
+              f"target_multiplier: {cfg.feedback_accelerator_target_multiplier}")
+        print(f"  exploration: enabled={cfg.exploration_enabled} "
+              f"tiny={cfg.exploration_tiny_size_enabled} "
+              f"counts_for_readiness={cfg.exploration_counts_for_readiness}")
+        print(f"  shadow_decisions={cfg.shadow_decision_logging_enabled} "
+              f"no_trade_labels={cfg.no_trade_labeling_enabled} "
+              f"active_learning={cfg.active_learning_enabled}")
+        if rep.get("applied"):
+            print(f"  capacity: decisions/tick {rep['before']['paper_decision_budget']}"
+                  f"->{rep['after']['paper_decision_budget']} · candidates "
+                  f"{rep['before']['trade_candidate_limit']}->{rep['after']['trade_candidate_limit']} "
+                  f"· shortlist {rep['before']['shortlist_limit']}->{rep['after']['shortlist_limit']}")
+        print(f"  exploit gates (UNCHANGED): edge>={sg.exploit_min_edge} "
+              f"conf>={sg.exploit_min_confidence} · exploration gates (tiny only): "
+              f"edge>={sg.exploration_min_edge} conf>={sg.exploration_min_confidence}")
+        print("  hard gates LOCKED: no live, RiskEngine required, fresh book + valid "
+              "token + realistic fill required, clean-label guard on, exploration "
+              "is NOT live-readiness proof until cleanly resolved.\n")
     cfg.mode = args.mode  # start-paper explicitly drives paper training
     data_dir = Path(args.data_dir) if args.data_dir else None
     trainer = PolymarketPaperTrainer(cfg, data_dir=data_dir)
@@ -276,6 +334,15 @@ def run(argv=None) -> int:
                   f"win_rate={bp.get('btc_pulse_win_rate')} "
                   f"after_cost_pnl={bp.get('btc_pulse_after_cost_pnl')} "
                   f"blockers={bp.get('btc_pulse_blockers')}")
+        fa = st.get("feedback_accelerator") or {}
+        if fa.get("feedback_accelerator_enabled"):
+            cap = fa.get("capacity", {})
+            print(f"  feedback_accel: target x{fa.get('target_multiplier')} "
+                  f"decisions/tick={cap.get('paper_decision_budget')} "
+                  f"candidates={cap.get('trade_candidate_limit')} "
+                  f"exploration={fa.get('exploration_enabled')} "
+                  f"tiny={fa.get('exploration_tiny_size_enabled')} "
+                  f"counts_for_readiness={fa.get('exploration_counts_for_readiness')}")
         if args.continue_until_thresholds:
             if trainer.campaign is not None and trainer.campaign.thresholds_met():
                 print("campaign evidence thresholds met — stopping.")

@@ -1450,7 +1450,60 @@ class PolymarketPaperTrainer:
                 "btc_pulse_frozen": True,
                 "btc_pulse_last_error": self._btc_pulse_error,
             }
+        try:
+            out["feedback_accelerator"] = self.feedback_accelerator_status()
+        except Exception as exc:  # noqa: BLE001 — status must never crash
+            out["feedback_accelerator"] = {"feedback_accelerator_enabled": False,
+                                           "error": str(exc)}
         return out
+
+    def feedback_accelerator_status(self) -> dict:
+        """10x Feedback Accelerator status (PAPER ONLY). Surfaces soft-gate
+        relaxation + accelerated capacity + decision/sample counts. Hard gates
+        are reported as locked; exploration can never bypass them."""
+        cfg = self.cfg
+        from .feedback_accelerator import resolve_soft_gates
+        bp = {}
+        if self.btc_pulse is not None:
+            try:
+                bp = self.btc_pulse.status()
+            except Exception:  # noqa: BLE001
+                bp = {}
+        return {
+            "feedback_accelerator_enabled": bool(getattr(cfg, "feedback_accelerator_enabled", False)),
+            "mode": getattr(cfg, "feedback_accelerator_mode", "paper_only"),
+            "target_multiplier": int(getattr(cfg, "feedback_accelerator_target_multiplier", 10)),
+            "exploration_enabled": bool(getattr(cfg, "exploration_enabled", False)),
+            "exploration_tiny_size_enabled": bool(getattr(cfg, "exploration_tiny_size_enabled", False)),
+            "exploration_counts_for_readiness": bool(
+                getattr(cfg, "exploration_counts_for_readiness", False)),
+            "shadow_decision_logging_enabled": bool(
+                getattr(cfg, "shadow_decision_logging_enabled", False)),
+            "no_trade_labeling_enabled": bool(getattr(cfg, "no_trade_labeling_enabled", False)),
+            "active_learning_enabled": bool(getattr(cfg, "active_learning_enabled", False)),
+            "capacity": {
+                "paper_decision_budget": int(getattr(cfg, "paper_decision_budget", 0)),
+                "trade_candidate_limit": int(getattr(cfg, "trade_candidate_limit", 0)),
+                "shortlist_limit": int(getattr(cfg, "shortlist_limit", 0)),
+                "live_watch_limit": int(getattr(cfg, "live_watch_limit", 0)),
+            },
+            "soft_gates": resolve_soft_gates(cfg).to_dict(),
+            "hard_gates_locked": {
+                "exploration_can_bypass_hard_gate": bool(
+                    getattr(cfg, "exploration_can_bypass_hard_gate", False)),
+                "exploration_requires_risk_gate": bool(
+                    getattr(cfg, "exploration_requires_risk_gate", True)),
+                "exploration_requires_realistic_fill": bool(
+                    getattr(cfg, "exploration_requires_realistic_fill", True)),
+                "exploration_min_book_freshness_required": bool(
+                    getattr(cfg, "exploration_min_book_freshness_required", True)),
+            },
+            "btc_pulse_decisions": bp.get("btc_pulse_decisions", 0),
+            "btc_pulse_shadow_decisions": bp.get("btc_pulse_shadow_decisions", 0),
+            "btc_pulse_no_trade_decisions": bp.get("btc_pulse_no_trade_decisions", 0),
+            "note": "PAPER ONLY — soft gates relax only for tiny exploration; "
+                    "hard gates never loosen; exploration is not readiness proof.",
+        }
 
     def _status_core(self) -> dict:
         return {

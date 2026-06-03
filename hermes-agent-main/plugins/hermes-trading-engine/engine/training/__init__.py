@@ -28,6 +28,10 @@ from .config import (TrainingConfig, AggressivePaperTrainingConfig,
                      FORBIDDEN_LIVE_FLAGS, MODES)
 from .btc_pulse import (BtcPulsePaperTrainer, pulse_preflight,  # noqa: F401
                         resolved_pulse_config)
+from .feedback_accelerator import (  # noqa: F401
+    DECISION_CLASSES, FeedbackAcceleratorMetrics, NoTradeLabel, ShadowDecision,
+    apply_feedback_accelerator, counts_for_readiness, feedback_value_score,
+    resolve_soft_gates, tiny_exploration_gate, tiny_exploration_notional)
 from .campaign_controller import (CampaignState, CampaignThresholds, CampaignProgress,
                                   CampaignEvidence, CampaignVerdict,
                                   TrainingCampaignController, campaign_json,
@@ -59,6 +63,9 @@ from .polymarket_trainer import (
 
 __all__ = [
     "BtcPulsePaperTrainer", "pulse_preflight", "resolved_pulse_config",
+    "DECISION_CLASSES", "FeedbackAcceleratorMetrics", "NoTradeLabel", "ShadowDecision",
+    "apply_feedback_accelerator", "counts_for_readiness", "feedback_value_score",
+    "resolve_soft_gates", "tiny_exploration_gate", "tiny_exploration_notional",
     "TrainingConfig", "AggressivePaperTrainingConfig", "algorithm_inventory",
     "FORBIDDEN_LIVE_FLAGS", "MODES",
     "ScanMetrics", "bucket_label", "liquidity_bucket", "spread_bucket",

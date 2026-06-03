@@ -147,6 +147,26 @@ def run(argv=None) -> int:
         print(f"    last_tick_ts={bp.get('btc_pulse_last_tick_ts')} "
               f"last_error={bp.get('btc_pulse_last_error')} "
               f"blockers={bp.get('btc_pulse_blockers')}")
+    fa = st.get("feedback_accelerator") or {}
+    if fa:
+        print("=" * 56)
+        print(f"  FEEDBACK ACCELERATOR (PAPER ONLY): enabled={fa.get('feedback_accelerator_enabled')} "
+              f"· target x{fa.get('target_multiplier')} · mode={fa.get('mode')}")
+        cap = fa.get("capacity", {})
+        print(f"    capacity: decisions/tick={cap.get('paper_decision_budget')} "
+              f"candidates={cap.get('trade_candidate_limit')} shortlist={cap.get('shortlist_limit')}")
+        print(f"    exploration={fa.get('exploration_enabled')} tiny={fa.get('exploration_tiny_size_enabled')} "
+              f"counts_for_readiness={fa.get('exploration_counts_for_readiness')} "
+              f"shadow={fa.get('shadow_decision_logging_enabled')} "
+              f"no_trade_labels={fa.get('no_trade_labeling_enabled')}")
+        sg = fa.get("soft_gates", {})
+        print(f"    exploit edge>={sg.get('exploit_min_edge')} conf>={sg.get('exploit_min_confidence')} "
+              f"| exploration edge>={sg.get('exploration_min_edge')} conf>={sg.get('exploration_min_confidence')}")
+        hl = fa.get("hard_gates_locked", {})
+        print(f"    hard gates locked: bypass={hl.get('exploration_can_bypass_hard_gate')} "
+              f"risk_required={hl.get('exploration_requires_risk_gate')} "
+              f"fill_required={hl.get('exploration_requires_realistic_fill')} "
+              f"fresh_book_required={hl.get('exploration_min_book_freshness_required')}")
     return 0
 
 

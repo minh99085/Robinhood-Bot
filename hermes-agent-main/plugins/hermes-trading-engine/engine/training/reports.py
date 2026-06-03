@@ -285,6 +285,28 @@ def _markdown(status: dict, run_id: str) -> str:
     else:
         a("- BTC Pulse OFF (isolated paper experiment; never trades on its own)")
     a("")
+    fa = status.get("feedback_accelerator") or {}
+    a("## 17f. 10x Feedback Accelerator (PAPER ONLY)")
+    if fa.get("feedback_accelerator_enabled"):
+        cap = fa.get("capacity", {})
+        sg = fa.get("soft_gates", {})
+        a(f"- target x{fa.get('target_multiplier')} · mode: {fa.get('mode')} · "
+          f"exploration: {fa.get('exploration_enabled')} (tiny={fa.get('exploration_tiny_size_enabled')})")
+        a(f"- capacity: decisions/tick={cap.get('paper_decision_budget')} "
+          f"candidates={cap.get('trade_candidate_limit')} shortlist={cap.get('shortlist_limit')}")
+        a(f"- exploit gates UNCHANGED (edge>={sg.get('exploit_min_edge')}, "
+          f"conf>={sg.get('exploit_min_confidence')}); exploration gates (tiny only): "
+          f"edge>={sg.get('exploration_min_edge')}, conf>={sg.get('exploration_min_confidence')}")
+        a(f"- shadow_decisions={fa.get('shadow_decision_logging_enabled')} · "
+          f"no_trade_labels={fa.get('no_trade_labeling_enabled')} · "
+          f"counts_for_readiness={fa.get('exploration_counts_for_readiness')}")
+        a("- HARD gates locked: no live, RiskEngine required, fresh book + valid "
+          "token + realistic fill required; exploration is NOT readiness proof "
+          "until cleanly resolved + validated.")
+    else:
+        a("- Feedback Accelerator OFF (conservative default; turn on with "
+          "--feedback-accelerator). PAPER ONLY.")
+    a("")
     exp = status.get("experiments", {}) or {}
     if exp.get("enabled"):
         from .metrics import variant_attribution_table
