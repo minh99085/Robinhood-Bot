@@ -207,13 +207,23 @@ class TradingEngine:
     def _live(self) -> bool:
         return self.mode == "live"
 
-    def _can_open(self) -> bool:
-        # Polymarket-only PAPER training: the legacy crypto/stock pulse engine
-        # never opens. Polymarket paper trades flow through engine.training
-        # (scan -> rank -> probability -> edge -> RiskEngine -> PaperBroker).
-        if getattr(self.s, "polymarket_only_mode", False):
+    def _can_open(self, market: str = "generic") -> bool:
+        # Polymarket-only PAPER training: the legacy crypto/stock + legacy
+        # Polymarket open paths stay frozen (Polymarket paper trades flow through
+        # engine.training: scan -> rank -> probability -> edge -> RiskEngine ->
+        # PaperBroker). EXCEPTION: the BTC 5-min PULSE market may run IN PARALLEL
+        # as a PAPER-ONLY simulation when explicitly enabled — never live, never
+        # the legacy stock/Polymarket paths, and still through the RiskEngine.
+        paper_pulse = (market == "pulse" and not self._live()
+                       and bool(getattr(self.s, "btc_pulse_paper_enabled", False)))
+        if getattr(self.s, "polymarket_only_mode", False) and not paper_pulse:
             return False
-        if not self.autotrade or self._daily_loss_breached():
+        # The parallel BTC pulse PAPER market may open even when the global
+        # autotrade switch is off (it is paper-only and opt-in); the daily-loss
+        # and live circuit gates still apply.
+        if not (self.autotrade or paper_pulse):
+            return False
+        if self._daily_loss_breached():
             return False
         if self._live() and not self.circuit.trading_allowed():
             return False
@@ -745,7 +755,7 @@ class TradingEngine:
         ev_down = (1.0 - p_cal) / down_price - 1.0
         p["ev_up"], p["ev_down"] = round(ev_up, 3), round(ev_down, 3)
 
-        if p.get("bet") is not None or not self._can_open():
+        if p.get("bet") is not None or not self._can_open("pulse"):
             return
         if ev_up >= ev_down and ev_up > self.s.ev_threshold:
             side, price, pw, ev = "UP", up_price, p_cal, ev_up

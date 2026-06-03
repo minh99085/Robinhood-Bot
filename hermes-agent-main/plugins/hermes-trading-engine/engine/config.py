@@ -88,6 +88,12 @@ class Settings:
     # Polymarket-only PAPER training: when set, the legacy crypto/stock pulse
     # engine never opens (Polymarket paper trading runs in engine.training).
     polymarket_only_mode: bool = os.getenv("POLYMARKET_ONLY_MODE", "0") not in ("0", "false", "False", "")
+    # PARALLEL BTC 5-min PULSE paper market: when set, the legacy pulse engine may
+    # open the BTC 5-min PULSE market IN PARALLEL with Polymarket paper training —
+    # PAPER ONLY (never live, never the legacy stock/Polymarket paths). Default OFF.
+    # This is a paper-simulation flag; it never enables a live/real-money path.
+    btc_pulse_paper_enabled: bool = os.getenv(
+        "HTE_BTC_PULSE_PAPER_ENABLED", "0") not in ("0", "false", "False", "")
     disable_crypto_trading: bool = os.getenv("DISABLE_CRYPTO_TRADING", "0") not in ("0", "false", "False", "")
     disable_stock_trading: bool = os.getenv("DISABLE_STOCK_TRADING", "0") not in ("0", "false", "False", "")
     disable_arbitrage_trading: bool = os.getenv("DISABLE_ARBITRAGE_TRADING", "1") not in ("0", "false", "False", "")

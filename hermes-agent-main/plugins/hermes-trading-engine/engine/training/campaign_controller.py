@@ -709,6 +709,10 @@ def campaign_safety_check(cfg) -> dict:
         "micro_live_disabled": micro_live_disabled,
         "guarded_live_disabled": guarded_live_disabled,
         "btc_autotrade_disabled": btc_autotrade_disabled,
+        # Informational: the BTC 5-min PULSE *paper* market may run in parallel
+        # (paper-only simulation). It NEVER enables a live/real BTC autotrade, so
+        # it does not affect ``btc_autotrade_disabled`` or the pass/fail verdict.
+        "btc_pulse_paper_parallel": _envb("HTE_BTC_PULSE_PAPER_ENABLED", False),
         "risk_gates_required": bool(getattr(cfg, "risk_engine_enabled", False)),
         "note": "PAPER ONLY — campaign-safe profile never enables a live path.",
     }
