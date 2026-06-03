@@ -105,6 +105,11 @@ def write_reports(trainer=None, *, status: Optional[dict] = None,
     # live-readiness verdict + capital-preservation plan (PAPER ONLY — verdict only)
     (run_dir / "live_readiness.json").write_text(
         json.dumps(status.get("live_readiness", {}), default=str, indent=2), encoding="utf-8")
+    # BTC 5-min Pulse PAPER-ONLY isolated experiment artifact (when present)
+    btc_pulse = status.get("btc_pulse") or {}
+    if btc_pulse.get("btc_pulse_enabled"):
+        (run_dir / "btc_pulse.json").write_text(
+            json.dumps(btc_pulse, default=str, indent=2), encoding="utf-8")
     # institutional paper-training campaign artifacts (PAPER ONLY) — when present
     campaign = status.get("training_campaign") or {}
     if campaign and campaign.get("enabled") is not False:
@@ -258,6 +263,27 @@ def _markdown(status: dict, run_id: str) -> str:
     for b in status.get("baselines", []):
         a(f"- {b.get('baseline_name')}: trades={b.get('trade_count')} "
           f"scored={b.get('scored_trades')} pnl={b.get('pnl')} win_rate={b.get('win_rate')}")
+    a("")
+    bp = status.get("btc_pulse") or {}
+    a("## 17e. BTC 5-min Pulse (PAPER ONLY, isolated experiment)")
+    if bp.get("btc_pulse_enabled"):
+        a(f"- frozen: {bp.get('btc_pulse_frozen')} · paper_only: {bp.get('paper_only')} "
+          f"· isolated_learning: {bp.get('isolated_learning')} · live_enabled: "
+          f"{bp.get('live_enabled')} · legacy_autotrade: {bp.get('legacy_autotrade_enabled')}")
+        a(f"- ticks: {bp.get('btc_pulse_ticks')} · rounds: {bp.get('btc_pulse_rounds_seen')} "
+          f"· decisions: {bp.get('btc_pulse_decisions')} · paper_trades: "
+          f"{bp.get('btc_pulse_paper_trades')} · no_trades: "
+          f"{bp.get('btc_pulse_no_trade_decisions')} · rejected: {bp.get('btc_pulse_rejected_trades')}")
+        a(f"- win_rate: {bp.get('btc_pulse_win_rate')} · sharpe: {bp.get('btc_pulse_sharpe')} "
+          f"· sortino: {bp.get('btc_pulse_sortino')} · calmar: {bp.get('btc_pulse_calmar')} "
+          f"· max_dd: {bp.get('btc_pulse_max_drawdown')}")
+        a(f"- brier: {bp.get('btc_pulse_brier')} · log_loss: {bp.get('btc_pulse_log_loss')} "
+          f"· ece: {bp.get('btc_pulse_ece')} · after_cost_pnl: {bp.get('btc_pulse_after_cost_pnl')}")
+        a(f"- rejection_reasons: {bp.get('btc_pulse_rejection_reasons')} · "
+          f"transfer_gate: {bp.get('btc_pulse_transfer_gate_status')} · "
+          f"blockers: {bp.get('btc_pulse_blockers')}")
+    else:
+        a("- BTC Pulse OFF (isolated paper experiment; never trades on its own)")
     a("")
     exp = status.get("experiments", {}) or {}
     if exp.get("enabled"):

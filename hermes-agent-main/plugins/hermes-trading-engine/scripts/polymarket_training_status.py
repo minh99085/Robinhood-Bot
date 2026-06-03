@@ -126,6 +126,27 @@ def run(argv=None) -> int:
                   f"cannot_trigger_live_orders: {sp.get('news_cannot_trigger_live_orders')}")
         if sp.get("fail_closed_reason"):
             print(f"  fail_closed_reason: {sp.get('fail_closed_reason')}")
+    bp = st.get("btc_pulse") or {}
+    if bp:
+        print("=" * 56)
+        print(f"  BTC 5-min PULSE (PAPER, isolated): enabled={bp.get('btc_pulse_enabled')} "
+              f"frozen={bp.get('btc_pulse_frozen')}")
+        print(f"    paper_only={bp.get('paper_only')} isolated_learning={bp.get('isolated_learning')} "
+              f"live_enabled={bp.get('live_enabled')} legacy_autotrade={bp.get('legacy_autotrade_enabled')}")
+        print(f"    ticks={bp.get('btc_pulse_ticks')} rounds={bp.get('btc_pulse_rounds_seen')} "
+              f"decisions={bp.get('btc_pulse_decisions')} "
+              f"paper_trades={bp.get('btc_pulse_paper_trades')} "
+              f"no_trades={bp.get('btc_pulse_no_trade_decisions')} "
+              f"rejected={bp.get('btc_pulse_rejected_trades')}")
+        print(f"    win_rate={bp.get('btc_pulse_win_rate')} sharpe={bp.get('btc_pulse_sharpe')} "
+              f"brier={bp.get('btc_pulse_brier')} after_cost_pnl={bp.get('btc_pulse_after_cost_pnl')} "
+              f"max_dd={bp.get('btc_pulse_max_drawdown')}")
+        print(f"    ev_positive={bp.get('btc_pulse_ev_positive_count')} "
+              f"ev_negative_rejected={bp.get('btc_pulse_ev_negative_rejected_count')} "
+              f"rejection_reasons={bp.get('btc_pulse_rejection_reasons')}")
+        print(f"    last_tick_ts={bp.get('btc_pulse_last_tick_ts')} "
+              f"last_error={bp.get('btc_pulse_last_error')} "
+              f"blockers={bp.get('btc_pulse_blockers')}")
     return 0
 
 

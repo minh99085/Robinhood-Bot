@@ -26,7 +26,19 @@ services:
       DISABLE_CRYPTO_TRADING: "1"
       DISABLE_STOCK_TRADING: "1"
       DISABLE_ARBITRAGE_TRADING: "1"
-      DISABLE_BTC_PULSE_TRADING: "1"     # BTC pulse is diagnostics-only, never the trade path
+      DISABLE_BTC_PULSE_TRADING: "1"     # legacy BTC pulse autotrade NEVER trades
+      # ---- BTC 5-min Pulse PAPER-ONLY isolated training experiment (default OFF) ----
+      # Runs beside the Polymarket campaign for fast feedback. PAPER ONLY: never
+      # places a live order, never touches a wallet, never enables legacy BTC
+      # autotrade, never writes the Polymarket learner. Fail-closed on unsafe flags.
+      BTC_PULSE_ENABLED: "${BTC_PULSE_ENABLED:-0}"
+      BTC_PULSE_PAPER_ONLY: "${BTC_PULSE_PAPER_ONLY:-1}"
+      BTC_PULSE_ISOLATED_LEARNING: "${BTC_PULSE_ISOLATED_LEARNING:-1}"
+      BTC_PULSE_ALLOW_TRANSFER_LEARNING: "${BTC_PULSE_ALLOW_TRANSFER_LEARNING:-0}"
+      BTC_PULSE_LIVE_ENABLED: "${BTC_PULSE_LIVE_ENABLED:-0}"
+      BTC_AUTOTRADE_ENABLED: "${BTC_AUTOTRADE_ENABLED:-0}"
+      BTC_PULSE_TICK_SECONDS: "${BTC_PULSE_TICK_SECONDS:-30}"
+      BTC_PULSE_ROUND_SECONDS: "${BTC_PULSE_ROUND_SECONDS:-300}"
       # Training Engine v2 mode: disabled | observe_only | paper_train (default observe_only)
       POLYMARKET_TRAINING_MODE: "${POLYMARKET_TRAINING_MODE:-observe_only}"
       # cautious | balanced | aggressive  (default: cautious)

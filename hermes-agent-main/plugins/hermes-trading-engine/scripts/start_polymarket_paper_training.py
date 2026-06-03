@@ -103,6 +103,19 @@ def run(argv=None) -> int:
                          "or the stop sentinel exists")
     ap.add_argument("--max-hours", type=float, default=336.0,
                     help="max wall-clock hours for --continue-until-thresholds")
+    # ---- BTC 5-min Pulse PAPER-ONLY isolated experiment ----
+    ap.add_argument("--btc-pulse", action="store_true",
+                    help="enable the BTC 5-min Pulse PAPER-ONLY isolated training "
+                         "experiment beside Polymarket. Keeps live + legacy BTC "
+                         "autotrade disabled and isolated learning on. PAPER ONLY.")
+    ap.add_argument("--btc-pulse-paper-only", action="store_true", default=None,
+                    help="force BTC Pulse paper-only (already the default)")
+    ap.add_argument("--btc-pulse-isolated-learning", action="store_true", default=None,
+                    help="force BTC Pulse isolated learning (already the default)")
+    ap.add_argument("--btc-pulse-tick-seconds", type=int, default=None,
+                    help="BTC Pulse tick seconds (default 30)")
+    ap.add_argument("--btc-pulse-round-seconds", type=int, default=None,
+                    help="BTC Pulse round seconds (default 300)")
     args = ap.parse_args(argv)
 
     pf = preflight()
@@ -134,6 +147,18 @@ def run(argv=None) -> int:
         overrides["campaign_target_min_resolved_labels"] = args.target_resolved_labels
     if args.target_bregman_candidates is not None:
         overrides["campaign_target_min_bregman_candidates"] = args.target_bregman_candidates
+    # BTC Pulse overrides (PAPER ONLY). --btc-pulse unfreezes the isolated
+    # experiment; live + legacy BTC autotrade stay disabled regardless.
+    if args.btc_pulse or _envb("BTC_PULSE_ENABLED", False):
+        overrides["btc_pulse_enabled"] = True
+        overrides["btc_pulse_paper_only"] = True
+        overrides["btc_pulse_isolated_learning"] = True
+        overrides["btc_pulse_live_enabled"] = _envb("BTC_PULSE_LIVE_ENABLED", False)
+        overrides["btc_pulse_legacy_autotrade_enabled"] = _envb("BTC_AUTOTRADE_ENABLED", False)
+    if args.btc_pulse_tick_seconds is not None:
+        overrides["btc_pulse_tick_seconds"] = args.btc_pulse_tick_seconds
+    if args.btc_pulse_round_seconds is not None:
+        overrides["btc_pulse_round_seconds"] = args.btc_pulse_round_seconds
     if args.campaign_safe_profile:
         # institutional campaign-safe profile implies aggressive paper + campaign.
         overrides["campaign_enabled"] = True
@@ -163,15 +188,40 @@ def run(argv=None) -> int:
                   f"({safety['fail_closed_reason']}). ***\033[0m")
             return 2
         print("campaign-safe startup safety PASSED — PAPER ONLY, no live path.\n")
+
+    # BTC 5-min Pulse PAPER-ONLY preflight (fail-closed). Only printed/enforced
+    # when the pulse experiment is enabled (via --btc-pulse / BTC_PULSE_ENABLED).
+    if bool(getattr(cfg, "btc_pulse_enabled", False)):
+        from engine.training.btc_pulse import pulse_preflight
+        pf_pulse = pulse_preflight(cfg)
+        print("BTC 5-min Pulse — PAPER-ONLY preflight (isolated experiment):")
+        for k, v in pf_pulse["resolved"].items():
+            print(f"  {k}: {v}")
+        print(f"  btc_pulse_status: {pf_pulse['btc_pulse_status']}")
+        for k, v in pf_pulse["checks"].items():
+            print(f"  {'OK ' if v else 'XX '} {k}: {v}")
+        if not pf_pulse["passed"]:
+            print(f"\n\033[91m*** REFUSING TO START: BTC Pulse safety failed "
+                  f"({pf_pulse['fail_closed_reason']}). ***\033[0m")
+            print("BTC Pulse is PAPER ONLY. Disable live/autotrade flags and retry.")
+            return 2
+        print("BTC Pulse preflight OK — PAPER ONLY, isolated, no live orders, "
+              "no legacy autotrade.\n")
     cfg.mode = args.mode  # start-paper explicitly drives paper training
     data_dir = Path(args.data_dir) if args.data_dir else None
     trainer = PolymarketPaperTrainer(cfg, data_dir=data_dir)
     dd = trainer.data_dir
     stop_path = dd / "polymarket_training.stop"
+    _profile_name = ("campaign_safe" if (args.campaign_safe_profile or cfg.campaign_safe_profile)
+                     else ("aggressive" if args.aggressive_paper else "default"))
     print(f"mode: {cfg.mode} (PAPER ONLY)"
-          + (f" · profile: {'aggressive' if args.aggressive_paper else 'default'}")
+          + (f" · profile: {_profile_name}")
           + (" · CAMPAIGN" if cfg.campaign_enabled else "")
-          + (" · ALGORITHM FROZEN" if cfg.algorithm_freeze_mode else ""))
+          + (" · ALGORITHM FROZEN" if cfg.algorithm_freeze_mode else "")
+          + (" · BTC PULSE (paper, isolated)" if cfg.btc_pulse_enabled else ""))
+    if cfg.btc_pulse_enabled:
+        print("  BTC Pulse: enabled=true frozen=false paper_only=true "
+              "isolated_learning=true live_enabled=false legacy_autotrade=false")
     # double-check the trainer's own runtime gate agrees
     if not trainer.preflight()["ok"]:
         print("\033[91m*** REFUSING: trainer preflight failed. ***\033[0m")
@@ -216,6 +266,16 @@ def run(argv=None) -> int:
               f"open={st['pnl']['open_positions']} equity={st['pnl']['equity']} "
               f"closed={st['pnl']['trades_closed']}")
         _print_campaign_progress(trainer)
+        bp = st.get("btc_pulse") or {}
+        if bp.get("btc_pulse_enabled"):
+            print(f"  btc_pulse: frozen={bp.get('btc_pulse_frozen')} "
+                  f"ticks={bp.get('btc_pulse_ticks')} "
+                  f"decisions={bp.get('btc_pulse_decisions')} "
+                  f"paper_trades={bp.get('btc_pulse_paper_trades')} "
+                  f"no_trades={bp.get('btc_pulse_no_trade_decisions')} "
+                  f"win_rate={bp.get('btc_pulse_win_rate')} "
+                  f"after_cost_pnl={bp.get('btc_pulse_after_cost_pnl')} "
+                  f"blockers={bp.get('btc_pulse_blockers')}")
         if args.continue_until_thresholds:
             if trainer.campaign is not None and trainer.campaign.thresholds_met():
                 print("campaign evidence thresholds met — stopping.")

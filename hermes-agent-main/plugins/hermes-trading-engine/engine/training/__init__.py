@@ -26,6 +26,8 @@ from . import legacy  # noqa: F401
 
 from .config import (TrainingConfig, AggressivePaperTrainingConfig,
                      FORBIDDEN_LIVE_FLAGS, MODES)
+from .btc_pulse import (BtcPulsePaperTrainer, pulse_preflight,  # noqa: F401
+                        resolved_pulse_config)
 from .campaign_controller import (CampaignState, CampaignThresholds, CampaignProgress,
                                   CampaignEvidence, CampaignVerdict,
                                   TrainingCampaignController, campaign_json,
@@ -56,6 +58,7 @@ from .polymarket_trainer import (
 )
 
 __all__ = [
+    "BtcPulsePaperTrainer", "pulse_preflight", "resolved_pulse_config",
     "TrainingConfig", "AggressivePaperTrainingConfig", "algorithm_inventory",
     "FORBIDDEN_LIVE_FLAGS", "MODES",
     "ScanMetrics", "bucket_label", "liquidity_bucket", "spread_bucket",

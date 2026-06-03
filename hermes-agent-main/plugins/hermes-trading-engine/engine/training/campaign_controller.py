@@ -713,6 +713,15 @@ def campaign_safety_check(cfg) -> dict:
         # (paper-only simulation). It NEVER enables a live/real BTC autotrade, so
         # it does not affect ``btc_autotrade_disabled`` or the pass/fail verdict.
         "btc_pulse_paper_parallel": _envb("HTE_BTC_PULSE_PAPER_ENABLED", False),
+        # BTC 5-min Pulse PAPER-ONLY isolated experiment (advisory, never live).
+        # When enabled under campaign-safe it is forced paper-only + isolated with
+        # live + legacy autotrade hard-off (see config.__post_init__).
+        "btc_pulse_enabled": bool(getattr(cfg, "btc_pulse_enabled", False)),
+        "btc_pulse_paper_only": bool(getattr(cfg, "btc_pulse_paper_only", True)),
+        "btc_pulse_isolated_learning": bool(getattr(cfg, "btc_pulse_isolated_learning", True)),
+        "btc_pulse_live_disabled": not bool(getattr(cfg, "btc_pulse_live_enabled", False)),
+        "btc_pulse_legacy_autotrade_disabled": not bool(
+            getattr(cfg, "btc_pulse_legacy_autotrade_enabled", False)),
         "risk_gates_required": bool(getattr(cfg, "risk_engine_enabled", False)),
         # News scanner is advisory + read-only. Under campaign-safe it is forced
         # read-only + timestamped + cached and can NEVER trigger a live order or

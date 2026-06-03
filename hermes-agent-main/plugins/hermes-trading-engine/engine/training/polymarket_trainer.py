@@ -327,6 +327,21 @@ class PolymarketPaperTrainer:
                 self.campaign = None
                 self._campaign_error = f"init_failed:{exc}"
 
+        # BTC 5-min Pulse — PAPER-ONLY, ISOLATED experiment (default OFF). It runs
+        # beside the Polymarket campaign for fast feedback, owns its own learner
+        # namespace, and can NEVER place a live order, touch a wallet, enable
+        # legacy BTC autotrade, or write to the Polymarket learner. Failures here
+        # NEVER block Polymarket training.
+        self.btc_pulse = None
+        self._btc_pulse_error = None
+        if bool(getattr(self.cfg, "btc_pulse_enabled", False)):
+            try:
+                from .btc_pulse import BtcPulsePaperTrainer
+                self.btc_pulse = BtcPulsePaperTrainer(self.cfg, data_dir=self.data_dir)
+            except Exception as exc:  # noqa: BLE001 — pulse must never crash training
+                self.btc_pulse = None
+                self._btc_pulse_error = f"init_failed:{exc}"
+
         self.cash = float(self.cfg.starting_bankroll)
         self.positions: list = []
         self.fills_log: list = []
@@ -476,6 +491,13 @@ class PolymarketPaperTrainer:
                 self.run_monitoring(now=now)
             except Exception:  # noqa: BLE001 — monitoring must never break a tick
                 pass
+        # BTC Pulse runs as a SEPARATE, isolated paper experiment. It must never
+        # block Polymarket: any failure is captured and surfaced in status only.
+        if self.btc_pulse is not None:
+            try:
+                self.btc_pulse.tick(now_ms=int(now * 1000) if now else None)
+            except Exception as exc:  # noqa: BLE001 — pulse never blocks Polymarket
+                self._btc_pulse_error = f"tick_failed:{exc}"
         self._persist_status()
         # Institutional campaign: aggregate this tick's REAL evidence (PAPER ONLY).
         # Never breaks the tick if campaign reporting fails.
@@ -1415,6 +1437,19 @@ class PolymarketPaperTrainer:
                                             "no_live_orders": True}
         if self._campaign_safety is not None:
             out["campaign_safety"] = self._campaign_safety
+        # BTC Pulse isolated experiment visibility (PAPER ONLY).
+        if self.btc_pulse is not None:
+            try:
+                out["btc_pulse"] = self.btc_pulse.status()
+            except Exception as exc:  # noqa: BLE001 — status must never crash
+                out["btc_pulse"] = {"btc_pulse_enabled": True, "btc_pulse_frozen": True,
+                                    "btc_pulse_last_error": str(exc)}
+        else:
+            out["btc_pulse"] = {
+                "btc_pulse_enabled": bool(getattr(self.cfg, "btc_pulse_enabled", False)),
+                "btc_pulse_frozen": True,
+                "btc_pulse_last_error": self._btc_pulse_error,
+            }
         return out
 
     def _status_core(self) -> dict:

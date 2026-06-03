@@ -309,6 +309,26 @@ class TrainingConfig:
     news_min_source_credibility: float = 0.4
     news_enable_grok_packet: bool = True
     news_replay_timestamp_safe: bool = True
+    # ---- BTC 5-min Pulse PAPER-ONLY isolated experiment (default OFF) ----
+    # An isolated simulated training module that runs beside the Polymarket
+    # campaign for fast feedback. PAPER ONLY: it never places a live order,
+    # never touches a wallet, never enables legacy BTC autotrade, and never
+    # writes to the Polymarket learner namespace. Fail-closed on unsafe flags.
+    btc_pulse_enabled: bool = False
+    btc_pulse_paper_only: bool = True
+    btc_pulse_isolated_learning: bool = True
+    btc_pulse_allow_transfer_learning: bool = False
+    btc_pulse_live_enabled: bool = False
+    btc_pulse_legacy_autotrade_enabled: bool = False
+    btc_pulse_tick_seconds: int = 30
+    btc_pulse_round_seconds: int = 300
+    btc_pulse_max_paper_notional_per_trade: float = 5.0
+    btc_pulse_max_paper_trades_per_hour: int = 60
+    btc_pulse_max_daily_paper_loss: float = 50.0
+    btc_pulse_min_ev_threshold: float = 0.0
+    btc_pulse_require_positive_ev: bool = True
+    btc_pulse_require_risk_gate: bool = True
+    btc_pulse_require_realistic_fill: bool = True
     # ---- run / sim ----
     take_profit: float = 0.05
     stop_loss: float = 0.05
@@ -394,6 +414,26 @@ class TrainingConfig:
         self.news_min_relevance_score = max(0.0, min(1.0, float(self.news_min_relevance_score)))
         self.news_min_source_credibility = max(
             0.0, min(1.0, float(self.news_min_source_credibility)))
+        # BTC Pulse PAPER clamps (advisory experiment; cannot exceed paper caps)
+        self.btc_pulse_tick_seconds = max(1, min(int(self.btc_pulse_tick_seconds), 3600))
+        self.btc_pulse_round_seconds = max(
+            self.btc_pulse_tick_seconds, min(int(self.btc_pulse_round_seconds), 86400))
+        self.btc_pulse_max_paper_notional_per_trade = max(
+            0.0, min(float(self.btc_pulse_max_paper_notional_per_trade), 50.0))
+        self.btc_pulse_max_paper_trades_per_hour = max(
+            0, min(int(self.btc_pulse_max_paper_trades_per_hour), 100000))
+        self.btc_pulse_max_daily_paper_loss = max(
+            0.0, min(float(self.btc_pulse_max_daily_paper_loss), 500.0))
+        # Campaign-safe profile: if pulse is explicitly enabled it MUST stay
+        # paper-only + isolated, with live + legacy autotrade hard-off. This
+        # never enables a live path; it only ever tightens the pulse experiment.
+        if bool(self.campaign_safe_profile) and bool(self.btc_pulse_enabled):
+            self.btc_pulse_paper_only = True
+            self.btc_pulse_isolated_learning = True
+            self.btc_pulse_live_enabled = False
+            self.btc_pulse_legacy_autotrade_enabled = False
+            self.btc_pulse_require_risk_gate = True
+            self.btc_pulse_require_realistic_fill = True
         # hard PAPER clamps (cannot exceed even if env is misconfigured)
         self.fixed_notional_usd = max(0.0, min(self.fixed_notional_usd, 50.0))
         self.max_kelly_size_usd = max(0.0, min(self.max_kelly_size_usd, 50.0))
@@ -636,6 +676,22 @@ class TrainingConfig:
             news_min_source_credibility=_envf("NEWS_MIN_SOURCE_CREDIBILITY", 0.4),
             news_enable_grok_packet=_envb("NEWS_ENABLE_GROK_PACKET", True),
             news_replay_timestamp_safe=_envb("NEWS_REPLAY_TIMESTAMP_SAFE", True),
+            btc_pulse_enabled=_envb("BTC_PULSE_ENABLED", False),
+            btc_pulse_paper_only=_envb("BTC_PULSE_PAPER_ONLY", True),
+            btc_pulse_isolated_learning=_envb("BTC_PULSE_ISOLATED_LEARNING", True),
+            btc_pulse_allow_transfer_learning=_envb("BTC_PULSE_ALLOW_TRANSFER_LEARNING", False),
+            btc_pulse_live_enabled=_envb("BTC_PULSE_LIVE_ENABLED", False),
+            btc_pulse_legacy_autotrade_enabled=_envb("BTC_AUTOTRADE_ENABLED", False),
+            btc_pulse_tick_seconds=_envi("BTC_PULSE_TICK_SECONDS", 30),
+            btc_pulse_round_seconds=_envi("BTC_PULSE_ROUND_SECONDS", 300),
+            btc_pulse_max_paper_notional_per_trade=_envf(
+                "BTC_PULSE_MAX_PAPER_NOTIONAL_PER_TRADE", 5.0),
+            btc_pulse_max_paper_trades_per_hour=_envi("BTC_PULSE_MAX_PAPER_TRADES_PER_HOUR", 60),
+            btc_pulse_max_daily_paper_loss=_envf("BTC_PULSE_MAX_DAILY_PAPER_LOSS", 50.0),
+            btc_pulse_min_ev_threshold=_envf("BTC_PULSE_MIN_EV_THRESHOLD", 0.0),
+            btc_pulse_require_positive_ev=_envb("BTC_PULSE_REQUIRE_POSITIVE_EV", True),
+            btc_pulse_require_risk_gate=_envb("BTC_PULSE_REQUIRE_RISK_GATE", True),
+            btc_pulse_require_realistic_fill=_envb("BTC_PULSE_REQUIRE_REALISTIC_FILL", True),
             experiments_enabled=_envb("POLYMARKET_EXPERIMENTS_ENABLED", False),
             experiment_id=(os.getenv("POLYMARKET_EXPERIMENT_ID") or "exp_default").strip(),
             bregman_first_budget=_envb("POLYMARKET_BREGMAN_FIRST_BUDGET", True),
