@@ -302,7 +302,9 @@ def rank_items(items, *, market_ctx: dict, now_ms: int):
 def build_packet(items, *, market_ctx: dict, now_ms: int, max_items: int = 8,
                  max_snippet_chars: int = 500, min_relevance: float = 0.0,
                  min_credibility: float = 0.0, queries=None,
-                 provider_mode: str = "offline_cache") -> NewsPacket:
+                 provider_mode: str = "offline_cache",
+                 require_published_at: bool = False, reject_unclear_date: bool = False,
+                 max_age_hours: float = 0.0) -> NewsPacket:
     market_id = str(market_ctx.get("market_id") or "")
     raw = list(items)
     fetched = len(raw)
@@ -328,6 +330,16 @@ def build_packet(items, *, market_ctx: dict, now_ms: int, max_items: int = 8,
             _reject("injection_sanitized")
         it.snippet = sanitize_snippet(it.snippet, max_snippet_chars)
         it.title = sanitize_snippet(it.title, 200)
+        # Date-quality filters: reject unclear/missing publish dates and items
+        # older than the configured cap (advisory quality tightening).
+        if (require_published_at or reject_unclear_date) and it.published_ts is None:
+            _reject("no_published_date")
+            continue
+        if max_age_hours and it.published_ts is not None:
+            age_h = (int(now_ms) - int(it.published_ts)) / 3_600_000.0
+            if age_h > float(max_age_hours):
+                _reject("too_old")
+                continue
         if it.relevance_score < min_relevance:
             _reject("low_relevance")
             continue

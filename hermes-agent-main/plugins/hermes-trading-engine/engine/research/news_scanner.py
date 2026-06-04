@@ -46,7 +46,9 @@ class NewsEvidenceScanner:
                  cache: Optional[dict] = None,
                  clock: Optional[Callable[[], int]] = None,
                  now_ms: Optional[Callable[[], int]] = None,
-                 replay_timestamp_safe: bool = True):
+                 replay_timestamp_safe: bool = True,
+                 require_published_at: bool = False,
+                 reject_unclear_date: bool = False, max_age_hours: float = 0.0):
         self.provider = provider or OfflineCacheProvider()
         self.max_queries = max(1, int(max_queries))
         self.max_items = max(1, int(max_items))
@@ -57,6 +59,9 @@ class NewsEvidenceScanner:
         self.budget_max_calls = budget_max_calls
         self.now_ms = now_ms or clock or _now_ms
         self.replay_timestamp_safe = bool(replay_timestamp_safe)
+        self.require_published_at = bool(require_published_at)
+        self.reject_unclear_date = bool(reject_unclear_date)
+        self.max_age_hours = float(max_age_hours)
         self._cache: dict = cache if cache is not None else {}
         self._calls_made = 0
 
@@ -153,7 +158,9 @@ class NewsEvidenceScanner:
             usable, market_ctx=market_ctx, now_ms=ts, max_items=self.max_items,
             max_snippet_chars=self.max_snippet_chars,
             min_relevance=self.min_relevance, min_credibility=self.min_credibility,
-            queries=queries, provider_mode=provider_mode)
+            queries=queries, provider_mode=provider_mode,
+            require_published_at=self.require_published_at,
+            reject_unclear_date=self.reject_unclear_date, max_age_hours=self.max_age_hours)
 
         return NewsScanResult(
             packet=packet, provider_mode=provider_mode, queries=queries,
@@ -222,4 +229,7 @@ class NewsEvidenceScanner:
             min_credibility=getattr(cfg, "news_min_source_credibility", 0.0),
             cache_ttl_seconds=getattr(cfg, "news_cache_ttl_seconds", 1800),
             replay_timestamp_safe=getattr(cfg, "news_replay_timestamp_safe", True),
+            require_published_at=getattr(cfg, "news_require_published_at", False),
+            reject_unclear_date=getattr(cfg, "news_reject_unclear_date", False),
+            max_age_hours=getattr(cfg, "news_max_age_hours", 0.0),
             cache=cache, clock=clock)

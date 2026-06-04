@@ -83,7 +83,7 @@ class BtcPulsePaperTrainer:
 
     def __init__(self, cfg, *, data_dir=None, clock: Optional[Callable[[], int]] = None,
                  price_fn: Optional[Callable[[], float]] = None, rng_seed: int = 1337,
-                 risk_engine=None, oracle=None):
+                 risk_engine=None, oracle=None, fast_price=None):
         self.cfg = cfg
         self.data_dir = data_dir
         self._clock = clock or _now_ms
@@ -171,6 +171,25 @@ class BtcPulsePaperTrainer:
             "oracle_stale_skips": 0, "oracle_error_skips": 0,
             "oracle_fresh_decisions": 0, "oracle_feature_decisions": 0,
             "last_oracle_price": None, "last_oracle_error": None,
+        }
+
+        # Fast read-only BTC spot feed for short-horizon (30s/60s/300s) signals.
+        # Chainlink stays the slow ANCHOR; the fast price drives the round price
+        # and is cross-checked against the anchor (disagreement gate). PAPER ONLY.
+        self.fast_price = fast_price
+        self.require_fast_price = bool(getattr(cfg, "btc_pulse_require_fast_price", False))
+        self.max_disagreement_bps = float(getattr(cfg, "btc_pulse_max_oracle_disagreement_bps", 50.0))
+        self.block_chop = bool(getattr(cfg, "btc_pulse_block_chop_regime", False))
+        self._fast_status = None
+        self.regime = "unknown"
+        self.fast_counters = {
+            "fast_price_required": self.require_fast_price,
+            "oracle_anchor_fresh_decisions": 0, "fast_price_fresh_decisions": 0,
+            "oracle_disagreement_skips": 0, "fast_price_stale_skips": 0,
+            "chainlink_anchor_stale_skips": 0, "regime_chop_skips": 0,
+            "after_cost_negative_skips": 0, "fill_realism_skips": 0,
+            "last_fast_btc_price": None, "last_chainlink_anchor_price": None,
+            "last_oracle_disagreement_bps": None,
         }
 
         # active round
@@ -267,6 +286,21 @@ class BtcPulsePaperTrainer:
                          self.oracle_counters["last_oracle_price"],
                          self.oracle_counters["oracle_age_seconds"])
 
+        # Fast BTC spot read (short-horizon). Cross-check vs the Chainlink anchor.
+        if self.fast_price is not None:
+            anchor_px = self.oracle_counters.get("last_oracle_price")
+            try:
+                self._fast_status = self.fast_price.read(now=now / 1000.0,
+                                                         anchor_price=anchor_px)
+                self.fast_counters["last_fast_btc_price"] = getattr(
+                    self._fast_status, "price", None)
+                self.fast_counters["last_chainlink_anchor_price"] = anchor_px
+                self.fast_counters["last_oracle_disagreement_bps"] = getattr(
+                    self._fast_status, "disagreement_vs_chainlink_bps", None)
+            except Exception as exc:  # noqa: BLE001 — never break a tick
+                self._fast_status = None
+                self.fast_counters["last_fast_btc_price"] = None
+
         self._advance_price()
 
         result: dict = {"frozen": False, "event": "observe"}
@@ -292,10 +326,14 @@ class BtcPulsePaperTrainer:
                 self.rejection_reasons[blocker] = self.rejection_reasons.get(blocker, 0) + 1
                 if "stale" in blocker:
                     self.oracle_counters["oracle_stale_skips"] += 1
+                    self.fast_counters["chainlink_anchor_stale_skips"] += 1
+                    self.regime = "stale_oracle"
                 elif "error" in blocker:
                     self.oracle_counters["oracle_error_skips"] += 1
+                    self.regime = "stale_oracle"
                 else:
                     self.oracle_counters["oracle_missing_skips"] += 1
+                    self.regime = "stale_oracle"
                 self._round = {
                     "decision": {"round": self.rounds_seen, "oracle_blocked": True,
                                  **self.namespace()},
@@ -307,6 +345,31 @@ class BtcPulsePaperTrainer:
                         "round": self.rounds_seen, **self.namespace()}
             self.oracle_counters["oracle_fresh_decisions"] += 1
             self.oracle_counters["oracle_feature_decisions"] += 1
+            self.fast_counters["oracle_anchor_fresh_decisions"] += 1
+        # Fast-price + oracle-disagreement gate (PAPER ONLY). Block when fast
+        # price is required+stale, or fast vs anchor disagreement is too large.
+        fast_blocker = self._fast_price_gate_blocker()
+        if fast_blocker is not None:
+            self.no_trade_decisions += 1
+            self.rejected_trades += 1
+            self.rejection_reasons[fast_blocker] = self.rejection_reasons.get(fast_blocker, 0) + 1
+            if fast_blocker == "fast_price_stale":
+                self.fast_counters["fast_price_stale_skips"] += 1
+                self.regime = "stale_fast_price"
+            elif fast_blocker == "oracle_disagreement":
+                self.fast_counters["oracle_disagreement_skips"] += 1
+                self.regime = "oracle_disagreement"
+            self._round = {
+                "decision": {"round": self.rounds_seen, "fast_blocked": True,
+                             **self.namespace()},
+                "traded": False, "stake": 0.0, "fill_frac": 0.0,
+                "resolve_tick": self.ticks + self._ticks_per_round,
+                "no_trade_reason": fast_blocker, "shadow": False,
+            }
+            return {"frozen": False, "event": "oracle_blocked", "reason": fast_blocker,
+                    "round": self.rounds_seen, **self.namespace()}
+        if self._fast_status is not None and getattr(self._fast_status, "valid", False):
+            self.fast_counters["fast_price_fresh_decisions"] += 1
         p_up = self._regime_p_up()
         side = "UP" if p_up >= 0.5 else "DOWN"
         p_pred = p_up if side == "UP" else (1.0 - p_up)
@@ -450,9 +513,30 @@ class BtcPulsePaperTrainer:
         st = self._oracle_status if self._oracle_status is not None else self.oracle.read()
         return oracle_blocker(st)
 
+    def _fast_price_gate_blocker(self) -> Optional[str]:
+        """Block reasons from the fast BTC feed + anchor disagreement (or None)."""
+        if self.fast_price is None:
+            return "fast_price_stale" if self.require_fast_price else None
+        st = self._fast_status
+        if self.require_fast_price and (st is None or not getattr(st, "valid", False)):
+            return "fast_price_stale"
+        dis = getattr(st, "disagreement_vs_chainlink_bps", None) if st is not None else None
+        if dis is not None and self.max_disagreement_bps > 0 and dis > self.max_disagreement_bps:
+            return "oracle_disagreement"
+        return None
+
     def _advance_price(self) -> None:
-        # Prefer the Chainlink BTC/USD oracle price as the reference when it is
-        # fresh+valid (real on-chain price, not a simulated walk).
+        # Prefer the FAST BTC spot price as the round reference (short-horizon),
+        # falling back to the Chainlink anchor, then a simulated walk.
+        if self._fast_status is not None and getattr(self._fast_status, "valid", False):
+            px = getattr(self._fast_status, "price", None)
+            if px and px > 0:
+                self._price = float(px)
+                self._closes.append(self._price)
+                if len(self._closes) > 1000:
+                    self._closes = self._closes[-1000:]
+                return
+        # Chainlink BTC/USD anchor price as the reference when fresh+valid.
         if self._oracle_status is not None and getattr(self._oracle_status, "valid", False):
             px = getattr(self._oracle_status, "price", None)
             if px and px > 0:
@@ -461,7 +545,7 @@ class BtcPulsePaperTrainer:
                 if len(self._closes) > 1000:
                     self._closes = self._closes[-1000:]
                 return
-        if self.require_chainlink:
+        if self.require_chainlink or self.require_fast_price:
             # Chainlink required but not fresh: do NOT invent a price. Keep the
             # last known close; the round is oracle-blocked anyway.
             return
@@ -600,7 +684,31 @@ class BtcPulsePaperTrainer:
             "btc_pulse_oracle_stale_skips": self.oracle_counters["oracle_stale_skips"],
             "btc_pulse_oracle_error_skips": self.oracle_counters["oracle_error_skips"],
             "btc_pulse_oracle_fresh_decisions": self.oracle_counters["oracle_fresh_decisions"],
+            # Fast BTC spot feed + anchor disagreement (PAPER ONLY).
+            "btc_pulse_fast_price_required": bool(self.require_fast_price),
+            "btc_pulse_fast_btc_price": self.fast_counters["last_fast_btc_price"],
+            "btc_pulse_fast_price_valid": bool(
+                getattr(self._fast_status, "valid", False)) if self._fast_status else False,
+            "btc_pulse_fast_return_30s": self._fast_return(30),
+            "btc_pulse_fast_return_60s": self._fast_return(60),
+            "btc_pulse_fast_return_300s": self._fast_return(300),
+            "btc_pulse_chainlink_anchor_price": self.fast_counters["last_chainlink_anchor_price"],
+            "btc_pulse_oracle_disagreement_bps": self.fast_counters["last_oracle_disagreement_bps"],
+            "btc_pulse_regime": self.regime,
+            "btc_pulse_oracle_anchor_fresh_decisions": self.fast_counters["oracle_anchor_fresh_decisions"],
+            "btc_pulse_fast_price_fresh_decisions": self.fast_counters["fast_price_fresh_decisions"],
+            "btc_pulse_oracle_disagreement_skips": self.fast_counters["oracle_disagreement_skips"],
+            "btc_pulse_fast_price_stale_skips": self.fast_counters["fast_price_stale_skips"],
+            "btc_pulse_chainlink_anchor_stale_skips": self.fast_counters["chainlink_anchor_stale_skips"],
         }
+
+    def _fast_return(self, seconds: int) -> Optional[float]:
+        if self.fast_price is None or not hasattr(self.fast_price, "return_over"):
+            return None
+        try:
+            return self.fast_price.return_over(seconds)
+        except Exception:  # noqa: BLE001
+            return None
 
 
 def resolved_pulse_config(cfg) -> dict:

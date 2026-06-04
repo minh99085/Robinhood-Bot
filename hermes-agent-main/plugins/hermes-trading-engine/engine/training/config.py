@@ -309,6 +309,12 @@ class TrainingConfig:
     news_min_source_credibility: float = 0.4
     news_enable_grok_packet: bool = True
     news_replay_timestamp_safe: bool = True
+    # ---- news quality filters (advisory; tighten weak/stale items) ----
+    news_advisory_enabled: bool = True
+    news_trade_gate_enabled: bool = False        # advisory only — never gates a trade
+    news_require_published_at: bool = False
+    news_reject_unclear_date: bool = False
+    news_max_age_hours: float = 0.0              # 0 = no age cap
     # ---- BTC 5-min Pulse PAPER-ONLY isolated experiment (default OFF) ----
     # An isolated simulated training module that runs beside the Polymarket
     # campaign for fast feedback. PAPER ONLY: it never places a live order,
@@ -337,6 +343,20 @@ class TrainingConfig:
     btc_pulse_chainlink_heartbeat_seconds: int = 120
     btc_pulse_chainlink_max_age_seconds: int = 180
     btc_pulse_oracle_debug_log: bool = False
+    # ---- Fast read-only BTC spot feed (short-horizon features) ----
+    # Chainlink is the slow ANCHOR; this is a fast (seconds-fresh) spot price for
+    # 30s/60s/300s returns. Read-only, key-less, paper-only.
+    btc_fast_price_enabled: bool = False
+    btc_fast_price_provider: str = "coinbase_readonly"
+    btc_fast_price_symbol: str = "BTC-USD"
+    btc_fast_price_max_age_seconds: int = 10
+    btc_fast_price_timeout_seconds: float = 5.0
+    btc_fast_price_max_retries: int = 2
+    btc_fast_price_log_enabled: bool = False
+    btc_pulse_require_fast_price: bool = False
+    btc_pulse_max_oracle_disagreement_bps: float = 50.0
+    btc_pulse_block_chop_regime: bool = False
+    btc_pulse_min_fill_realism_score: float = 0.0
     # ---- 10x Feedback Accelerator (PAPER ONLY; default OFF) ----
     # Increases TRAINING FEEDBACK (decisions, shadow labels, no-trade labels,
     # tiny exploration trades) WITHOUT loosening any hard safety gate. Only soft
@@ -461,6 +481,16 @@ class TrainingConfig:
             1, min(int(self.btc_pulse_chainlink_heartbeat_seconds), 86400))
         self.btc_pulse_chainlink_max_age_seconds = max(
             1, min(int(self.btc_pulse_chainlink_max_age_seconds), 86400))
+        self.btc_fast_price_max_age_seconds = max(
+            1, min(int(self.btc_fast_price_max_age_seconds), 3600))
+        self.btc_fast_price_timeout_seconds = max(
+            0.5, min(float(self.btc_fast_price_timeout_seconds), 60.0))
+        self.btc_fast_price_max_retries = max(0, min(int(self.btc_fast_price_max_retries), 10))
+        self.btc_pulse_max_oracle_disagreement_bps = max(
+            0.0, min(float(self.btc_pulse_max_oracle_disagreement_bps), 10000.0))
+        self.btc_pulse_min_fill_realism_score = max(
+            0.0, min(float(self.btc_pulse_min_fill_realism_score), 1.0))
+        self.news_max_age_hours = max(0.0, min(float(self.news_max_age_hours), 8760.0))
         # Campaign-safe profile: if pulse is explicitly enabled it MUST stay
         # paper-only + isolated, with live + legacy autotrade hard-off. This
         # never enables a live path; it only ever tightens the pulse experiment.
@@ -590,7 +620,7 @@ class TrainingConfig:
             mode=mode,
             polymarket_only=_envb("POLYMARKET_ONLY_MODE", True),
             disable_btc_pulse_trading=_envb("DISABLE_BTC_PULSE_TRADING", True),
-            scan_limit=_envi("POLYMARKET_SCAN_LIMIT", 1000),
+            scan_limit=_envi("MARKET_SCAN_LIMIT", _envi("POLYMARKET_SCAN_LIMIT", 1000)),
             scan_interval_seconds=_envf("POLYMARKET_SCAN_INTERVAL_SECONDS", 60.0),
             metadata_cache_ttl_s=_envf("POLYMARKET_METADATA_CACHE_TTL_SECONDS", 60.0),
             incremental_refresh=_envb("POLYMARKET_INCREMENTAL_REFRESH", True),
@@ -602,9 +632,11 @@ class TrainingConfig:
             min_liquidity=_envf("POLYMARKET_MIN_LIQUIDITY", 250.0),
             min_time_to_close_s=_envf("POLYMARKET_MIN_TIME_TO_CLOSE_SECONDS", 3600.0),
             max_time_to_close_days=_envf("POLYMARKET_MAX_TIME_TO_CLOSE_DAYS", 90.0),
-            shortlist_limit=_envi("POLYMARKET_SHORTLIST_LIMIT", 150),
-            live_watch_limit=_envi("POLYMARKET_LIVE_WATCH_LIMIT", 100),
-            trade_candidate_limit=_envi("POLYMARKET_TRADE_CANDIDATE_LIMIT", 30),
+            shortlist_limit=_envi("MARKET_SHORTLIST_LIMIT", _envi("POLYMARKET_SHORTLIST_LIMIT", 150)),
+            live_watch_limit=_envi("MARKET_LIVE_WATCHLIST_LIMIT",
+                                   _envi("POLYMARKET_LIVE_WATCH_LIMIT", 100)),
+            trade_candidate_limit=_envi("MARKET_TRADE_CANDIDATE_LIMIT",
+                                        _envi("POLYMARKET_TRADE_CANDIDATE_LIMIT", 30)),
             clob_enabled=_envb("POLYMARKET_CLOB_ENABLED", True),
             subscribe_trending=_envb("POLYMARKET_CLOB_SUBSCRIBE_TRENDING", True),
             clob_stale_ms=_envf("POLYMARKET_CLOB_STALE_MS", 3000.0),
@@ -696,7 +728,8 @@ class TrainingConfig:
             research_confident_ambiguity_frac=_envf("POLYMARKET_RESEARCH_CONFIDENT_AMBIGUITY_FRAC", 0.6),
             feature_extraction_enabled=_envb("POLYMARKET_FEATURE_EXTRACTION_ENABLED", True),
             grouping_enabled=_envb("POLYMARKET_GROUPING_ENABLED", True),
-            paper_decision_budget=_envi("POLYMARKET_PAPER_DECISION_BUDGET", 30),
+            paper_decision_budget=_envi("POLYMARKET_DECISION_BUDGET",
+                                        _envi("POLYMARKET_PAPER_DECISION_BUDGET", 30)),
             feedback_sample_target=_envi("POLYMARKET_FEEDBACK_SAMPLE_TARGET", 200),
             tiny_trade_min_liquidity=_envf("POLYMARKET_TINY_TRADE_MIN_LIQUIDITY", 100.0),
             walk_forward_enabled=_envb("POLYMARKET_WALK_FORWARD_ENABLED", False),
@@ -758,6 +791,23 @@ class TrainingConfig:
             btc_pulse_chainlink_heartbeat_seconds=_envi("CHAINLINK_BTC_USD_HEARTBEAT_SECONDS", 120),
             btc_pulse_chainlink_max_age_seconds=_envi("CHAINLINK_BTC_USD_MAX_AGE_SECONDS", 180),
             btc_pulse_oracle_debug_log=_envb("BTC_PULSE_ORACLE_DEBUG_LOG", False),
+            btc_fast_price_enabled=_envb("BTC_FAST_PRICE_ENABLED", False),
+            btc_fast_price_provider=(os.getenv("BTC_FAST_PRICE_PROVIDER")
+                                     or "coinbase_readonly").strip(),
+            btc_fast_price_symbol=(os.getenv("BTC_FAST_PRICE_SYMBOL") or "BTC-USD").strip(),
+            btc_fast_price_max_age_seconds=_envi("BTC_FAST_PRICE_MAX_AGE_SECONDS", 10),
+            btc_fast_price_timeout_seconds=_envf("BTC_FAST_PRICE_TIMEOUT_SECONDS", 5.0),
+            btc_fast_price_max_retries=_envi("BTC_FAST_PRICE_MAX_RETRIES", 2),
+            btc_fast_price_log_enabled=_envb("BTC_FAST_PRICE_LOG_ENABLED", False),
+            btc_pulse_require_fast_price=_envb("BTC_PULSE_REQUIRE_FAST_PRICE", False),
+            btc_pulse_max_oracle_disagreement_bps=_envf("BTC_PULSE_MAX_ORACLE_DISAGREEMENT_BPS", 50.0),
+            btc_pulse_block_chop_regime=_envb("BTC_PULSE_BLOCK_CHOP_REGIME", False),
+            btc_pulse_min_fill_realism_score=_envf("BTC_PULSE_MIN_FILL_REALISM_SCORE", 0.0),
+            news_advisory_enabled=_envb("NEWS_ADVISORY_ENABLED", True),
+            news_trade_gate_enabled=_envb("NEWS_TRADE_GATE_ENABLED", False),
+            news_require_published_at=_envb("NEWS_REQUIRE_PUBLISHED_AT", False),
+            news_reject_unclear_date=_envb("NEWS_REJECT_UNCLEAR_DATE", False),
+            news_max_age_hours=_envf("NEWS_MAX_AGE_HOURS", 0.0),
             feedback_accelerator_enabled=_envb("FEEDBACK_ACCELERATOR_ENABLED", False),
             feedback_accelerator_target_multiplier=_envi("FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER", 10),
             exploration_tiny_size_enabled=_envb("EXPLORATION_TINY_SIZE_ENABLED", True),

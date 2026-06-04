@@ -264,6 +264,22 @@ class PolymarketPaperTrainer:
                 debug_log=bool(getattr(self.cfg, "btc_pulse_oracle_debug_log", False)))
         except Exception:  # noqa: BLE001 — oracle must never break startup
             self.chainlink_oracle = None
+        # Fast read-only BTC spot feed (short-horizon features). Read-only,
+        # key-less, paper-only; degrades gracefully when unreachable.
+        self.btc_fast_price = None
+        try:
+            if bool(getattr(self.cfg, "btc_fast_price_enabled", False)):
+                from engine.feeds.btc_fast_price import BtcFastPriceFeed
+                self.btc_fast_price = BtcFastPriceFeed(
+                    enabled=True, provider=getattr(self.cfg, "btc_fast_price_provider",
+                                                   "coinbase_readonly"),
+                    symbol=getattr(self.cfg, "btc_fast_price_symbol", "BTC-USD"),
+                    max_age_seconds=getattr(self.cfg, "btc_fast_price_max_age_seconds", 10),
+                    timeout_seconds=getattr(self.cfg, "btc_fast_price_timeout_seconds", 5.0),
+                    max_retries=getattr(self.cfg, "btc_fast_price_max_retries", 2),
+                    log_enabled=bool(getattr(self.cfg, "btc_fast_price_log_enabled", False)))
+        except Exception:  # noqa: BLE001 — fast feed must never break startup
+            self.btc_fast_price = None
         self.policy = PaperPolicy(self.cfg)
         self.edge_engine = EdgeEngine(self.cfg)
         # Flagship Polymarket Bregman arbitrage engine (PAPER ONLY). Scans the
@@ -354,7 +370,8 @@ class PolymarketPaperTrainer:
                 from .btc_pulse import BtcPulsePaperTrainer
                 self.btc_pulse = BtcPulsePaperTrainer(
                     self.cfg, data_dir=self.data_dir,
-                    oracle=getattr(self, "chainlink_oracle", None))
+                    oracle=getattr(self, "chainlink_oracle", None),
+                    fast_price=getattr(self, "btc_fast_price", None))
             except Exception as exc:  # noqa: BLE001 — pulse must never crash training
                 self.btc_pulse = None
                 self._btc_pulse_error = f"init_failed:{exc}"
@@ -370,7 +387,9 @@ class PolymarketPaperTrainer:
             "ticks": 0, "markets_scanned": 0, "queries": 0, "items_fetched": 0,
             "items_used": 0, "items_rejected": 0, "stale_count": 0,
             "contradiction_count": 0, "ambiguity_count": 0, "provider_errors": 0,
-            "last_scan_ts": 0.0,
+            "last_scan_ts": 0.0, "rejected_low_relevance": 0,
+            "rejected_low_credibility": 0, "rejected_unclear_date": 0,
+            "rejected_stale": 0, "rejected_duplicate": 0,
         }
         if bool(getattr(self.cfg, "news_scanner_enabled", False)):
             try:
@@ -485,6 +504,15 @@ class PolymarketPaperTrainer:
             try:
                 self.chainlink_oracle.read(now=now)
             except Exception:  # noqa: BLE001 — oracle read never blocks a tick
+                pass
+        # Fast BTC spot read each tick (read-only; cross-checked vs the anchor).
+        if getattr(self, "btc_fast_price", None) is not None:
+            try:
+                anchor = None
+                if getattr(self, "chainlink_oracle", None) is not None:
+                    anchor = self.chainlink_oracle.last_status().price
+                self.btc_fast_price.read(now=now, anchor_price=anchor)
+            except Exception:  # noqa: BLE001 — fast read never blocks a tick
                 pass
         # Market-news evidence scan (PAPER ONLY, read-only, advisory). Bounded to
         # a few top markets per tick + cached; NEVER blocks training on failure.
@@ -1532,6 +1560,12 @@ class PolymarketPaperTrainer:
         except Exception as exc:  # noqa: BLE001 — status must never crash
             out["chainlink_oracle"] = {"enabled": False, "error": str(exc)}
         try:
+            out["btc_fast_price"] = (self.btc_fast_price.status()
+                                     if getattr(self, "btc_fast_price", None) is not None
+                                     else {"enabled": False})
+        except Exception as exc:  # noqa: BLE001 — status must never crash
+            out["btc_fast_price"] = {"enabled": False, "error": str(exc)}
+        try:
             out["research"] = self.research_status()
         except Exception as exc:  # noqa: BLE001 — status must never crash
             out["research"] = {"available": False, "error": str(exc)}
@@ -1612,6 +1646,12 @@ class PolymarketPaperTrainer:
             m["ambiguity_count"] += int(res.ambiguity_count)
             if not res.provider_ok:
                 m["provider_errors"] += 1
+            reasons = getattr(res.packet, "rejected_reasons", {}) or {}
+            m["rejected_low_relevance"] += int(reasons.get("low_relevance", 0))
+            m["rejected_low_credibility"] += int(reasons.get("low_credibility", 0))
+            m["rejected_unclear_date"] += int(reasons.get("no_published_date", 0))
+            m["rejected_stale"] += int(reasons.get("too_old", 0))
+            m["rejected_duplicate"] += int(reasons.get("duplicate", 0))
             if res.used:
                 self._news_last_packet = res.packet.to_dict()
         m["ticks"] += 1
@@ -1624,9 +1664,16 @@ class PolymarketPaperTrainer:
         runtime_h = max(0.0, (time.time() - self.started_ts) / 3600.0)
         return {
             "news_scanner_enabled": bool(self.news_scanner is not None),
+            "advisory_enabled": bool(getattr(cfg, "news_advisory_enabled", True)),
+            "trade_gate_enabled": bool(getattr(cfg, "news_trade_gate_enabled", False)),
             "news_provider_mode": getattr(cfg, "news_provider_mode", "offline_cache"),
             "news_live_read_only": bool(getattr(cfg, "news_live_read_only", True)),
             "news_ticks": m["ticks"],
+            "rejected_low_relevance": m["rejected_low_relevance"],
+            "rejected_low_credibility": m["rejected_low_credibility"],
+            "rejected_unclear_date": m["rejected_unclear_date"],
+            "rejected_stale": m["rejected_stale"],
+            "rejected_duplicate": m["rejected_duplicate"],
             "news_markets_scanned": m["markets_scanned"],
             "news_queries": m["queries"],
             "news_items_fetched": m["items_fetched"],
