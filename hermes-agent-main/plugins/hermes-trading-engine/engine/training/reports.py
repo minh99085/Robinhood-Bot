@@ -307,6 +307,19 @@ def _markdown(status: dict, run_id: str) -> str:
         a("- Feedback Accelerator OFF (conservative default; turn on with "
           "--feedback-accelerator). PAPER ONLY.")
     a("")
+    nw = status.get("news") or {}
+    a("## 17g. Market-news evidence scanner (PAPER ONLY, advisory)")
+    if nw.get("news_scanner_enabled"):
+        a(f"- provider: {nw.get('news_provider_mode')} · markets_scanned: "
+          f"{nw.get('news_markets_scanned')} · queries: {nw.get('news_queries')}")
+        a(f"- items: fetched={nw.get('news_items_fetched')} used={nw.get('news_items_used')} "
+          f"rejected={nw.get('news_items_rejected')} · used/hr={nw.get('news_items_used_per_hour')}")
+        a(f"- stale={nw.get('news_stale_count')} contradiction={nw.get('news_contradiction_count')} "
+          f"ambiguity={nw.get('news_ambiguity_count')} provider_errors={nw.get('news_provider_errors')}")
+        a("- Read-only advisory; Grok stays advisory; never trades or bypasses a gate.")
+    else:
+        a("- News scanner OFF (turn on with NEWS_SCANNER_ENABLED=1). PAPER ONLY, advisory.")
+    a("")
     exp = status.get("experiments", {}) or {}
     if exp.get("enabled"):
         from .metrics import variant_attribution_table

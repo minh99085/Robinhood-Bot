@@ -147,6 +147,19 @@ def run(argv=None) -> int:
         print(f"    last_tick_ts={bp.get('btc_pulse_last_tick_ts')} "
               f"last_error={bp.get('btc_pulse_last_error')} "
               f"blockers={bp.get('btc_pulse_blockers')}")
+    nw = st.get("news") or {}
+    if nw:
+        print("=" * 56)
+        print(f"  NEWS SCANNER (PAPER, advisory): enabled={nw.get('news_scanner_enabled')} "
+              f"· provider={nw.get('news_provider_mode')}")
+        print(f"    markets_scanned={nw.get('news_markets_scanned')} "
+              f"queries={nw.get('news_queries')} items_fetched={nw.get('news_items_fetched')} "
+              f"items_used={nw.get('news_items_used')} rejected={nw.get('news_items_rejected')}")
+        print(f"    items_used/hr={nw.get('news_items_used_per_hour')} "
+              f"provider_errors={nw.get('news_provider_errors')} "
+              f"last_error={nw.get('news_last_error')}")
+        for it in (nw.get("news_last_packet_sample") or []):
+            print(f"    • {str(it.get('title'))[:70]} ({it.get('source_name')}, {it.get('direction')})")
     fa = st.get("feedback_accelerator") or {}
     if fa:
         print("=" * 56)

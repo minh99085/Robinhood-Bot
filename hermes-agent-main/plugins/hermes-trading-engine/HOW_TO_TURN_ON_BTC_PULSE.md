@@ -197,6 +197,34 @@ Open `.env`, set `FEEDBACK_ACCELERATOR_ENABLED=0`, then run Step C again.
 
 ---
 
+## Turn on the market‑news scanner (optional)
+
+This makes the bot read real news headlines about each market and feed them to
+Grok as **read‑only advice**. It never trades, never spends money.
+
+### Step A — Add these lines to `.env`
+```
+NEWS_SCANNER_ENABLED=1
+NEWS_PROVIDER_MODE=live_read_only
+```
+(`live_read_only` pulls free Google News headlines — no API key needed.
+Use `offline_cache` instead if you want it on but with no internet calls.)
+
+### Step B — Restart
+```powershell
+docker compose up -d --build
+```
+
+### Step C — Check it's scanning
+```powershell
+docker compose exec hermes-training python -c "import json,os;from pathlib import Path;d=json.loads((Path(os.getenv('HTE_DATA_DIR','/data'))/'polymarket_training.json').read_text());n=d.get('news',{});print('enabled=',n.get('news_scanner_enabled'),'markets_scanned=',n.get('news_markets_scanned'),'items_used=',n.get('news_items_used'),'provider=',n.get('news_provider_mode'))"
+```
+- `enabled= True` and `markets_scanned` going up = it's running.
+- With `live_read_only`, `items_used` should become greater than 0 as it finds headlines.
+- With `offline_cache`, `items_used` stays 0 (it runs but has no news source) — that's normal.
+
+---
+
 ## If something looks wrong, copy me these 3 outputs
 
 1. `docker compose config | Select-String "BTC_PULSE"`

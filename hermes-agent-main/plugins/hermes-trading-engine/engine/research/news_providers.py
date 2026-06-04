@@ -152,10 +152,73 @@ def _coerce_item(r, query: str, market_context: dict) -> NewsEvidenceItem:
     return NewsEvidenceItem(**d)
 
 
+def _parse_rss(xml_text: str, query: str, market_id: str, *, max_items: int = 10) -> list:
+    """Parse an RSS/Atom feed into provider-shaped dicts (stdlib only).
+
+    Best-effort + tolerant: returns [] on any parse error. Keeps only title,
+    link, source, and published time — never full article bodies/HTML/scripts.
+    """
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+    out: list = []
+    try:
+        root = ET.fromstring(xml_text)
+    except Exception:  # noqa: BLE001
+        return out
+    for item in root.iter("item"):
+        title = (item.findtext("title") or "").strip()
+        if not title:
+            continue
+        link = (item.findtext("link") or "").strip()
+        src_el = item.find("source")
+        src = (src_el.text or "").strip() if src_el is not None else ""
+        published_ts = None
+        pub = item.findtext("pubDate")
+        if pub:
+            try:
+                published_ts = int(parsedate_to_datetime(pub).timestamp() * 1000)
+            except Exception:  # noqa: BLE001
+                published_ts = None
+        out.append({
+            "market_id": market_id, "query": query, "title": title,
+            "snippet": title, "source_name": src or "news", "source_url": link,
+            "source_type": "news", "provider": "rss", "published_ts": published_ts,
+        })
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def rss_fetch(query: str, market_context: dict, *, base_url: Optional[str] = None,
+              timeout: float = 8.0, max_items: int = 10) -> list:
+    """Key-less, read-only news fetch via Google News RSS search.
+
+    The BOT fetches + caches + sanitizes (not Grok). Returns [] on any error so a
+    flaky network never breaks training. Sends only the public query — never
+    secrets/wallet/positions/order state."""
+    import urllib.parse
+    base = base_url or "https://news.google.com/rss/search"
+    qs = urllib.parse.urlencode({"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"})
+    url = f"{base}?{qs}"
+    try:
+        import httpx
+        resp = httpx.get(url, timeout=timeout,
+                         headers={"User-Agent": "hermes-news-scanner/1.0"})
+        resp.raise_for_status()
+        return _parse_rss(resp.text, query, str(market_context.get("market_id") or ""),
+                          max_items=max_items)
+    except Exception:  # noqa: BLE001 — read-only + best-effort; never block training
+        return []
+
+
 def get_provider(mode: str, **kwargs) -> NewsProvider:
     m = str(mode or "offline_cache").strip().lower()
     if m == "fixture":
         return FixtureProvider(**kwargs)
     if m == "live_read_only":
+        # Default to the key-less RSS fetch so live_read_only actually pulls
+        # real headlines (read-only). Callers may inject their own ``fetch``.
+        kwargs.setdefault("fetch", rss_fetch)
+        kwargs.setdefault("enabled", True)
         return LiveReadOnlyProvider(**kwargs)
     return OfflineCacheProvider(**kwargs)

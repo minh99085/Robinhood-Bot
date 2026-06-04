@@ -431,6 +431,18 @@ services:
       ACTIVE_LEARNING_ENABLED: "${ACTIVE_LEARNING_ENABLED:-0}"
       BTC_PULSE_FEEDBACK_ACCELERATION_ENABLED: "${BTC_PULSE_FEEDBACK_ACCELERATION_ENABLED:-1}"
       POLYMARKET_FEEDBACK_ACCELERATION_ENABLED: "${POLYMARKET_FEEDBACK_ACCELERATION_ENABLED:-1}"
+      # ---- Controlled market-news evidence scanner (PAPER ONLY; default OFF) ----
+      # The bot scans/caches/timestamps/scores/sanitizes market news and gives
+      # Grok a bounded read-only packet. Advisory only — never trades, never a
+      # wallet. offline_cache = no network (default). live_read_only = key-less
+      # Google News RSS headlines. Set NEWS_SCANNER_ENABLED=1 to turn it on.
+      NEWS_SCANNER_ENABLED: "${NEWS_SCANNER_ENABLED:-0}"
+      NEWS_PROVIDER_MODE: "${NEWS_PROVIDER_MODE:-offline_cache}"
+      NEWS_LIVE_READ_ONLY: "${NEWS_LIVE_READ_ONLY:-1}"
+      NEWS_MAX_QUERIES_PER_MARKET: "${NEWS_MAX_QUERIES_PER_MARKET:-3}"
+      NEWS_MAX_ITEMS_PER_MARKET: "${NEWS_MAX_ITEMS_PER_MARKET:-8}"
+      NEWS_MIN_RELEVANCE_SCORE: "${NEWS_MIN_RELEVANCE_SCORE:-0.2}"
+      NEWS_MIN_SOURCE_CREDIBILITY: "${NEWS_MIN_SOURCE_CREDIBILITY:-0.4}"
       POLYMARKET_TRAINING_MODE: "${POLYMARKET_TRAINING_MODE:-paper_train}"
       POLYMARKET_CLOB_ENABLED: "1"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----

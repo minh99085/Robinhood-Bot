@@ -342,6 +342,28 @@ class PolymarketPaperTrainer:
                 self.btc_pulse = None
                 self._btc_pulse_error = f"init_failed:{exc}"
 
+        # Controlled market-news evidence scanner (PAPER ONLY; default OFF). The
+        # bot scans/caches/timestamps/scores/sanitizes market news; it is
+        # advisory + read-only and NEVER places an order or bypasses a gate.
+        self.news_scanner = None
+        self._news_error = None
+        self._news_cache: dict = {}
+        self._news_last_packet: dict = {}
+        self._news_metrics = {
+            "ticks": 0, "markets_scanned": 0, "queries": 0, "items_fetched": 0,
+            "items_used": 0, "items_rejected": 0, "stale_count": 0,
+            "contradiction_count": 0, "ambiguity_count": 0, "provider_errors": 0,
+            "last_scan_ts": 0.0,
+        }
+        if bool(getattr(self.cfg, "news_scanner_enabled", False)):
+            try:
+                from engine.research.news_scanner import NewsEvidenceScanner
+                self.news_scanner = NewsEvidenceScanner.from_config(
+                    self.cfg, cache=self._news_cache)
+            except Exception as exc:  # noqa: BLE001 — news must never crash training
+                self.news_scanner = None
+                self._news_error = f"init_failed:{exc}"
+
         self.cash = float(self.cfg.starting_bankroll)
         self.positions: list = []
         self.fills_log: list = []
@@ -425,6 +447,13 @@ class PolymarketPaperTrainer:
             "liquidity_usd": round(getattr(r, "liquidity_usd", 0.0) or 0.0),
         } for r in watch[:15]]
         self._last_scan_ts = now
+        # Market-news evidence scan (PAPER ONLY, read-only, advisory). Bounded to
+        # a few top markets per tick + cached; NEVER blocks training on failure.
+        if self.news_scanner is not None:
+            try:
+                self._news_scan(watch, now)
+            except Exception as exc:  # noqa: BLE001 — news never blocks a tick
+                self._news_error = f"scan_failed:{exc}"
         health = self.subs.reconcile(watch)
         self.metrics.subscribed_assets = health.subscribed_assets
 
@@ -1455,7 +1484,85 @@ class PolymarketPaperTrainer:
         except Exception as exc:  # noqa: BLE001 — status must never crash
             out["feedback_accelerator"] = {"feedback_accelerator_enabled": False,
                                            "error": str(exc)}
+        try:
+            out["news"] = self.news_status()
+        except Exception as exc:  # noqa: BLE001 — status must never crash
+            out["news"] = {"news_scanner_enabled": False, "error": str(exc)}
         return out
+
+    # -- market-news evidence scanner (PAPER ONLY, advisory) -------------- #
+    def _news_ctx(self, rec) -> dict:
+        kws = []
+        cat = getattr(rec, "category", "") or ""
+        return {
+            "venue": "polymarket",
+            "market_id": getattr(rec, "market_id", ""),
+            "question": getattr(rec, "question", "") or "",
+            "slug": getattr(rec, "slug", "") or "",
+            "category": cat,
+            "description": getattr(rec, "description", "") or "",
+            "resolution_source": getattr(rec, "resolution_source", "") or "",
+            "close_ts_ms": getattr(rec, "close_ts_ms", None),
+            "outcome": "YES",
+            "asset_keywords": kws,
+        }
+
+    def _news_scan(self, watch, now: float) -> None:
+        """Scan news for the top few watched markets (bounded + cached)."""
+        if self.news_scanner is None:
+            return
+        per_tick = max(1, min(int(getattr(self.cfg, "news_markets_per_tick", 3)), 10))
+        m = self._news_metrics
+        for rec in list(watch)[:per_tick]:
+            ctx = self._news_ctx(rec)
+            if not ctx["market_id"]:
+                continue
+            res = self.news_scanner.scan(ctx, now_ms=int(now * 1000))
+            m["markets_scanned"] += 1
+            m["queries"] += len(res.queries)
+            m["items_fetched"] += int(res.fetched)
+            m["items_used"] += int(res.used)
+            m["items_rejected"] += int(res.rejected)
+            m["stale_count"] += int(res.stale_count)
+            m["contradiction_count"] += int(res.contradiction_count)
+            m["ambiguity_count"] += int(res.ambiguity_count)
+            if not res.provider_ok:
+                m["provider_errors"] += 1
+            if res.used:
+                self._news_last_packet = res.packet.to_dict()
+        m["ticks"] += 1
+        m["last_scan_ts"] = now
+
+    def news_status(self) -> dict:
+        """Market-news scanner status (PAPER ONLY, advisory, read-only)."""
+        cfg = self.cfg
+        m = self._news_metrics
+        runtime_h = max(0.0, (time.time() - self.started_ts) / 3600.0)
+        return {
+            "news_scanner_enabled": bool(self.news_scanner is not None),
+            "news_provider_mode": getattr(cfg, "news_provider_mode", "offline_cache"),
+            "news_live_read_only": bool(getattr(cfg, "news_live_read_only", True)),
+            "news_ticks": m["ticks"],
+            "news_markets_scanned": m["markets_scanned"],
+            "news_queries": m["queries"],
+            "news_items_fetched": m["items_fetched"],
+            "news_items_used": m["items_used"],
+            "news_items_rejected": m["items_rejected"],
+            "news_stale_count": m["stale_count"],
+            "news_contradiction_count": m["contradiction_count"],
+            "news_ambiguity_count": m["ambiguity_count"],
+            "news_provider_errors": m["provider_errors"],
+            "news_items_used_per_hour": round(m["items_used"] / runtime_h, 3)
+            if runtime_h > 0 else 0.0,
+            "news_last_scan_ts": m["last_scan_ts"],
+            "news_last_error": self._news_error,
+            "news_last_packet_sample": [
+                {"title": it.get("title"), "source_name": it.get("source_name"),
+                 "direction": it.get("direction")}
+                for it in (self._news_last_packet.get("items", []) or [])[:3]],
+            "note": "PAPER ONLY — news is read-only advisory; Grok stays advisory; "
+                    "never trades, never bypasses a gate.",
+        }
 
     def feedback_accelerator_status(self) -> dict:
         """10x Feedback Accelerator status (PAPER ONLY). Surfaces soft-gate
