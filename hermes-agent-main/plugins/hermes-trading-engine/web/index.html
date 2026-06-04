@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hermes Trading Engine · Paper</title>
   <!-- ?v=15 cache-buster -->
-  <link rel="stylesheet" href="/static/styles.css?v=15" />
+  <link rel="stylesheet" href="/static/styles.css?v=16" />
   <style>
     .hero-stats { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 12px; }
     .hero-stats > div { display: flex; flex-direction: column; }
@@ -40,6 +40,17 @@
     .arb-row.profit { color: var(--green); } .arb-row.loss { color: var(--red); } .arb-row.incident { color: var(--gold); }
     .arb-row .tier { text-align: center; border: 1px solid var(--line-2); border-radius: 3px; font-size: 8px; }
     .arb-off { opacity: .5; }
+    /* SYSTEMS RUNNING — simple "what's active" status grid */
+    .sys-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+    .sys-item { display: flex; align-items: center; gap: 9px; background: var(--panel-2);
+      border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; }
+    .sys-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; background: #5a5a6a; }
+    .sys-dot.on { background: var(--green); box-shadow: 0 0 0 3px rgba(47,209,127,.18); }
+    .sys-dot.warn { background: var(--gold); box-shadow: 0 0 0 3px rgba(230,180,60,.16); }
+    .sys-dot.off { background: #5a5a6a; }
+    .sys-text { display: flex; flex-direction: column; min-width: 0; }
+    .sys-name { font-size: 12px; color: var(--text); font-weight: 600; }
+    .sys-detail { font-size: 9px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   </style>
 </head>
 <body>
@@ -67,6 +78,15 @@
     </div>
 
     <div class="circuit-banner" id="circuit-banner"></div>
+
+    <!-- SystemsStatusPanel — simple "what's running right now" overview -->
+    <div class="panel" id="systems-panel">
+      <div class="panel-title">
+        <span><span class="accent">&#9650;</span> SYSTEMS RUNNING <span style="color:var(--dim);font-weight:400">(what's active right now &middot; paper)</span></span>
+        <span class="badge" id="systems-badge">--</span>
+      </div>
+      <div class="sys-grid" id="systems-grid"></div>
+    </div>
 
     <div class="panel">
       <div class="panel-title">
@@ -268,6 +288,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=15"></script>
+  <script src="/static/app.js?v=16"></script>
 </body>
 </html>

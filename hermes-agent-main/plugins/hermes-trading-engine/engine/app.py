@@ -319,6 +319,119 @@ def api_training_status() -> dict:
     return st
 
 
+@app.get("/api/running-status")
+def api_running_status() -> dict:
+    """Simple "what's running" summary for the dashboard (read-only, PAPER).
+
+    Aggregates the on/off + basic health of each subsystem (Polymarket paper
+    training, BTC 5-min Pulse, news scanner, Chainlink oracle, BTC fast price,
+    Grok research, feedback accelerator, CLOB market data) into one tiny list so
+    the dashboard can show it at a glance. Never changes any flag or trade."""
+    import os as _os
+    import time as _time
+
+    def _truthy(v) -> bool:
+        return str(v).strip().lower() in {"1", "true", "yes", "on"}
+
+    def _env_on(name: str) -> bool:
+        return _truthy(_os.getenv(name, ""))
+
+    st = _training_status() or {}
+    pnl = st.get("pnl", {}) or {}
+    scan = st.get("scan_metrics", {}) or {}
+    bp = st.get("btc_pulse", {}) or {}
+    news = st.get("news", {}) or {}
+    research = st.get("research", {}) or {}
+    fast = st.get("btc_fast_price", {}) or {}
+    fa = st.get("feedback_accelerator", {}) or {}
+    cl = st.get("chainlink_oracle", {}) or {}
+
+    systems: list[dict] = []
+
+    def add(key: str, label: str, state: str, detail: str) -> None:
+        # state: "on" (green), "off" (grey), "warn" (amber)
+        systems.append({"key": key, "label": label, "state": state, "detail": detail})
+
+    # Polymarket paper training (the core engine)
+    if st:
+        add("polymarket", "Polymarket paper training", "on",
+            f"scanned {scan.get('scanned', 0)} \u00b7 kept {scan.get('kept', 0)} \u00b7 "
+            f"open {pnl.get('open_positions', 0)} \u00b7 equity ${pnl.get('equity', 0)}")
+    else:
+        add("polymarket", "Polymarket paper training", "off",
+            "no training run yet \u2014 start scripts/start_polymarket_paper_training.py")
+
+    # BTC 5-min Pulse (PAPER, isolated)
+    if bp:
+        pulse_on = bool(bp.get("btc_pulse_enabled")) and not bp.get("btc_pulse_frozen")
+        regime = bp.get("btc_pulse_regime", bp.get("regime", "\u2014"))
+        trades = bp.get("btc_pulse_paper_trades", 0)
+        frozen_txt = " \u00b7 frozen" if bp.get("btc_pulse_frozen") else ""
+        add("btc_pulse", "BTC 5-min Pulse",
+            "on" if pulse_on else ("warn" if bp.get("btc_pulse_enabled") else "off"),
+            f"paper trades {trades} \u00b7 regime {regime}{frozen_txt}")
+    else:
+        add("btc_pulse", "BTC 5-min Pulse", "off",
+            "disabled \u2014 set BTC_PULSE_ENABLED=1 to unfreeze (paper only)")
+
+    # News scanner (PAPER, advisory)
+    news_on = bool(news.get("news_scanner_enabled")) or _env_on("NEWS_SCANNER_ENABLED")
+    if news:
+        add("news", "News scanner", "on" if news.get("news_scanner_enabled") else "off",
+            f"{news.get('news_provider_mode', 'offline_cache')} \u00b7 "
+            f"used {news.get('news_items_used', 0)}/{news.get('news_items_fetched', 0)} items")
+    else:
+        add("news", "News scanner", "on" if news_on else "off",
+            "enabled (no data yet)" if news_on else "disabled \u2014 set NEWS_SCANNER_ENABLED=1")
+
+    # Chainlink BTC/USD oracle (read-only anchor)
+    cl_enabled = bool(cl.get("enabled")) or _env_on("CHAINLINK_ENABLED")
+    if cl:
+        valid = cl.get("valid")
+        add("chainlink", "Chainlink oracle", "on" if valid else "warn" if cl_enabled else "off",
+            (f"valid \u00b7 ${cl.get('price')}" if valid else "enabled \u2014 waiting/stale")
+            + (f" \u00b7 age {cl.get('age_seconds')}s" if cl.get("age_seconds") is not None else ""))
+    else:
+        add("chainlink", "Chainlink oracle", "on" if cl_enabled else "off",
+            "enabled (no reading yet)" if cl_enabled else "disabled")
+
+    # BTC fast price feed (read-only, short-horizon)
+    if fast:
+        add("btc_fast_price", "BTC fast price feed",
+            "on" if fast.get("valid") else "warn" if fast.get("enabled") else "off",
+            (f"valid \u00b7 age {fast.get('age_seconds')}s" if fast.get("valid")
+             else "enabled \u2014 waiting/stale" if fast.get("enabled") else "disabled"))
+    else:
+        add("btc_fast_price", "BTC fast price feed", "off", "disabled")
+
+    # Grok research (advisory only)
+    grok_key = bool(_os.getenv("GROK_API_KEY") or _os.getenv("XAI_API_KEY"))
+    grok_enabled = bool(research.get("grok_enabled") or research.get("enabled")) or _env_on("GROK_BRAIN_ONLINE")
+    add("grok", "Grok research (advisory)",
+        "on" if (grok_enabled and grok_key) else "warn" if grok_enabled else "off",
+        "online (API key set)" if (grok_enabled and grok_key)
+        else "enabled \u2014 add xAI API key" if grok_enabled else "off")
+
+    # Feedback accelerator (PAPER)
+    if fa:
+        fa_on = bool(fa.get("feedback_accelerator_enabled"))
+        add("feedback_accelerator", "Feedback accelerator", "on" if fa_on else "off",
+            (f"target x{fa.get('target_multiplier')}" if fa_on else "disabled"))
+    else:
+        add("feedback_accelerator", "Feedback accelerator",
+            "on" if _env_on("FEEDBACK_ACCELERATOR_ENABLED") else "off",
+            "enabled" if _env_on("FEEDBACK_ACCELERATOR_ENABLED") else "disabled (paper-only speedup)")
+
+    # CLOB market data (read-only input)
+    clob_on = _env_on("POLYMARKET_CLOB_ENABLED")
+    add("clob", "Polymarket CLOB feed", "on" if clob_on else "off",
+        "read-only order-book subscription" if clob_on else "disabled")
+
+    running = sum(1 for s in systems if s["state"] == "on")
+    return {"mode": "paper", "generated_at": int(_time.time()),
+            "running_count": running, "total": len(systems), "systems": systems}
+
+
 @app.get("/api/polymarket/training/btc_pulse")
 def api_training_btc_pulse() -> dict:
     """BTC 5-min Pulse PAPER-ONLY isolated experiment status (read-only).

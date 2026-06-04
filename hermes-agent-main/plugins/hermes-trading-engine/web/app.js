@@ -1023,6 +1023,33 @@ async function renderPmTraining() {
 renderPmTraining();
 setInterval(renderPmTraining, 5000);
 
+// SystemsStatusPanel — simple "what's running right now" overview (read-only).
+async function renderSystems() {
+  const grid = $("systems-grid");
+  if (!grid) return;
+  const esc = (t) => String(t == null ? "" : t).replace(/</g, "&lt;");
+  let d;
+  try {
+    d = await (await fetch("/api/running-status")).json();
+  } catch (_) {
+    return;
+  }
+  const sys = (d && d.systems) || [];
+  const badge = $("systems-badge");
+  if (badge) badge.textContent = `${d.running_count || 0}/${d.total || sys.length} ON`;
+  grid.innerHTML = sys.map((s) =>
+    `<div class="sys-item">` +
+      `<span class="sys-dot ${esc(s.state)}"></span>` +
+      `<span class="sys-text">` +
+        `<span class="sys-name">${esc(s.label)}</span>` +
+        `<span class="sys-detail" title="${esc(s.detail)}">${esc(s.detail)}</span>` +
+      `</span>` +
+    `</div>`
+  ).join("");
+}
+renderSystems();
+setInterval(renderSystems, 5000);
+
 let ws;
 function connect() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
