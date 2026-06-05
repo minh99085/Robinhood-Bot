@@ -66,6 +66,31 @@ def test_non_paper_mode_is_critical():
     assert res["live_detected"] is True
 
 
+def test_paper_train_mode_is_not_live():
+    # paper_train is the PAPER training mode — must NOT be flagged as live.
+    res = sa.audit(status={"mode": "paper_train", "safety": {"live_detected": False}})
+    assert res["critical"] is False
+    assert res["live_detected"] is False
+    assert res["status"] == "OK"
+
+
+def test_observe_and_replay_and_shadow_modes_are_not_live():
+    for m in ("observe_only", "replay", "shadow", "shadow_live", "disabled"):
+        res = sa.audit(status={"mode": m})
+        assert res["critical"] is False, m
+
+
+def test_is_live_mode_helper():
+    assert sa.is_live_mode("live") is True
+    assert sa.is_live_mode("guarded_live") is True
+    assert sa.is_live_mode("production") is True
+    assert sa.is_live_mode("paper") is False
+    assert sa.is_live_mode("paper_train") is False
+    assert sa.is_live_mode("observe_only") is False
+    assert sa.is_live_mode("shadow_live") is False
+    assert sa.is_live_mode("") is False
+
+
 def test_protective_flag_disabled_with_guarded_live_on_is_critical():
     res = sa.audit(env={"GUARDED_LIVE_ENABLED": "1",
                         "GUARDED_LIVE_BLOCK_SIGNING": "0"})

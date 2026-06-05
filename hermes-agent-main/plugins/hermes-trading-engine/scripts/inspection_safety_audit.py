@@ -67,6 +67,30 @@ WARN_PAPER_FLAGS = (
 )
 
 
+# Modes that are explicitly NON-live (paper/observation/replay/shadow/training).
+NON_LIVE_MODES = {
+    "paper", "paper_train", "paper_trading", "observe_only", "observe",
+    "disabled", "replay", "backtest", "shadow", "shadow_live", "design_only", "",
+}
+# Tokens that denote real live execution.
+LIVE_MODE_TOKENS = ("live", "production", "prod", "real_money", "real-money", "realmoney")
+
+
+def is_live_mode(mode: Any) -> bool:
+    """True only if ``mode`` denotes real LIVE execution.
+
+    Paper/observation/replay/shadow/training modes (incl. ``paper_train``) are
+    NOT live. Unknown modes without a live token are treated as non-live to avoid
+    false positives. ``shadow_live`` is records-only (no orders) and stays safe.
+    """
+    m = str(mode or "").strip().lower()
+    if "paper" in m or m in NON_LIVE_MODES:
+        return False
+    if m == "shadow_live":  # shadow == no order submission
+        return False
+    return any(tok in m for tok in LIVE_MODE_TOKENS)
+
+
 def is_truthy(value: Any) -> bool:
     if value is None:
         return False
@@ -168,12 +192,17 @@ def audit(
         (status.get("safety", {}) or {}).get("live_detected")
         or ((api.get("state", {}) or {}).get("live_detected"))
     )
+    # Mode safety: paper / observation / replay / shadow / training modes are all
+    # NON-live (e.g. "paper", "paper_train", "observe_only", "disabled"). Only a
+    # mode that clearly denotes real live execution is a CRITICAL finding — do NOT
+    # flag "paper_train" (the paper training mode) as live.
     mode = str((status.get("mode") or merged.get("HTE_MODE") or "paper")).lower()
-    if mode and mode != "paper":
+    mode_is_live = is_live_mode(mode)
+    if mode_is_live:
         live_detected = True
         findings.append({
             "flag": "HTE_MODE", "value": mode, "severity": "CRITICAL",
-            "reason": "engine mode is not 'paper' — live/non-paper mode detected.",
+            "reason": "engine mode denotes LIVE execution (not paper).",
         })
         critical = True
 
