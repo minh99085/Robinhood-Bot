@@ -28,6 +28,39 @@ from .news_schemas import NewsPacket, NewsScanResult
 _LIVE_MODES = ("live_read_only",)
 
 
+def news_evidence_weight(relevance: float, credibility: float,
+                         recency: float = 1.0, *, cap: float = 0.10) -> float:
+    """Bounded, evidence-only weight for a news item in ``[0, cap]`` (pure).
+
+    News is an EVIDENCE input only — it can nudge probability weighting but never
+    select a trade or override the model/market. The returned weight is the
+    product of relevance x credibility x recency (each clamped to ``[0, 1]``),
+    scaled to ``cap`` so a single noisy headline can never dominate. Monotonic in
+    each factor; deterministic.
+    """
+    def _c(x: float) -> float:
+        try:
+            return max(0.0, min(1.0, float(x)))
+        except (TypeError, ValueError):
+            return 0.0
+    return round(_c(relevance) * _c(credibility) * _c(recency) * max(0.0, float(cap)), 8)
+
+
+def combine_news_evidence(weights, *, cap: float = 0.10) -> float:
+    """Aggregate per-item news weights into a single bounded evidence weight.
+
+    Uses a diminishing-returns sum (never exceeds ``cap``) so adding more items
+    cannot turn advisory evidence into authority. Deterministic + pure."""
+    total = 0.0
+    for w in weights or []:
+        try:
+            wv = max(0.0, float(w))
+        except (TypeError, ValueError):
+            continue
+        total += wv * (1.0 - total / max(1e-9, cap))  # diminishing returns toward cap
+    return round(max(0.0, min(float(cap), total)), 8)
+
+
 def _now_ms() -> int:
     return int(time.time() * 1000)
 

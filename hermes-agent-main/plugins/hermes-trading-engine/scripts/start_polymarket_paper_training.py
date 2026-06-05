@@ -121,6 +121,15 @@ def run(argv=None) -> int:
                          "cost/depth-aware worst-case profit, trade ONLY certified "
                          "opportunities. Sets BREGMAN_PRIMARY_STRATEGY=1; default OFF "
                          "preserves current behavior. PAPER ONLY.")
+    ap.add_argument("--strategy-router", action="store_true",
+                    help="opt in to the tiered strategy router (engine.strategies.router): "
+                         "Tier 1 certified Bregman arbitrage > Tier 2 stale-crypto/Chainlink "
+                         "BTC dislocation > Tier 3 calibrated model edge > Tier 4 "
+                         "exploration-only tiny. Blocks BTC Pulse on unknown/chop regime, "
+                         "negative after-cost EV, or weak fill realism; learns EV cutoffs and "
+                         "separates exploration PnL from validation PnL. Sets "
+                         "STRATEGY_ROUTER_ENABLED=1; default OFF preserves current behavior. "
+                         "PAPER ONLY.")
     ap.add_argument("--mode", choices=["disabled", "observe_only", "paper_train"],
                     default="paper_train", help="training mode (PAPER ONLY either way)")
     ap.add_argument("--data-dir", default=None, help="data dir for status + campaign state")
@@ -320,13 +329,22 @@ def run(argv=None) -> int:
         _os.environ["PROBABILITY_ENSEMBLE_ENABLED"] = "1"
     if getattr(args, "bregman_primary", False):
         _os.environ["BREGMAN_PRIMARY_STRATEGY"] = "1"
+    if getattr(args, "strategy_router", False):
+        _os.environ["STRATEGY_ROUTER_ENABLED"] = "1"
     logging.getLogger("hte.training.start").info(
-        "modeling config: probability_ensemble=%s bregman_primary=%s "
+        "modeling config: probability_ensemble=%s bregman_primary=%s strategy_router=%s "
         "calibration=auto(Platt/isotonic/temperature/shrink) rollback_guard=available "
         "conformal_bands=available grok_news=evidence_only "
         "bregman=certify_before_trade",
         "on" if getattr(args, "probability_ensemble", False) else "off",
-        "on" if getattr(args, "bregman_primary", False) else "off")
+        "on" if getattr(args, "bregman_primary", False) else "off",
+        "on" if getattr(args, "strategy_router", False) else "off")
+    if getattr(args, "strategy_router", False):
+        logging.getLogger("hte.training.start").info(
+            "strategy router tiers: 1=certified_bregman > 2=stale_crypto/chainlink_btc_"
+            "dislocation > 3=calibrated_model_edge > 4=exploration_only_tiny; "
+            "btc_pulse blocked on unknown/chop|negative_after_cost_ev|weak_fill_realism; "
+            "exploration_pnl separated from validation_pnl; news/grok=evidence_weight_only")
     cfg.mode = args.mode  # start-paper explicitly drives paper training
     data_dir = Path(args.data_dir) if args.data_dir else None
     trainer = PolymarketPaperTrainer(cfg, data_dir=data_dir)

@@ -39,6 +39,26 @@ logger = logging.getLogger("hte.research")
 ResearchResult = Union[ProbabilityEstimateBundle, ResearchFailure]
 
 
+def grok_evidence_weight(confidence: float, source_count: int = 0, *,
+                         cap: float = 0.10, min_sources: int = 2) -> float:
+    """Bounded, evidence-only weight for a Grok estimate in ``[0, cap]`` (pure).
+
+    Grok is research/EVIDENCE ONLY: it may adjust evidence weighting but never
+    executes, sizes, or becomes the final authority. The weight scales with
+    confidence and saturates with source support; it is hard-capped at ``cap`` and
+    is 0 below ``min_sources`` (insufficient corroboration). Deterministic.
+    """
+    try:
+        conf = max(0.0, min(1.0, float(confidence)))
+        n = max(0, int(source_count))
+    except (TypeError, ValueError):
+        return 0.0
+    if n < max(0, int(min_sources)):
+        return 0.0
+    support = n / (n + 2.0)  # saturating in source count
+    return round(conf * support * max(0.0, float(cap)), 8)
+
+
 def _now_ms() -> int:
     return int(time.time() * 1000)
 

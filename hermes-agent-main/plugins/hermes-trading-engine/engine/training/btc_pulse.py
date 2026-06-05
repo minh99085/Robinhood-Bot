@@ -711,6 +711,35 @@ class BtcPulsePaperTrainer:
             return None
 
 
+# Regimes in which BTC Pulse must NOT take a Tier-2 dislocation trade.
+PULSE_BLOCKED_REGIMES = frozenset({
+    "unknown", "chop", "stale", "stale_oracle", "stale_fast_price",
+    "oracle_disagreement", "stale_chainlink_anchor", "regime_chop",
+})
+
+
+def pulse_block_reason(regime, after_cost_ev=None, fill_realism_ok=True, *,
+                       blocked_regimes=PULSE_BLOCKED_REGIMES):
+    """Return why BTC Pulse should be blocked, or None if it may trade (pure).
+
+    Blocks when the regime is unknown/chop (or any non-tradeable regime), when
+    after-cost expectancy is negative, or when fill realism is weak. Used by the
+    strategy router for the Tier-2 stale-crypto dislocation lane. Side-effect free.
+    """
+    r = str(regime).strip().lower() if regime is not None else "unknown"
+    if r in blocked_regimes:
+        return f"regime_{r}"
+    if after_cost_ev is not None:
+        try:
+            if float(after_cost_ev) <= 0.0:
+                return "negative_after_cost_ev"
+        except (TypeError, ValueError):
+            return "unknown_after_cost_ev"
+    if fill_realism_ok is False:
+        return "weak_fill_realism"
+    return None
+
+
 def resolved_pulse_config(cfg) -> dict:
     """Compact resolved BTC Pulse config for preflight printing (read-only)."""
     return {
