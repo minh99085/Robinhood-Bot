@@ -477,18 +477,26 @@ class RiskEngine:
 # Portfolio Optimization). Every individual order still passes the RiskEngine.
 # --------------------------------------------------------------------------- #
 def bregman_trade_allowed(opp) -> bool:
-    """Risk-layer gate: a Bregman opportunity may be SIZED + sent to the
-    RiskEngine only when it is fully CERTIFIED with a strictly-positive certified
-    profit lower bound (and, when a certificate is attached, a proven risk-free
-    full hedge). A non-certified candidate may only be LOGGED — never approved or
-    up-sized. Quant scope — *Bregman arbitrage priority* + *Compliance/Security*."""
+    """Risk-layer gate: a Bregman opportunity may be SIZED + sent to the RiskEngine
+    ONLY when its certificate status is ``EXECUTABLE_AFTER_COST_CERTIFIED`` — a
+    worst-case-nonnegative, after-cost-positive, depth-feasible, atomically-
+    executable arbitrage. A ``CERTIFIED_THEORETICAL_NOT_EXECUTABLE`` (or any
+    rejected) certificate may only be LOGGED — never approved or up-sized. Quant
+    scope — *Bregman arbitrage priority* + *CLOB v2 execution* + *Compliance*."""
     if opp is None:
         return False
+    cert = getattr(opp, "certificate", None)
+    if cert is not None:
+        from engine.arbitrage.certificate import CertificateStatus
+        status = getattr(cert, "status", "")
+        if status:
+            # Hard gate: only after-cost executable certificates may trade.
+            return status == CertificateStatus.EXECUTABLE_AFTER_COST_CERTIFIED
+        # legacy certificate without status: require a proven risk-free hedge
+        if not bool(getattr(cert, "risk_free", False)):
+            return False
     certified = bool(getattr(opp, "certified", False))
     positive = float(getattr(opp, "profit_lower_bound", 0.0) or 0.0) > 0.0
-    cert = getattr(opp, "certificate", None)
-    if cert is not None and not bool(getattr(cert, "risk_free", False)):
-        return False
     return certified and positive
 
 

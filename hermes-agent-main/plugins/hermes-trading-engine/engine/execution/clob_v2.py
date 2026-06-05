@@ -101,6 +101,9 @@ class ExecutionPlan:
     reason: str
     reconciliation: dict = field(default_factory=dict)
     attribution: dict = field(default_factory=dict)
+    required_capital: float = 0.0
+    fantasy_fills_rejected: int = 0
+    certificate_status: str = ""
 
     def to_dict(self) -> dict:
         d = dict(self.__dict__)
@@ -219,12 +222,28 @@ class ClobV2ExecutionPlanner:
                         for r in results},
         }
 
+        from engine.arbitrage.certificate import CertificateStatus
+        fantasy_fills_rejected = sum(1 for r in results
+                                     if r.status in ("partial", "rejected"))
+        if executable:
+            cert_status = CertificateStatus.EXECUTABLE_AFTER_COST_CERTIFIED
+        elif certified and all_filled and not timed_out and slippage_ok:
+            # proven fills but multi-leg / non-atomic venue -> theoretical only
+            cert_status = CertificateStatus.CERTIFIED_THEORETICAL_NOT_EXECUTABLE
+        elif timed_out or any(r.status in ("rejected", "timeout") for r in results):
+            cert_status = CertificateStatus.REJECTED_STALE_BOOK if "stale" in reason \
+                else CertificateStatus.REJECTED_INSUFFICIENT_DEPTH
+        else:
+            cert_status = CertificateStatus.REJECTED_AFTER_COST_NONPOSITIVE
+
         plan = ExecutionPlan(
             executable=executable, atomic_risk_free=atomic_risk_free, certified=bool(certified),
             mode=cfg.mode.upper(), leg_order=order_ids, legs=results,
             worst_case_slippage_frac=round(worst_slip, 8), total_cost=round(total_cost, 8),
             total_fees=round(total_fees, 8), after_cost_edge=after_cost_edge, reason=reason,
-            reconciliation=reconciliation, attribution=attribution)
+            reconciliation=reconciliation, attribution=attribution,
+            required_capital=round(total_cost, 8),
+            fantasy_fills_rejected=fantasy_fills_rejected, certificate_status=cert_status)
 
         if executable:
             logger.info("clob_v2 plan EXECUTABLE legs=%d sets=%.2f after_cost_edge=%.4f",

@@ -4,12 +4,32 @@ from __future__ import annotations
 
 from engine.fill_realism import (
     FillModel,
+    arbitrage_execution_costs,
     assess_fill,
     fill_realism_score,
     is_fantasy_fill,
     spread_frac,
     walk_book,
 )
+
+
+def test_arbitrage_execution_costs_spread_slippage_fantasy():
+    legs = [{"ask": 0.40, "bid": 0.38, "requested_shares": 100, "available_depth": 100},
+            {"ask": 0.40, "bid": 0.38, "requested_shares": 100, "available_depth": 5}]
+    out = arbitrage_execution_costs(legs, slippage_bps=100)
+    # half-spread per leg = 0.01 -> 0.02 total
+    assert abs(out["spread_cost_per_set"] - 0.02) < 1e-9
+    # slippage = 1% of (0.40+0.40)=0.008
+    assert abs(out["slippage_cost_per_set"] - 0.008) < 1e-9
+    # leg 2 requests 100 but only 5 available -> 1 fantasy fill
+    assert out["fantasy_fills_rejected"] == 1
+
+
+def test_arbitrage_execution_costs_clean():
+    legs = [{"ask": 0.5, "bid": 0.5, "requested_shares": 10, "available_depth": 100}]
+    out = arbitrage_execution_costs(legs)
+    assert out["spread_cost_per_set"] == 0.0
+    assert out["fantasy_fills_rejected"] == 0
 
 
 def test_spread_frac_basic():

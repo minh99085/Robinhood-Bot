@@ -80,3 +80,21 @@ def test_thin_book_breaks_execution():
     plan = strat.plan_execution(opp, _books(db=2), decision_ts_ms=1000, sets=50,
                                 planner=planner)
     assert plan.executable is False
+
+
+def test_opportunity_certificate_status_gates_execution():
+    from engine.arbitrage.certificate import CertificateStatus
+    strat, opp = _certified_opportunity()
+    # the certificate itself (default non-atomic venue) is theoretical-not-executable
+    assert opp.certificate.status == CertificateStatus.CERTIFIED_THEORETICAL_NOT_EXECUTABLE
+    assert opp.tradeable is True          # theoretical proof
+    assert opp.executable is False        # but NOT after-cost executable
+
+
+def test_executable_plan_reports_certificate_status():
+    from engine.arbitrage.certificate import CertificateStatus
+    strat, opp = _certified_opportunity()
+    planner = ClobV2ExecutionPlanner(ClobV2Config(
+        venue_supports_atomic_multileg=True, fee_model=ReplayFeeModel(taker_fee_bps=0)))
+    plan = strat.plan_execution(opp, _books(), decision_ts_ms=1000, sets=10, planner=planner)
+    assert plan.certificate_status == CertificateStatus.EXECUTABLE_AFTER_COST_CERTIFIED

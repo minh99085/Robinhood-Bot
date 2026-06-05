@@ -141,7 +141,8 @@ class Candidate:
 
     id: str
     kind: str = "edge"
-    certified: bool = False           # arbitrage: certificate proven
+    certified: bool = False           # arbitrage: certificate proven (theoretical)
+    executable: bool = True           # arbitrage: EXECUTABLE_AFTER_COST_CERTIFIED
     fantasy: bool = False             # fill realism failed -> size 0
     after_cost_profit: float = 0.0    # arbitrage: certified worst-case profit
     desired_notional: float = 0.0     # arbitrage: depth-bounded set notional
@@ -229,6 +230,10 @@ class PortfolioOptimizer:
                 continue
             if not c.certified or _f(c.after_cost_profit) <= 0:
                 allocs.append(Allocation(c.id, c.kind, 0.0, "uncertified_no_size"))
+                continue
+            if not c.executable:
+                # certified-theoretical but not after-cost executable -> log, no size
+                allocs.append(Allocation(c.id, c.kind, 0.0, "not_executable_after_cost"))
                 continue
             room = _room(c)
             size = min(max(0.0, _f(c.desired_notional)), room)

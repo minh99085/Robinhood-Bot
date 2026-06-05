@@ -194,6 +194,34 @@ def missing_fill_realism_fields(section) -> list:
             if section.get(k) is None]
 
 
+def arbitrage_execution_costs(legs: Sequence[dict], *, slippage_bps: float = 0.0) -> dict:
+    """Aggregate executable costs for a multi-leg arbitrage *set* (pure).
+
+    ``legs`` are ``{"ask","bid","requested_shares","available_depth"}`` dicts.
+    Returns ``spread_cost_per_set`` (sum of per-leg half-spreads),
+    ``slippage_cost_per_set`` (bps on the buy notional), and
+    ``fantasy_fills_rejected`` (legs whose requested size exceeds available depth —
+    a fantasy fill that must be rejected, never counted as filled). Deterministic.
+    """
+    spread = 0.0
+    notional = 0.0
+    fantasy = 0
+    for leg in legs or []:
+        ask = _f(leg.get("ask"))
+        bid = _f(leg.get("bid"), ask)
+        if ask > 0 and bid > 0 and ask >= bid:
+            spread += (ask - bid) / 2.0
+        notional += max(0.0, ask)
+        req = _f(leg.get("requested_shares"), 0.0)
+        avail = _f(leg.get("available_depth"), 0.0)
+        if req > 0 and avail + 1e-12 < req:
+            fantasy += 1
+    slippage = (max(0.0, float(slippage_bps)) / 10_000.0) * notional
+    return {"spread_cost_per_set": round(spread, 8),
+            "slippage_cost_per_set": round(slippage, 8),
+            "fantasy_fills_rejected": fantasy}
+
+
 def fill_audit_fields(result: FillResult, *, fee_adjusted_ev: Optional[float] = None,
                       clob_v2_executable: Optional[bool] = None) -> dict:
     """Map a :class:`FillResult` to the Algorithmic Edge Audit "fill realism"

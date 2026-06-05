@@ -27,6 +27,24 @@ from .constraint_graph import Constraint, ConstraintGraph, Outcome
 logger = logging.getLogger("hte.arbitrage.certificate")
 
 
+class CertificateStatus:
+    """Executable-certification states for a Bregman arbitrage (PAPER ONLY).
+
+    Bregman may only TRADE when the status is ``EXECUTABLE_AFTER_COST_CERTIFIED``.
+    A theoretically-proven arb that cannot be executed atomically (multi-leg on a
+    non-atomic venue) is ``CERTIFIED_THEORETICAL_NOT_EXECUTABLE`` and is NOT
+    tradable. All other states are explicit rejections with a reason.
+    """
+
+    EXECUTABLE_AFTER_COST_CERTIFIED = "EXECUTABLE_AFTER_COST_CERTIFIED"
+    CERTIFIED_THEORETICAL_NOT_EXECUTABLE = "CERTIFIED_THEORETICAL_NOT_EXECUTABLE"
+    REJECTED_NO_WORST_CASE_PROFIT = "REJECTED_NO_WORST_CASE_PROFIT"
+    REJECTED_INSUFFICIENT_DEPTH = "REJECTED_INSUFFICIENT_DEPTH"
+    REJECTED_AFTER_COST_NONPOSITIVE = "REJECTED_AFTER_COST_NONPOSITIVE"
+    REJECTED_STALE_BOOK = "REJECTED_STALE_BOOK"
+    REJECTED_MISSING_OUTCOME = "REJECTED_MISSING_OUTCOME"
+
+
 @dataclass
 class FeeModel:
     """Conservative taker fee model (paper). Fees only ever *reduce* certified
@@ -61,9 +79,26 @@ class Certificate:
     legs_depth: dict = field(default_factory=dict)  # outcome_id -> ask_depth
     deterministic: bool = True
     reason: str = ""
+    # --- hard executable-certification (after-cost, depth, atomicity) ---
+    status: str = ""                        # CertificateStatus
+    min_profit_after_cost: float = 0.0      # worst-case profit per set after ALL costs
+    spread_cost_per_set: float = 0.0
+    slippage_cost_per_set: float = 0.0
+    required_capital: float = 0.0           # cost_per_set * size
+    leg_depth_ok: bool = False              # alias of executable_depth_ok (audit name)
+    atomicity_risk: bool = False
+    stale_book: bool = False
+    fantasy_fill: bool = False              # profitable but undepthed -> would be fantasy
+    rejection_reason: str = ""
+
+    @property
+    def executable(self) -> bool:
+        """True ONLY when after-cost executability is certified (tradable)."""
+        return self.status == CertificateStatus.EXECUTABLE_AFTER_COST_CERTIFIED
 
     def to_dict(self) -> dict:
         d = dict(self.__dict__)
+        d["executable"] = self.executable
         return d
 
     def is_multi_leg(self) -> bool:
@@ -136,26 +171,40 @@ def _worst_case_payoff(portfolio: Mapping[str, float],
 
 def certify_group(graph: ConstraintGraph, constraint: Constraint, *,
                   fee_model: Optional[FeeModel] = None, profit_floor: float = 0.005,
-                  max_size: float = 1e9, min_leg_depth: float = 0.0) -> Certificate:
-    """Certify (or reject) a buy-set arbitrage for one constraint.
+                  max_size: float = 1e9, min_leg_depth: float = 0.0,
+                  spread_cost_per_set: float = 0.0, slippage_bps: float = 0.0,
+                  stale: bool = False,
+                  venue_supports_atomic_multileg: bool = False) -> Certificate:
+    """Certify (or reject) a buy-set arbitrage for one constraint, classifying its
+    **executable** status.
 
-    ``profit_floor`` is the minimum required after-fee profit per set. ``max_size``
-    caps the certified set count; the depth-feasible size is the min ask depth
-    across legs. ``min_leg_depth`` requires EVERY leg to have at least that many
-    shares of executable depth — a certified arb may only size up when all legs
-    pass this executable-depth proof; otherwise the size (and certification) is
-    zero. Deterministic + sound (worst-case over feasible atoms).
+    Proves the worst-case payoff is nonnegative and the minimum profit is positive
+    AFTER fees, spread, slippage, and depth limits, then classifies:
+
+    * ``EXECUTABLE_AFTER_COST_CERTIFIED`` — tradable (single-leg, or atomic venue),
+    * ``CERTIFIED_THEORETICAL_NOT_EXECUTABLE`` — proven but multi-leg on a
+      non-atomic venue (leg-in / partial-fill / stale-book risk) → NOT tradable,
+    * ``REJECTED_*`` — no worst-case profit, insufficient depth (fantasy fill),
+      after-cost non-positive, stale book, or missing outcomes.
+
+    ``certified`` / ``reason`` keep their legacy (theoretical proof) meaning;
+    ``status`` / ``executable`` add the hard after-cost executability gate.
+    Deterministic + sound (worst-case over feasible atoms).
     """
     fee_model = fee_model or FeeModel()
     ids = list(constraint.outcome_ids)
     outcomes: list[Outcome] = [graph.get(i) for i in ids]  # type: ignore[misc]
     if any(o is None for o in outcomes):
-        return Certificate(False, constraint.type.value, ids, reason="missing_outcome")
+        return Certificate(False, constraint.type.value, ids, reason="missing_outcome",
+                           status=CertificateStatus.REJECTED_MISSING_OUTCOME,
+                           rejection_reason="missing_outcome")
 
     atoms = graph.feasible_atoms(constraint)
     if not atoms:
         return Certificate(False, constraint.type.value, ids,
-                           reason="no_enumerable_atoms")
+                           reason="no_enumerable_atoms",
+                           status=CertificateStatus.REJECTED_NO_WORST_CASE_PROFIT,
+                           rejection_reason="no_enumerable_atoms")
 
     buy_prices = [o.buy_price() for o in outcomes]
     portfolio = {o.id: 1.0 for o in outcomes}        # buy one share of each leg
@@ -185,6 +234,28 @@ def certify_group(graph: ConstraintGraph, constraint: Constraint, *,
     else:
         reason = "no_depth"
 
+    # --- hard after-cost executability classification ---
+    slippage_cost = (float(slippage_bps) / 10_000.0) * cost
+    after_cost_per_set = profit_per_set - float(spread_cost_per_set) - slippage_cost
+    atomicity_risk = (len(ids) > 1) and (not venue_supports_atomic_multileg)
+    fantasy_fill = bool(worst_case_proof and not executable_depth_ok)
+
+    if not worst_case_proof:
+        status = CertificateStatus.REJECTED_NO_WORST_CASE_PROFIT
+    elif not executable_depth_ok:
+        status = CertificateStatus.REJECTED_INSUFFICIENT_DEPTH
+    elif stale:
+        status = CertificateStatus.REJECTED_STALE_BOOK
+    elif after_cost_per_set <= profit_floor:
+        status = CertificateStatus.REJECTED_AFTER_COST_NONPOSITIVE
+    elif atomicity_risk:
+        status = CertificateStatus.CERTIFIED_THEORETICAL_NOT_EXECUTABLE
+    else:
+        status = CertificateStatus.EXECUTABLE_AFTER_COST_CERTIFIED
+    rejection_reason = "" if status in (
+        CertificateStatus.EXECUTABLE_AFTER_COST_CERTIFIED,
+        CertificateStatus.CERTIFIED_THEORETICAL_NOT_EXECUTABLE) else status
+
     cert = Certificate(
         certified=bool(certified), relation=constraint.type.value, outcome_ids=ids,
         worst_case_payoff_per_set=round(worst_payoff, 6),
@@ -195,7 +266,14 @@ def certify_group(graph: ConstraintGraph, constraint: Constraint, *,
         portfolio=portfolio, atoms_checked=len(atoms), fill_feasible=fill_feasible,
         executable_depth_ok=bool(executable_depth_ok),
         min_leg_depth=round(depth, 6), legs_depth=legs_depth,
-        reason=reason)
+        reason=reason, status=status,
+        min_profit_after_cost=round(after_cost_per_set, 6),
+        spread_cost_per_set=round(float(spread_cost_per_set), 6),
+        slippage_cost_per_set=round(slippage_cost, 6),
+        required_capital=round(cost * size, 6),
+        leg_depth_ok=bool(executable_depth_ok), atomicity_risk=bool(atomicity_risk),
+        stale_book=bool(stale), fantasy_fill=fantasy_fill,
+        rejection_reason=rejection_reason)
     if cert.certified:
         logger.info("bregman certificate: %s legs=%s profit/set=%.4f size=%.2f total=%.4f",
                     cert.relation, ids, cert.after_fee_profit_per_set, cert.size,

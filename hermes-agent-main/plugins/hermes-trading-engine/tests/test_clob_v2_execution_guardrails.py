@@ -122,3 +122,28 @@ def test_plan_serializes():
     plan = p.plan(_legs(), decision_ts_ms=1000, sets=10)
     d = plan.to_dict()
     assert isinstance(d["legs"], list) and "executable" in d
+
+
+# --- certificate-status mapping ---------------------------------------------
+def test_plan_certificate_status_executable_on_atomic_venue():
+    from engine.arbitrage.certificate import CertificateStatus
+    p = _planner(venue_supports_atomic_multileg=True)
+    plan = p.plan(_legs(), decision_ts_ms=1000, sets=10, worst_case_payoff_per_set=1.0)
+    assert plan.certificate_status == CertificateStatus.EXECUTABLE_AFTER_COST_CERTIFIED
+    assert plan.required_capital > 0
+    assert plan.fantasy_fills_rejected == 0
+
+
+def test_plan_certificate_status_theoretical_on_non_atomic_venue():
+    from engine.arbitrage.certificate import CertificateStatus
+    p = _planner(venue_supports_atomic_multileg=False)
+    plan = p.plan(_legs(), decision_ts_ms=1000, sets=10)
+    assert plan.certificate_status == CertificateStatus.CERTIFIED_THEORETICAL_NOT_EXECUTABLE
+    assert plan.executable is False
+
+
+def test_plan_counts_fantasy_fills_on_thin_leg():
+    p = _planner(mode="IOC", venue_supports_atomic_multileg=True)
+    plan = p.plan(_legs(db=3), decision_ts_ms=1000, sets=10)
+    assert plan.fantasy_fills_rejected >= 1
+    assert plan.executable is False

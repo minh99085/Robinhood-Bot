@@ -52,8 +52,13 @@ class BregmanOpportunity:
 
     @property
     def tradeable(self) -> bool:
-        """Tradeable iff certified AND fill-feasible (no cert => no trade)."""
+        """Tradeable iff certified AND fill-feasible (theoretical proof)."""
         return bool(self.certificate.certified) and bool(self.certificate.fill_feasible)
+
+    @property
+    def executable(self) -> bool:
+        """EXECUTABLE iff the certificate is after-cost executable (the trade gate)."""
+        return bool(getattr(self.certificate, "executable", False))
 
     def decayed_edge(self, now: Optional[float] = None, half_life_s: float = 300.0) -> float:
         """Edge decayed by age (opportunity decay): edge * 0.5**(age/half_life)."""
@@ -83,8 +88,12 @@ class BregmanResult:
     candidate_bundles: list = field(default_factory=list)  # CandidateBundle telemetry
 
     def tradeable(self) -> list:
-        """Certified + fill-feasible opportunities only."""
+        """Certified + fill-feasible (theoretical) opportunities only."""
         return [o for o in self.opportunities if o.tradeable]
+
+    def executable(self) -> list:
+        """EXECUTABLE_AFTER_COST_CERTIFIED opportunities only (the trade gate)."""
+        return [o for o in self.opportunities if o.executable]
 
     def audit_diagnostics(self, *, half_life_s: float = 300.0) -> dict:
         """Decision-grade Bregman diagnostics for the Algorithmic Edge Audit (pure).
@@ -99,6 +108,11 @@ class BregmanResult:
                          if float(o.local_incoherence) > 0.0)
         exec_certified = sum(1 for o in self.opportunities
                              if o.certificate.certified and o.certificate.executable_depth_ok)
+        executable_after_cost = sum(1 for o in self.opportunities if o.executable)
+        status_counts: dict = {}
+        for o in self.opportunities:
+            st = getattr(o.certificate, "status", "") or "unknown"
+            status_counts[st] = status_counts.get(st, 0) + 1
         reject_reasons: dict = {}
         for o in self.opportunities:
             if not o.certificate.certified and float(o.local_incoherence) > 0.0:
@@ -116,6 +130,10 @@ class BregmanResult:
             "candidate_arbitrages": self.candidates,
             "certified_arbitrages": self.certified,
             "executable_depth_certified": exec_certified,
+            "executable_after_cost_certified_arbitrages": executable_after_cost,
+            "certificate_status_counts": status_counts,
+            "fantasy_fills_rejected": sum(
+                1 for o in self.opportunities if getattr(o.certificate, "fantasy_fill", False)),
             "rejected_fees_spread_depth_slippage": sum(reject_reasons.values()),
             "rejection_reasons": reject_reasons,
             "expected_min_profit": round(min(certified_profits), 6) if certified_profits else 0.0,
