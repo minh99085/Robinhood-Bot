@@ -417,13 +417,31 @@ services:
       BTC_PULSE_TICK_SECONDS: "${BTC_PULSE_TICK_SECONDS:-30}"
       BTC_PULSE_ROUND_SECONDS: "${BTC_PULSE_ROUND_SECONDS:-300}"
       # ---- BTC Pulse Chainlink BTC/USD oracle gate (PAPER ONLY) ----
-      # When BTC_PULSE_REQUIRE_CHAINLINK=1, BTC Pulse uses a FRESH Chainlink
-      # BTC/USD price as its reference and skips paper trades when the oracle is
-      # missing/stale/invalid/errored (recorded as oracle-blocked). Read-only.
+      # When BTC_PULSE_REQUIRE_CHAINLINK=1, BTC Pulse uses Chainlink BTC/USD as a
+      # slow ANCHOR and skips paper trades when the oracle is missing/stale.
+      # NOTE: the real Chainlink BTC/USD mainnet feed updates on a ~1h heartbeat
+      # (or a 0.5% price move), so the freshness window MUST be hours, not
+      # minutes — otherwise the anchor is "stale" almost every round and the
+      # pulse never trades. Defaults match .env.example. Read-only.
       BTC_PULSE_REQUIRE_CHAINLINK: "${BTC_PULSE_REQUIRE_CHAINLINK:-1}"
-      CHAINLINK_BTC_USD_HEARTBEAT_SECONDS: "${CHAINLINK_BTC_USD_HEARTBEAT_SECONDS:-120}"
-      CHAINLINK_BTC_USD_MAX_AGE_SECONDS: "${CHAINLINK_BTC_USD_MAX_AGE_SECONDS:-180}"
+      CHAINLINK_BTC_USD_HEARTBEAT_SECONDS: "${CHAINLINK_BTC_USD_HEARTBEAT_SECONDS:-3600}"
+      CHAINLINK_BTC_USD_MAX_AGE_SECONDS: "${CHAINLINK_BTC_USD_MAX_AGE_SECONDS:-7200}"
       BTC_PULSE_ORACLE_DEBUG_LOG: "${BTC_PULSE_ORACLE_DEBUG_LOG:-1}"
+      # ---- Fast read-only BTC spot feed (Coinbase) for the 5-min round price ----
+      # Chainlink is the slow anchor; this seconds-fresh spot price gives the
+      # 5-min pulse an actual move to evaluate. PAPER, read-only, no wallet/keys.
+      # Default ON (key-less Coinbase). REQUIRE_FAST_PRICE stays soft so a brief
+      # provider hiccup doesn't hard-block. Disagreement bound is generous
+      # because the anchor is intentionally slow vs the live spot price.
+      BTC_FAST_PRICE_ENABLED: "${BTC_FAST_PRICE_ENABLED:-1}"
+      BTC_FAST_PRICE_PROVIDER: "${BTC_FAST_PRICE_PROVIDER:-coinbase_readonly}"
+      BTC_FAST_PRICE_SYMBOL: "${BTC_FAST_PRICE_SYMBOL:-BTC-USD}"
+      BTC_FAST_PRICE_MAX_AGE_SECONDS: "${BTC_FAST_PRICE_MAX_AGE_SECONDS:-10}"
+      BTC_FAST_PRICE_TIMEOUT_SECONDS: "${BTC_FAST_PRICE_TIMEOUT_SECONDS:-5}"
+      BTC_FAST_PRICE_MAX_RETRIES: "${BTC_FAST_PRICE_MAX_RETRIES:-2}"
+      BTC_FAST_PRICE_LOG_ENABLED: "${BTC_FAST_PRICE_LOG_ENABLED:-1}"
+      BTC_PULSE_REQUIRE_FAST_PRICE: "${BTC_PULSE_REQUIRE_FAST_PRICE:-0}"
+      BTC_PULSE_MAX_ORACLE_DISAGREEMENT_BPS: "${BTC_PULSE_MAX_ORACLE_DISAGREEMENT_BPS:-150}"
       # ---- 10x Feedback Accelerator (PAPER ONLY; default OFF) ----
       # This is the service that runs the training loop, so the accelerator env
       # MUST live here. Set FEEDBACK_ACCELERATOR_ENABLED=1 in your .env to turn it
