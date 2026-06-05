@@ -69,6 +69,19 @@ def _dashboard_equity(api: dict | None) -> Optional[float]:
     ))
 
 
+def _dashboard_trades(api: dict | None) -> Optional[float]:
+    """Pull the dashboard hero trade count (closed/resolved) from /api/state.
+
+    The dashboard hero renders ``portfolio.trades`` (completed trades); used to
+    reconcile against the BTC Pulse opened/resolved counters. Read-only."""
+    state = _get(api or {}, "state", default={}) or {}
+    return _num(_first(
+        _get(state, "portfolio", "trades"),
+        _get(state, "pnl", "trades"),
+        state.get("trades"),
+    ))
+
+
 def extract_features(status: dict | None, api: dict | None = None,
                      tests: dict | None = None, env: dict | None = None) -> dict:
     """Flatten the documented bot-health feature set from collected sources.
@@ -160,6 +173,12 @@ def extract_features(status: dict | None, api: dict | None = None,
                                                bp.get("btc_pulse_oracle_gate_active")),
         "btc_pulse_rejection_reasons": bp.get("btc_pulse_rejection_reasons"),
         "btc_pulse_paper_trades": bp.get("btc_pulse_paper_trades"),
+        "btc_pulse_resolved_trades": bp.get("btc_pulse_resolved_trades"),
+        "btc_pulse_open_trades": _first(
+            bp.get("btc_pulse_open_trades"),
+            (_num(bp.get("btc_pulse_paper_trades")) or 0) - (_num(bp.get("btc_pulse_resolved_trades")) or 0)
+            if bp.get("btc_pulse_paper_trades") is not None
+            and bp.get("btc_pulse_resolved_trades") is not None else None),
         "btc_pulse_after_cost_pnl": bp.get("btc_pulse_after_cost_pnl"),
         "btc_pulse_regime": _first(bp.get("btc_pulse_regime"), bp.get("regime")),
         # --- news scanner ---
@@ -675,6 +694,34 @@ def detect_inconsistencies(feats: dict, status: dict | None = None,
             "detail": (f"after-cost PnL {after} exceeds gross/total PnL {total} — "
                        "cost accounting may be off."),
             "values": {"after_cost_pnl": after, "total_pnl": total},
+        })
+
+    # --- BTC Pulse trade-count reconciliation (opened vs resolved vs dashboard) ---
+    # The dashboard hero typically shows RESOLVED/closed trades while the report
+    # shows OPENED paper trades; open (unsettled) 5-min rounds explain the gap.
+    opened = _num(feats.get("btc_pulse_paper_trades"))
+    resolved = _num(feats.get("btc_pulse_resolved_trades"))
+    dash_trades = _dashboard_trades(api)
+    if opened is not None and resolved is not None and opened != resolved:
+        out.append({
+            "check": "btc_pulse_trades_opened_vs_resolved", "severity": "INFO",
+            "detail": (f"BTC Pulse opened {int(opened)} paper trades but only "
+                       f"{int(resolved)} have resolved ({int(opened - resolved)} still "
+                       "open/unsettled). Report counts OPENED; the dashboard hero counts "
+                       "RESOLVED — both are correct."),
+            "values": {"opened": opened, "resolved": resolved,
+                       "open": opened - resolved},
+        })
+    if dash_trades is not None and opened is not None and resolved is not None \
+            and dash_trades not in (opened, resolved):
+        out.append({
+            "check": "btc_pulse_dashboard_trade_count_mismatch", "severity": "WARN",
+            "detail": (f"dashboard hero trades={int(dash_trades)} matches neither BTC "
+                       f"Pulse opened ({int(opened)}) nor resolved ({int(resolved)}) — "
+                       "the hero may be the legacy dashboard engine, a separate paper "
+                       "simulator from the BTC 5-min Pulse experiment."),
+            "values": {"dashboard_trades": dash_trades, "pulse_opened": opened,
+                       "pulse_resolved": resolved},
         })
 
     return out

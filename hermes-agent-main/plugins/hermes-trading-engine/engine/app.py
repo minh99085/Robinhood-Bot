@@ -365,11 +365,12 @@ def api_running_status() -> dict:
     if bp:
         pulse_on = bool(bp.get("btc_pulse_enabled")) and not bp.get("btc_pulse_frozen")
         regime = bp.get("btc_pulse_regime", bp.get("regime", "\u2014"))
-        trades = bp.get("btc_pulse_paper_trades", 0)
+        opened = bp.get("btc_pulse_paper_trades", 0)
+        resolved = bp.get("btc_pulse_resolved_trades", 0)
         frozen_txt = " \u00b7 frozen" if bp.get("btc_pulse_frozen") else ""
         add("btc_pulse", "BTC 5-min Pulse",
             "on" if pulse_on else ("warn" if bp.get("btc_pulse_enabled") else "off"),
-            f"paper trades {trades} \u00b7 regime {regime}{frozen_txt}")
+            f"trades {opened} opened / {resolved} resolved \u00b7 regime {regime}{frozen_txt}")
     else:
         add("btc_pulse", "BTC 5-min Pulse", "off",
             "disabled \u2014 set BTC_PULSE_ENABLED=1 to unfreeze (paper only)")

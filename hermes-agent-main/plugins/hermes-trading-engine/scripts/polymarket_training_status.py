@@ -222,6 +222,9 @@ def run(argv=None) -> int:
         print(f"    ticks={bp.get('btc_pulse_ticks')} rounds={bp.get('btc_pulse_rounds_seen')} "
               f"decisions={bp.get('btc_pulse_decisions')} "
               f"paper_trades={bp.get('btc_pulse_paper_trades')} "
+              f"(opened={bp.get('btc_pulse_paper_trades')} "
+              f"resolved={bp.get('btc_pulse_resolved_trades')} "
+              f"open={bp.get('btc_pulse_open_trades')}) "
               f"no_trades={bp.get('btc_pulse_no_trade_decisions')} "
               f"rejected={bp.get('btc_pulse_rejected_trades')}")
         print(f"    win_rate={bp.get('btc_pulse_win_rate')} sharpe={bp.get('btc_pulse_sharpe')} "

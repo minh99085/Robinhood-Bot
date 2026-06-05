@@ -131,7 +131,8 @@ class BtcPulsePaperTrainer:
         self.rounds_seen = 0
         self.decisions = 0
         self.no_trade_decisions = 0
-        self.paper_trades = 0
+        self.paper_trades = 0           # paper trades OPENED
+        self.resolved_paper_trades = 0  # paper trades RESOLVED/closed (subset of opened)
         self.rejected_trades = 0
         self.rejection_reasons: dict[str, int] = {}
         self.ev_positive_count = 0
@@ -434,6 +435,7 @@ class BtcPulsePaperTrainer:
 
         pnl = 0.0
         if rnd.get("traded"):
+            self.resolved_paper_trades += 1
             stake = float(rnd.get("stake", 0.0))
             fill_frac = float(rnd.get("fill_frac", 1.0))
             entry = float(dec.get("entry", 0.52))
@@ -650,6 +652,9 @@ class BtcPulsePaperTrainer:
             "btc_pulse_shadow_decisions": self.shadow_decisions,
             "btc_pulse_feedback_acceleration_enabled": bool(self.accel_enabled),
             "btc_pulse_paper_trades": self.paper_trades,
+            "btc_pulse_paper_trades_opened": self.paper_trades,
+            "btc_pulse_resolved_trades": self.resolved_paper_trades,
+            "btc_pulse_open_trades": max(0, self.paper_trades - self.resolved_paper_trades),
             "btc_pulse_rejected_trades": self.rejected_trades,
             "btc_pulse_rejection_reasons": dict(self.rejection_reasons),
             "btc_pulse_ev_positive_count": self.ev_positive_count,
