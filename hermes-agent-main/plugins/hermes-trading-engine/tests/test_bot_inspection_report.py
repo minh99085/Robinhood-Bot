@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import generate_bot_inspection_report as gen  # noqa: E402
+import inspection_collectors as collectors  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #
@@ -234,6 +235,58 @@ def test_scorecard_present_and_bounded(tmp_path):
     assert set(rj["scorecard"]["components"]) == {
         "safety", "tests", "runtime", "feature_completeness",
         "performance_trend", "observability"}
+
+
+def test_report_includes_benchmarks_consistency_quant(tmp_path):
+    data_dir = tmp_path / "data"
+    _write_status(data_dir, _healthy_status())
+    res = gen.generate_report(
+        output_dir=str(tmp_path / "out"), repo_root=str(tmp_path), skip_tests=True,
+        include_docker=False, include_api=False, include_artifacts=False,
+        data_dir=str(data_dir), runner=make_runner(), opener=unreachable_opener)
+    bundle = Path(res["bundle_dir"])
+    rj = json.loads((bundle / "report.json").read_text())
+    # report.json keys
+    assert "benchmarks" in rj and "benchmarks" in rj["benchmarks"]
+    assert "consistency" in rj
+    assert "quant_responsibilities" in rj and "data_ingestion" in rj["quant_responsibilities"]
+    # bundle artifacts
+    assert (bundle / "metrics" / "benchmarks.json").is_file()
+    assert (bundle / "consistency.json").is_file()
+    assert (bundle / "quant_responsibilities.json").is_file()
+    # report.md sections
+    md = (bundle / "report.md").read_text()
+    assert "Algorithmic Benchmarks" in md
+    assert "Cross-Surface Consistency" in md
+    assert "Quant Responsibilities" in md
+
+
+def test_report_flags_equity_inconsistency(tmp_path):
+    data_dir = tmp_path / "data"
+    _write_status(data_dir, _healthy_status())  # paper equity 520
+    opener = make_opener({
+        "/api/health": {"ok": True, "mode": "paper"},
+        "/api/state": {"equity": 100.0, "mode": "paper"},  # dashboard equity differs
+    })
+    res = gen.generate_report(
+        output_dir=str(tmp_path / "out"), repo_root=str(tmp_path), skip_tests=True,
+        include_docker=False, include_api=True, include_artifacts=False,
+        data_dir=str(data_dir), runner=make_runner(), opener=opener)
+    rj = json.loads(Path(res["report_json"]).read_text())
+    checks = {c["check"] for c in rj["consistency"]}
+    assert "equity_mismatch" in checks
+
+
+def test_pytest_base_cmd_is_platform_safe():
+    cmd = collectors.pytest_base_cmd()
+    assert cmd[0] == sys.executable
+    assert "pytest" in cmd
+    assert "no:cacheprovider" in cmd
+    # Never force the signal method — SIGALRM crashes pytest on Windows.
+    assert "--timeout-method=signal" not in cmd
+    import importlib.util
+    if importlib.util.find_spec("pytest_timeout") is not None:
+        assert "--timeout-method=thread" in cmd
 
 
 def test_passing_tests_via_docker_json_status(tmp_path):

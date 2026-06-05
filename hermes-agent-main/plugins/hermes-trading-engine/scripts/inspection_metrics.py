@@ -29,6 +29,46 @@ def _first(*vals, default=None):
     return default
 
 
+def _num(v: Any) -> Optional[float]:
+    """Best-effort float coercion (bool -> 1/0); None on failure."""
+    if isinstance(v, bool):
+        return 1.0 if v else 0.0
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _sum_opt(*vals) -> Optional[float]:
+    """Sum of the numeric values present, or None if none are numeric."""
+    nums = [_num(v) for v in vals]
+    nums = [n for n in nums if n is not None]
+    return float(sum(nums)) if nums else None
+
+
+def _ratio(numerator: Any, denominator: Any) -> Optional[float]:
+    """Safe ratio in [0, 1+]; None when inputs are missing or denom <= 0."""
+    n, d = _num(numerator), _num(denominator)
+    if n is None or d is None or d <= 0:
+        return None
+    return round(n / d, 4)
+
+
+def _dashboard_equity(api: dict | None) -> Optional[float]:
+    """Pull the legacy-dashboard equity from a collected /api/state snapshot.
+
+    The dashboard engine and the paper-training loop are distinct surfaces; this
+    lets the report cross-check their equity for inconsistencies. Read-only.
+    """
+    state = _get(api or {}, "state", default={}) or {}
+    return _num(_first(
+        state.get("equity"),
+        _get(state, "pnl", "equity"),
+        _get(state, "portfolio", "equity"),
+        _get(state, "accounting", "equity"),
+    ))
+
+
 def extract_features(status: dict | None, api: dict | None = None,
                      tests: dict | None = None, env: dict | None = None) -> dict:
     """Flatten the documented bot-health feature set from collected sources.
@@ -145,10 +185,24 @@ def extract_features(status: dict | None, api: dict | None = None,
                                        _get(status, "pnl", "realistic_fill")),
         "fantasy_fill_rejections": _first(pnl.get("fantasy_fill_rejections"),
                                           mon.get("fantasy_fill_rejections")),
+        "fill_attempts": _first(pnl.get("fill_attempts"), pnl.get("orders_submitted"),
+                                _get(status, "execution", "fill_attempts")),
+        # --- exploration vs validation separation (counts where available) ---
+        "exploration_trades": _first(fa.get("exploration_trades"),
+                                     _get(status, "pnl", "exploration_trades")),
+        "validation_trades": _first(fa.get("validation_trades"),
+                                    _get(status, "pnl", "validation_trades")),
+        # --- cross-surface equity (for consistency checks) ---
+        "dashboard_equity": _dashboard_equity(api),
         # --- tests ---
         "tests_present": tests.get("present"),
         "tests_passing": tests.get("passing"),
     }
+    # Derived: realistic-fill rejection RATE = rejected / (rejected + filled).
+    feats["fill_realism_rejection_rate"] = _ratio(
+        feats.get("fantasy_fill_rejections"),
+        _first(feats.get("fill_attempts"),
+               _sum_opt(feats.get("fantasy_fill_rejections"), feats.get("paper_trades"))))
     # Helpful raw-section presence flags for the report narrative.
     feats["_sections_present"] = {
         "pnl": bool(pnl), "scan_metrics": bool(scan), "btc_pulse": bool(bp),
@@ -434,3 +488,253 @@ def compute_scorecard(feats: dict, safety: dict, tests: dict,
 
     total = round(sum(c["score"] for c in comp.values()), 2)
     return {"score": total, "max": 100, "components": comp}
+
+
+# ----------------------------------------------------------------------------- #
+# Algorithmic benchmark layer
+# ----------------------------------------------------------------------------- #
+# Each spec: (name, feature_key, direction, target, fail) where direction is
+# "higher"/"lower"/"bool". A value at-or-better-than ``target`` => pass; between
+# target and ``fail`` => warn; at-or-worse-than ``fail`` => fail; None => missing.
+# Thresholds are quant defaults for a PAPER training bot, not live mandates.
+BenchmarkSpec = tuple
+BENCHMARK_SPECS: list[BenchmarkSpec] = [
+    ("after_cost_pnl", "after_cost_pnl", "higher", 0.0, -5.0,
+     "After-cost paper PnL/expectancy (net of fees+slippage)."),
+    ("bregman_certified_profit", "bregman_certified_profit", "higher", 0.0, -1.0,
+     "Certified Bregman opportunity profit (paper)."),
+    ("btc_pulse_after_cost_pnl", "btc_pulse_after_cost_pnl", "higher", 0.0, -5.0,
+     "BTC Pulse after-cost paper PnL."),
+    ("win_rate_traded_only", "win_rate_traded_only", "higher", 0.5, 0.4,
+     "Win rate over traded-only paper decisions."),
+    ("sharpe", "sharpe", "higher", 1.0, 0.0, "Sharpe ratio (paper equity curve)."),
+    ("sortino", "sortino", "higher", 1.5, 0.0, "Sortino ratio (downside-only)."),
+    ("calmar", "calmar", "higher", 1.0, 0.0, "Calmar ratio (return / max drawdown)."),
+    ("max_drawdown", "max_drawdown", "lower", 0.15, 0.25, "Max drawdown (fraction of equity)."),
+    ("brier", "brier", "lower", 0.25, 0.33, "Brier score (probability calibration)."),
+    ("ece", "ece", "lower", 0.05, 0.10, "Expected calibration error."),
+    ("fill_realism_rejection_rate", "fill_realism_rejection_rate", "lower", 0.5, 0.8,
+     "Realistic-fill (fantasy-fill) rejection rate; very high => feed/book problem."),
+    ("exploration_validation_separated", "exploration_validation_separated", "bool", True, False,
+     "Exploration trades are tracked separately from validation evidence."),
+    ("paper_attribution_enabled", "paper_attribution_enabled", "bool", True, False,
+     "Per-strategy paper attribution is available."),
+    ("fill_realism_enabled", "fill_realism_enabled", "bool", True, False,
+     "Realistic-fill modeling is enabled."),
+]
+
+
+def _benchmark_status(value: Optional[float], direction: str, target: Any,
+                      fail: Any) -> str:
+    if value is None:
+        return "missing"
+    if direction == "bool":
+        return "pass" if bool(value) == bool(target) else "fail"
+    v = _num(value)
+    t, f = _num(target), _num(fail)
+    if v is None or t is None or f is None:
+        return "missing"
+    if direction == "higher":
+        if v >= t:
+            return "pass"
+        return "fail" if v <= f else "warn"
+    # lower-is-better
+    if v <= t:
+        return "pass"
+    return "fail" if v >= f else "warn"
+
+
+def build_benchmarks(feats: dict) -> dict:
+    """Build the algorithmic benchmark scorecard from extracted features.
+
+    Returns ``{"benchmarks": [...], "summary": {pass, warn, fail, missing}}``.
+    Each benchmark is ``{name, value, direction, target, fail_at, status,
+    description}``. Pure + deterministic; no I/O.
+    """
+    feats = feats or {}
+    rows: list[dict] = []
+    counts = {"pass": 0, "warn": 0, "fail": 0, "missing": 0}
+    for name, key, direction, target, fail, desc in BENCHMARK_SPECS:
+        value = feats.get(key)
+        status = _benchmark_status(value, direction, target, fail)
+        counts[status] += 1
+        rows.append({
+            "name": name, "value": value, "direction": direction,
+            "target": target, "fail_at": fail, "status": status,
+            "description": desc,
+        })
+    return {"benchmarks": rows, "summary": counts,
+            "failing": [r["name"] for r in rows if r["status"] == "fail"],
+            "warning": [r["name"] for r in rows if r["status"] == "warn"]}
+
+
+# ----------------------------------------------------------------------------- #
+# Cross-surface consistency checks
+# ----------------------------------------------------------------------------- #
+def detect_inconsistencies(feats: dict, status: dict | None = None,
+                           api: dict | None = None,
+                           equity_tolerance_pct: float = 0.01) -> list[dict]:
+    """Detect inconsistencies across collected surfaces (read-only).
+
+    Currently checks: dashboard equity vs paper-training equity; live-detected
+    disagreement between training status and the dashboard API. Returns a list of
+    ``{check, severity, detail, values}`` (empty when everything agrees).
+    """
+    feats = feats or {}
+    status = status or {}
+    api = api or {}
+    out: list[dict] = []
+
+    # --- dashboard equity vs paper-training equity ---
+    paper_eq = _num(feats.get("equity"))
+    dash_eq = _num(feats.get("dashboard_equity"))
+    if paper_eq is not None and dash_eq is not None:
+        denom = max(abs(paper_eq), abs(dash_eq), 1.0)
+        rel = abs(paper_eq - dash_eq) / denom
+        if rel > equity_tolerance_pct:
+            out.append({
+                "check": "equity_mismatch", "severity": "WARN",
+                "detail": (f"dashboard equity ${dash_eq} vs paper-training equity "
+                           f"${paper_eq} differ by {round(rel * 100, 2)}% "
+                           "(separate surfaces; expected to roughly agree)."),
+                "values": {"dashboard_equity": dash_eq, "paper_equity": paper_eq,
+                           "rel_diff_pct": round(rel * 100, 4)},
+            })
+
+    # --- live-detected disagreement ---
+    status_live = _get(status, "safety", "live_detected")
+    api_live = _get(api, "state", "live_detected")
+    if status_live is not None and api_live is not None and bool(status_live) != bool(api_live):
+        out.append({
+            "check": "live_detected_mismatch", "severity": "CRITICAL",
+            "detail": (f"training status live_detected={status_live} but dashboard "
+                       f"API live_detected={api_live}."),
+            "values": {"status_live_detected": bool(status_live),
+                       "api_live_detected": bool(api_live)},
+        })
+
+    # --- after-cost PnL exceeding gross PnL (cost accounting sanity) ---
+    after = _num(feats.get("after_cost_pnl"))
+    total = _num(feats.get("total_pnl"))
+    if after is not None and total is not None and after > total + 1e-9:
+        out.append({
+            "check": "after_cost_exceeds_gross", "severity": "WARN",
+            "detail": (f"after-cost PnL {after} exceeds gross/total PnL {total} — "
+                       "cost accounting may be off."),
+            "values": {"after_cost_pnl": after, "total_pnl": total},
+        })
+
+    return out
+
+
+# ----------------------------------------------------------------------------- #
+# Quant responsibilities matrix (documentation surfaced in the report)
+# ----------------------------------------------------------------------------- #
+# domain -> {owner, responsibilities, evidence_features}. ``evidence_features``
+# are feature keys whose presence demonstrates the domain is observable.
+QUANT_RESPONSIBILITIES: dict[str, dict] = {
+    "data_ingestion": {
+        "owner": "Data / market-data engineering",
+        "responsibilities": [
+            "Ingest Polymarket gamma/CLOB market data (read-only)",
+            "Read Chainlink BTC/USD anchor + Coinbase fast spot feed",
+            "Fetch market-news headlines (read-only)",
+        ],
+        "evidence_features": ["scanned_markets", "chainlink_enabled",
+                              "btc_fast_price_enabled", "news_scanner_enabled"],
+    },
+    "preprocessing_features": {
+        "owner": "Feature engineering",
+        "responsibilities": [
+            "Normalize/timestamp/dedupe inputs; build short-horizon returns",
+            "Score + sanitize news evidence; cap feature nudges",
+            "Apply the market-scan universe limits",
+        ],
+        "evidence_features": ["news_items_used", "btc_fast_price_disagreement_bps",
+                              "market_scan_limit_effective"],
+    },
+    "statistical_modeling": {
+        "owner": "Quant research / modeling",
+        "responsibilities": [
+            "Probability estimation + calibration (isotonic/Platt)",
+            "Track Brier/ECE; guard against overfitting",
+        ],
+        "evidence_features": ["brier", "ece", "win_rate_traded_only"],
+    },
+    "bregman_signals": {
+        "owner": "Quant research (convex/Bregman)",
+        "responsibilities": [
+            "Group markets; certify Bregman arbitrage-free opportunities (paper)",
+            "Track false-positive rate + certified profit",
+        ],
+        "evidence_features": ["bregman_candidates_found", "bregman_certified_count",
+                              "bregman_certified_profit", "bregman_false_positive_rate"],
+    },
+    "risk_portfolio": {
+        "owner": "Risk / portfolio",
+        "responsibilities": [
+            "Deterministic RiskEngine gate on every paper order",
+            "Exposure/daily-loss caps; drawdown control",
+        ],
+        "evidence_features": ["preflight_ok", "open_positions", "max_drawdown"],
+    },
+    "backtest_simulation": {
+        "owner": "Simulation / backtest",
+        "responsibilities": [
+            "Paper OMS + realistic fills; after-cost expectancy",
+            "Resolve labels; record closed trades",
+        ],
+        "evidence_features": ["paper_trades", "closed_positions", "after_cost_pnl"],
+    },
+    "robustness": {
+        "owner": "Quant validation",
+        "responsibilities": [
+            "Exploration-vs-validation separation; regime/stress checks",
+            "Risk-adjusted performance (Sharpe/Sortino/Calmar)",
+        ],
+        "evidence_features": ["exploration_validation_separated", "sharpe",
+                              "sortino", "calmar"],
+    },
+    "clobv2_execution": {
+        "owner": "Execution (CLOB v2, paper)",
+        "responsibilities": [
+            "Read-only CLOB v2 book freshness; realistic-fill modeling",
+            "Reject fantasy fills; never submit real orders (paper)",
+        ],
+        "evidence_features": ["fill_realism_enabled", "fill_realism_rejection_rate"],
+    },
+    "monitoring": {
+        "owner": "MLOps / monitoring",
+        "responsibilities": [
+            "Health/benchmark reporting; test suite green",
+            "Uptime + drift/kill-switch monitoring",
+        ],
+        "evidence_features": ["tests_passing", "runtime_minutes"],
+    },
+    "compliance_security_ops": {
+        "owner": "Compliance / security / ops",
+        "responsibilities": [
+            "PAPER-only enforcement; no live/wallet/order paths",
+            "Secret redaction; forbidden-live-flag audit",
+        ],
+        "evidence_features": ["live_detected", "preflight_ok"],
+    },
+}
+
+
+def build_quant_responsibilities(feats: dict | None = None) -> dict:
+    """Return the quant responsibilities matrix annotated with observability
+    coverage from the current features (``covered`` / ``gap``)."""
+    feats = feats or {}
+    out: dict[str, dict] = {}
+    for domain, spec in QUANT_RESPONSIBILITIES.items():
+        ev = spec.get("evidence_features", [])
+        present = [k for k in ev if feats.get(k) not in (None,)]
+        out[domain] = {
+            "owner": spec["owner"],
+            "responsibilities": list(spec["responsibilities"]),
+            "evidence_features": list(ev),
+            "observed_features": present,
+            "coverage": "covered" if present else "gap",
+        }
+    return out

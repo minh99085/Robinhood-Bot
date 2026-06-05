@@ -47,3 +47,41 @@ def test_running_status_is_read_only_paper():
     assert data["mode"] == "paper"
     # No system key implies live trading; it's a status view only.
     assert all(s["key"] in _EXPECTED_KEYS for s in data["systems"])
+
+
+def test_running_status_reflects_training_file():
+    """When a paper-training status file exists, the endpoint surfaces equity —
+    the same equity the benchmark/consistency layer cross-checks."""
+    import json as _json
+    from pathlib import Path
+
+    dd = Path(app_mod._engine.s.data_dir)
+    dd.mkdir(parents=True, exist_ok=True)
+    f = dd / "polymarket_training.json"
+    orig = f.read_text(encoding="utf-8") if f.exists() else None
+    try:
+        f.write_text(_json.dumps({
+            "mode": "paper",
+            "pnl": {"equity": 512.5, "open_positions": 2, "trades_closed": 7},
+            "scan_metrics": {"scanned": 10, "kept": 3},
+            "btc_pulse": {"btc_pulse_enabled": True, "btc_pulse_frozen": False,
+                          "btc_pulse_paper_trades": 4},
+        }), encoding="utf-8")
+        sysmap = {s["key"]: s for s in _client().get("/api/running-status").json()["systems"]}
+        assert sysmap["polymarket"]["state"] == "on"
+        assert "equity" in sysmap["polymarket"]["detail"]
+        assert sysmap["btc_pulse"]["state"] == "on"
+    finally:
+        if orig is None:
+            f.unlink()
+        else:
+            f.write_text(orig, encoding="utf-8")
+
+
+def test_running_status_integrates_with_benchmark_layer():
+    """The benchmark layer must accept arbitrary/empty status without error so
+    the dashboard endpoint and the report stay consistent."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import inspection_metrics as m
+    assert isinstance(m.build_benchmarks({}), dict)
+    assert isinstance(m.build_quant_responsibilities({}), dict)

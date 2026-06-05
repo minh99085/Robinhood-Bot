@@ -132,3 +132,108 @@ def test_detect_missing_features_healthy_has_fewer():
     flagged = {x["feature"] for x in missing}
     assert "chainlink" not in flagged
     assert "btc_fast_price" not in flagged
+
+
+# --------------------------------------------------------------------------- #
+# Benchmark layer
+# --------------------------------------------------------------------------- #
+def test_build_benchmarks_shape_and_counts():
+    feats = m.extract_features(_status(), _api(), {"present": True, "passing": True})
+    b = m.build_benchmarks(feats)
+    assert "benchmarks" in b and "summary" in b
+    names = {r["name"] for r in b["benchmarks"]}
+    for required in ("after_cost_pnl", "sharpe", "sortino", "calmar", "max_drawdown",
+                     "brier", "ece", "bregman_certified_profit",
+                     "fill_realism_rejection_rate", "exploration_validation_separated",
+                     "paper_attribution_enabled"):
+        assert required in names, required
+    s = b["summary"]
+    assert s["pass"] + s["warn"] + s["fail"] + s["missing"] == len(b["benchmarks"])
+
+
+def test_benchmark_status_directions():
+    # higher-is-better
+    assert m._benchmark_status(2.0, "higher", 1.0, 0.0) == "pass"
+    assert m._benchmark_status(0.5, "higher", 1.0, 0.0) == "warn"
+    assert m._benchmark_status(-1.0, "higher", 1.0, 0.0) == "fail"
+    # lower-is-better
+    assert m._benchmark_status(0.10, "lower", 0.15, 0.25) == "pass"
+    assert m._benchmark_status(0.20, "lower", 0.15, 0.25) == "warn"
+    assert m._benchmark_status(0.30, "lower", 0.15, 0.25) == "fail"
+    # bool
+    assert m._benchmark_status(True, "bool", True, False) == "pass"
+    assert m._benchmark_status(False, "bool", True, False) == "fail"
+    # missing
+    assert m._benchmark_status(None, "higher", 1.0, 0.0) == "missing"
+
+
+def test_build_benchmarks_flags_failures():
+    feats = {"after_cost_pnl": -10.0, "sharpe": -0.5, "max_drawdown": 0.40,
+             "ece": 0.20, "fill_realism_enabled": True}
+    b = m.build_benchmarks(feats)
+    failing = set(b["failing"])
+    assert "after_cost_pnl" in failing
+    assert "sharpe" in failing
+    assert "max_drawdown" in failing
+    assert "ece" in failing
+
+
+def test_fill_realism_rejection_rate_computed():
+    st = _status()
+    st["pnl"]["fantasy_fill_rejections"] = 3
+    st["pnl"]["fill_attempts"] = 12
+    feats = m.extract_features(st, _api(), {})
+    assert feats["fill_realism_rejection_rate"] == round(3 / 12, 4)
+
+
+# --------------------------------------------------------------------------- #
+# Cross-surface consistency
+# --------------------------------------------------------------------------- #
+def test_detect_inconsistencies_equity_mismatch():
+    feats = m.extract_features(_status(),
+                               {"state": {"equity": 100.0}}, {})  # dashboard equity 100
+    feats["equity"] = 510.0  # paper equity differs a lot
+    incons = m.detect_inconsistencies(feats, _status(), {"state": {"equity": 100.0}})
+    checks = {c["check"] for c in incons}
+    assert "equity_mismatch" in checks
+
+
+def test_detect_inconsistencies_none_when_consistent():
+    feats = m.extract_features(_status(), {"state": {"equity": 510.0}}, {})
+    incons = m.detect_inconsistencies(feats, _status(), {"state": {"equity": 510.0}})
+    assert all(c["check"] != "equity_mismatch" for c in incons)
+
+
+def test_detect_inconsistencies_live_mismatch_is_critical():
+    status = {"safety": {"live_detected": True}}
+    api = {"state": {"live_detected": False}}
+    feats = m.extract_features(status, api, {})
+    incons = m.detect_inconsistencies(feats, status, api)
+    crit = [c for c in incons if c["check"] == "live_detected_mismatch"]
+    assert crit and crit[0]["severity"] == "CRITICAL"
+
+
+def test_dashboard_equity_extracted():
+    feats = m.extract_features(_status(), {"state": {"equity": 777.0}}, {})
+    assert feats["dashboard_equity"] == 777.0
+
+
+# --------------------------------------------------------------------------- #
+# Quant responsibilities matrix
+# --------------------------------------------------------------------------- #
+def test_quant_responsibilities_all_domains():
+    qr = m.build_quant_responsibilities(m.extract_features(_status(), _api(), {}))
+    for domain in ("data_ingestion", "preprocessing_features", "statistical_modeling",
+                   "bregman_signals", "risk_portfolio", "backtest_simulation",
+                   "robustness", "clobv2_execution", "monitoring",
+                   "compliance_security_ops"):
+        assert domain in qr, domain
+        assert qr[domain]["owner"]
+        assert qr[domain]["coverage"] in ("covered", "gap")
+        assert isinstance(qr[domain]["responsibilities"], list)
+
+
+def test_quant_responsibilities_coverage_gap_on_empty():
+    qr = m.build_quant_responsibilities({})
+    # With no features, every domain is a coverage gap.
+    assert all(v["coverage"] == "gap" for v in qr.values())

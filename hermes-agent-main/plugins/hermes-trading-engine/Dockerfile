@@ -21,6 +21,8 @@ COPY web /app/web
 COPY scripts /app/scripts
 # Ship the test suite (+ conftest.py and tests/fixtures) at /app/tests so that
 # `python -m pytest` and targeted `pytest tests -k "..."` work in the container.
+# pytest.ini scopes collection to tests/ and keeps timeouts platform-safe.
+COPY pytest.ini /app/pytest.ini
 COPY tests /app/tests
 
 RUN mkdir -p /data

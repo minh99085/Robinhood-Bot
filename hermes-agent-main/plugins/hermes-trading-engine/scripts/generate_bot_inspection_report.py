@@ -20,11 +20,15 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import logging
 import os
 import sys
 import zipfile
 from pathlib import Path
 from typing import Any, Optional
+
+# Library-style logger: silent unless the caller configures logging handlers.
+logger = logging.getLogger("hte.inspection.report")
 
 # Make sibling helper modules importable whether run as a script or imported.
 _THIS_DIR = Path(__file__).resolve().parent
@@ -200,6 +204,11 @@ def generate_report(
     comparison = metrics.compare_baseline(feats, baseline)
     missing_features = metrics.detect_missing_features(feats, api, tests)
 
+    # --- algorithmic benchmark layer + cross-surface consistency + quant matrix -
+    benchmarks = metrics.build_benchmarks(feats)
+    consistency = metrics.detect_inconsistencies(feats, status, api_json)
+    quant_responsibilities = metrics.build_quant_responsibilities(feats)
+
     # --- artifacts ------------------------------------------------------------ #
     artifacts: dict = {"skipped": True, "host_found": [], "host_missing": list(
         collectors.ARTIFACT_DIRS), "any_found": False}
@@ -219,6 +228,10 @@ def generate_report(
         warnings.append("test suite not found")
     if not runtime_available:
         warnings.append("no paper-training status collected")
+    if benchmarks.get("failing"):
+        warnings.append(f"{len(benchmarks['failing'])} benchmark(s) failing")
+    if consistency:
+        warnings.append(f"{len(consistency)} cross-surface inconsistency(ies)")
 
     # --- scorecard + classification ------------------------------------------ #
     observability = {
@@ -231,7 +244,8 @@ def generate_report(
     classification = classify(safety, tests, runtime_available, comparison,
                               missing_features, warnings)
     recommendations = recs.build_recommendations(
-        safety, missing_features, tests, comparison, runtime_available)
+        safety, missing_features, tests, comparison, runtime_available,
+        benchmarks=benchmarks, consistency=consistency)
 
     # ------------------------------------------------------------------------- #
     # Write bundle files
@@ -247,6 +261,10 @@ def generate_report(
     _write_safety(bundle, safety, env_text, env_example_text, compose_text, docker, api)
     _write_summaries(bundle, feats, comparison, missing_features, recommendations,
                      scorecard, classification)
+    # Benchmark layer + consistency + quant responsibilities artifacts.
+    bundle.write_json("metrics/benchmarks.json", benchmarks)
+    bundle.write_json("consistency.json", {"checks": consistency})
+    bundle.write_json("quant_responsibilities.json", quant_responsibilities)
 
     report_json = _build_report_json(
         now=now, repo_root=repo_root, classification=classification, pr=pr,
@@ -257,17 +275,24 @@ def generate_report(
         artifacts=artifacts, comparison=comparison, missing_features=missing_features,
         warnings=warnings, errors=errors, recommendations=recommendations,
         scorecard=scorecard, history_days=history_days, baseline_path=baseline_path,
-        files=bundle.files)
+        files=bundle.files, benchmarks=benchmarks, consistency=consistency,
+        quant_responsibilities=quant_responsibilities)
     bundle.write_json("report.json", report_json)
 
     report_md = _build_report_md(report_json, feats, status, docker, api, tests,
                                  comparison, missing_features, recommendations,
-                                 scorecard, artifacts, safety)
+                                 scorecard, artifacts, safety, benchmarks,
+                                 consistency, quant_responsibilities)
     bundle.write_text("report.md", report_md, redact=True)
 
     # --- zip ------------------------------------------------------------------ #
     zip_path = out_root / f"{name}.zip"
     _make_zip(bundle_dir, zip_path)
+
+    logger.info("inspection report generated: classification=%s score=%s "
+                "benchmarks(pass/warn/fail/missing)=%s inconsistencies=%d bundle=%s",
+                classification, scorecard.get("score"),
+                benchmarks.get("summary"), len(consistency), bundle_dir)
 
     return {
         "classification": classification,
@@ -512,6 +537,9 @@ def _build_report_json(**kw) -> dict:
         "artifacts": kw["artifacts"],
         "performance_comparison": kw["comparison"],
         "missing_features": kw["missing_features"],
+        "benchmarks": kw["benchmarks"],
+        "consistency": kw["consistency"],
+        "quant_responsibilities": kw["quant_responsibilities"],
         "warnings": kw["warnings"],
         "errors": kw["errors"],
         "recommendations": kw["recommendations"],
@@ -549,7 +577,11 @@ def _yn(v):
 
 def _build_report_md(rj, feats, status, docker, api, tests, comparison,
                      missing_features, recommendations, scorecard, artifacts,
-                     safety) -> str:
+                     safety, benchmarks=None, consistency=None,
+                     quant_responsibilities=None) -> str:
+    benchmarks = benchmarks or {}
+    consistency = consistency or []
+    quant_responsibilities = quant_responsibilities or {}
     L: list[str] = []
     cls = rj["classification"]
     L.append("# Hermes Polymarket Paper-Training — Bot Inspection Report")
@@ -778,8 +810,51 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
             L.append(f"- **{r['priority']}** ({r['area']}): {r['action']}")
     L.append("")
 
-    # 23. Files Included In Bundle
-    L.append("## 23. Files Included In Bundle")
+    # 23. Algorithmic Benchmarks
+    L.append("## 23. Algorithmic Benchmarks")
+    L.append("")
+    rows = benchmarks.get("benchmarks", [])
+    if not rows:
+        L.append("- No benchmarks computed.")
+    else:
+        s = benchmarks.get("summary", {})
+        L.append(f"Summary: pass={s.get('pass', 0)} warn={s.get('warn', 0)} "
+                 f"fail={s.get('fail', 0)} missing={s.get('missing', 0)}")
+        L.append("")
+        L.append("| Benchmark | Value | Target | Dir | Status | Description |")
+        L.append("|---|---|---|---|---|---|")
+        for b in rows:
+            L.append(f"| {b['name']} | {_yn(b['value'])} | {b['target']} | "
+                     f"{b['direction']} | {b['status'].upper()} | {b['description']} |")
+    L.append("")
+
+    # 24. Cross-Surface Consistency
+    L.append("## 24. Cross-Surface Consistency")
+    L.append("")
+    if not consistency:
+        L.append("- No inconsistencies detected (dashboard vs paper-training equity, "
+                 "live-detected flags, cost accounting).")
+    else:
+        for c in consistency:
+            L.append(f"- [{c.get('severity')}] {c.get('check')}: {c.get('detail')}")
+    L.append("")
+
+    # 25. Quant Responsibilities
+    L.append("## 25. Quant Responsibilities")
+    L.append("")
+    if not quant_responsibilities:
+        L.append("- Not available.")
+    else:
+        L.append("| Domain | Owner | Coverage | Responsibilities |")
+        L.append("|---|---|---|---|")
+        for domain, spec in quant_responsibilities.items():
+            resp = "; ".join(spec.get("responsibilities", []))
+            L.append(f"| {domain} | {spec.get('owner')} | "
+                     f"{spec.get('coverage')} | {resp} |")
+    L.append("")
+
+    # 26. Files Included In Bundle
+    L.append("## 26. Files Included In Bundle")
     L.append("")
     for f in sorted(rj["files"]):
         L.append(f"- {f}")

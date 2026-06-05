@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -203,17 +204,38 @@ def _parse_pytest_summary(stdout: str, stderr: str) -> dict:
     return summary
 
 
+def pytest_base_cmd() -> list:
+    """Build a platform-safe ``python -m pytest`` base command.
+
+    - Uses ``sys.executable`` (correct interpreter on Windows/venvs).
+    - Disables the cache plugin (read-only inspection; avoids .pytest_cache).
+    - If ``pytest-timeout`` is installed, forces ``--timeout-method=thread``.
+      The default/`signal` method uses ``SIGALRM``, which does NOT exist on
+      Windows and crashes pytest. The thread method is cross-platform. This CLI
+      flag also overrides any inherited ``--timeout-method=signal`` from a parent
+      pyproject's ``addopts`` (the cause of the Windows SIGALRM failure).
+    """
+    import importlib.util
+    base = [sys.executable, "-m", "pytest", "-p", "no:cacheprovider"]
+    if importlib.util.find_spec("pytest_timeout") is not None:
+        base += ["--timeout-method=thread"]
+    return base
+
+
 def collect_tests(repo_root: str, runner: Optional[Runner] = None,
                   selectors: Optional[dict] = None, skip: bool = False,
                   timeout: float = 600.0) -> dict:
-    """Run pytest selectors locally. Captures output without crashing the report."""
+    """Run pytest selectors locally. Captures output without crashing the report.
+
+    Platform-safe: see ``pytest_base_cmd`` (avoids the Windows SIGALRM crash)."""
     selectors = selectors if selectors is not None else TEST_SELECTORS
     if skip:
         return {"skipped": True, "present": None, "passing": None, "runs": {}}
 
+    base = pytest_base_cmd()
     runs: dict[str, dict] = {}
     for name, extra in selectors.items():
-        cmd = ["python", "-m", "pytest", *extra, "-q"]
+        cmd = [*base, *extra, "-q"]
         rec = run_cmd(cmd, cwd=repo_root, timeout=timeout, runner=runner)
         rec["summary"] = _parse_pytest_summary(rec["stdout"], rec["stderr"])
         runs[name] = rec

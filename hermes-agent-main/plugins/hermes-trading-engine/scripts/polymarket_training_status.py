@@ -10,6 +10,37 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # for inspection_metrics
+
+
+def _print_benchmarks(st: dict) -> None:
+    """Print the algorithmic benchmark scorecard + consistency checks (read-only).
+
+    Reuses the inspection benchmark layer so the CLI and the report agree. Best
+    effort: if the inspection module isn't importable, this is skipped silently.
+    """
+    try:
+        import inspection_metrics as m
+    except Exception:  # noqa: BLE001
+        return
+    feats = m.extract_features(st, api={}, tests={}, env={})
+    bench = m.build_benchmarks(feats)
+    incons = m.detect_inconsistencies(feats, st, {})
+    s = bench.get("summary", {})
+    print("=" * 56)
+    print(f"  BENCHMARKS (quant): pass={s.get('pass', 0)} warn={s.get('warn', 0)} "
+          f"fail={s.get('fail', 0)} missing={s.get('missing', 0)}")
+    for b in bench.get("benchmarks", []):
+        mark = {"pass": "OK ", "warn": "WARN", "fail": "FAIL", "missing": "-- "}.get(
+            b["status"], "?")
+        print(f"    {mark} {b['name']}={b['value']} "
+              f"(target {b['direction']} {b['target']})")
+    if incons:
+        print("  CONSISTENCY:")
+        for c in incons:
+            print(f"    [{c.get('severity')}] {c.get('check')}: {c.get('detail')}")
+    else:
+        print("  CONSISTENCY: OK (dashboard/paper equity, live flags, cost accounting)")
 
 
 def _data_dir() -> Path:
@@ -180,6 +211,7 @@ def run(argv=None) -> int:
               f"risk_required={hl.get('exploration_requires_risk_gate')} "
               f"fill_required={hl.get('exploration_requires_realistic_fill')} "
               f"fresh_book_required={hl.get('exploration_min_book_freshness_required')}")
+    _print_benchmarks(st)
     return 0
 
 

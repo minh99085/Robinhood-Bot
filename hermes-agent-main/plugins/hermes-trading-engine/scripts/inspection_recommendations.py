@@ -31,12 +31,35 @@ _FEATURE_RECS = {
 }
 
 
+# Benchmark name -> P2 recommendation text when it FAILS.
+_BENCHMARK_RECS = {
+    "after_cost_pnl": "After-cost paper expectancy is negative — review edge/cost model.",
+    "bregman_certified_profit": "Bregman certified profit is negative — tighten certification.",
+    "btc_pulse_after_cost_pnl": "BTC Pulse after-cost PnL is negative — review pulse signal.",
+    "win_rate_traded_only": "Traded-only win rate below target — recalibrate entry edge.",
+    "sharpe": "Sharpe below target — reduce variance or improve edge.",
+    "sortino": "Sortino below target — downside risk too high.",
+    "calmar": "Calmar below target — return too low vs drawdown.",
+    "max_drawdown": "Max drawdown exceeds limit — tighten risk/exposure caps.",
+    "brier": "Brier score high — probability calibration is poor.",
+    "ece": "ECE high — recalibrate probabilities (isotonic/Platt).",
+    "fill_realism_rejection_rate": "Fill-realism rejecting most fills — check book/feed freshness.",
+    "exploration_validation_separated": "Separate exploration trades from validation evidence.",
+    "paper_attribution_enabled": "Enable per-strategy paper attribution.",
+    "fill_realism_enabled": "Enable realistic-fill modeling.",
+}
+
+
 def build_recommendations(safety: dict, missing_features: list, tests: dict,
-                          comparison: dict | None, runtime_available: bool) -> list[dict]:
+                          comparison: dict | None, runtime_available: bool,
+                          benchmarks: dict | None = None,
+                          consistency: list | None = None) -> list[dict]:
     """Return a sorted list of ``{priority, area, action}`` recommendations."""
     safety = safety or {}
     tests = tests or {}
     comparison = comparison or {}
+    benchmarks = benchmarks or {}
+    consistency = consistency or []
     recs: list[dict] = []
 
     def add(priority: str, area: str, action: str):
@@ -72,6 +95,15 @@ def build_recommendations(safety: dict, missing_features: list, tests: dict,
     if comparison.get("available") and comparison.get("regression"):
         degraded = ", ".join(comparison.get("degraded", [])) or "key metrics"
         add("P2", "performance", f"Investigate regression vs baseline in: {degraded}.")
+
+    # Cross-surface inconsistencies (P0 if CRITICAL, else P2).
+    for c in consistency:
+        sev = "P0" if str(c.get("severity")) == "CRITICAL" else "P2"
+        add(sev, "consistency", c.get("detail", "Resolve cross-surface inconsistency."))
+
+    # Failing algorithmic benchmarks (P2 — model/performance quality).
+    for name in (benchmarks.get("failing", []) if isinstance(benchmarks, dict) else []):
+        add("P2", "benchmark", _BENCHMARK_RECS.get(name, f"Benchmark '{name}' is failing."))
 
     # De-duplicate (priority, area, action) while preserving order.
     seen = set()
