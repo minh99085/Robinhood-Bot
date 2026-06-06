@@ -137,7 +137,7 @@ services:
       # selective.
       POLYMARKET_MIN_NET_EDGE: "0.005"
       POLYMARKET_BASE_UNCERTAINTY: "0.01"
-      POLYMARKET_ALLOW_OFFLINE_STUB_TRADING: "1"
+      POLYMARKET_ALLOW_OFFLINE_STUB_TRADING: "0"
       POLYMARKET_REQUIRE_RESEARCH_OR_MODEL_EDGE: "0"
       POLYMARKET_EXPLORATION_ENABLED: "1"
       POLYMARKET_EXPLORATION_RATE: "0.5"
@@ -148,11 +148,11 @@ services:
       POLYMARKET_BASE_SHRINK_FACTOR: "0.25"
       POLYMARKET_MAX_SHRINK_FACTOR: "0.60"
       POLYMARKET_MIN_SHRINK_FACTOR: "0.05"
-      POLYMARKET_MAX_SPREAD: "0.15"
-      POLYMARKET_MIN_DEPTH_AT_PRICE: "1"
+      POLYMARKET_MAX_SPREAD: "0.08"
+      POLYMARKET_MIN_DEPTH_AT_PRICE: "25"
       POLYMARKET_MIN_EVIDENCE_SCORE: "0.0"
       POLYMARKET_MIN_SOURCE_COUNT: "0"
-      POLYMARKET_MAX_AMBIGUITY_SCORE: "0.9"
+      POLYMARKET_MAX_AMBIGUITY_SCORE: "0.45"
       POLYMARKET_PAPER_FIXED_NOTIONAL_USD: "5"
       POLYMARKET_USE_KELLY_FOR_SIZE: "0"
       POLYMARKET_USE_KELLY_FOR_DIAGNOSTICS: "1"
@@ -189,14 +189,28 @@ services:
       PAPER_MAKER_FEE_BPS: "10"
       PAPER_SLIPPAGE_BPS: "25"
       PAPER_LATENCY_MS: "250"
-      PAPER_ALLOW_REFERENCE_PRICE_FILLS: "1"
-      # Fill PAPER Polymarket orders at the market's implied price when no live
-      # CLOB book is subscribed. Without this, paper PM orders are rejected as
-      # 'missing_orderbook'. Default ON for paper (100% simulated); set to 0 to
-      # require a live CLOB book instead.
-      PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS: "${PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS:-1}"
+      PAPER_ALLOW_REFERENCE_PRICE_FILLS: "0"
+      # Pass-3 paper realism: reference-price ("fantasy") fills are OFF for PM so a
+      # paper trade only counts as REAL executable edge if it could fill from the
+      # live CLOB book. Trades with no book are rejected (or logged shadow-only),
+      # NOT filled at an implied/reference price. Override to 1 only for ad-hoc
+      # diagnostics — such fills never count toward readiness PnL.
+      PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS: "${PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS:-0}"
       PAPER_RESTING_ORDER_FILL_ON_CROSS: "1"
       PAPER_REJECT_ON_STALE_BOOK: "1"
+      # ---- Pass-3 strict paper execution realism (PAPER ONLY) ----
+      POLYMARKET_MAX_BOOK_AGE_SEC: "20"
+      POLYMARKET_REQUIRE_EXECUTABLE_ASK: "1"
+      POLYMARKET_REJECT_STALE_BOOK: "1"
+      POLYMARKET_REJECT_MISSING_ASK: "1"
+      POLYMARKET_REJECT_OFFLINE_STUB_FILLS: "1"
+      # Bregman/ABCAS bundle realism (every leg must be live-executable).
+      POLYMARKET_BREGMAN_MAX_SPREAD: "0.08"
+      POLYMARKET_BREGMAN_MIN_DEPTH_AT_PRICE: "25"
+      POLYMARKET_BREGMAN_MAX_BOOK_AGE_SEC: "20"
+      POLYMARKET_BREGMAN_MAX_AMBIGUITY_SCORE: "0.45"
+      POLYMARKET_BREGMAN_REQUIRE_EXECUTABLE_ALL_LEGS: "1"
+      POLYMARKET_BREGMAN_ALLOW_REFERENCE_FILLS: "0"
       PAPER_DEFAULT_TIME_IN_FORCE: "IOC"
       # ---- Deterministic replay / backtest (Phase 4; OFFLINE; no network, no Grok) ----
       # Replay is an offline CLI tool (scripts/run_replay.py). It never submits
@@ -490,15 +504,20 @@ services:
       # ---- ACTIVE PAPER TRADING (PAPER ONLY; PAPER_MAX_* caps still apply) ----
       # Relaxed entry gates + exploration budget so the training loop opens
       # simulated trades for feedback. No real orders ever.
-      POLYMARKET_ALLOW_OFFLINE_STUB_TRADING: "1"
+      POLYMARKET_ALLOW_OFFLINE_STUB_TRADING: "0"
       POLYMARKET_REQUIRE_RESEARCH_OR_MODEL_EDGE: "0"
-      PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS: "1"
+      PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS: "0"
+      POLYMARKET_MAX_BOOK_AGE_SEC: "20"
+      POLYMARKET_REQUIRE_EXECUTABLE_ASK: "1"
+      POLYMARKET_REJECT_STALE_BOOK: "1"
+      POLYMARKET_REJECT_MISSING_ASK: "1"
+      POLYMARKET_REJECT_OFFLINE_STUB_FILLS: "1"
       POLYMARKET_MIN_NET_EDGE: "0.005"
-      POLYMARKET_MIN_DEPTH_AT_PRICE: "1"
+      POLYMARKET_MIN_DEPTH_AT_PRICE: "25"
       POLYMARKET_MIN_EVIDENCE_SCORE: "0.0"
       POLYMARKET_MIN_SOURCE_COUNT: "0"
-      POLYMARKET_MAX_SPREAD: "0.15"
-      POLYMARKET_MAX_AMBIGUITY_SCORE: "0.9"
+      POLYMARKET_MAX_SPREAD: "0.08"
+      POLYMARKET_MAX_AMBIGUITY_SCORE: "0.45"
       POLYMARKET_EXPLORATION_ENABLED: "1"
       POLYMARKET_EXPLORATION_RATE: "0.5"
       POLYMARKET_EXPLORATION_MIN_EDGE: "-0.05"

@@ -529,11 +529,14 @@ def run(argv=None) -> int:
         st = trainer.status()
         _write_paper_ledger(st)   # canonical ledger snapshot (equity reconciles)
         # Pass-2: certified Bregman execution funnel (discovery -> certify -> open).
+        # Pass-3: paper execution-realism funnel (realistic vs shadow vs rejected).
         try:
             metrics_dir.mkdir(parents=True, exist_ok=True)
             (metrics_dir / "bregman_execution.json").write_text(
                 json.dumps(trainer.bregman_summary().get("execution", {}), default=str),
                 encoding="utf-8")
+            (metrics_dir / "paper_realism.json").write_text(
+                json.dumps(trainer.paper_realism_report(), default=str), encoding="utf-8")
         except Exception:  # noqa: BLE001 — metrics must never break a tick
             pass
         print(f"tick {ticks}: scanned={st['scan_metrics']['scanned']} "

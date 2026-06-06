@@ -966,6 +966,33 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
     L.append(f"- fill_realism_enabled: {_yn(feats.get('fill_realism_enabled'))}")
     L.append(f"- fantasy_fill_rejections: {_yn(feats.get('fantasy_fill_rejections'))}")
     L.append("")
+    # Pass-3: Paper Realism funnel — realistic vs shadow vs rejected; only
+    # realistic_executable trades feed readiness PnL.
+    pr = status.get("paper_realism") or {}
+    if pr:
+        L.append("### 14a. Paper Realism (Pass 3)")
+        L.append("")
+        for k in ("total_candidates_considered", "realistic_trade_count",
+                  "shadow_trade_count", "hard_reject_count", "reference_fill_attempts",
+                  "reference_fills_allowed", "reference_fills_blocked",
+                  "stale_book_rejection_count", "missing_ask_rejection_count",
+                  "thin_depth_rejection_count", "wide_spread_rejection_count",
+                  "ambiguity_rejection_count", "offline_stub_rejection_count",
+                  "avg_spread_executed", "avg_depth_executed", "avg_book_age_executed"):
+            L.append(f"- {k}: {_yn(pr.get(k))}")
+        L.append("")
+        L.append("PnL separation (only realistic_executable counts toward readiness):")
+        for k in ("bregman_realistic_pnl", "directional_realistic_pnl", "exploration_pnl",
+                  "shadow_theoretical_pnl", "reference_fill_theoretical_pnl",
+                  "realistic_pnl", "readiness_pnl"):
+            L.append(f"- {k}: {_yn(pr.get(k))}")
+        L.append("")
+        L.append("Realism posture:")
+        for k in ("reference_price_fills_allowed_for_exploit", "missing_ask_fallback_allowed",
+                  "stale_book_fills_allowed", "offline_stub_fills_count_as_real",
+                  "bregman_requires_all_executable_legs"):
+            L.append(f"- {k}: {_yn(pr.get(k))}")
+        L.append("")
     L.append("## 15. Calibration Metrics")
     L.append("")
     for k in ("brier", "ece", "sharpe", "sortino", "calmar", "max_drawdown"):

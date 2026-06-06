@@ -206,6 +206,21 @@ class PaperPosition:
     exit_price: float = 0.0
     realized_pnl: float = 0.0
     close_reason: str = ""
+    # ---- Pass-3 execution-realism provenance (PAPER ONLY) ----
+    execution_realism_status: str = "realistic_executable"
+    fill_source: str = "live_clob"
+    book_source: str = "live_clob"
+    price_source: str = "live_clob"
+    was_reference_price_fill: bool = False
+    was_fallback_fill: bool = False
+    was_offline_stub_fill: bool = False
+    book_age_sec: float = 0.0
+    depth_at_price: float = 0.0
+    fill_quality: float = 1.0
+
+    @property
+    def is_realistic(self) -> bool:
+        return self.execution_realism_status == "realistic_executable"
 
     @property
     def cost(self) -> float:
@@ -325,6 +340,11 @@ class PolymarketPaperTrainer:
 
         self.risk = TrainingRiskGate(self.cfg)
         self.broker = PaperBroker(self.cfg)
+        # Pass-3: centralized paper execution-realism policy (single source of
+        # truth for directional + Bregman fills). PAPER ONLY; never trades.
+        from .paper_execution import PaperExecutionPolicy
+        self.paper_exec_policy = PaperExecutionPolicy(self.cfg, bregman=False)
+        self.bregman_exec_policy = PaperExecutionPolicy(self.cfg, bregman=True)
 
         # idempotent SQLite training store (own DB file; never wipes engine tables)
         self.tstore = None
@@ -438,6 +458,16 @@ class PolymarketPaperTrainer:
         self.bregman_open_bundles = 0
         self.directional_skipped_due_to_bregman = 0
         self.bregman_exec_metrics: dict = {}
+        # Pass-3: paper execution-realism funnel (PAPER ONLY).
+        self.shadow_opportunities: list = []     # logged, never counted as PnL
+        self.realism_counts: dict = {
+            "candidates_considered": 0, "realistic_trade_count": 0, "shadow_trade_count": 0,
+            "reference_fill_count": 0, "fallback_fill_count": 0, "offline_stub_rejection_count": 0,
+            "stale_book_rejection_count": 0, "missing_ask_rejection_count": 0,
+            "thin_depth_rejection_count": 0, "wide_spread_rejection_count": 0,
+            "ambiguity_rejection_count": 0, "reference_fill_blocked_count": 0,
+            "hard_reject_count": 0,
+        }
         self.started_ts = time.time()
         # final monitoring + kill-switch state (PAPER ONLY). Aggressive mode
         # auto-downgrades to conservative when a kill-switch metric trips; it
@@ -771,7 +801,37 @@ class PolymarketPaperTrainer:
         recs = [rec_by_id.get(l.market_id) for l in legs]
         if any(r is None for r in recs):
             self.bregman_rejected += 1
+            self._breg_reason("bregman_incomplete_executable_set")
             return False
+        # Pass-3 all-or-nothing realism gate: every leg must be LIVE-executable.
+        # Any leg that fails (missing ask / stale / wide / thin / ambiguous /
+        # reference-only) rejects the WHOLE bundle with an explicit reason.
+        from .paper_execution import (PaperExecutionContext, bregman_leg_reason,
+                                       SRC_LIVE_CLOB, SRC_REFERENCE)
+        leg_realism = []
+        for l, r in zip(legs, recs):
+            fresh = bool(getattr(r, "fresh_book", True)) and not bool(getattr(r, "stale", False))
+            src = SRC_LIVE_CLOB if fresh else SRC_REFERENCE
+            ctx = PaperExecutionContext(
+                fill_source=src,
+                ask=(float(l.executable_price) if getattr(l, "executable_price", 0) else None),
+                bid=getattr(r, "best_bid", None),
+                spread=getattr(r, "spread", None),
+                depth_usd=float(getattr(r, "top_depth_usd", 0.0) or 0.0),
+                book_age_sec=getattr(r, "book_age_s", None), fresh_book=fresh,
+                ambiguity_score=float(getattr(r, "ambiguity_score", 0.0) or 0.0),
+                resolved=bool(getattr(r, "resolved", False)),
+                accepting_orders=bool(getattr(r, "accepting_orders", True)),
+                tick_size=float(getattr(r, "tick_size", 0.0) or 0.0),
+                gross_edge=None, is_bregman_leg=True)
+            self.realism_counts["candidates_considered"] += 1
+            d = self.bregman_exec_policy.evaluate(ctx)
+            self._tally_realism(d)
+            if not d.allow_executable_trade:
+                self.bregman_rejected += 1
+                self._breg_reason(bregman_leg_reason(d.reason))
+                return False
+            leg_realism.append(d)
         cap = float(self.cfg.max_order_notional_usd)
         proposals: list = []
         for l in legs:
@@ -822,7 +882,8 @@ class PolymarketPaperTrainer:
             decisions.append(d)
         # place every leg (fully hedged); roll back the set if any leg fails.
         opened_positions: list = []
-        for p, rec, d in zip(proposals, recs, decisions):
+        for _i, (p, rec, d) in enumerate(zip(proposals, recs, decisions)):
+            lr = leg_realism[_i]
             proposal_id = f"prop-{uuid.uuid4().hex[:12]}"
             d.proposal_id = proposal_id
             fill = self.broker.place(p, rec, fresh_book=True,
@@ -847,7 +908,17 @@ class PolymarketPaperTrainer:
                 open_tick=self.tick_count, yes_price_entry=fill["fill_price"],
                 executable_price_entry=fill["fill_price"], p_market_entry=fill["fill_price"],
                 strategy="bregman", mark=fill["fill_price"],
-                experiment_id=self.experiments.experiment_id, strategy_variant=BREGMAN_VARIANT)
+                experiment_id=self.experiments.experiment_id, strategy_variant=BREGMAN_VARIANT,
+                execution_realism_status=lr.execution_realism_status,
+                fill_source=lr.fill_source, book_source=lr.book_source,
+                price_source=lr.price_source,
+                was_reference_price_fill=lr.was_reference_price_fill,
+                was_fallback_fill=lr.was_fallback_fill,
+                was_offline_stub_fill=lr.was_offline_stub_fill,
+                book_age_sec=float(lr.book_age_sec or 0.0),
+                depth_at_price=float(lr.depth_at_price or 0.0),
+                fill_quality=float(lr.fill_quality or 0.0))
+            self.realism_counts["realistic_trade_count"] += 1
             self.positions.append(pos)
             opened_positions.append(pos)
             self.bregman_fills_log.append({
@@ -1091,6 +1162,85 @@ class PolymarketPaperTrainer:
         h = hashlib.sha256(f"{market_id}:{self.tick_count}".encode()).digest()
         return (int.from_bytes(h[:4], "big") % 1000) / 1000.0 < self.cfg.exploration_rate
 
+    def _directional_realism(self, rec, est, edge, proposal):
+        """Classify a directional candidate's fill realism (PAPER ONLY).
+
+        Determines the fill source from book freshness + offline-stub config and
+        runs the centralized PaperExecutionPolicy. EdgeEngine already enforces the
+        hard quality gates upstream, so this is the realism *provenance* stamp +
+        the reference/offline-stub/missing-ask catch. ``gross_edge`` is left None
+        so the policy never second-guesses EdgeEngine's after-cost decision."""
+        from .paper_execution import (PaperExecutionContext, SRC_LIVE_CLOB,
+                                       SRC_OFFLINE_STUB, SRC_REFERENCE)
+        self.realism_counts["candidates_considered"] += 1
+        fresh = bool(getattr(est, "fresh_book", True))
+        if fresh:
+            src = SRC_LIVE_CLOB
+        elif bool(getattr(self.cfg, "allow_offline_stub_trading", False)):
+            src = SRC_OFFLINE_STUB
+        else:
+            src = SRC_REFERENCE
+        ctx = PaperExecutionContext(
+            fill_source=src,
+            ask=(edge.executable_price if fresh else None),
+            bid=getattr(est, "p_market_bid", None),
+            spread=getattr(est, "spread", None),
+            depth_usd=float(getattr(rec, "top_depth_usd", 0.0) or 0.0),
+            book_age_sec=getattr(rec, "book_age_s", None),
+            fresh_book=fresh,
+            ambiguity_score=float(getattr(est, "ambiguity_score", 0.0) or 0.0),
+            resolved=bool(getattr(rec, "resolved", False)),
+            accepting_orders=bool(getattr(rec, "accepting_orders", True)),
+            notional_usd=float(getattr(proposal, "notional_usd", 0.0) or 0.0),
+            tick_size=float(getattr(rec, "tick_size", 0.0) or 0.0),
+            gross_edge=None)
+        decision = self.paper_exec_policy.evaluate(ctx)
+        self._tally_realism(decision)
+        return decision
+
+    def _tally_realism(self, decision) -> None:
+        rc = self.realism_counts
+        if decision.was_reference_price_fill:
+            rc["reference_fill_count"] += 1
+        if decision.was_fallback_fill:
+            rc["fallback_fill_count"] += 1
+        st = decision.execution_realism_status
+        bump = {
+            "shadow_only_stale_book": "stale_book_rejection_count",
+            "shadow_only_missing_ask": "missing_ask_rejection_count",
+            "shadow_only_thin_depth": "thin_depth_rejection_count",
+            "shadow_only_wide_spread": "wide_spread_rejection_count",
+            "shadow_only_ambiguous_settlement": "ambiguity_rejection_count",
+            "shadow_only_reference_price": "reference_fill_blocked_count",
+        }.get(st)
+        if bump:
+            rc[bump] += 1
+        if decision.was_offline_stub_fill and decision.reject:
+            rc["offline_stub_rejection_count"] += 1
+
+    def _record_shadow(self, rec, est, edge, decision, *, exploratory: bool = False,
+                       strategy: str = "directional") -> None:
+        """Log a non-executable opportunity as SHADOW: theoretical edge + reason +
+        what would make it executable. Never opens a position, never counts PnL."""
+        self.realism_counts["shadow_trade_count"] += 1
+        self.shadow_opportunities.append({
+            "market_id": getattr(rec, "market_id", ""),
+            "group_key": getattr(rec, "group_key", ""),
+            "outcome": getattr(edge, "outcome", ""),
+            "strategy": strategy,
+            "exploration": bool(exploratory),
+            "theoretical_edge": round(float(getattr(edge, "net_edge", 0.0) or 0.0), 6),
+            "execution_realism_status": decision.execution_realism_status,
+            "reason": decision.reason,
+            "would_be_executable_if": decision.would_be_executable_if,
+            "spread": decision.spread, "depth_at_price": decision.depth_at_price,
+            "book_age_sec": decision.book_age_sec, "fill_source": decision.fill_source,
+            "after_cost_edge": decision.after_cost_edge,
+            "tick": self.tick_count,
+        })
+        if len(self.shadow_opportunities) > 500:        # bound memory
+            self.shadow_opportunities = self.shadow_opportunities[-500:]
+
     def _open(self, rec, est, edge, diag, *, exploratory: bool = False) -> dict:
         """Build proposal -> RiskEngine -> PaperBroker (trace-id chain). PAPER
         ONLY. Exploratory trades use a small bounded notional capped to the same
@@ -1110,6 +1260,24 @@ class PolymarketPaperTrainer:
         proposal = self.policy.build_proposal(edge, est, rec)
         proposal.experiment_id = self.experiments.experiment_id
         proposal.strategy_variant = variant
+        # Pass-3 realism gate: a directional paper trade may only open if it could
+        # plausibly fill from the LIVE book. Reference/offline-stub/missing-ask/
+        # stale fills are downgraded to shadow-only (logged, never counted as PnL)
+        # or hard-rejected. Exploration trades still pass the gate (they must be
+        # realistically fillable too) but are bucketed separately downstream.
+        realism = self._directional_realism(rec, est, edge, proposal)
+        if realism.reject:
+            self.rejection_count += 1
+            self.realism_counts["hard_reject_count"] += 1
+            self.learner.record_decision(traded=False, reason=realism.reason)
+            return {"opened": False, "reason": realism.reason,
+                    "execution_realism_status": realism.execution_realism_status}
+        if realism.allow_shadow_only:
+            self._record_shadow(rec, est, edge, realism, exploratory=exploratory)
+            self.learner.record_decision(
+                traded=False, reason="shadow_" + realism.execution_realism_status)
+            return {"opened": False, "shadow_only": True, "reason": realism.reason,
+                    "execution_realism_status": realism.execution_realism_status}
         if exploratory:
             notional = min(float(self.cfg.exploration_notional_usd),
                            float(self.cfg.max_order_notional_usd))
@@ -1161,7 +1329,17 @@ class PolymarketPaperTrainer:
             strategy=_resolved_strategy(getattr(self, "_last_resolved", None)),
             chainlink_linked=bool(getattr(est, "bregman_group_id", "")),
             mark=fill["fill_price"],
-            experiment_id=self.experiments.experiment_id, strategy_variant=variant)
+            experiment_id=self.experiments.experiment_id, strategy_variant=variant,
+            execution_realism_status=realism.execution_realism_status,
+            fill_source=realism.fill_source, book_source=realism.book_source,
+            price_source=realism.price_source,
+            was_reference_price_fill=realism.was_reference_price_fill,
+            was_fallback_fill=realism.was_fallback_fill,
+            was_offline_stub_fill=realism.was_offline_stub_fill,
+            book_age_sec=float(realism.book_age_sec or 0.0),
+            depth_at_price=float(realism.depth_at_price or 0.0),
+            fill_quality=float(realism.fill_quality or 0.0))
+        self.realism_counts["realistic_trade_count"] += 1
         self.positions.append(pos)
         self.experiments.record_trade(variant, notional=float(fill["notional"]))
         self.experiments.record_fill(variant, filled=True)
@@ -1275,6 +1453,79 @@ class PolymarketPaperTrainer:
             "exploration_count": self.exploration_count,
             "exploration_rate": round(self.exploration_count / len(self.positions), 4)
                                 if self.positions else 0.0,
+        }
+
+    def paper_realism_report(self) -> dict:
+        """Pass-3 Paper Realism: separates REALISTIC executable PnL from
+        shadow/theoretical/exploration PnL so readiness can never be inflated by
+        unrealistic fills. Only ``realistic_executable`` non-exploration trades
+        count toward readiness. PAPER ONLY (read-only telemetry)."""
+        closed = [p for p in self.positions if p.closed]
+
+        def _pnl(pred) -> float:
+            return round(sum(p.realized_pnl for p in closed if pred(p)), 6)
+
+        realistic = lambda p: p.is_realistic and not p.exploration  # noqa: E731
+        bregman_realistic_pnl = _pnl(lambda p: realistic(p) and p.strategy == "bregman")
+        directional_realistic_pnl = _pnl(
+            lambda p: realistic(p) and p.strategy != "bregman")
+        exploration_pnl = _pnl(lambda p: p.exploration)
+        # reference/fallback fills are NEVER opened under safe defaults, but if a
+        # diagnostics override allowed one, its realized PnL is quarantined here.
+        reference_fill_theoretical_pnl = _pnl(
+            lambda p: p.was_reference_price_fill or p.was_fallback_fill)
+        shadow_theoretical_pnl = round(
+            sum(float(s.get("theoretical_edge", 0.0) or 0.0)
+                for s in self.shadow_opportunities), 6)
+        readiness_pnl = round(bregman_realistic_pnl + directional_realistic_pnl, 6)
+        executed = [p for p in self.positions if p.is_realistic and not p.exploration]
+        rc = dict(self.realism_counts)
+        return {
+            "schema": "paper_realism/1.0", "paper_only": True,
+            # funnel
+            "total_candidates_considered": rc.get("candidates_considered", 0),
+            "realistic_trade_count": rc.get("realistic_trade_count", 0),
+            "shadow_trade_count": rc.get("shadow_trade_count", 0),
+            "hard_reject_count": rc.get("hard_reject_count", 0),
+            "reference_fill_attempts": rc.get("reference_fill_count", 0)
+                                       + rc.get("reference_fill_blocked_count", 0),
+            "reference_fills_allowed": rc.get("reference_fill_count", 0),
+            "reference_fills_blocked": rc.get("reference_fill_blocked_count", 0),
+            "fallback_fill_count": rc.get("fallback_fill_count", 0),
+            "stale_book_rejection_count": rc.get("stale_book_rejection_count", 0),
+            "missing_ask_rejection_count": rc.get("missing_ask_rejection_count", 0),
+            "thin_depth_rejection_count": rc.get("thin_depth_rejection_count", 0),
+            "wide_spread_rejection_count": rc.get("wide_spread_rejection_count", 0),
+            "ambiguity_rejection_count": rc.get("ambiguity_rejection_count", 0),
+            "offline_stub_rejection_count": rc.get("offline_stub_rejection_count", 0),
+            "rejected_not_counted": rc.get("hard_reject_count", 0),
+            # executed-trade book quality
+            "avg_spread_executed": round(
+                sum(p.spread for p in executed) / len(executed), 6) if executed else None,
+            "avg_depth_executed": round(
+                sum(p.depth_at_price for p in executed) / len(executed), 4) if executed else None,
+            "avg_book_age_executed": round(
+                sum(p.book_age_sec for p in executed) / len(executed), 4) if executed else None,
+            # PnL separation (ONLY realistic counts toward readiness)
+            "bregman_realistic_pnl": bregman_realistic_pnl,
+            "directional_realistic_pnl": directional_realistic_pnl,
+            "exploration_pnl": exploration_pnl,
+            "shadow_theoretical_pnl": shadow_theoretical_pnl,
+            "reference_fill_theoretical_pnl": reference_fill_theoretical_pnl,
+            "realistic_pnl": readiness_pnl,
+            "readiness_pnl": readiness_pnl,
+            # realism posture (matches the strict defaults)
+            "reference_price_fills_allowed_for_exploit": bool(
+                getattr(self.cfg, "allow_pm_reference_price_fills", False)),
+            "missing_ask_fallback_allowed": not bool(
+                getattr(self.cfg, "reject_missing_ask", True)),
+            "stale_book_fills_allowed": not bool(
+                getattr(self.cfg, "reject_on_stale_book", True)),
+            "offline_stub_fills_count_as_real": bool(
+                getattr(self.cfg, "allow_offline_stub_trading", False)),
+            "bregman_requires_all_executable_legs": bool(
+                getattr(self.cfg, "bregman_require_executable_all_legs", True)),
+            "shadow_examples": self.shadow_opportunities[-20:],
         }
 
     def baseline_report(self) -> dict:
@@ -1870,6 +2121,7 @@ class PolymarketPaperTrainer:
             "scan_metrics": self.metrics.to_dict(),
             "subscription": self.subs.health.to_dict(),
             "pnl": self.pnl_summary(),
+            "paper_realism": self.paper_realism_report(),
             "risk": self.risk.status(),
             "broker": self.broker.status(),
             "baselines": self.baselines.results(),

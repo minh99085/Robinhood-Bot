@@ -183,6 +183,13 @@ FEATURES: list[dict] = [
                     "fill_realism=null.",
         "risk": "HIGH: without realistic_fill_enabled, fills can be optimistic and "
                 "null telemetry hides whether PnL is inflated.",
+        "pass3": "HARDENED — a centralized PaperExecutionPolicy now classifies every "
+                 "directional + Bregman fill as realistic_executable / shadow_only_* / "
+                 "rejected. Reference/offline-stub/missing-ask/stale/thin/wide/ambiguous "
+                 "fills are downgraded to shadow (logged, never PnL) or rejected; only "
+                 "realistic_executable trades count toward readiness_pnl. docker-compose "
+                 "strict defaults: PM reference fills + offline stub OFF, spread<=0.08, "
+                 "depth>=25, ambiguity<=0.45, book age<=20s.",
     },
     {
         "feature": "Stale-book rejection",
@@ -202,6 +209,10 @@ FEATURES: list[dict] = [
         "evidence": "PaperBroker supports reference-price fills but they are OFF by "
                     "default (and campaign-safe forces them off).",
         "risk": "If enabled, produces fantasy fills not backed by a real ask.",
+        "pass3": "RESOLVED — docker-compose now sets PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS=0 "
+                 "and PAPER_ALLOW_REFERENCE_PRICE_FILLS=0; the PaperExecutionPolicy "
+                 "downgrades any reference-price fill to shadow_only_reference_price and "
+                 "quarantines its (theoretical) PnL out of readiness.",
     },
     {
         "feature": "Spread/depth gates",
@@ -375,6 +386,35 @@ PASS2_STATUS = {
 }
 
 
+# Pass-3 outcome: paper execution realism (trustworthy paper training). These
+# verdicts are the proof that unrealistic fills can no longer inflate real edge.
+PASS3_STATUS = {
+    "hardened": True,
+    "reference_price_fills_allowed_for_exploit_validation": False,
+    "missing_ask_fallback_allowed": False,
+    "stale_book_fills_allowed": False,
+    "offline_stub_fills_count_as_real_pnl": False,
+    "bregman_requires_all_executable_legs": True,
+    "realistic_executable_trades_separated_from_shadow": True,
+    "readiness_excludes_unrealistic_fills": True,
+    "centralized_policy": "engine/training/paper_execution.py:PaperExecutionPolicy",
+    "execution_realism_statuses": [
+        "realistic_executable", "shadow_only_reference_price", "shadow_only_stale_book",
+        "shadow_only_missing_ask", "shadow_only_thin_depth", "shadow_only_wide_spread",
+        "shadow_only_ambiguous_settlement", "rejected",
+    ],
+    "metrics": ["metrics/paper_realism.json", "metrics/bregman_execution.json"],
+    "strict_defaults": {
+        "PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS": 0, "POLYMARKET_MIN_DEPTH_AT_PRICE": 25,
+        "POLYMARKET_MAX_SPREAD": 0.08, "POLYMARKET_MAX_AMBIGUITY_SCORE": 0.45,
+        "POLYMARKET_MAX_BOOK_AGE_SEC": 20, "POLYMARKET_REQUIRE_EXECUTABLE_ASK": 1,
+        "POLYMARKET_REJECT_STALE_BOOK": 1, "POLYMARKET_REJECT_MISSING_ASK": 1,
+        "POLYMARKET_REJECT_OFFLINE_STUB_FILLS": 1,
+        "POLYMARKET_ALLOW_OFFLINE_STUB_TRADING": 0,
+    },
+}
+
+
 def build_feature_activation(cfg: Any = None, status: Optional[dict] = None) -> dict:
     """Build the machine-readable feature-activation audit (read-only, pure).
 
@@ -423,6 +463,7 @@ def build_feature_activation(cfg: Any = None, status: Optional[dict] = None) -> 
         "top_edge_leaks": [dict(x) for x in TOP_EDGE_LEAKS],
         "pass2_recommendation": PASS2_RECOMMENDATION,
         "pass2_status": dict(PASS2_STATUS),
+        "pass3_status": dict(PASS3_STATUS),
         "live_config": live,
         "note": "PASS-1 audit traced from run_tick to open. PASS-2 wired raw-catalog "
                 "Bregman into certified PAPER execution (see pass2_status / per-feature "
@@ -450,6 +491,23 @@ def to_markdown(audit: dict) -> str:
         for e in p2s["evidence"]:
             L.append(f"  - {e}")
         L.append("")
+    p3 = audit.get("pass3_status")
+    if p3:
+        L.append("## Pass 3 — paper execution realism (trustworthy paper training)")
+        L.append(f"- Reference-price fills allowed for exploit validation: "
+                 f"**{p3['reference_price_fills_allowed_for_exploit_validation']}**")
+        L.append(f"- Missing ask fallback allowed: **{p3['missing_ask_fallback_allowed']}**")
+        L.append(f"- Stale book fills allowed: **{p3['stale_book_fills_allowed']}**")
+        L.append(f"- Offline stub fills count as real PnL: "
+                 f"**{p3['offline_stub_fills_count_as_real_pnl']}**")
+        L.append(f"- Bregman requires all executable legs: "
+                 f"**{p3['bregman_requires_all_executable_legs']}**")
+        L.append(f"- Realistic executable trades separated from shadow: "
+                 f"**{p3['realistic_executable_trades_separated_from_shadow']}**")
+        L.append(f"- Readiness excludes unrealistic fills: "
+                 f"**{p3['readiness_excludes_unrealistic_fills']}**")
+        L.append(f"  - Centralized policy: `{p3['centralized_policy']}`")
+        L.append("")
     s = audit["summary"]
     L.append("## Summary")
     L.append(f"- **Truly active (control trades):** {', '.join(s['truly_active'])}")
@@ -468,6 +526,8 @@ def to_markdown(audit: dict) -> str:
         risk = f["risk"]
         if f.get("pass2"):
             risk = f"{risk}<br>**Pass-2:** {f['pass2']}"
+        if f.get("pass3"):
+            risk = f"{risk}<br>**Pass-3:** {f['pass3']}"
         L.append(f"| {f['feature']} | {files} | `{f['runtime_status']}` | "
                  f"{'YES' if f['controls_trades'] else 'no'} | "
                  f"{'YES' if f['telemetry_only'] else 'no'} | {f['flag']} | "

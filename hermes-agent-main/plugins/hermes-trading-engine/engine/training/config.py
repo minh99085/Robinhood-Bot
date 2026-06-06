@@ -131,6 +131,18 @@ class TrainingConfig:
     max_open_orders: int = 20
     reject_on_stale_book: bool = True
     allow_pm_reference_price_fills: bool = False
+    # ---- Pass-3 strict paper execution realism (PAPER ONLY; safe defaults) ----
+    # A paper trade only counts as REAL executable edge if it could plausibly fill
+    # from the LIVE book. These hard gates reject (or downgrade to shadow) trades
+    # that depend on reference-price/offline-stub/stale/missing-ask fills.
+    max_book_age_sec: float = 20.0           # max age of the quote feeding a fill
+    require_executable_ask: bool = True      # a real best-ask is mandatory
+    reject_missing_ask: bool = True
+    reject_offline_stub_fills: bool = True
+    # Bregman/ABCAS bundle realism (every leg must be live-executable).
+    bregman_require_executable_all_legs: bool = True
+    bregman_allow_reference_fills: bool = False
+    bregman_max_book_age_sec: float = 20.0
     use_kelly_for_diagnostics: bool = True
     use_kelly_for_size: bool = False
     kelly_fraction: float = 0.10
@@ -682,6 +694,14 @@ class TrainingConfig:
             max_open_orders=_envi("PAPER_MAX_OPEN_ORDERS", 20),
             reject_on_stale_book=_envb("PAPER_REJECT_ON_STALE_BOOK", True),
             allow_pm_reference_price_fills=_envb("PAPER_ALLOW_PM_REFERENCE_PRICE_FILLS", False),
+            max_book_age_sec=_envf("POLYMARKET_MAX_BOOK_AGE_SEC", 20.0),
+            require_executable_ask=_envb("POLYMARKET_REQUIRE_EXECUTABLE_ASK", True),
+            reject_missing_ask=_envb("POLYMARKET_REJECT_MISSING_ASK", True),
+            reject_offline_stub_fills=_envb("POLYMARKET_REJECT_OFFLINE_STUB_FILLS", True),
+            bregman_require_executable_all_legs=_envb(
+                "POLYMARKET_BREGMAN_REQUIRE_EXECUTABLE_ALL_LEGS", True),
+            bregman_allow_reference_fills=_envb("POLYMARKET_BREGMAN_ALLOW_REFERENCE_FILLS", False),
+            bregman_max_book_age_sec=_envf("POLYMARKET_BREGMAN_MAX_BOOK_AGE_SEC", 20.0),
             use_kelly_for_diagnostics=_envb("POLYMARKET_USE_KELLY_FOR_DIAGNOSTICS", True),
             use_kelly_for_size=_envb("POLYMARKET_USE_KELLY_FOR_SIZE", False),
             kelly_fraction=_envf("POLYMARKET_KELLY_FRACTION", 0.10),

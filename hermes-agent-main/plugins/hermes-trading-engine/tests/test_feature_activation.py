@@ -104,6 +104,24 @@ def test_pass2_markdown_section_present():
     assert "Bregman sees full raw catalog: **True**" in md
 
 
+def test_pass3_status_proves_realism():
+    p3 = build_feature_activation()["pass3_status"]
+    assert p3["hardened"] is True
+    assert p3["reference_price_fills_allowed_for_exploit_validation"] is False
+    assert p3["missing_ask_fallback_allowed"] is False
+    assert p3["stale_book_fills_allowed"] is False
+    assert p3["offline_stub_fills_count_as_real_pnl"] is False
+    assert p3["bregman_requires_all_executable_legs"] is True
+    assert p3["realistic_executable_trades_separated_from_shadow"] is True
+    assert p3["readiness_excludes_unrealistic_fills"] is True
+
+
+def test_pass3_markdown_section_present():
+    md = to_markdown(build_feature_activation())
+    assert "Pass 3 — paper execution realism" in md
+    assert "Readiness excludes unrealistic fills: **True**" in md
+
+
 def test_cli_writes_json_and_markdown(tmp_path):
     audit = audit_cli.generate(out_dir=str(tmp_path))
     j = tmp_path / "metrics" / "feature_activation.json"
