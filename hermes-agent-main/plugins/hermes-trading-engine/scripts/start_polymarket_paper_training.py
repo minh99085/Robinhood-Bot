@@ -543,6 +543,9 @@ def run(argv=None) -> int:
             # Pass-5: profitability-first ranking funnel.
             (metrics_dir / "profitability_ranking.json").write_text(
                 json.dumps(trainer.profitability_ranking_report(), default=str), encoding="utf-8")
+            # Pass-6: active-learning exploration funnel.
+            (metrics_dir / "active_learning.json").write_text(
+                json.dumps(trainer.active_learning_report(), default=str), encoding="utf-8")
         except Exception:  # noqa: BLE001 — metrics must never break a tick
             pass
         print(f"tick {ticks}: scanned={st['scan_metrics']['scanned']} "

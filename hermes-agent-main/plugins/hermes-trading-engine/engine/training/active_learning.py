@@ -152,6 +152,95 @@ class ActiveLearningSelector:
                 return 0.0
         return 0.0
 
+    def score_candidate(self, *, rec, est, edge, reason: str, learner=None,
+                        now: Optional[float] = None) -> dict:
+        """PASS-6: per-candidate active-learning score + classification.
+
+        Explainable score (each term in [0,1], penalties subtracted):
+            active_learning_score = uncertainty + calibration_gap + category_under
+              + disagreement + near_miss_profitability + execution_quality
+              - ambiguity_penalty - stale_penalty - spread_penalty - depth_penalty
+        Returns the score, components, ``learning_bucket``, ``active_learning_reason``,
+        and ``expected_information_value``. Read-only — never sizes or places."""
+        cfg = self.cfg
+        learner = learner or self.learner
+        max_spread = max(1e-6, float(self._g("exploration_max_spread",
+                                              self._g("max_spread", 0.08))))
+        min_depth = float(self._g("exploration_min_depth_at_price",
+                                  self._g("min_depth_at_price", 25.0)))
+        target = float(self._g("category_sample_target", 50))
+        min_edge_floor = float(self._g("min_after_cost_edge", 0.01)) or 0.01
+
+        uncertainty = _clamp01(getattr(est, "total_uncertainty", None)
+                               if getattr(est, "total_uncertainty", None) is not None
+                               else (1.0 - float(getattr(est, "confidence", 0.5) or 0.5)))
+        mid = float(getattr(est, "p_market_mid", 0.5) or 0.5)
+        calib_gap = 0.0
+        if learner is not None and hasattr(learner, "calibration_gap_at"):
+            try:
+                calib_gap = float(learner.calibration_gap_at(mid) or 0.0)
+            except Exception:  # noqa: BLE001
+                calib_gap = 0.0
+        calibration_gap_score = _clamp01(calib_gap / 0.25)
+        cat = getattr(rec, "category", None)
+        samples = 0
+        if learner is not None and hasattr(learner, "category_samples"):
+            try:
+                samples = int(learner.category_samples(cat) or 0)
+            except Exception:  # noqa: BLE001
+                samples = 0
+        category_under = _clamp01(1.0 - samples / target) if target > 0 else 0.0
+        p_final = float(getattr(edge, "p_final", mid) or mid)
+        disagreement = _clamp01(abs(p_final - mid) / 0.20)
+        net_edge = float(getattr(edge, "net_edge", 0.0) or 0.0)
+        near_miss_profit = _clamp01(net_edge / min_edge_floor) if net_edge > 0 else 0.0
+        spread = float(getattr(est, "spread", 0.0) or 0.0)
+        depth = float(getattr(rec, "top_depth_usd", 0.0) or 0.0)
+        fresh = bool(getattr(est, "fresh_book", True))
+        amb = float(getattr(est, "ambiguity_score", 0.0) or 0.0)
+        exec_quality = _clamp01((1.0 - min(1.0, spread / max_spread))
+                                * (1.0 if depth >= min_depth else depth / max(1e-9, min_depth))
+                                * (1.0 if fresh else 0.0))
+        ambiguity_penalty = _clamp01(amb)
+        stale_penalty = 0.0 if fresh else 0.5
+        spread_penalty = _clamp01(spread / max_spread) * 0.3
+        depth_penalty = 0.0 if depth >= min_depth else _clamp01(1.0 - depth / max(1e-9, min_depth)) * 0.3
+        comps = {
+            "uncertainty_score": round(uncertainty, 4),
+            "calibration_gap_score": round(calibration_gap_score, 4),
+            "category_under_sample_score": round(category_under, 4),
+            "disagreement_score": round(disagreement, 4),
+            "near_miss_profitability_score": round(near_miss_profit, 4),
+            "execution_quality_score": round(exec_quality, 4),
+            "ambiguity_penalty": round(ambiguity_penalty, 4),
+            "stale_book_penalty": round(stale_penalty, 4),
+            "spread_penalty": round(spread_penalty, 4),
+            "depth_penalty": round(depth_penalty, 4),
+        }
+        score = (uncertainty + calibration_gap_score + category_under + disagreement
+                 + near_miss_profit + exec_quality
+                 - ambiguity_penalty - stale_penalty - spread_penalty - depth_penalty)
+        # classify the dominant learning bucket (eligible buckets only)
+        ranked = sorted(
+            [("near_miss_positive_edge", near_miss_profit),
+             ("model_uncertain_high_liquidity", uncertainty * _clamp01(depth / 50_000.0 + 0.2)),
+             ("category_under_sampled", category_under),
+             ("calibration_gap_bucket", calibration_gap_score),
+             ("chainlink_disagreement_case", disagreement)],
+            key=lambda kv: kv[1], reverse=True)
+        bucket, top_val = ranked[0]
+        if top_val <= 0.0:
+            bucket = "not_eligible_for_learning"
+        return {
+            "active_learning_score": round(score, 6),
+            "active_learning_components": comps,
+            "learning_bucket": bucket,
+            "active_learning_reason": f"{bucket}:{round(top_val, 4)}",
+            "expected_information_value": round(_clamp01(score / 6.0), 6),
+            "uncertainty_score": comps["uncertainty_score"],
+            "execution_quality_score": comps["execution_quality_score"],
+        }
+
     def select(self, candidates: list, *, budget: int, bregman_selected: int = 0,
                now: Optional[float] = None, category_counts: Optional[dict] = None,
                exploration_budget_usd: Optional[float] = None,

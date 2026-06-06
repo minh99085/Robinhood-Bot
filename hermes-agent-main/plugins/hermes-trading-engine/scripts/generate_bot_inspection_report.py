@@ -1043,6 +1043,32 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
             L.append(f"- {k}: {_yn(prk.get(k))}")
         L.append(f"- profitability_buckets: {_yn(prk.get('profitability_buckets'))}")
         L.append("")
+    # Pass-6: Active Learning — exploration is selected by ActiveLearningSelector.
+    al = status.get("active_learning") or {}
+    if al:
+        L.append("### 14d. Active Learning (Pass 6)")
+        L.append("")
+        L.append(f"- Active learning enabled: {_yn(al.get('active_learning_enabled'))}")
+        L.append(f"- Random exploration enabled: {_yn(al.get('random_exploration_enabled'))} "
+                 f"(should be false)")
+        L.append(f"- Random/hash exploration opened trades: "
+                 f"{_yn(al.get('random_exploration_opened_trades'))} (should be 0)")
+        L.append(f"- Legacy random exploration blocked: "
+                 f"{_yn(al.get('legacy_random_exploration_blocked'))}")
+        L.append(f"- Exploration counted toward readiness: "
+                 f"{_yn(al.get('exploration_counted_toward_readiness'))} (should be false)")
+        L.append(f"- Exploration consumes Bregman reserved capacity: "
+                 f"{_yn(al.get('exploration_consumes_bregman_reserved_capacity'))} (should be false)")
+        for k in ("active_learning_candidates_considered", "active_learning_candidates_selected",
+                  "exploration_trades_opened", "exploration_shadow_only",
+                  "exploration_rejected_by_realism", "exploration_rejected_by_budget",
+                  "exploration_rejected_by_collision", "exploration_rejected_by_diversity",
+                  "exploration_budget_used_usd", "exploration_expected_loss_usd",
+                  "exploration_pnl", "avg_active_learning_score_selected",
+                  "avg_execution_quality_selected", "top_learning_buckets",
+                  "category_coverage", "pending_feedback_count", "completed_feedback_count"):
+            L.append(f"- {k}: {_yn(al.get(k))}")
+        L.append("")
     L.append("## 15. Calibration Metrics")
     L.append("")
     for k in ("brier", "ece", "sharpe", "sortino", "calmar", "max_drawdown"):

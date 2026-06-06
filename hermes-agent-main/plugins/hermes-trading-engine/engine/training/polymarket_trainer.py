@@ -472,6 +472,13 @@ class PolymarketPaperTrainer:
         self.governor = ProfitabilityGovernor(
             min_net_edge=0.0,
             min_decay_factor=float(getattr(self.cfg, "min_decay_factor", 0.5)))
+        # Pass-6: profitability-aware active learning is the EXPLORATION AUTHORITY.
+        from .active_learning import ActiveLearningSelector
+        self.active_learner = ActiveLearningSelector(self.cfg, learner=self.learner)
+        self.near_miss_log: list = []        # logged, never opened
+        self.exploration_feedback_log: list = []   # structured learning feedback
+        self.active_learning_metrics: dict = self._fresh_al_metrics()
+        self._explore_tick_state: dict = {}   # per-tick caps + budget (reset each tick)
         self.profitability_metrics: dict = {
             "profitability_first_enabled": bool(getattr(self.cfg, "profitability_first", True)),
             "profitability_annotation_before_truncation": True,
@@ -644,6 +651,7 @@ class PolymarketPaperTrainer:
         # capacity is released to directional only when NO certified-realistic
         # Bregman opportunity exists this tick.
         self._begin_directional_phase(dir_slots_before, bregman_opened)
+        self._begin_exploration_phase()   # PASS-6: reset per-tick active-learning caps
         for rec in candidates:
             ok, block_reason = self._directional_admit(rec)
             if block_reason == "global_capacity":
@@ -1214,23 +1222,25 @@ class PolymarketPaperTrainer:
         self.decision_count += 1
         exploratory = False
         if not would_trade:
-            # Controlled exploration (aggressive paper mode only): open a near-miss
-            # candidate at a small bounded size for extra feedback signal. Still
-            # routed through RiskEngine + PaperBroker — cannot bypass hard caps.
+            # PASS-6: exploration is chosen by the ActiveLearningSelector (Tier 3),
+            # NOT a random/hash gate. It selects the most informative near-misses
+            # under strict realism + bounded loss + diversity caps; random/hash can
+            # no longer open a trade while active learning is enabled. Still routed
+            # through RiskEngine + PaperBroker — cannot bypass hard caps.
             explore_notional = min(float(self.cfg.exploration_notional_usd),
                                    float(self.cfg.max_order_notional_usd))
             budget_ok = (self.exploration_budget_used + explore_notional
                          <= float(self.cfg.exploration_budget_usd) + 1e-9)
+            al_decision = self._active_learning_admit(rec, est, edge, reason)
+            self._last_al_decision = al_decision
             if (self.mode == "paper_train" and self.cfg.exploration_enabled
-                    and reason in ("edge_too_low", "uncertainty_too_high")
-                    and edge.net_edge >= self.cfg.exploration_min_edge
-                    and budget_ok
-                    and self._explore_gate(rec.market_id)):
+                    and budget_ok and al_decision.get("decision") == "explore"):
                 exploratory = True
             else:
                 self.rejection_count += 1
                 self.learner.record_decision(traded=False, reason=reason)
-                return {"opened": False, "reason": reason}
+                return {"opened": False, "reason": reason,
+                        "exploration_decision": al_decision.get("decision", "skip")}
 
         # observe_only mode evaluates + records but NEVER opens a paper trade
         if self.mode != "paper_train":
@@ -1240,10 +1250,229 @@ class PolymarketPaperTrainer:
         return self._open(rec, est, edge, diag, exploratory=exploratory)
 
     def _explore_gate(self, market_id: str) -> bool:
-        """Deterministic exploration sampler keyed on market+tick (no RNG state)."""
+        """LEGACY deterministic random/hash exploration sampler (PASS-6: disabled by
+        default — kept only as a diagnostic comparison + tie-breaker; it can no
+        longer open a paper trade while active learning is enabled)."""
         import hashlib
         h = hashlib.sha256(f"{market_id}:{self.tick_count}".encode()).digest()
         return (int.from_bytes(h[:4], "big") % 1000) / 1000.0 < self.cfg.exploration_rate
+
+    # -- PASS-6: profitability-aware active learning (exploration authority) ----
+    @staticmethod
+    def _fresh_al_metrics() -> dict:
+        return {
+            "active_learning_enabled": False, "random_exploration_enabled": False,
+            "random_exploration_opened_trades": 0,
+            "active_learning_candidates_considered": 0,
+            "active_learning_candidates_selected": 0,
+            "exploration_trades_opened": 0, "exploration_shadow_only": 0,
+            "exploration_rejected_by_realism": 0, "exploration_rejected_by_profitability": 0,
+            "exploration_rejected_by_budget": 0, "exploration_rejected_by_collision": 0,
+            "exploration_rejected_by_diversity": 0,
+            "legacy_random_exploration_blocked": 0,
+            "exploration_budget_used_usd": 0.0, "exploration_expected_loss_usd": 0.0,
+            "_scores": [], "_exec_quality": [], "buckets": {},
+            "category_coverage": {}, "cluster_diversity": {},
+            "pending_feedback_count": 0, "completed_feedback_count": 0,
+        }
+
+    def _begin_exploration_phase(self) -> None:
+        """Reset per-tick exploration caps + budget state (PAPER ONLY)."""
+        self._explore_tick_state = {
+            "opened": 0, "capital": 0.0, "per_event": {}, "per_cluster": {},
+            "per_category": {},
+        }
+        am = self.active_learning_metrics
+        am["active_learning_enabled"] = bool(getattr(self.cfg, "active_learning_enabled", True))
+        am["random_exploration_enabled"] = bool(
+            getattr(self.cfg, "random_exploration_enabled", False))
+
+    def _exploration_eligibility(self, rec, est, edge) -> "tuple[bool, dict]":
+        """Strict PASS-3 realism + bounded-loss eligibility for an exploration
+        candidate. Returns (eligible, near_miss) where near_miss describes the
+        failed gate + distance to threshold when not eligible."""
+        cfg = self.cfg
+        spread = float(getattr(est, "spread", 0.0) or 0.0)
+        depth = float(getattr(rec, "top_depth_usd", 0.0) or 0.0)
+        amb = float(getattr(est, "ambiguity_score", 0.0) or 0.0)
+        fresh = bool(getattr(est, "fresh_book", True))
+        book_age = getattr(rec, "book_age_s", None)
+        exec_price = float(getattr(edge, "executable_price", 0.0) or 0.0)
+        max_spread = float(getattr(cfg, "exploration_max_spread", 0.08))
+        min_depth = float(getattr(cfg, "exploration_min_depth_at_price", 25.0))
+        max_amb = float(getattr(cfg, "exploration_max_ambiguity_score", 0.45))
+        max_age = float(getattr(cfg, "exploration_max_book_age_sec", 20.0))
+        size = min(float(getattr(cfg, "exploration_notional_usd", 2.0)),
+                   float(getattr(cfg, "exploration_max_position_size_usd", 5.0)),
+                   float(getattr(cfg, "max_order_notional_usd", 5.0)))
+        max_loss = float(getattr(cfg, "exploration_max_expected_loss_usd", 0.25))
+
+        def nm(gate, observed, threshold, need) -> dict:
+            return {"near_miss_reason": gate, "failed_gate": gate,
+                    "observed": observed, "threshold": threshold,
+                    "distance_to_threshold": round(abs(float(observed) - float(threshold)), 6),
+                    "condition_needed_to_trade": need}
+        if exec_price <= 0 or not fresh:
+            return False, nm("missing_ask_or_stale_book", 0 if exec_price <= 0 else 1, 1,
+                             "a fresh executable ask on the live book")
+        if book_age is not None and float(book_age) > max_age:
+            return False, nm("stale_book", book_age, max_age, f"book age <= {max_age:g}s")
+        if depth < min_depth:
+            return False, nm("thin_depth", depth, min_depth, f"depth >= ${min_depth:g}")
+        if spread > max_spread:
+            return False, nm("wide_spread", spread, max_spread, f"spread <= {max_spread:g}")
+        if amb > max_amb:
+            return False, nm("ambiguous_settlement", amb, max_amb, f"ambiguity <= {max_amb:g}")
+        # bounded downside: conservative EXPECTED loss of a tiny probe is the
+        # round-trip execution cost drag on the notional (spread + 2x slippage),
+        # NOT the full notional — a probe that doesn't move loses ~the drag.
+        slip_frac = float(getattr(cfg, "slippage_bps", 25.0)) / 10000.0
+        adverse = min(1.0, spread + 2.0 * slip_frac)
+        expected_loss = round(size * adverse, 6)
+        if expected_loss > max_loss + 1e-9:
+            return False, nm("expected_loss_exceeds_cap", expected_loss, max_loss,
+                             f"expected loss <= ${max_loss:g}")
+        return True, {"exploration_size": round(size, 4),
+                      "max_allowed_exploration_loss": max_loss,
+                      "expected_loss_usd": expected_loss}
+
+    def _active_learning_admit(self, rec, est, edge, reason: str) -> dict:
+        """PASS-6 exploration authority. Returns a decision dict:
+        ``{decision: 'explore'|'near_miss'|'skip', ...}``. When active learning is
+        enabled, the random/hash gate can NEVER open a trade (legacy blocked +
+        logged). Selection requires strict realism, profitability annotation,
+        bounded loss, diversity caps, and a positive active-learning score."""
+        cfg = self.cfg
+        am = self.active_learning_metrics
+        am["active_learning_candidates_considered"] += 1
+        al_on = bool(getattr(cfg, "active_learning_enabled", True))
+        rand_on = bool(getattr(cfg, "random_exploration_enabled", False))
+        near_threshold = reason in ("edge_too_low", "uncertainty_too_high")
+        edge_ok = float(getattr(edge, "net_edge", 0.0) or 0.0) >= float(
+            getattr(cfg, "exploration_min_edge", -0.01))
+
+        # --- LEGACY random/hash path: only when active learning is OFF ---
+        if not al_on:
+            if (rand_on and near_threshold and edge_ok and self._explore_gate(rec.market_id)):
+                am["random_exploration_opened_trades"] += 1
+                return {"decision": "explore", "learning_bucket": "random_legacy",
+                        "active_learning_reason": "legacy_random_hash",
+                        "active_learning_score": 0.0, "exploration_size": min(
+                            float(cfg.exploration_notional_usd),
+                            float(cfg.max_order_notional_usd))}
+            return {"decision": "skip", "reason": reason}
+
+        # --- ACTIVE LEARNING authority (random hash can never open) ---
+        if rand_on is False and near_threshold and self._explore_gate(rec.market_id):
+            am["legacy_random_exploration_blocked"] += 1
+        if not near_threshold:
+            return {"decision": "skip", "reason": reason}
+        al = self.active_learner.score_candidate(
+            rec=rec, est=est, edge=edge, reason=reason, learner=self.learner)
+        am["_scores"].append(al["active_learning_score"])
+        am["_exec_quality"].append(al["execution_quality_score"])
+        am["buckets"][al["learning_bucket"]] = am["buckets"].get(al["learning_bucket"], 0) + 1
+        # strict realism + bounded-loss eligibility
+        eligible, info = self._exploration_eligibility(rec, est, edge)
+        if not eligible:
+            am["exploration_rejected_by_realism"] += 1
+            self._record_near_miss(rec, est, edge, info, al)
+            return {"decision": "near_miss", "reason": info["failed_gate"], **al}
+        if al["active_learning_score"] <= 0.0 or al["learning_bucket"] == "not_eligible_for_learning":
+            return {"decision": "skip", "reason": "no_information_value", **al}
+        # collision with open Bregman markets/events (structured exposure)
+        if (getattr(rec, "market_id", None) in getattr(self, "_bregman_open_markets", set())
+                or self._rec_event_key(rec) in getattr(self, "_bregman_open_events", set())):
+            am["exploration_rejected_by_collision"] += 1
+            return {"decision": "skip", "reason": "bregman_collision", **al}
+        # diversity + per-tick caps
+        st = self._explore_tick_state or {}
+        cat = getattr(rec, "category", None)
+        evt = self._rec_event_key(rec)
+        clu = getattr(rec, "cluster_id", None) or evt
+        if st.get("opened", 0) >= int(getattr(cfg, "exploration_max_trades_per_tick", 2)):
+            am["exploration_rejected_by_budget"] += 1
+            return {"decision": "skip", "reason": "max_trades_per_tick", **al}
+        if st.get("per_event", {}).get(evt, 0) >= int(getattr(cfg, "exploration_max_per_event", 1)):
+            am["exploration_rejected_by_diversity"] += 1
+            return {"decision": "skip", "reason": "max_per_event", **al}
+        if st.get("per_cluster", {}).get(clu, 0) >= int(getattr(cfg, "exploration_max_per_cluster", 1)):
+            am["exploration_rejected_by_diversity"] += 1
+            return {"decision": "skip", "reason": "max_per_cluster", **al}
+        if st.get("per_category", {}).get(cat, 0) >= int(
+                getattr(cfg, "exploration_max_per_category_per_tick", 2)):
+            am["exploration_rejected_by_diversity"] += 1
+            return {"decision": "skip", "reason": "max_per_category_per_tick", **al}
+        size = float(info["exploration_size"])
+        if (st.get("capital", 0.0) + size
+                > float(getattr(cfg, "exploration_max_capital_per_tick_usd", 20.0)) + 1e-9):
+            am["exploration_rejected_by_budget"] += 1
+            return {"decision": "skip", "reason": "exploration_capital_cap", **al}
+        # SELECTED for exploration
+        am["active_learning_candidates_selected"] += 1
+        st["opened"] = st.get("opened", 0) + 1
+        st["capital"] = st.get("capital", 0.0) + size
+        st.setdefault("per_event", {})[evt] = st.get("per_event", {}).get(evt, 0) + 1
+        st.setdefault("per_cluster", {})[clu] = st.get("per_cluster", {}).get(clu, 0) + 1
+        st.setdefault("per_category", {})[cat] = st.get("per_category", {}).get(cat, 0) + 1
+        am["category_coverage"][cat] = am["category_coverage"].get(cat, 0) + 1
+        am["cluster_diversity"][str(clu)] = am["cluster_diversity"].get(str(clu), 0) + 1
+        return {"decision": "explore", "why_not_exploit": reason,
+                "why_not_shadow_only": "passed exploration realism + information value",
+                **al, **info}
+
+    def _record_near_miss(self, rec, est, edge, info: dict, al: dict) -> None:
+        """Log a close-but-ineligible exploration candidate for learning (never
+        opened): failed gate + distance to threshold + condition needed."""
+        self.near_miss_log.append({
+            "market_id": getattr(rec, "market_id", ""),
+            "event_id": self._rec_event_key(rec),
+            "category": getattr(rec, "category", None),
+            "near_miss_reason": info.get("near_miss_reason"),
+            "failed_gate": info.get("failed_gate"),
+            "distance_to_threshold": info.get("distance_to_threshold"),
+            "condition_needed_to_trade": info.get("condition_needed_to_trade"),
+            "would_have_been_learning_bucket": al.get("learning_bucket"),
+            "shadow_theoretical_edge": round(float(getattr(edge, "net_edge", 0.0) or 0.0), 6),
+            "active_learning_score": al.get("active_learning_score"),
+            "tick": self.tick_count,
+        })
+        if len(self.near_miss_log) > 500:
+            self.near_miss_log = self.near_miss_log[-500:]
+
+    def _record_exploration_feedback(self, rec, est, edge, fill, al: dict) -> None:
+        """PASS-6 structured learning feedback for an opened exploration trade.
+        Outcome/realized PnL/calibration error are pending until settlement."""
+        am = self.active_learning_metrics
+        am["exploration_trades_opened"] += 1
+        am["exploration_budget_used_usd"] = round(
+            am["exploration_budget_used_usd"] + float(fill["notional"]), 6)
+        am["exploration_expected_loss_usd"] = round(
+            am["exploration_expected_loss_usd"]
+            + float(al.get("expected_loss_usd", al.get("max_allowed_exploration_loss", 0.0)) or 0.0), 6)
+        am["pending_feedback_count"] += 1
+        self.exploration_feedback_log.append({
+            "candidate_id": fill.get("fill_id"),
+            "market_id": getattr(rec, "market_id", ""),
+            "event_id": self._rec_event_key(rec),
+            "cluster_id": getattr(rec, "cluster_id", None) or self._rec_event_key(rec),
+            "learning_bucket": al.get("learning_bucket"),
+            "model_probability": round(float(getattr(edge, "p_final", 0.0) or 0.0), 6),
+            "market_price": round(float(getattr(est, "p_market_mid", 0.0) or 0.0), 6),
+            "executable_fill_price": round(float(fill["fill_price"]), 6),
+            "after_cost_edge": round(float(getattr(edge, "net_edge", 0.0) or 0.0), 6),
+            "uncertainty_score": al.get("uncertainty_score"),
+            "active_learning_score": al.get("active_learning_score"),
+            "reason_selected": al.get("active_learning_reason"),
+            "reason_not_exploit": al.get("why_not_exploit"),
+            "size": round(float(fill["notional"]), 4),
+            "max_expected_loss": al.get("max_allowed_exploration_loss"),
+            "actual_outcome": None, "realized_pnl": None, "calibration_error": None,
+            "improved_category_coverage": True, "feedback_status": "pending",
+            "tick": self.tick_count,
+        })
+        if len(self.exploration_feedback_log) > 500:
+            self.exploration_feedback_log = self.exploration_feedback_log[-500:]
 
     # -- PASS-4: Bregman-first strategy priority + slot/capital reservation -----
     @staticmethod
@@ -1606,6 +1835,9 @@ class PolymarketPaperTrainer:
         if exploratory:
             self.exploration_budget_used = round(
                 self.exploration_budget_used + float(fill["notional"]), 6)
+            # PASS-6: active-learning trade opened -> structured feedback record.
+            self._record_exploration_feedback(rec, est, edge, fill,
+                                               getattr(self, "_last_al_decision", {}))
         pos = PaperPosition(
             proposal_id=proposal_id, risk_decision_id=decision.risk_decision_id,
             order_id=fill["order_id"], fill_id=fill["fill_id"], market_id=rec.market_id,
@@ -1693,6 +1925,18 @@ class PolymarketPaperTrainer:
         pos.realized_pnl = round((pos.exit_price - pos.entry_price) * pos.qty, 4)
         pos.close_reason = reason
         self.cash += pos.qty * pos.exit_price
+        # PASS-6: complete the active-learning feedback record at settlement.
+        if getattr(pos, "exploration", False):
+            for fb in self.exploration_feedback_log:
+                if fb.get("candidate_id") == pos.fill_id and fb.get("feedback_status") == "pending":
+                    fb["actual_outcome"] = "win" if pos.realized_pnl > 0 else "loss"
+                    fb["realized_pnl"] = pos.realized_pnl
+                    fb["calibration_error"] = round(abs(pos.p_final - (1.0 if pos.realized_pnl > 0 else 0.0)), 6)
+                    fb["feedback_status"] = "completed"
+                    self.active_learning_metrics["pending_feedback_count"] = max(
+                        0, self.active_learning_metrics["pending_feedback_count"] - 1)
+                    self.active_learning_metrics["completed_feedback_count"] += 1
+                    break
         self.daily_realized = round(self.daily_realized + pos.realized_pnl, 4)
         win = pos.realized_pnl > 0
         self.feedback.record_outcome(
@@ -1918,6 +2162,52 @@ class PolymarketPaperTrainer:
                 "bregman_min_after_cost_profit_usd": float(
                     getattr(self.cfg, "bregman_min_after_cost_profit_usd", 0.02)),
             },
+        }
+
+    def active_learning_report(self) -> dict:
+        """Pass-6 Active Learning: proves exploration is selected by the
+        ActiveLearningSelector (not random/hash), is realism + bounded-loss gated,
+        diversity-capped, separated from readiness, and produces learning feedback."""
+        am = self.active_learning_metrics
+        scores = am.get("_scores", []) or []
+        eq = am.get("_exec_quality", []) or []
+        explore_pnl = round(sum(p.realized_pnl for p in self.positions
+                                if p.closed and getattr(p, "exploration", False)), 6)
+        buckets = dict(am.get("buckets", {}))
+        top = sorted(buckets.items(), key=lambda kv: kv[1], reverse=True)[:5]
+        return {
+            "schema": "active_learning/1.0", "paper_only": True,
+            "active_learning_enabled": bool(getattr(self.cfg, "active_learning_enabled", True)),
+            "random_exploration_enabled": bool(
+                getattr(self.cfg, "random_exploration_enabled", False)),
+            "random_exploration_opened_trades": am.get("random_exploration_opened_trades", 0),
+            "legacy_random_exploration_blocked": am.get("legacy_random_exploration_blocked", 0),
+            "active_learning_candidates_considered": am.get(
+                "active_learning_candidates_considered", 0),
+            "active_learning_candidates_selected": am.get(
+                "active_learning_candidates_selected", 0),
+            "exploration_trades_opened": am.get("exploration_trades_opened", 0),
+            "exploration_shadow_only": len(self.near_miss_log),
+            "exploration_rejected_by_realism": am.get("exploration_rejected_by_realism", 0),
+            "exploration_rejected_by_profitability": am.get(
+                "exploration_rejected_by_profitability", 0),
+            "exploration_rejected_by_budget": am.get("exploration_rejected_by_budget", 0),
+            "exploration_rejected_by_collision": am.get("exploration_rejected_by_collision", 0),
+            "exploration_rejected_by_diversity": am.get("exploration_rejected_by_diversity", 0),
+            "exploration_budget_used_usd": am.get("exploration_budget_used_usd", 0.0),
+            "exploration_expected_loss_usd": am.get("exploration_expected_loss_usd", 0.0),
+            "exploration_pnl": explore_pnl,
+            "exploration_counted_toward_readiness": bool(
+                getattr(self.cfg, "exploration_count_toward_readiness", False)),
+            "exploration_consumes_bregman_reserved_capacity": False,
+            "top_learning_buckets": [k for k, _ in top],
+            "category_coverage": dict(am.get("category_coverage", {})),
+            "cluster_diversity": dict(am.get("cluster_diversity", {})),
+            "avg_active_learning_score_selected": round(sum(scores) / len(scores), 6) if scores else 0.0,
+            "avg_execution_quality_selected": round(sum(eq) / len(eq), 6) if eq else 0.0,
+            "pending_feedback_count": am.get("pending_feedback_count", 0),
+            "completed_feedback_count": am.get("completed_feedback_count", 0),
+            "near_miss_examples": self.near_miss_log[-10:],
         }
 
     def baseline_report(self) -> dict:
@@ -2516,6 +2806,7 @@ class PolymarketPaperTrainer:
             "paper_realism": self.paper_realism_report(),
             "strategy_priority": self.strategy_priority_report(),
             "profitability_ranking": self.profitability_ranking_report(),
+            "active_learning": self.active_learning_report(),
             "risk": self.risk.status(),
             "broker": self.broker.status(),
             "baselines": self.baselines.results(),

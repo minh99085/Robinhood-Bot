@@ -162,11 +162,30 @@ class TrainingConfig:
     # ---- active learning (aggressive paper mode; PAPER ONLY) ----
     # Fill idle paper budget with the highest-feedback-value near-misses. NEVER
     # bypasses a hard gate; bounded by exploration_budget_usd + the caps below.
-    active_learning_enabled: bool = False
+    active_learning_enabled: bool = True
     exploration_split: float = 0.5         # max fraction of idle slots reserved for exploration
     category_sample_target: int = 50       # per-category feedback-sample target
     max_explore_per_category: int = 3      # diversity: max exploratory trades / category / tick
     max_explore_per_event: int = 1         # diversity: max exploratory trades / event / tick
+    # ---- Pass-6: profitability-aware active learning is the EXPLORATION AUTHORITY ----
+    # Random/hash exploration is a disabled legacy fallback; ActiveLearningSelector
+    # chooses the most informative near-misses under strict realism + bounded loss.
+    random_exploration_enabled: bool = False
+    exploration_max_trades_per_tick: int = 2
+    exploration_max_open_trades: int = 10
+    exploration_max_capital_per_tick_usd: float = 20.0
+    exploration_max_position_size_usd: float = 5.0
+    exploration_max_expected_loss_usd: float = 0.25
+    exploration_min_depth_at_price: float = 25.0
+    exploration_max_spread: float = 0.08
+    exploration_max_book_age_sec: float = 20.0
+    exploration_max_ambiguity_score: float = 0.45
+    exploration_require_profitability_annotation: bool = True
+    exploration_require_realistic_fill: bool = True
+    exploration_count_toward_readiness: bool = False
+    exploration_max_per_event: int = 1
+    exploration_max_per_cluster: int = 1
+    exploration_max_per_category_per_tick: int = 2
     # ---- Chainlink oracle layer (additive; default OFF) ----
     chainlink_enabled: bool = False
     chainlink_history_limit: int = 30
@@ -752,7 +771,29 @@ class TrainingConfig:
             exploration_rate=_envf("POLYMARKET_EXPLORATION_RATE", 0.0),
             exploration_notional_usd=_envf("POLYMARKET_EXPLORATION_NOTIONAL_USD", 2.0),
             exploration_min_edge=_envf("POLYMARKET_EXPLORATION_MIN_EDGE", -0.01),
-            active_learning_enabled=(_envb("POLYMARKET_ACTIVE_LEARNING_ENABLED", False)
+            random_exploration_enabled=_envb("POLYMARKET_RANDOM_EXPLORATION_ENABLED", False),
+            exploration_max_trades_per_tick=_envi("POLYMARKET_EXPLORATION_MAX_TRADES_PER_TICK", 2),
+            exploration_max_open_trades=_envi("POLYMARKET_EXPLORATION_MAX_OPEN_TRADES", 10),
+            exploration_max_capital_per_tick_usd=_envf(
+                "POLYMARKET_EXPLORATION_MAX_CAPITAL_PER_TICK", 20.0),
+            exploration_max_position_size_usd=_envf("POLYMARKET_EXPLORATION_MAX_POSITION_SIZE", 5.0),
+            exploration_max_expected_loss_usd=_envf(
+                "POLYMARKET_EXPLORATION_MAX_EXPECTED_LOSS_USD", 0.25),
+            exploration_min_depth_at_price=_envf("POLYMARKET_EXPLORATION_MIN_DEPTH_AT_PRICE", 25.0),
+            exploration_max_spread=_envf("POLYMARKET_EXPLORATION_MAX_SPREAD", 0.08),
+            exploration_max_book_age_sec=_envf("POLYMARKET_EXPLORATION_MAX_BOOK_AGE_SEC", 20.0),
+            exploration_max_ambiguity_score=_envf("POLYMARKET_EXPLORATION_MAX_AMBIGUITY_SCORE", 0.45),
+            exploration_require_profitability_annotation=_envb(
+                "POLYMARKET_EXPLORATION_REQUIRE_PROFITABILITY_ANNOTATION", True),
+            exploration_require_realistic_fill=_envb(
+                "POLYMARKET_EXPLORATION_REQUIRE_REALISTIC_FILL", True),
+            exploration_count_toward_readiness=_envb(
+                "POLYMARKET_EXPLORATION_COUNT_TOWARD_READINESS", False),
+            exploration_max_per_event=_envi("POLYMARKET_EXPLORATION_MAX_PER_EVENT", 1),
+            exploration_max_per_cluster=_envi("POLYMARKET_EXPLORATION_MAX_PER_CLUSTER", 1),
+            exploration_max_per_category_per_tick=_envi(
+                "POLYMARKET_EXPLORATION_MAX_PER_CATEGORY_PER_TICK", 2),
+            active_learning_enabled=(_envb("POLYMARKET_ACTIVE_LEARNING_ENABLED", True)
                                      or _envb("ACTIVE_LEARNING_ENABLED", False)),
             exploration_split=_envf("POLYMARKET_EXPLORATION_SPLIT", 0.5),
             category_sample_target=_envi("POLYMARKET_CATEGORY_SAMPLE_TARGET", 50),

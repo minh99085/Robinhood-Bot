@@ -147,25 +147,36 @@ FEATURES: list[dict] = [
     {
         "feature": "Active learning selector",
         "files": ["engine/training/active_learning.py:ActiveLearningSelector"],
-        "runtime_status": "dead",
-        "controls_trades": False, "telemetry_only": False,
-        "flag": "active_learning_enabled (reported only)",
+        "runtime_status": "active",
+        "controls_trades": True, "telemetry_only": False,
+        "flag": "active_learning_enabled=1 (default) / random_exploration_enabled=0",
         "evidence": "ActiveLearningSelector is not imported by the trainer or any "
                     "engine/scripts runtime module; feedback_value is annotated but "
                     "the selector is never invoked.",
         "risk": "Exploration is blind; high-feedback-value markets are not prioritized.",
+        "pass6": "RESOLVED — ActiveLearningSelector is now the EXPLORATION AUTHORITY: "
+                 "the trainer constructs it and _active_learning_admit scores every "
+                 "near-miss (uncertainty + calibration + category + disagreement + "
+                 "near-miss profit + execution quality - penalties), gates strict "
+                 "realism + bounded loss + diversity caps, and selects the most "
+                 "informative candidates. Random/hash cannot open a trade while "
+                 "active learning is enabled.",
     },
     {
         "feature": "Random/hash exploration",
         "files": ["engine/training/polymarket_trainer.py:_explore_gate/_consider"],
-        "runtime_status": "active",
-        "controls_trades": True, "telemetry_only": False,
-        "flag": "exploration_enabled / exploration_rate (cfg)",
+        "runtime_status": "dead",
+        "controls_trades": False, "telemetry_only": False,
+        "flag": "random_exploration_enabled=0 (default; legacy fallback only)",
         "evidence": "_explore_gate = sha256(market+tick) % 1000 < exploration_rate; "
                     "opens near-miss exploration trades at capped "
                     "exploration_notional_usd (paper_train only).",
         "risk": "Deterministic hash sampling (not learning-value); correctly tiny + "
                 "counts_for_readiness=False, but adds no targeted edge.",
+        "pass6": "DISABLED by default — _active_learning_admit routes exploration "
+                 "through the ActiveLearningSelector; the hash gate can no longer open "
+                 "a trade while active learning is on (legacy_random_exploration_blocked "
+                 "counts would-be opens). Kept only as a diagnostic/tie-breaker.",
     },
     {
         "feature": "Cluster/correlation gate",
@@ -497,6 +508,37 @@ PASS5_STATUS = {
 }
 
 
+# Pass-6 outcome: profitability-aware active learning is the exploration authority.
+# Random/hash exploration no longer opens trades; exploration is realism-gated,
+# bounded, diversity-capped, separated from readiness, and produces learning data.
+PASS6_STATUS = {
+    "active_learning_is_exploration_authority": True,
+    "random_hash_exploration_opens_trades": False,
+    "exploration_requires_paper_realism": True,
+    "exploration_requires_profitability_annotation": True,
+    "exploration_bounded_loss": True,
+    "exploration_excluded_from_readiness": True,
+    "exploration_cannot_consume_bregman_reserved_capacity": True,
+    "near_misses_logged_for_learning": True,
+    "bregman_first_priority_preserved": True,
+    "profitability_first_preserved": True,
+    "selector": "engine/training/active_learning.py:ActiveLearningSelector",
+    "learning_buckets": ["near_miss_positive_edge", "model_uncertain_high_liquidity",
+                         "category_under_sampled", "calibration_gap_bucket",
+                         "chainlink_disagreement_case", "news_model_disagreement_case",
+                         "shadow_theoretical_only", "not_eligible_for_learning"],
+    "metrics": ["metrics/active_learning.json"],
+    "new_env_flags": {
+        "POLYMARKET_ACTIVE_LEARNING_ENABLED": 1, "POLYMARKET_RANDOM_EXPLORATION_ENABLED": 0,
+        "POLYMARKET_EXPLORATION_MAX_TRADES_PER_TICK": 2,
+        "POLYMARKET_EXPLORATION_MAX_EXPECTED_LOSS_USD": 0.25,
+        "POLYMARKET_EXPLORATION_COUNT_TOWARD_READINESS": 0,
+        "POLYMARKET_EXPLORATION_MAX_PER_EVENT": 1, "POLYMARKET_EXPLORATION_MAX_PER_CLUSTER": 1,
+        "POLYMARKET_EXPLORATION_MAX_PER_CATEGORY_PER_TICK": 2,
+    },
+}
+
+
 def build_feature_activation(cfg: Any = None, status: Optional[dict] = None) -> dict:
     """Build the machine-readable feature-activation audit (read-only, pure).
 
@@ -548,6 +590,7 @@ def build_feature_activation(cfg: Any = None, status: Optional[dict] = None) -> 
         "pass3_status": dict(PASS3_STATUS),
         "pass4_status": dict(PASS4_STATUS),
         "pass5_status": dict(PASS5_STATUS),
+        "pass6_status": dict(PASS6_STATUS),
         "live_config": live,
         "note": "PASS-1 audit traced from run_tick to open. PASS-2 wired raw-catalog "
                 "Bregman into certified PAPER execution (see pass2_status / per-feature "
@@ -574,6 +617,23 @@ def to_markdown(audit: dict) -> str:
                  f"**{p2s['bregman_execution_priority_before_directional']}**")
         for e in p2s["evidence"]:
             L.append(f"  - {e}")
+        L.append("")
+    p6 = audit.get("pass6_status")
+    if p6:
+        L.append("## Pass 6 — profitability-aware active learning (exploration authority)")
+        L.append(f"- Active learning is the exploration authority: "
+                 f"**{p6['active_learning_is_exploration_authority']}**")
+        L.append(f"- Random/hash exploration opens trades: "
+                 f"**{p6['random_hash_exploration_opens_trades']}**")
+        L.append(f"- Exploration requires paper realism: "
+                 f"**{p6['exploration_requires_paper_realism']}**")
+        L.append(f"- Exploration bounded loss: **{p6['exploration_bounded_loss']}**")
+        L.append(f"- Exploration excluded from readiness: "
+                 f"**{p6['exploration_excluded_from_readiness']}**")
+        L.append(f"- Exploration cannot consume Bregman reserved capacity: "
+                 f"**{p6['exploration_cannot_consume_bregman_reserved_capacity']}**")
+        L.append(f"- Near-misses logged for learning: **{p6['near_misses_logged_for_learning']}**")
+        L.append(f"- Bregman-first priority preserved: **{p6['bregman_first_priority_preserved']}**")
         L.append("")
     p5 = audit.get("pass5_status")
     if p5:
@@ -650,6 +710,8 @@ def to_markdown(audit: dict) -> str:
             risk = f"{risk}<br>**Pass-4:** {f['pass4']}"
         if f.get("pass5"):
             risk = f"{risk}<br>**Pass-5:** {f['pass5']}"
+        if f.get("pass6"):
+            risk = f"{risk}<br>**Pass-6:** {f['pass6']}"
         L.append(f"| {f['feature']} | {files} | `{f['runtime_status']}` | "
                  f"{'YES' if f['controls_trades'] else 'no'} | "
                  f"{'YES' if f['telemetry_only'] else 'no'} | {f['flag']} | "

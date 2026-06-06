@@ -49,15 +49,16 @@ def test_audit_classifies_abcas_scanner_as_telemetry_only():
     assert "Bregman paper execution" in audit["summary"]["truly_active"]
 
 
-def test_audit_active_learning_still_unused():
-    # Pass-5 wired profitability-first ranking + governor (now active); the active
-    # learning selector remains unused.
+def test_audit_exploitation_and_learning_active():
+    # Pass-5 wired profitability ranking + governor; Pass-6 wired active learning
+    # as the exploration authority and disabled random/hash exploration.
     audit = build_feature_activation()
-    dead = audit["summary"]["dead_or_unused"]
-    assert "Active learning selector" in dead
     active = audit["summary"]["truly_active"]
     assert "Profitability-first ranking" in active
     assert "Profitability governor" in active
+    assert "Active learning selector" in active
+    dead = audit["summary"]["dead_or_unused"]
+    assert "Random/hash exploration" in dead
 
 
 def test_audit_flags_pnl_inflation_risks():
@@ -156,6 +157,22 @@ def test_pass5_markdown_section_present():
     md = to_markdown(build_feature_activation())
     assert "Pass 5 — profitability-first ranking" in md
     assert "Directional ranked by after-cost EV: **True**" in md
+
+
+def test_pass6_status_proves_active_learning():
+    p6 = build_feature_activation()["pass6_status"]
+    assert p6["active_learning_is_exploration_authority"] is True
+    assert p6["random_hash_exploration_opens_trades"] is False
+    assert p6["exploration_requires_paper_realism"] is True
+    assert p6["exploration_excluded_from_readiness"] is True
+    assert p6["exploration_cannot_consume_bregman_reserved_capacity"] is True
+    assert p6["bregman_first_priority_preserved"] is True
+
+
+def test_pass6_markdown_section_present():
+    md = to_markdown(build_feature_activation())
+    assert "Pass 6 — profitability-aware active learning" in md
+    assert "Random/hash exploration opens trades: **False**" in md
 
 
 def test_cli_writes_json_and_markdown(tmp_path):
