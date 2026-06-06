@@ -194,6 +194,7 @@ class TrainingConfig:
     active_learning_tiny_trades_per_tick: int = 2
     active_learning_near_miss_samples_per_tick: int = 50
     active_learning_no_trade_labels_per_tick: int = 100
+    active_learning_diagnostic_samples_per_tick: int = 50
     active_learning_require_realistic_fill_for_trade: bool = True
     active_learning_allow_shadow_without_fill: bool = True
     # ---- Pass-7: cluster/correlation risk is an ACTIVE hard gate + allocator ----
@@ -836,6 +837,8 @@ class TrainingConfig:
                 "POLYMARKET_ACTIVE_LEARNING_NEAR_MISS_SAMPLES_PER_TICK", 50),
             active_learning_no_trade_labels_per_tick=_envi(
                 "POLYMARKET_ACTIVE_LEARNING_NO_TRADE_LABELS_PER_TICK", 100),
+            active_learning_diagnostic_samples_per_tick=_envi(
+                "POLYMARKET_ACTIVE_LEARNING_DIAGNOSTIC_SAMPLES_PER_TICK", 50),
             active_learning_require_realistic_fill_for_trade=_envb(
                 "POLYMARKET_ACTIVE_LEARNING_REQUIRE_REALISTIC_FILL_FOR_TRADE", True),
             active_learning_allow_shadow_without_fill=_envb(

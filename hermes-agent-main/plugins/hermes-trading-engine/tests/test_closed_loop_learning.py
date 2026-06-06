@@ -63,13 +63,19 @@ def test_rejected_candidate_writes_training_record(tmp_path):
     assert r["label_status"] == "pending"
 
 
-def test_uninformative_reject_not_recorded(tmp_path):
+def test_offline_stub_reject_recorded_as_diagnostic(tmp_path):
+    # data/adapter rejects (offline stub, no model probability) are NO LONGER
+    # dropped — they emit a diagnostic event (with no label target). This is the
+    # exact case that left the live event stream empty.
     cl = _cll(tmp_path)
     cl.begin_tick()
     r = cl.record(_rec(), _est(), _edge(), decision="rejected_hard_gate",
                   reason="offline_stub_blocked", tick=1)
-    assert r is None
-    assert cl.counts["decision_records_written"] == 0
+    assert r is not None
+    assert cl.counts["decision_records_written"] == 1
+    assert cl.counts["diagnostic_records_written"] == 1
+    assert cl.counts["diagnostic_without_label_target"] == 1
+    assert r["label_status"] == "none"
 
 
 def test_shadow_label_for_non_executable_informative(tmp_path):

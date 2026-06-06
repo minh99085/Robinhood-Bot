@@ -23,14 +23,58 @@ DECISIONS = (
     "opened_realistic_paper", "selected_active_learning", "shadow_only",
     "rejected_hard_gate", "no_trade_label", "pending_label_only",
 )
-# rejection reasons that are still INFORMATIVE learning examples (not noise)
-_INFORMATIVE_REASONS = {
-    "edge_too_low", "uncertainty_too_high", "below_min_after_cost", "negative_after_cost",
-    "shadow_only", "stale_book", "missing_executable_ask", "missing_ask",
-    "thin_depth", "wide_spread", "ambiguous_settlement", "reference_fill_disallowed",
-    "bregman_incomplete_executable_set", "no_information_value",
-    "cluster_exposure_cap", "event_exposure_cap", "same_cluster", "same_event",
+# EVERY evaluated candidate emits an event — none are dropped. The rejection
+# reason is classified into a durable learning object: a no-trade label (the
+# rejection was a real, labelable economic decision), a shadow label (executable-
+# realism near-miss), or a diagnostic (data/adapter problem, not an opportunity).
+_REASON_LEARNING_CLASS = {
+    # economic no-trade decisions (labelable: was the rejection correct?)
+    "edge_too_low": "no_trade_label", "uncertainty_too_high": "no_trade_label",
+    "below_min_after_cost": "no_trade_label", "negative_after_cost": "no_trade_label",
+    "roi_below_min": "no_trade_label", "stale_book": "no_trade_label",
+    "thin_depth": "no_trade_label", "wide_spread": "no_trade_label",
+    "ambiguous_settlement": "no_trade_label", "settlement_ambiguity": "no_trade_label",
+    "depth_too_thin": "no_trade_label", "spread_too_wide": "no_trade_label",
+    "cluster_exposure_cap": "no_trade_label", "event_exposure_cap": "no_trade_label",
+    "same_cluster": "no_trade_label", "same_event": "no_trade_label",
+    "same_market": "no_trade_label", "same_condition": "no_trade_label",
+    "duplicate_market_exposure": "no_trade_label", "risk_rejected": "no_trade_label",
+    # executable-realism / capacity near-misses (shadow)
+    "missing_executable_ask": "shadow_label", "missing_ask": "shadow_label",
+    "no_executable_price": "shadow_label", "reference_fill_disallowed": "shadow_label",
+    "bregman_capital_reservation": "shadow_label", "max_trades_per_tick": "shadow_label",
+    "exploration_capital_cap": "shadow_label", "max_per_event": "shadow_label",
+    "max_per_cluster": "shadow_label", "max_per_category_per_tick": "shadow_label",
+    "no_information_value": "shadow_label", "bregman_collision": "shadow_label",
+    "market_collision": "shadow_label", "event_collision": "shadow_label",
+    "shadow_only_unknown_cluster": "shadow_label", "shadow_only": "shadow_label",
+    # data / adapter problems (diagnostic — not an opportunity)
+    "offline_stub_blocked": "diagnostic", "offline_stub_fill_disallowed": "diagnostic",
+    "no_research": "diagnostic", "missing_orderbook_no_fantasy_fills": "diagnostic",
+    "malformed": "diagnostic", "malformed_group": "diagnostic",
+    "insufficient_metadata": "diagnostic", "insufficient_outcomes": "diagnostic",
+    "non_numeric_price": "diagnostic", "missing_token_id": "diagnostic",
+    "missing_outcome_mapping": "diagnostic", "missing_executable_price": "diagnostic",
+    "observe_only": "diagnostic",
 }
+
+
+def classify_rejection(reason: str) -> str:
+    """Map a rejection reason to a durable learning object type. Default: every
+    reject is at least a no-trade label (never silently dropped)."""
+    r = str(reason or "")
+    if r in _REASON_LEARNING_CLASS:
+        return _REASON_LEARNING_CLASS[r]
+    rl = r.lower()
+    if rl.startswith("bregman_") and any(k in rl for k in (
+            "malformed", "non_numeric", "metadata", "outcome", "token", "incomplete",
+            "missing")):
+        return "bregman_diagnostic"
+    if any(k in rl for k in ("malformed", "metadata", "stub", "no_research", "orderbook")):
+        return "diagnostic"
+    if any(k in rl for k in ("missing_ask", "reference", "collision", "cap", "max_")):
+        return "shadow_label"
+    return "no_trade_label"
 
 
 @dataclass
@@ -129,11 +173,13 @@ class ClosedLoopLearning:
         return {
             "decision_records_written": 0, "candidate_records_written": 0,
             "rejection_records_written": 0, "shadow_records_written": 0,
-            "no_trade_labels_written": 0, "active_learning_shadow_selected": 0,
+            "no_trade_labels_written": 0, "diagnostic_records_written": 0,
+            "active_learning_shadow_selected": 0,
             "active_learning_tiny_trades_selected": 0,
             "pending_labels_created": 0, "completed_labels_created": 0,
             "feedback_records_written": 0, "opened_records_written": 0,
-            "uninformative_skipped": 0,
+            "events_written": 0, "diagnostic_without_label_target": 0,
+            "candidate_evaluated_events": 0, "uninformative_skipped": 0,
         }
 
     def _fresh_tick(self) -> dict:
@@ -167,8 +213,9 @@ class ClosedLoopLearning:
             self.dir.mkdir(parents=True, exist_ok=True)
             # ensure the label/decision stores always exist (even with zero rows)
             # so the inspection zip bundles them from tick 1.
-            for _f in ("pending_labels.jsonl", "completed_labels.jsonl",
-                       "decision_records.jsonl"):
+            for _f in ("events.jsonl", "decision_records.jsonl", "no_trade_labels.jsonl",
+                       "shadow_labels.jsonl", "diagnostics.jsonl", "pending_labels.jsonl",
+                       "completed_labels.jsonl"):
                 (self.dir / _f).touch(exist_ok=True)
             self.state = self.learning_state()
             (self.dir / "learning_state.json").write_text(
@@ -184,22 +231,23 @@ class ClosedLoopLearning:
                realism_status: str = "", active_learning: Optional[dict] = None,
                tick: int = 0, now: Optional[float] = None,
                counts_for_readiness: bool = False) -> Optional[dict]:
-        """Turn one evaluated candidate into a structured training record (+ pending
-        label when the outcome is not yet known). Returns the record dict or None
-        when the example is uninformative noise."""
+        """Turn EVERY evaluated candidate into a durable training event (+ a learning
+        object: no-trade label / shadow label / diagnostic) + a pending label when a
+        label target exists. NEVER drops an event — that is the whole point of the
+        canonical training event stream. Returns the record dict."""
         now = now or time.time()
         self._tick["considered"] += 1
+        self.counts["candidate_evaluated_events"] += 1
         pa = profitability or {}
         al = active_learning or {}
         is_open = decision == "opened_realistic_paper"
         is_explore = decision == "selected_active_learning"
-        # drop uninformative pure-noise rejects to keep the store signal-dense,
-        # but ALWAYS keep gate/near-miss/shadow/opened examples.
-        informative = (is_open or is_explore or decision in ("shadow_only", "no_trade_label")
-                       or reason in _INFORMATIVE_REASONS)
-        if not informative:
-            self.counts["uninformative_skipped"] += 1
-            return None
+        # classify rejects (no_trade_label / shadow_label / diagnostic / bregman_
+        # diagnostic). Opens/explores keep their decision. Nothing is ever skipped.
+        if decision in ("opened_realistic_paper", "selected_active_learning", "shadow_only"):
+            klass = "shadow_label" if decision == "shadow_only" else decision
+        else:  # rejected_hard_gate / no_trade_label / pending_label_only / anything else
+            klass = classify_rejection(reason)
         raw = getattr(rec, "raw", None) or {}
         end_ts = getattr(rec, "end_ts", None)
         cand_id = f"{self.run_id}:{tick}:{getattr(rec, 'market_id', '')}"
@@ -237,48 +285,61 @@ class ClosedLoopLearning:
             learning_bucket=al.get("learning_bucket", ""),
             counts_for_readiness=bool(counts_for_readiness and is_open),
         )
-        # label: known immediately? otherwise pending (final settlement or proxy)
-        if end_ts:
-            r.label_status = "pending"
-            r.label_type = "final_settlement"
+        is_diagnostic = klass in ("diagnostic", "bregman_diagnostic")
+        # label target: final settlement (end date) > short-horizon proxy. Diagnostics
+        # (malformed/adapter failures) have NO label target — record that explicitly.
+        if is_diagnostic:
+            r.label_status = "none"
+            r.label_type = "no_label_target"
+            self.counts["diagnostic_without_label_target"] += 1
+        elif end_ts:
+            r.label_status = "pending"; r.label_type = "final_settlement"
             r.label_due_at = float(end_ts)
             self._add_pending(r)
         else:
-            r.label_status = "pending"
-            r.label_type = "proxy"
+            r.label_status = "pending"; r.label_type = "proxy"
             r.label_due_at = round(now + 300.0, 3)   # short-horizon proxy window
             self._add_pending(r)
 
-        # counts + quotas
+        rd = r.to_dict()
+        # counts + per-type durable event files (the canonical stream)
         self.counts["decision_records_written"] += 1
         self.counts["candidate_records_written"] += 1
+        self.counts["events_written"] += 1
+        self._append_jsonl("decision_records.jsonl", rd)
+        self._append_jsonl("events.jsonl", {"event_type": "decision", **rd})
         if is_open:
             self.counts["opened_records_written"] += 1
         elif is_explore:
             self.counts["active_learning_tiny_trades_selected"] += 1
             self._tick["tiny"] += 1
-        elif decision == "shadow_only":
+        elif klass == "shadow_label":
             self.counts["shadow_records_written"] += 1
+            self._append_jsonl("shadow_labels.jsonl", rd)
             self._select_shadow()
-        elif decision == "no_trade_label":
+        elif klass in ("diagnostic", "bregman_diagnostic"):
+            self.counts["diagnostic_records_written"] += 1
+            self._append_jsonl("diagnostics.jsonl", {"diagnostic_type": klass, **rd})
+            self._select_shadow(diagnostic=True)
+        else:  # no_trade_label (the default for any economic reject)
+            if decision == "rejected_hard_gate":
+                self.counts["rejection_records_written"] += 1
             self.counts["no_trade_labels_written"] += 1
+            self._append_jsonl("no_trade_labels.jsonl", rd)
             self._select_shadow()
-        elif decision == "rejected_hard_gate":
-            self.counts["rejection_records_written"] += 1
-            # an informative hard-gate reject is still a no-trade learning label
-            self.counts["no_trade_labels_written"] += 1
-            self._select_shadow()
-        self.records.append(r.to_dict())
+        self.records.append(rd)
         if len(self.records) > 1000:
             self.records = self.records[-1000:]
-        self._append_jsonl("decision_records.jsonl", r.to_dict())
-        return r.to_dict()
+        return rd
 
-    def _select_shadow(self) -> None:
-        quota = self._q("active_learning_shadow_samples_per_tick", 50)
+    def _select_shadow(self, *, diagnostic: bool = False) -> None:
         if not self._b("active_learning_allow_shadow_without_fill", True):
             return
-        if self._tick["shadow"] < quota:
+        quota = self._q("active_learning_diagnostic_samples_per_tick", 50) if diagnostic \
+            else self._q("active_learning_shadow_samples_per_tick", 50)
+        # the canonical stream records every example; selection is bounded but
+        # generous so it is never silently zero when candidates were considered.
+        if self._tick["shadow"] < max(quota, 1) * 8:
             self._tick["shadow"] += 1
             self._tick["selected"] += 1
             self.counts["active_learning_shadow_selected"] += 1
@@ -368,6 +429,10 @@ class ClosedLoopLearning:
             "rejection_records_written": c["rejection_records_written"],
             "shadow_records_written": c["shadow_records_written"],
             "no_trade_labels_written": c["no_trade_labels_written"],
+            "diagnostic_records_written": c["diagnostic_records_written"],
+            "diagnostic_without_label_target": c["diagnostic_without_label_target"],
+            "events_written": c["events_written"],
+            "candidate_evaluated_events": c["candidate_evaluated_events"],
             "active_learning_shadow_selected": c["active_learning_shadow_selected"],
             "active_learning_tiny_trades_selected": c["active_learning_tiny_trades_selected"],
             "pending_labels_created": c["pending_labels_created"],
@@ -388,6 +453,43 @@ class ClosedLoopLearning:
             "learning_growth_status": self.growth_score()["learning_growth_status"],
             "top_learning_bottlenecks": self._bottlenecks(),
             "zero_selection_reason": zero_reason,
+        }
+
+    def reconcile(self, *, decision_count: int, rejection_count: int = 0,
+                  candidate_evaluated: int = 0) -> dict:
+        """Invariant: a candidate that increments decision_count MUST emit an event.
+        Returns the training_reconciliation schema; reconciled=False if they diverge."""
+        c = self.counts
+        dec_ev = c["decision_records_written"]
+        rej_ev = (c["rejection_records_written"] + c["no_trade_labels_written"]
+                  + c["shadow_records_written"] + c["diagnostic_records_written"])
+        cand_ev = c["candidate_evaluated_events"]
+        reconciled = True
+        reason = ""
+        callsite = ""
+        if int(decision_count) > 0 and dec_ev == 0:
+            reconciled = False
+            reason = "decision_count>0 but no decision events written"
+            callsite = "polymarket_trainer._consider (decision/rejection counter site)"
+        elif int(rejection_count) > 0 and rej_ev == 0:
+            reconciled = False
+            reason = "rejection_count>0 but no no-trade/shadow/diagnostic events"
+            callsite = "polymarket_trainer._consider rejection branch"
+        elif int(decision_count) > dec_ev:
+            # some decisions did not emit (e.g. an un-hooked early return path)
+            reconciled = False
+            reason = f"decision_count({decision_count}) > decision_events({dec_ev})"
+            callsite = "an un-hooked terminal return in _consider/_open"
+        return {
+            "decision_count_counter": int(decision_count),
+            "decision_events_written": dec_ev,
+            "rejection_count_counter": int(rejection_count),
+            "rejection_events_written": rej_ev,
+            "candidate_evaluated_counter": int(candidate_evaluated),
+            "candidate_events_written": cand_ev,
+            "reconciled": reconciled,
+            "divergence_reason": reason,
+            "missing_event_callsite": callsite,
         }
 
     def _bottlenecks(self) -> list:

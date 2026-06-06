@@ -29,9 +29,12 @@ REQUIRED_ARTIFACTS = (
     "metrics/learning_feedback.json", "metrics/active_learning.json",
     "metrics/paper_realism.json", "metrics/bregman_execution.json",
     "metrics/strategy_priority.json", "metrics/profitability_ranking.json",
-    "metrics/correlation_risk.json", "reports/paper_training_inspection.md",
-    "reports/closed_loop_learning_audit.md", "data/training/pending_labels.jsonl",
-    "data/training/learning_state.json",
+    "metrics/correlation_risk.json", "metrics/training_reconciliation.json",
+    "reports/paper_training_inspection.md", "reports/closed_loop_learning_audit.md",
+    "data/training/events.jsonl", "data/training/decision_records.jsonl",
+    "data/training/no_trade_labels.jsonl", "data/training/shadow_labels.jsonl",
+    "data/training/diagnostics.jsonl", "data/training/pending_labels.jsonl",
+    "data/training/completed_labels.jsonl", "data/training/learning_state.json",
 )
 
 
@@ -84,12 +87,30 @@ def validate_runtime(status: dict, *, data_dir: Optional[str] = None,
     _chk(checks, "closed_loop_records_positive",
          (decision_records > 0) or (considered == 0),
          f"records={decision_records} considered={considered}")
+    # HARD event-sourcing invariants: a decision MUST emit an event.
     labels = (int(cll.get("no_trade_labels_written", 0) or 0)
               + int(cll.get("shadow_records_written", 0) or 0))
-    rejects = int(prk.get("candidates_rejected_negative_after_cost", 0) or 0) + decision_records
+    diag = int(cll.get("diagnostic_records_written", 0) or 0)
+    diag_no_label = int(cll.get("diagnostic_without_label_target", 0) or 0)
+    recon = status.get("training_reconciliation", {}) or {}
+    dec_counter = int(recon.get("decision_count_counter", status.get("decisions", 0)) or 0)
+    if dec_counter > 0:
+        _chk(checks, "decision_count_reconciles_with_events",
+             bool(recon.get("reconciled", decision_records > 0)),
+             recon.get("divergence_reason") or f"events={decision_records}")
+    rej_counter = int(recon.get("rejection_count_counter", 0) or 0)
+    if rej_counter > 0:
+        _chk(checks, "rejection_becomes_learning_object",
+             (labels + diag) > 0,
+             f"no_trade+shadow={labels} diagnostic={diag}")
+    cand_ev = int(cll.get("candidate_evaluated_events", decision_records) or 0)
+    if cand_ev > 0:
+        _chk(checks, "pending_labels_or_diagnostic_without_target",
+             int(cll.get("pending_labels_total", 0) or 0) > 0 or diag_no_label > 0,
+             f"pending={cll.get('pending_labels_total')} diag_no_label={diag_no_label}")
     _chk(checks, "no_trade_or_shadow_labels_positive",
-         (labels > 0) or (decision_records == 0),
-         f"no_trade+shadow={labels}")
+         (labels + diag > 0) or (decision_records == 0),
+         f"no_trade+shadow={labels} diagnostic={diag}")
     # active learning selected something OR has an explicit zero reason
     selected = int(cll.get("active_learning_shadow_selected", 0) or 0) \
         + int(al.get("exploration_trades_opened", 0) or 0)

@@ -2619,6 +2619,12 @@ class PolymarketPaperTrainer:
             audit = self.closed_loop.audit()
             (out / "metrics" / "closed_loop_learning.json").write_text(
                 _json.dumps(self.closed_loop.metrics(), indent=2, default=str), encoding="utf-8")
+            # canonical counter<->event-stream reconciliation (invalid run if diverged)
+            (out / "metrics" / "training_reconciliation.json").write_text(
+                _json.dumps(self.closed_loop.reconcile(
+                    decision_count=self.decision_count, rejection_count=self.rejection_count,
+                    candidate_evaluated=self.decision_count), indent=2, default=str),
+                encoding="utf-8")
             (out / "metrics" / "learning_feedback.json").write_text(
                 _json.dumps(self.closed_loop.learning_state(), indent=2, default=str),
                 encoding="utf-8")
@@ -3228,6 +3234,9 @@ class PolymarketPaperTrainer:
             "active_learning": self.active_learning_report(),
             "correlation_risk": self.correlation_risk_report(),
             "closed_loop_learning": self.closed_loop.metrics(),
+            "training_reconciliation": self.closed_loop.reconcile(
+                decision_count=self.decision_count, rejection_count=self.rejection_count,
+                candidate_evaluated=self.decision_count),
             "risk": self.risk.status(),
             "broker": self.broker.status(),
             "baselines": self.baselines.results(),
