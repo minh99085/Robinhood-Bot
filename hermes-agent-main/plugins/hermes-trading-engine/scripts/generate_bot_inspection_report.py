@@ -215,6 +215,16 @@ def generate_report(
             f"EQUITY RECONCILIATION FAILED (> {ledger_reconciliation.get('tolerance_pct')}%): "
             f"{ledger_reconciliation.get('failed_pairs')}")
 
+    # --- institutional validation contract + production-readiness verdict ---
+    from engine import validation_contract as vc
+    validation_contract = vc.build_validation_contract(
+        feats, ledger_reconciliation=ledger_reconciliation)
+    ledger_returns = _ledger_returns(data_dir)
+    expectancy = vc.credible_positive_expectancy(ledger_returns)
+    readiness_verdict = vc.production_readiness_verdict(validation_contract, expectancy)
+    if not validation_contract["passed"]:
+        warnings.append("VALIDATION CONTRACT FAILED: " + ", ".join(validation_contract["failed"]))
+
     # --- artifacts ------------------------------------------------------------ #
     artifacts: dict = {"skipped": True, "host_found": [], "host_missing": list(
         collectors.ARTIFACT_DIRS), "any_found": False}
@@ -264,7 +274,8 @@ def generate_report(
 
     recommendations = recs.build_recommendations(
         safety, missing_features, tests, comparison, runtime_available,
-        benchmarks=benchmarks, consistency=consistency, audit=algo_audit)
+        benchmarks=benchmarks, consistency=consistency, audit=algo_audit,
+        contract=validation_contract)
     # Fill the audit's top-5 next code changes from the final recommendations.
     algo_audit["top_5_recommendations"] = (
         (["emit the missing core audit fields from the training status writer"]
@@ -292,6 +303,9 @@ def generate_report(
     bundle.write_json("final_validation.json", final_validation)
     bundle.write_json("algorithmic_edge_audit.json", algo_audit)
     bundle.write_json("ledger_reconciliation.json", ledger_reconciliation)
+    bundle.write_json("validation_contract.json", {
+        "contract": validation_contract, "expectancy": expectancy,
+        "production_readiness_verdict": readiness_verdict})
 
     report_json = _build_report_json(
         now=now, repo_root=repo_root, classification=classification, pr=pr,
@@ -304,7 +318,9 @@ def generate_report(
         scorecard=scorecard, history_days=history_days, baseline_path=baseline_path,
         files=bundle.files, benchmarks=benchmarks, consistency=consistency,
         quant_responsibilities=quant_responsibilities, final_validation=final_validation,
-        algorithmic_edge_audit=algo_audit, ledger_reconciliation=ledger_reconciliation)
+        algorithmic_edge_audit=algo_audit, ledger_reconciliation=ledger_reconciliation,
+        validation_contract=validation_contract, expectancy=expectancy,
+        production_readiness_verdict=readiness_verdict)
     bundle.write_json("report.json", report_json)
 
     report_md = _build_report_md(report_json, feats, status, docker, api, tests,
@@ -335,6 +351,8 @@ def generate_report(
         "algorithmic_edge_audit_ok": bool(algo_audit["ok"]),
         "algorithmic_edge_audit_missing": list(algo_audit["missing_core_fields"]),
         "equity_reconciled": bool(ledger_reconciliation.get("ok", True)),
+        "validation_contract_passed": bool(validation_contract.get("passed", False)),
+        "production_ready": bool(readiness_verdict.get("production_ready", False)),
     }
 
 
@@ -365,6 +383,26 @@ def _reconcile_equities(feats: dict, status: dict | None, api: dict | None,
     return reconcile_equity({"dashboard": dash_eq, "paper_training": paper_eq,
                              "report": report_eq, "ledger": ledger_eq},
                             tolerance_pct=1.0)
+
+
+def _ledger_returns(data_dir) -> list:
+    """Canonical-ledger after-cost return series for the expectancy bootstrap."""
+    try:
+        if not data_dir:
+            return []
+        p = Path(data_dir) / "paper_ledger.json"
+        if not p.exists():
+            return []
+        from engine.ledger import CanonicalLedger
+        raw = json.loads(p.read_text(encoding="utf-8"))
+        if isinstance(raw, dict) and raw.get("entries"):
+            return CanonicalLedger.from_entries(
+                raw["entries"], starting_balance=float(raw.get("starting_balance", 0.0))).returns()
+        if isinstance(raw, dict) and isinstance(raw.get("returns"), list):
+            return [float(x) for x in raw["returns"]]
+    except Exception:  # noqa: BLE001
+        return []
+    return []
 
 
 def _status_age_s(status: dict | None, now) -> Optional[float]:
@@ -625,6 +663,9 @@ def _build_report_json(**kw) -> dict:
         "final_validation": kw.get("final_validation"),
         "algorithmic_edge_audit": kw.get("algorithmic_edge_audit"),
         "ledger_reconciliation": kw.get("ledger_reconciliation"),
+        "validation_contract": kw.get("validation_contract"),
+        "after_cost_expectancy": kw.get("expectancy"),
+        "production_readiness_verdict": kw.get("production_readiness_verdict"),
         "warnings": kw["warnings"],
         "errors": kw["errors"],
         "recommendations": kw["recommendations"],
@@ -731,6 +772,34 @@ def _append_algorithmic_edge_audit_md(L: list, audit: dict) -> None:
     L.append("")
 
 
+def _append_validation_contract_md(L: list, contract: dict, expectancy: dict,
+                                   verdict: dict) -> None:
+    """Render the institutional validation contract + readiness verdict."""
+    L.append("## 0b. Validation Contract (proves improvement, not completion)")
+    L.append("")
+    if not contract:
+        L.append("- Not computed.")
+        L.append("")
+        return
+    L.append(f"**Contract: {'PASS' if contract.get('passed') else 'FAIL'}** | "
+             f"**Production ready: {verdict.get('production_ready')}**")
+    L.append("")
+    L.append("| Condition | Pass | Detail |")
+    L.append("|---|---|---|")
+    for c in contract.get("checks", []):
+        L.append(f"| {c['name']} | {'OK' if c['passed'] else 'FAIL'} | {c['detail']} |")
+    L.append("")
+    L.append(f"- After-cost expectancy bootstrap: point={expectancy.get('point')} "
+             f"CI=[{expectancy.get('lo')}, {expectancy.get('hi')}] "
+             f"credible_positive=**{expectancy.get('credible_positive')}** "
+             f"(n={expectancy.get('n')})")
+    if verdict.get("blocking_reasons"):
+        L.append(f"- Readiness blockers: `{', '.join(verdict['blocking_reasons'])}`")
+    L.append("> Production readiness is withheld unless an executable strategy shows "
+             "statistically credible positive after-cost expectancy under a passing contract.")
+    L.append("")
+
+
 def _build_report_md(rj, feats, status, docker, api, tests, comparison,
                      missing_features, recommendations, scorecard, artifacts,
                      safety, benchmarks=None, consistency=None,
@@ -752,6 +821,11 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
 
     # 0. Algorithmic Edge Audit (MANDATORY, decision-grade)
     _append_algorithmic_edge_audit_md(L, algorithmic_edge_audit)
+
+    # 0b. Validation Contract + production-readiness verdict (next-report contract)
+    _append_validation_contract_md(L, rj.get("validation_contract") or {},
+                                   rj.get("after_cost_expectancy") or {},
+                                   rj.get("production_readiness_verdict") or {})
 
     # 1. Executive Summary
     L.append("## 1. Executive Summary")

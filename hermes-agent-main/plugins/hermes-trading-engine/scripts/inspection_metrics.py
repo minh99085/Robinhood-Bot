@@ -180,6 +180,8 @@ def extract_features(status: dict | None, api: dict | None = None,
             if bp.get("btc_pulse_paper_trades") is not None
             and bp.get("btc_pulse_resolved_trades") is not None else None),
         "btc_pulse_after_cost_pnl": bp.get("btc_pulse_after_cost_pnl"),
+        "btc_pulse_gate_enabled": bp.get("btc_pulse_gate_enabled"),
+        "btc_pulse_gate_shadow_decisions": bp.get("btc_pulse_gate_shadow_decisions"),
         "btc_pulse_regime": _first(bp.get("btc_pulse_regime"), bp.get("regime")),
         # --- news scanner ---
         "news_scanner_enabled": news.get("news_scanner_enabled"),

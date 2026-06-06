@@ -204,6 +204,14 @@ def _print_robustness(report: dict) -> None:
     print(f"  bootstrap mean: point={ci['point']} ci95=[{ci['lo']}, {ci['hi']}] n={ci['n']}")
     print(f"  readiness     : production_ready={readiness['production_ready']} "
           f"reasons={readiness['blocking_reasons']}")
+    # Institutional walk-forward + statistically-credible after-cost expectancy.
+    from engine.validation_contract import (credible_positive_expectancy,
+                                            walk_forward_report)
+    wf = walk_forward_report(rets, train=max(2, len(rets) // 3), test=max(1, len(rets) // 6))
+    exp = credible_positive_expectancy(rets)
+    print(f"  walk-forward  : windows={wf['windows']} test_means={wf['walk_forward_test_means']}")
+    print(f"  expectancy    : point={exp['point']} ci=[{exp['lo']}, {exp['hi']}] "
+          f"credible_positive={exp['credible_positive']} ({exp['reason']})")
 
 
 if __name__ == "__main__":

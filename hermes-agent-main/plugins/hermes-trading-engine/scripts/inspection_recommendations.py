@@ -54,7 +54,8 @@ def build_recommendations(safety: dict, missing_features: list, tests: dict,
                           comparison: dict | None, runtime_available: bool,
                           benchmarks: dict | None = None,
                           consistency: list | None = None,
-                          audit: dict | None = None) -> list[dict]:
+                          audit: dict | None = None,
+                          contract: dict | None = None) -> list[dict]:
     """Return a sorted list of ``{priority, area, action}`` recommendations."""
     safety = safety or {}
     tests = tests or {}
@@ -62,6 +63,7 @@ def build_recommendations(safety: dict, missing_features: list, tests: dict,
     benchmarks = benchmarks or {}
     consistency = consistency or []
     audit = audit or {}
+    contract = contract or {}
     recs: list[dict] = []
 
     def add(priority: str, area: str, action: str):
@@ -93,6 +95,21 @@ def build_recommendations(safety: dict, missing_features: list, tests: dict,
                                "training status writer (report not decision-grade).")
         if not audit.get("hard_failures") and not audit.get("required_field_violations"):
             add("P0", "audit", "Algorithmic Edge Audit incomplete.")
+
+    # P0 — institutional validation contract conditions that fail.
+    _CONTRACT_RECS = {
+        "pytest_green": "Get the full pytest suite green before claiming improvement.",
+        "bregman_paper_enabled": "Enable the paper Bregman scanner (edge engine).",
+        "groups_scanned_positive": "Feed markets so Bregman scans constraint groups (>0).",
+        "fill_realism_enabled": "Enable fill realism so paper PnL is trustworthy.",
+        "ledger_reconciled": "Reconcile equity surfaces within 1% (canonical ledger).",
+        "after_cost_pnl_populated": "Emit after-cost PnL into the canonical ledger.",
+        "btc_pulse_gated_when_negative": "Gate BTC Pulse to shadow while expectancy is negative.",
+    }
+    if contract and not contract.get("passed", True):
+        for name in contract.get("failed", []):
+            add("P0", "validation_contract",
+                _CONTRACT_RECS.get(name, f"Satisfy validation-contract condition: {name}."))
 
     # P0 — safety / broken runtime.
     if safety.get("critical"):
