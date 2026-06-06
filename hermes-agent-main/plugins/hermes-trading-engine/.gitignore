@@ -9,3 +9,10 @@ guarded_live_artifacts/
 polymarket_training_reports/
 inspection_reports/
 *.sqlite3
+# Secrets / local config — NEVER commit real API keys. The training engine loads
+# these at startup via engine/env_loader.py (.env preferred, .env.env fallback).
+.env
+.env.*
+!.env.example
+metrics/
+reports/

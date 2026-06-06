@@ -13,6 +13,18 @@ import threading
 import time
 from pathlib import Path
 
+# Load .env/.env.env into the process BEFORE any env-driven config is read, so the
+# Grok research key (XAI_API_KEY/GROK_API_KEY) + paper config are picked up even
+# when the file was saved as ".env.env" (docker-compose only auto-loads ".env").
+# Live trading is force-pinned OFF by the loader. Never crashes startup.
+try:
+    import sys as _sys
+    if "pytest" not in _sys.modules:        # never mutate env during the test suite
+        from .env_loader import load_local_env as _load_local_env
+        _load_local_env()
+except Exception:  # noqa: BLE001
+    pass
+
 import numpy as np
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
