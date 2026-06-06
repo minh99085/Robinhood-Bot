@@ -216,6 +216,9 @@ class TrainingConfig:
     # only when certified with a positive profit lower bound after all costs.
     bregman_enabled: bool = True
     bregman_execution_enabled: bool = True
+    # Pass-9 ablation: directional execution can be disabled for an experiment
+    # profile (directional candidates are logged shadow-only, never opened). PAPER.
+    directional_execution_enabled: bool = True
     bregman_min_profit_usd: float = 0.001
     bregman_target_capital_usd: float = 50.0
     # ---- Pass-2: raw-catalog Bregman discovery + per-tick budget caps ----
@@ -848,6 +851,7 @@ class TrainingConfig:
             chainlink_history_limit=_envi("CHAINLINK_HISTORY_LIMIT", 30),
             bregman_enabled=_envb("POLYMARKET_BREGMAN_ENABLED", True),
             bregman_execution_enabled=_envb("POLYMARKET_BREGMAN_EXECUTION_ENABLED", True),
+            directional_execution_enabled=_envb("POLYMARKET_DIRECTIONAL_EXECUTION_ENABLED", True),
             bregman_min_profit_usd=_envf("POLYMARKET_BREGMAN_MIN_PROFIT_USD", 0.001),
             bregman_target_capital_usd=_envf("POLYMARKET_BREGMAN_TARGET_CAPITAL_USD", 50.0),
             bregman_discovery_limit=_envi("POLYMARKET_BREGMAN_DISCOVERY_LIMIT", 1000),

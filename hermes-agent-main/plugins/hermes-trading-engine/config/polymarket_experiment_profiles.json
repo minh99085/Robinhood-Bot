@@ -1,0 +1,40 @@
+{
+  "_comment": "Pass-9 paper-training experiment profiles (PAPER ONLY). Each profile's config is a set of TrainingConfig overrides merged onto mode=paper_train. Risky ablations are shadow-only and never count toward readiness. Loaded by engine.training.experiments.load_profiles; built-in defaults apply when this file is absent.",
+  "profiles": {
+    "strict_full_system": {
+      "description": "Strict full system: Bregman-first + directional + active learning + profitability-first + correlation gate + strict realism.",
+      "config": {},
+      "shadow_only_ablations": []
+    },
+    "bregman_only": {
+      "description": "Bregman/ABCAS arbitrage only; directional + exploration shadow-only (logged, never opened).",
+      "config": {"directional_execution_enabled": false, "exploration_enabled": false},
+      "shadow_only_ablations": ["directional", "exploration"]
+    },
+    "directional_only": {
+      "description": "Directional exploit only; Bregman scans + certifies but does not open (shadow); exploration off.",
+      "config": {"bregman_execution_enabled": false, "exploration_enabled": false},
+      "shadow_only_ablations": ["bregman", "exploration"]
+    },
+    "bregman_shadow_diagnostics": {
+      "description": "Bregman scans full raw catalog + certifies, execution shadow-only; logs why bundles would/would not trade.",
+      "config": {"bregman_execution_enabled": false, "directional_execution_enabled": false, "exploration_enabled": false},
+      "shadow_only_ablations": ["bregman", "directional", "exploration"]
+    },
+    "active_learning_diagnostics": {
+      "description": "Active learning runs (tiny paper); exploit directional off; readiness excludes exploration; logs category/cluster coverage.",
+      "config": {"directional_execution_enabled": false, "exploration_enabled": true, "active_learning_enabled": true},
+      "shadow_only_ablations": ["directional"]
+    },
+    "correlation_shadow_ablation": {
+      "description": "Correlation gate still computes + blocks (no real trade); blocked correlated candidates are counterfactual shadow only.",
+      "config": {},
+      "shadow_only_ablations": ["correlation_blocked_counterfactual"]
+    },
+    "profitability_shadow_ablation": {
+      "description": "Profitability governor still computes + rejects; negative-after-cost candidates are counterfactual shadow only.",
+      "config": {},
+      "shadow_only_ablations": ["negative_after_cost_counterfactual"]
+    }
+  }
+}

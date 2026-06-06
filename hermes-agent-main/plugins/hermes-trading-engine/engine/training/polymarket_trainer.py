@@ -1804,6 +1804,23 @@ class PolymarketPaperTrainer:
         """Build proposal -> RiskEngine -> PaperBroker (trace-id chain). PAPER
         ONLY. Exploratory trades use a small bounded notional capped to the same
         hard paper order-notional ceiling as normal trades."""
+        # PASS-9 ablation: when directional execution is disabled for an experiment
+        # profile (e.g. bregman_only), a directional candidate is logged shadow-only
+        # (counterfactual) and never opened — it cannot count toward readiness PnL.
+        if (not exploratory
+                and not bool(getattr(self.cfg, "directional_execution_enabled", True))):
+            self._record_shadow(rec, est, edge, SimpleNamespace(
+                execution_realism_status="shadow_only_directional_disabled",
+                reason="directional_execution_disabled_profile",
+                would_be_executable_if="directional execution enabled",
+                spread=float(getattr(est, "spread", 0.0) or 0.0),
+                depth_at_price=float(getattr(rec, "top_depth_usd", 0.0) or 0.0),
+                book_age_sec=0.0, fill_source="live_clob",
+                after_cost_edge=float(getattr(edge, "net_edge", 0.0) or 0.0)),
+                exploratory=False, strategy="directional")
+            self.learner.record_decision(traded=False, reason="directional_execution_disabled")
+            return {"opened": False, "shadow_only": True,
+                    "reason": "directional_execution_disabled"}
         # Strategy-variant attribution for controlled experiments (PAPER ONLY).
         variant = classify_variant(
             strategy=_resolved_strategy(getattr(self, "_last_resolved", None)),
