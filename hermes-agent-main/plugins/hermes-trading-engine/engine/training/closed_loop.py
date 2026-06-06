@@ -165,6 +165,11 @@ class ClosedLoopLearning:
     def persist(self) -> None:
         try:
             self.dir.mkdir(parents=True, exist_ok=True)
+            # ensure the label/decision stores always exist (even with zero rows)
+            # so the inspection zip bundles them from tick 1.
+            for _f in ("pending_labels.jsonl", "completed_labels.jsonl",
+                       "decision_records.jsonl"):
+                (self.dir / _f).touch(exist_ok=True)
             self.state = self.learning_state()
             (self.dir / "learning_state.json").write_text(
                 json.dumps(self.state, indent=2, default=str), encoding="utf-8")

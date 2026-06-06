@@ -2365,10 +2365,23 @@ class PolymarketPaperTrainer:
             "legacy_random_exploration_blocked": am.get("legacy_random_exploration_blocked", 0),
             "active_learning_candidates_considered": am.get(
                 "active_learning_candidates_considered", 0),
-            "active_learning_candidates_selected": am.get(
-                "active_learning_candidates_selected", 0),
+            # P0: a SELECTED example includes shadow/no-trade learning examples
+            # chosen by the closed loop (not just executable explore trades), so
+            # this is no longer falsely zero when every candidate is rejected.
+            "active_learning_candidates_selected": (
+                am.get("active_learning_candidates_selected", 0)
+                + int(getattr(self, "closed_loop", None)
+                      and self.closed_loop.counts.get("active_learning_shadow_selected", 0) or 0)),
+            "active_learning_shadow_selected": int(
+                getattr(self, "closed_loop", None)
+                and self.closed_loop.counts.get("active_learning_shadow_selected", 0) or 0),
+            "zero_selection_reason": (self.closed_loop.metrics().get("zero_selection_reason")
+                                      if getattr(self, "closed_loop", None) else None),
             "exploration_trades_opened": am.get("exploration_trades_opened", 0),
-            "exploration_shadow_only": len(self.near_miss_log),
+            "exploration_shadow_only": (len(self.near_miss_log)
+                                        + int(getattr(self, "closed_loop", None)
+                                              and self.closed_loop.counts.get(
+                                                  "shadow_records_written", 0) or 0)),
             "exploration_rejected_by_realism": am.get("exploration_rejected_by_realism", 0),
             "exploration_rejected_by_profitability": am.get(
                 "exploration_rejected_by_profitability", 0),
@@ -2583,6 +2596,23 @@ class PolymarketPaperTrainer:
             _json.dumps(summary, indent=2, default=str), encoding="utf-8")
         (out / "reports" / "paper_training_inspection.md").write_text(
             to_markdown(summary), encoding="utf-8")
+        # P0: write the COMPLETE per-pass metric set here too, so a single call
+        # produces every artifact the inspection collector + runtime validator
+        # require (not only when the start loop runs).
+        try:
+            _per_pass = {
+                "paper_realism.json": self.paper_realism_report(),
+                "strategy_priority.json": self.strategy_priority_report(),
+                "profitability_ranking.json": self.profitability_ranking_report(),
+                "active_learning.json": self.active_learning_report(),
+                "correlation_risk.json": self.correlation_risk_report(),
+                "bregman_execution.json": self.bregman_summary().get("execution", {}),
+            }
+            for _name, _payload in _per_pass.items():
+                (out / "metrics" / _name).write_text(
+                    _json.dumps(_payload, default=str), encoding="utf-8")
+        except Exception:  # noqa: BLE001 — metrics must never break a run
+            pass
         # P0 closed-loop learning artifacts (metrics + audit) + persist state.
         try:
             from .closed_loop import audit_to_markdown

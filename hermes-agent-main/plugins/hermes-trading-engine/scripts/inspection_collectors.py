@@ -261,8 +261,8 @@ ARTIFACT_DIRS = (
     # Pass-8/closed-loop: include metrics/ so inspection_summary.json,
     # closed_loop_learning.json, paper_realism.json, bregman_execution.json, etc.
     # are bundled (data/ already carries data/training/*.jsonl + learning_state.json).
-    "metrics", "data", "paper_artifacts", "training_artifacts", "shadow_artifacts",
-    "post_canary_artifacts", "reports", "replay_artifacts",
+    "metrics", "reports", "data", "training", "paper_artifacts", "training_artifacts",
+    "shadow_artifacts", "post_canary_artifacts", "replay_artifacts",
     "production_review_artifacts", "guarded_live_artifacts", "micro_live_artifacts",
 )
 
@@ -295,30 +295,35 @@ def collect_artifacts(repo_root: str, dest_dir: Path, data_dir: Optional[str] = 
 
     seen = set()
     for name in names:
-        located = None
+        # Copy from EVERY root that has the dir (repo first, then data_dir) so the
+        # LIVE runtime artifacts under HTE_DATA_DIR overlay any stale repo copies
+        # (dirs_exist_ok=True) — fixes the zip bundling stale metrics/reports.
+        located_any = False
         for root in search_roots:
             cand = root / name
-            if cand.exists() and cand.is_dir() and str(cand.resolve()) not in seen:
-                located = cand
-                break
-        if located is None:
-            missing.append(name)
-            continue
-        seen.add(str(located.resolve()))
-        size = _dir_size(located)
-        target = dest_dir / name
-        try:
-            if copied_bytes + size > max_bytes:
-                found.append({"name": name, "path": str(located), "bytes": size,
-                              "copied": False, "reason": "skipped: bundle size cap reached"})
+            if not (cand.exists() and cand.is_dir()):
                 continue
-            shutil.copytree(located, target, dirs_exist_ok=True,
-                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-            copied_bytes += size
-            found.append({"name": name, "path": str(located), "bytes": size, "copied": True})
-        except Exception as exc:  # noqa: BLE001
-            found.append({"name": name, "path": str(located), "bytes": size,
-                          "copied": False, "reason": f"{type(exc).__name__}: {exc}"})
+            key = str(cand.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
+            located_any = True
+            size = _dir_size(cand)
+            target = dest_dir / name
+            try:
+                if copied_bytes + size > max_bytes:
+                    found.append({"name": name, "path": str(cand), "bytes": size,
+                                  "copied": False, "reason": "skipped: bundle size cap reached"})
+                    continue
+                shutil.copytree(cand, target, dirs_exist_ok=True,
+                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                copied_bytes += size
+                found.append({"name": name, "path": str(cand), "bytes": size, "copied": True})
+            except Exception as exc:  # noqa: BLE001
+                found.append({"name": name, "path": str(cand), "bytes": size,
+                              "copied": False, "reason": f"{type(exc).__name__}: {exc}"})
+        if not located_any:
+            missing.append(name)
 
     container = {}
     if include_container:

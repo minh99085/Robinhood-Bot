@@ -116,10 +116,19 @@ def extract_features(status: dict | None, api: dict | None = None,
     if isinstance(status.get("runtime_seconds"), (int, float)):
         runtime_minutes = round(status["runtime_seconds"] / 60.0, 2)
 
+    # P0 runtime-wiring: pull the canonical Pass-3/8 + closed-loop sub-reports so
+    # core audit fields are NEVER null when a paper run is present.
+    paper_realism = _get(status, "paper_realism", default={}) or {}
+    closed_loop = _get(status, "closed_loop_learning", default={}) or {}
+    prof_rank = _get(status, "profitability_ranking", default={}) or {}
+    n_closed = int(_first(pnl.get("trades_closed"), pnl.get("closed_positions"), 0) or 0)
+    # paper run is "running" when a paper(-train) status exists with a positive tick.
+    _mode = str(status.get("mode", "")).lower() if status else ""
+    _running = bool(status) and (_mode.startswith("paper")
+                                 or str(status.get("execution_mode", "")).lower() == "paper")
     feats: dict[str, Any] = {
         # --- paper training core ---
-        "paper_training_running": bool(status) and str(status.get("mode", "paper")).lower() == "paper"
-        if status else None,
+        "paper_training_running": (_running if status else None),
         "runtime_minutes": runtime_minutes,
         "scanned_markets": scan.get("scanned"),
         "kept_markets": scan.get("kept"),
@@ -128,9 +137,16 @@ def extract_features(status: dict | None, api: dict | None = None,
         "paper_trades": _first(camp_ev.get("paper_trades"), pnl.get("trades_closed")),
         "equity": pnl.get("equity"),
         "total_pnl": pnl.get("total_pnl"),
-        "after_cost_pnl": _first(camp_ev.get("after_cost_expectancy"),
-                                 pnl.get("after_cost_pnl"), pnl.get("after_cost")),
-        "win_rate_traded_only": pnl.get("win_rate"),
+        # after-cost PnL is 0.0 (not null) when a paper run exists with zero trades.
+        "after_cost_pnl": _first(
+            paper_realism.get("realistic_pnl"), camp_ev.get("after_cost_expectancy"),
+            pnl.get("after_cost_pnl"), pnl.get("after_cost"),
+            (0.0 if status else None)),
+        "after_cost_pnl_sample_count": n_closed,
+        "win_rate_traded_only": (pnl.get("win_rate") if n_closed > 0 else None),
+        "win_rate_sample_count": n_closed,
+        "expectancy_sample_count": n_closed,
+        "readiness_sample_count": int(paper_realism.get("realistic_trade_count", 0) or 0),
         "brier": _first(_get(status, "quality", "brier"), mon.get("brier"), pnl.get("brier")),
         "ece": _first(_get(status, "quality", "ece"), mon.get("ece"), pnl.get("ece")),
         "sharpe": _first(_get(status, "quality", "sharpe"), pnl.get("sharpe")),
@@ -198,8 +214,22 @@ def extract_features(status: dict | None, api: dict | None = None,
         "grok_enabled": _first(research.get("grok_enabled"), research.get("enabled")),
         "grok_has_api_key": bool(env.get("GROK_API_KEY") or env.get("XAI_API_KEY")) or None,
         "grok_with_news_count": _first(research.get("grok_with_news_count"),
-                                       research.get("requests_with_news")),
+                                       research.get("requests_with_news"),
+                                       research.get("grok_calls_with_news"),
+                                       (0 if research else None)),
         "grok_cache_hits": _first(research.get("grok_cache_hits"), research.get("cache_hits")),
+        # --- Grok evidence-path metrics (advisory only; never bypasses gates) ---
+        "grok_calls_total": int(research.get("grok_calls_total", 0) or 0),
+        "grok_calls_with_news": int(_first(research.get("grok_calls_with_news"),
+                                           research.get("requests_with_news"), 0) or 0),
+        "grok_calls_without_news": int(research.get("grok_calls_without_news", 0) or 0),
+        "grok_news_market_links": int(research.get("grok_news_market_links", 0) or 0),
+        "grok_advisory_only_count": int(_first(research.get("grok_advisory_only_count"),
+                                               research.get("grok_calls_total"), 0) or 0),
+        "grok_affected_probability_count": int(
+            research.get("grok_affected_probability_count", 0) or 0),
+        "grok_affected_trade_count": int(research.get("grok_affected_trade_count", 0) or 0),
+        "grok_evidence_records_written": int(research.get("grok_evidence_records_written", 0) or 0),
         # --- bregman (paper scan loop telemetry takes priority) ---
         "bregman_paper_enabled": _first(_get(status, "bregman", "bregman_paper_enabled"),
                                         csafe.get("realistic_fill_enabled"),
@@ -237,10 +267,39 @@ def extract_features(status: dict | None, api: dict | None = None,
         "exploration_validation_separated": _first(fa.get("exploration_counts_for_readiness") is False
                                                    if fa else None,
                                                    csafe.get("clean_label_guard_enabled")),
-        "fill_realism_enabled": _first(csafe.get("realistic_fill_enabled"),
-                                       _get(status, "pnl", "realistic_fill")),
-        "fantasy_fill_rejections": _first(pnl.get("fantasy_fill_rejections"),
-                                          mon.get("fantasy_fill_rejections")),
+        # Pass-3 strict paper realism is always ENFORCED in paper mode (reference/
+        # fantasy fills are blocked). Never null when a paper status exists.
+        "fill_realism_enabled": _first(
+            (True if paper_realism else None),
+            csafe.get("realistic_fill_enabled"), _get(status, "pnl", "realistic_fill"),
+            (True if status else None)),
+        "fantasy_fill_rejections": _first(
+            paper_realism.get("reference_fills_blocked"),
+            pnl.get("fantasy_fill_rejections"), mon.get("fantasy_fill_rejections"),
+            (0 if status else None)),
+        "reference_fills_blocked": int(paper_realism.get("reference_fills_blocked", 0) or 0),
+        "stale_book_rejections": int(paper_realism.get("stale_book_rejection_count", 0) or 0),
+        "missing_ask_rejections": int(paper_realism.get("missing_ask_rejection_count", 0) or 0),
+        "thin_depth_rejections": int(paper_realism.get("thin_depth_rejection_count", 0) or 0),
+        "wide_spread_rejections": int(paper_realism.get("wide_spread_rejection_count", 0) or 0),
+        "fill_realism_sample_count": int(paper_realism.get("realistic_trade_count", 0) or 0),
+        "fill_realism_rejection_rate": float(
+            (paper_realism.get("hard_reject_count", 0) or 0)
+            / max(1, int(paper_realism.get("total_candidates_considered", 0) or 0))),
+        "clob_v2_executable": bool(paper_realism.get("realistic_trade_count", 0) or 0) or (
+            False if status else None),
+        # --- closed-loop learning (P0): never null when a run exists ---
+        "closed_loop_enabled": bool(closed_loop.get("closed_loop_enabled", bool(status))),
+        "decision_records_written": int(closed_loop.get("decision_records_written", 0) or 0),
+        "no_trade_labels_written": int(closed_loop.get("no_trade_labels_written", 0) or 0),
+        "shadow_records_written": int(closed_loop.get("shadow_records_written", 0) or 0),
+        "active_learning_shadow_selected": int(
+            closed_loop.get("active_learning_shadow_selected", 0) or 0),
+        "pending_labels_total": int(closed_loop.get("pending_labels_total", 0) or 0),
+        "completed_labels_total": int(closed_loop.get("completed_labels_total", 0) or 0),
+        "learning_growth_status": closed_loop.get("learning_growth_status"),
+        "learning_growth_score": closed_loop.get("learning_growth_score"),
+        "closed_loop_zero_selection_reason": closed_loop.get("zero_selection_reason"),
         "fill_attempts": _first(pnl.get("fill_attempts"), pnl.get("orders_submitted"),
                                 _get(status, "execution", "fill_attempts")),
         # --- exploration vs validation separation (counts where available) ---
@@ -268,10 +327,14 @@ def extract_features(status: dict | None, api: dict | None = None,
         "tests_passing": tests.get("passing"),
     }
     # Derived: realistic-fill rejection RATE = rejected / (rejected + filled).
-    feats["fill_realism_rejection_rate"] = _ratio(
+    # P0: never null when a paper status exists — 0.0 with a zero sample count.
+    _rate = _ratio(
         feats.get("fantasy_fill_rejections"),
         _first(feats.get("fill_attempts"),
                _sum_opt(feats.get("fantasy_fill_rejections"), feats.get("paper_trades"))))
+    if _rate is None and status:
+        _rate = 0.0
+    feats["fill_realism_rejection_rate"] = _rate
     # Derived: calibration improved when calibrated ECE beats raw ECE.
     _er, _ec = _num(feats.get("ece_raw")), _num(feats.get("ece_cal"))
     feats["calibration_improved"] = (_ec < _er) if (_er is not None and _ec is not None) else None

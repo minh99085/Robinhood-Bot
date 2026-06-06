@@ -535,6 +535,16 @@ services:
       --catalog ${POLYMARKET_TRAINING_CATALOG:-gamma}
       --realtime
       ${BTC_PULSE_CLI_FLAGS:-}
+    # This service runs the TRAINING LOOP (not uvicorn), so the image's default
+    # HTTP healthcheck on :8800 can never pass here. Override it to prove the
+    # paper-training loop is ALIVE: polymarket_training.json must exist and have
+    # been rewritten within the last 5 minutes (the loop persists it every tick).
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import json,os,sys,time; p=os.path.join(os.environ.get('HTE_DATA_DIR','/data'),'polymarket_training.json'); sys.exit(0 if os.path.exists(p) and (time.time()-os.path.getmtime(p))<300 else 1)\""]
+      interval: 60s
+      timeout: 10s
+      start_period: 180s
+      retries: 3
     restart: unless-stopped
 
 volumes:
