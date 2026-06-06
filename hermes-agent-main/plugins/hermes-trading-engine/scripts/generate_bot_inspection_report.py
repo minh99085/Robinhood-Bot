@@ -46,6 +46,24 @@ import inspection_safety_audit as safety_audit  # noqa: E402
 
 SCHEMA_VERSION = "1.0"
 
+# Canonical closed-loop artifacts that MUST appear in every inspection bundle at
+# their canonical relative path (even if empty). Source: the live training data
+# dir (HTE_DATA_DIR) written every tick by the trainer; fallback to repo root.
+REQUIRED_CLOSED_LOOP_ARTIFACTS = (
+    "metrics/inspection_summary.json", "metrics/closed_loop_learning.json",
+    "metrics/learning_feedback.json", "metrics/active_learning.json",
+    "metrics/paper_realism.json", "metrics/bregman_execution.json",
+    "metrics/strategy_priority.json", "metrics/profitability_ranking.json",
+    "metrics/correlation_risk.json", "metrics/training_reconciliation.json",
+    "metrics/run_ready.json", "metrics/bregman_funnel.json",
+    "metrics/grok_news_evidence.json",
+    "reports/paper_training_inspection.md", "reports/closed_loop_learning_audit.md",
+    "data/training/events.jsonl", "data/training/decision_records.jsonl",
+    "data/training/no_trade_labels.jsonl", "data/training/shadow_labels.jsonl",
+    "data/training/diagnostics.jsonl", "data/training/pending_labels.jsonl",
+    "data/training/completed_labels.jsonl", "data/training/learning_state.json",
+)
+
 
 # ----------------------------------------------------------------------------- #
 # Classification
@@ -97,6 +115,59 @@ class Bundle:
         payload = redactor.redact_obj(obj) if redact else obj
         path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         self.files.append(rel)
+
+
+def _locate_artifact(rel: str, search_roots: list) -> Optional[Path]:
+    """Find a canonical artifact across the data dir / repo root, accepting both the
+    canonical ``data/training/...`` layout and the prod ``training/...`` layout."""
+    rels = [rel]
+    if rel.startswith("data/"):
+        rels.append(rel[len("data/"):])   # prod /data layout: training/... at root
+    for root in search_roots:
+        for r in rels:
+            p = Path(root) / r
+            if p.exists() and p.is_file():
+                return p
+    return None
+
+
+def write_closed_loop_artifacts(bundle, data_dir: Optional[str], repo_root: str) -> dict:
+    """TASK 6/11: write every required closed-loop artifact into the bundle at its
+    CANONICAL path (so the zip + manifest always list them), copying live runtime
+    files when present, else a valid empty placeholder. Returns a manifest dict."""
+    search_roots = [r for r in (data_dir, repo_root,
+                                str(Path(repo_root) / "data")) if r]
+    present: list = []
+    synthesized: list = []
+    for rel in REQUIRED_CLOSED_LOOP_ARTIFACTS:
+        src = _locate_artifact(rel, search_roots)
+        if src is not None:
+            try:
+                bundle.write_text(rel, src.read_text(encoding="utf-8", errors="replace"),
+                                  redact=True)
+                present.append(rel)
+                continue
+            except Exception:  # noqa: BLE001 — fall through to placeholder
+                pass
+        # valid empty placeholder: empty JSONL file, or empty-schema JSON / md
+        if rel.endswith(".jsonl"):
+            bundle.write_text(rel, "", redact=False)
+        elif rel.endswith(".json"):
+            bundle.write_json(rel, {}, redact=False)
+        else:
+            bundle.write_text(rel, f"# {Path(rel).name} — not produced this run.\n",
+                              redact=False)
+        synthesized.append(rel)
+    manifest = {
+        "required": list(REQUIRED_CLOSED_LOOP_ARTIFACTS),
+        "present_from_runtime": present,
+        "synthesized_empty": synthesized,
+        "all_present": True,   # every required path is now in the bundle
+        "runtime_complete": not synthesized,
+        "search_roots": search_roots,
+    }
+    bundle.write_json("metrics/closed_loop_artifacts_manifest.json", manifest)
+    return manifest
 
 
 def _read_file(path: Path) -> Optional[str]:
@@ -244,6 +315,15 @@ def generate_report(
         artifacts = collectors.collect_artifacts(
             repo_root, bundle_dir / "artifacts", data_dir=data_dir,
             include_container=include_container_artifacts, runner=runner)
+
+    # TASK 6/11: write the canonical closed-loop artifacts into the bundle at their
+    # canonical paths (always present in the zip + listed in the manifest).
+    closed_loop_manifest = write_closed_loop_artifacts(bundle, data_dir, repo_root)
+    if closed_loop_manifest.get("synthesized_empty"):
+        warnings.append(
+            f"{len(closed_loop_manifest['synthesized_empty'])} closed-loop artifact(s) "
+            f"were empty/missing from the runtime data dir (synthesized empty): "
+            f"{closed_loop_manifest['synthesized_empty']}")
 
     # --- warnings ------------------------------------------------------------- #
     if safety.get("warn"):

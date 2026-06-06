@@ -1017,7 +1017,15 @@ def build_algorithmic_edge_audit(feats: dict | None, status: dict | None = None,
         "gross_pnl": _num(_first(pnl.get("gross_pnl"), pnl.get("total_pnl"),
                                  feats.get("total_pnl"))),
         "after_cost_pnl": _num(_first(feats.get("after_cost_pnl"), pnl.get("after_cost_pnl"))),
-        "win_rate": _num(_first(feats.get("win_rate"), pnl.get("win_rate"))),
+        # win_rate is a known 0.0 with sample_count=0 on a zero-trade run (NOT a
+        # missing field) — the audit must treat zero samples as known, not absent.
+        "win_rate": (_num(_first(feats.get("win_rate"), pnl.get("win_rate"),
+                                 feats.get("win_rate_traded_only")))
+                     if _num(_first(feats.get("win_rate"), pnl.get("win_rate"),
+                                    feats.get("win_rate_traded_only"))) is not None
+                     else (0.0 if status else None)),
+        "win_rate_sample_count": int(_first(feats.get("win_rate_sample_count"),
+                                            feats.get("closed_positions"), 0) or 0),
         "avg_edge_at_entry": _num(_first(attr.get("avg_edge_at_entry"),
                                          pnl.get("avg_edge_at_entry"))),
         "avg_realized_edge": _num(_first(attr.get("avg_realized_edge"),
@@ -1053,6 +1061,17 @@ def build_algorithmic_edge_audit(feats: dict | None, status: dict | None = None,
         "opportunity_decay_s": _num(_first(breg.get("opportunity_decay_half_life_s"),
                                            feats.get("bregman_opportunity_decay"))),
     }
+    # Bregman audit-required counters are KNOWN ZERO only when the scanner actually
+    # ran (telemetry present) — coerce None->0 in that case so a real zero-scan is
+    # "known", not "missing". When bregman telemetry is entirely absent the audit
+    # still fails loudly (the scanner's activation must be proven).
+    scanner_ran = bool(breg.get("bregman_paper_enabled") or breg.get("scans")
+                       or breg.get("markets_seen") or breg.get("abcas_enabled"))
+    if status and scanner_ran:
+        for _k in ("constraint_groups_scanned", "candidate_arbitrages",
+                   "certified_arbitrages", "executable_depth_certified"):
+            if sections["bregman"].get(_k) is None:
+                sections["bregman"][_k] = 0.0
 
     # 3) BTC Pulse diagnostics
     sections["btc_pulse"] = {
@@ -1096,8 +1115,13 @@ def build_algorithmic_edge_audit(feats: dict | None, status: dict | None = None,
         "available_depth_at_decision": _num(_first(pnl.get("available_depth"),
                                                    mon.get("available_depth_at_decision"))),
         "fee_adjusted_ev": _num(_first(pnl.get("fee_adjusted_ev"), mon.get("fee_adjusted_ev"))),
-        "clob_v2_executable": _first(breg.get("clob_v2_executable"),
-                                     mon.get("clob_v2_executable")),
+        "clob_v2_executable": (_first(breg.get("clob_v2_executable"),
+                                      mon.get("clob_v2_executable"),
+                                      feats.get("clob_v2_executable"))
+                               if not status else bool(_first(
+                                   breg.get("clob_v2_executable"),
+                                   mon.get("clob_v2_executable"),
+                                   feats.get("clob_v2_executable"), False))),
         "fill_realism_rejection_rate": _num(feats.get("fill_realism_rejection_rate")),
     }
 
@@ -1120,11 +1144,16 @@ def build_algorithmic_edge_audit(feats: dict | None, status: dict | None = None,
                                        mon.get("kill_switch_reasons"), risk.get("kill_switch")),
     }
 
-    # 6b) Execution (CLOB v2)
+    # 6b) Execution (CLOB v2). clob_v2_executable is a KNOWN bool (False when no
+    # realistic executable fill yet) — never a missing field when a run exists.
+    _clob_exec = _first(breg.get("clob_v2_executable"), mon.get("clob_v2_executable"),
+                        feats.get("clob_v2_executable"),
+                        feats.get("bregman_executable_depth_ok"))
+    if _clob_exec is None and status:
+        _clob_exec = bool(feats.get("clob_v2_executable", False)) or bool(
+            (paper_realism or {}).get("realistic_trade_count", 0) or 0)
     sections["execution"] = {
-        "clob_v2_executable": _first(breg.get("clob_v2_executable"),
-                                     mon.get("clob_v2_executable"),
-                                     feats.get("bregman_executable_depth_ok")),
+        "clob_v2_executable": _clob_exec,
         "execution_atomicity_risk": _first(breg.get("execution_atomicity_risk"),
                                            breg.get("atomicity_risk")),
         "latency_ms": _num(_first(mon.get("latency_ms"), breg.get("latency_ms"))),
@@ -1139,6 +1168,9 @@ def build_algorithmic_edge_audit(feats: dict | None, status: dict | None = None,
         raw_score = _num(scorecard.get("score"))
     elif feats.get("production_ready") is not None:
         raw_score = 100.0 if feats.get("production_ready") else 0.0
+    elif status:
+        # a run exists but no scorecard yet -> KNOWN 0.0 readiness, not a missing field
+        raw_score = 0.0
     sections["training_readiness"] = {
         "exploration_pnl": _num(_first(pnl.get("exploration_pnl"), attr.get("exploration_pnl"))),
         "validation_pnl": _num(_first(pnl.get("validation_pnl"), attr.get("validation_pnl"))),

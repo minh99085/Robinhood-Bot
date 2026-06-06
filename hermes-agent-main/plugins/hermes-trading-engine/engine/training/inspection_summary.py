@@ -255,11 +255,12 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
         "skip_reasons": skip_reasons,
         "adapter_missing_fields": dict(t.get("adapter_missing_fields", {}) or {}),
         "diagnostic_events_written": int(diagnostic_events_written),
-        # consistency invariant: every detected group must be accounted for as
-        # adapter-success (scanned), adapter-failure (diagnostic), or pre-adapter reject.
+        # consistency invariant: every detected group must be ACCOUNTED FOR as either
+        # adapter-success (scanned) or adapter-failure (skip with a reason). An
+        # unexplained gap (pre_adapter > 0) is a silent-zero contradiction and FAILS.
         "internally_consistent": bool(
             (market_groups_detected or 0) == 0
-            or sent_to_certifier > 0 or adapter_failed > 0 or pre_adapter > 0),
+            or (pre_adapter == 0 and (discovered + skipped) > 0)),
     }
 
 
