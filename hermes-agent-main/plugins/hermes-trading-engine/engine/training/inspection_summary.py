@@ -19,8 +19,8 @@ REQUIRED_SECTIONS = [
     "Strategy Priority", "Paper Execution Realism", "Profitability Ranking",
     "Active Learning / Exploration", "Correlation / Cluster Risk",
     "Candidate Rejection Waterfall", "Opened Paper Trades / Bundles",
-    "Readiness / Real Edge Score", "Data Quality / Market Coverage",
-    "Recommendations",
+    "Closed-Loop Learning", "Readiness / Real Edge Score",
+    "Data Quality / Market Coverage", "Recommendations",
 ]
 
 # feature -> runtime evidence metric path; used to avoid false "active" claims.
@@ -81,6 +81,7 @@ def build_inspection_summary(status: dict, feature_audit: dict, *,
     cr = status.get("correlation_risk", {}) or {}
     breg = (status.get("bregman", {}) or {}).get("execution", {}) or {}
     sm = status.get("scan_metrics", {}) or {}
+    cll = status.get("closed_loop_learning", {}) or {}
     trade_ledger = trade_ledger or {}
     rejection_waterfall = rejection_waterfall or {}
     data_quality = data_quality or {}
@@ -181,6 +182,7 @@ def build_inspection_summary(status: dict, feature_audit: dict, *,
         "correlation_risk": cr,
         "rejection_waterfall": rejection_waterfall,
         "trade_ledger_summary": trade_ledger,
+        "closed_loop_learning": cll,
         "readiness": readiness,
         "data_quality": data_quality,
         "recommendations": recommendations({
@@ -258,20 +260,30 @@ def console_summary(summary: dict) -> str:
         "blocked_same_cluster", "blocked_bregman_market_collision",
         "blocked_bregman_event_collision"))
     ref_real = 1 if float(pe.get("reference_fill_theoretical_pnl", 0.0) or 0.0) != 0.0 else 0
+    cll = summary.get("closed_loop_learning", {}) or {}
     return "\n".join([
         "Run complete.",
         f"Mode: {run.get('mode', 'paper')}",
         f"Raw markets: {run.get('raw_markets_loaded', 0)}",
         f"Eligible markets: {run.get('eligible_markets', 0)}",
+        f"Decision records: {cll.get('decision_records_written', 0)}",
+        f"No-trade labels: {cll.get('no_trade_labels_written', 0)}",
+        f"Shadow labels: {cll.get('shadow_records_written', 0)}",
+        f"Active-learning selected shadow/tiny: "
+        f"{cll.get('active_learning_shadow_selected', 0)}/"
+        f"{cll.get('active_learning_tiny_trades_selected', 0)}",
+        f"Pending labels total: {cll.get('pending_labels_total', 0)}",
+        f"Completed labels total: {cll.get('completed_labels_total', 0)}",
+        f"Feedback/hr: {cll.get('feedback_per_hour', 0.0)}",
+        f"Labels/day: {cll.get('labels_resolved_per_day', 0.0)}",
+        f"Learning growth: {cll.get('learning_growth_status', 'unknown')}",
         f"Bregman groups discovered/certified/opened: "
         f"{bf.get('raw_groups_discovered', 0)}/{bf.get('certified_opportunities', 0)}/"
         f"{bf.get('bundles_opened', 0)}",
         f"Directional trades opened: {run.get('directional_trades_opened', 0)}",
         f"Exploration trades opened: {run.get('exploration_trades_opened', 0)}",
-        f"Shadow-only opportunities: {run.get('shadow_only_opportunities', 0)}",
-        f"Hard rejects: {run.get('hard_rejects', 0)}",
-        f"Realistic PnL: {run.get('realistic_pnl', 0.0)}",
-        f"Readiness PnL: {run.get('readiness_pnl', 0.0)}",
+        "Fill realism enabled: true",
+        f"After-cost PnL: {pe.get('realistic_pnl', 0.0)}",
         f"Reference fills counted as real: {ref_real}",
         f"Random exploration trades: {al.get('random_exploration_opened_trades', 0)}",
         f"Correlation blocks: {corr_blocks}",
@@ -416,6 +428,18 @@ def to_markdown(summary: dict) -> str:
                  f"readiness={t.get('readiness_eligible')}")
     L.append("")
 
+    cll = summary.get("closed_loop_learning", {}) or {}
+    L.append("## Closed-Loop Learning")
+    L += _kv(cll, ["closed_loop_enabled", "learning_growth_status", "learning_growth_score",
+                   "decision_records_written", "candidate_records_written",
+                   "no_trade_labels_written", "shadow_records_written",
+                   "active_learning_shadow_selected", "active_learning_tiny_trades_selected",
+                   "pending_labels_total", "completed_labels_total", "feedback_per_hour",
+                   "labels_resolved_per_day", "calibration_updates",
+                   "active_learning_used_feedback", "learning_state_loaded",
+                   "learning_state_saved", "zero_selection_reason",
+                   "top_learning_bottlenecks"])
+    L.append("")
     L.append("## Readiness / Real Edge Score")
     L += _kv(rd, ["readiness_trade_count", "readiness_pnl", "bregman_realistic_pnl",
                   "directional_realistic_pnl", "exploration_pnl",

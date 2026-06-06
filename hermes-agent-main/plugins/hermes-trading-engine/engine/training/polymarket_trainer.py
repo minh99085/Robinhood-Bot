@@ -484,6 +484,10 @@ class PolymarketPaperTrainer:
         self.correlation_gate = CorrelationRiskGate(self.cfg)
         self._open_exposure_index = OpenExposureIndex()
         self.correlation_metrics: dict = self._fresh_corr_metrics()
+        # P0 closed-loop learning: turn EVERY evaluated candidate (incl. rejects)
+        # into a structured training record + pending label + feedback. PAPER ONLY.
+        from .closed_loop import ClosedLoopLearning
+        self.closed_loop = ClosedLoopLearning(self.run_id, self.data_dir, self.cfg)
         self.near_miss_log: list = []        # logged, never opened
         self.exploration_feedback_log: list = []   # structured learning feedback
         self.active_learning_metrics: dict = self._fresh_al_metrics()
@@ -605,6 +609,13 @@ class PolymarketPaperTrainer:
 
         marks = {r.market_id: market_mid(r) for r in records}
         self._monitor(marks, now)
+        # CLOSED LOOP: reset per-tick selection state + resolve any due pending
+        # labels (final settlement or short-horizon proxy) into completed feedback.
+        self.closed_loop.begin_tick()
+        try:
+            self.closed_loop.resolve_labels(marks, now=now)
+        except Exception:  # noqa: BLE001 — learning must never break a tick
+            pass
 
         if self.tstore is not None:
             try:
@@ -1270,15 +1281,43 @@ class PolymarketPaperTrainer:
             else:
                 self.rejection_count += 1
                 self.learner.record_decision(traded=False, reason=reason)
+                # CLOSED LOOP: a rejected/near-miss candidate is still a structured
+                # learning example (no-trade or shadow), with a pending label.
+                ald = al_decision.get("decision", "skip")
+                cl_decision = ("shadow_only" if ald in ("near_miss", "shadow")
+                               else ("no_trade_label" if reason in (
+                                   "edge_too_low", "uncertainty_too_high")
+                                   else "rejected_hard_gate"))
+                self.closed_loop.record(
+                    rec, est, edge, decision=cl_decision, reason=reason,
+                    strategy_tier="tier3_exploration" if ald in ("near_miss", "shadow")
+                    else "tier2_directional", strategy_source="directional",
+                    active_learning=al_decision, tick=self.tick_count)
                 return {"opened": False, "reason": reason,
-                        "exploration_decision": al_decision.get("decision", "skip")}
+                        "exploration_decision": ald}
 
         # observe_only mode evaluates + records but NEVER opens a paper trade
         if self.mode != "paper_train":
             self.learner.record_decision(traded=False, reason="observe_only")
             return {"opened": False, "reason": "observe_only"}
 
-        return self._open(rec, est, edge, diag, exploratory=exploratory)
+        res = self._open(rec, est, edge, diag, exploratory=exploratory)
+        # CLOSED LOOP: record the executed/explored example (or its shadow downgrade).
+        if res.get("opened"):
+            self.closed_loop.record(
+                rec, est, edge,
+                decision="selected_active_learning" if exploratory else "opened_realistic_paper",
+                reason="opened", strategy_tier="tier3_exploration" if exploratory
+                else "tier2_directional", strategy_source="directional",
+                realism_status="realistic_executable",
+                counts_for_readiness=not exploratory, tick=self.tick_count)
+        elif res.get("shadow_only"):
+            self.closed_loop.record(
+                rec, est, edge, decision="shadow_only", reason=res.get("reason", ""),
+                strategy_tier="tier4_shadow", strategy_source="directional",
+                realism_status=res.get("execution_realism_status", "shadow_only"),
+                tick=self.tick_count)
+        return res
 
     def _explore_gate(self, market_id: str) -> bool:
         """LEGACY deterministic random/hash exploration sampler (PASS-6: disabled by
@@ -2544,6 +2583,20 @@ class PolymarketPaperTrainer:
             _json.dumps(summary, indent=2, default=str), encoding="utf-8")
         (out / "reports" / "paper_training_inspection.md").write_text(
             to_markdown(summary), encoding="utf-8")
+        # P0 closed-loop learning artifacts (metrics + audit) + persist state.
+        try:
+            from .closed_loop import audit_to_markdown
+            audit = self.closed_loop.audit()
+            (out / "metrics" / "closed_loop_learning.json").write_text(
+                _json.dumps(self.closed_loop.metrics(), indent=2, default=str), encoding="utf-8")
+            (out / "metrics" / "learning_feedback.json").write_text(
+                _json.dumps(self.closed_loop.learning_state(), indent=2, default=str),
+                encoding="utf-8")
+            (out / "reports" / "closed_loop_learning_audit.md").write_text(
+                audit_to_markdown(audit), encoding="utf-8")
+            self.closed_loop.persist()
+        except Exception:  # noqa: BLE001 — artifact writing must never break a run
+            pass
         return summary
 
     def baseline_report(self) -> dict:
@@ -3144,6 +3197,7 @@ class PolymarketPaperTrainer:
             "profitability_ranking": self.profitability_ranking_report(),
             "active_learning": self.active_learning_report(),
             "correlation_risk": self.correlation_risk_report(),
+            "closed_loop_learning": self.closed_loop.metrics(),
             "risk": self.risk.status(),
             "broker": self.broker.status(),
             "baselines": self.baselines.results(),

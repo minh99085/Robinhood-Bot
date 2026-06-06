@@ -186,6 +186,16 @@ class TrainingConfig:
     exploration_max_per_event: int = 1
     exploration_max_per_cluster: int = 1
     exploration_max_per_category_per_tick: int = 2
+    # ---- Closed-loop learning: shadow/no-trade learning quotas (PAPER ONLY) ----
+    # A rejected candidate is still a learning example. Active learning may select
+    # shadow/no-trade examples even when nothing is executable (tiny trades still
+    # require realistic fills). Exploration stays excluded from readiness.
+    active_learning_shadow_samples_per_tick: int = 50
+    active_learning_tiny_trades_per_tick: int = 2
+    active_learning_near_miss_samples_per_tick: int = 50
+    active_learning_no_trade_labels_per_tick: int = 100
+    active_learning_require_realistic_fill_for_trade: bool = True
+    active_learning_allow_shadow_without_fill: bool = True
     # ---- Pass-7: cluster/correlation risk is an ACTIVE hard gate + allocator ----
     # Correlated markets are not independent edges. Duplicate market/condition/
     # event/cluster exposure is blocked or size-capped; unknown clusters become
@@ -818,6 +828,18 @@ class TrainingConfig:
             exploration_max_per_cluster=_envi("POLYMARKET_EXPLORATION_MAX_PER_CLUSTER", 1),
             exploration_max_per_category_per_tick=_envi(
                 "POLYMARKET_EXPLORATION_MAX_PER_CATEGORY_PER_TICK", 2),
+            active_learning_shadow_samples_per_tick=_envi(
+                "POLYMARKET_ACTIVE_LEARNING_SHADOW_SAMPLES_PER_TICK", 50),
+            active_learning_tiny_trades_per_tick=_envi(
+                "POLYMARKET_ACTIVE_LEARNING_TINY_TRADES_PER_TICK", 2),
+            active_learning_near_miss_samples_per_tick=_envi(
+                "POLYMARKET_ACTIVE_LEARNING_NEAR_MISS_SAMPLES_PER_TICK", 50),
+            active_learning_no_trade_labels_per_tick=_envi(
+                "POLYMARKET_ACTIVE_LEARNING_NO_TRADE_LABELS_PER_TICK", 100),
+            active_learning_require_realistic_fill_for_trade=_envb(
+                "POLYMARKET_ACTIVE_LEARNING_REQUIRE_REALISTIC_FILL_FOR_TRADE", True),
+            active_learning_allow_shadow_without_fill=_envb(
+                "POLYMARKET_ACTIVE_LEARNING_ALLOW_SHADOW_WITHOUT_FILL", True),
             correlation_gate_enabled=_envb("POLYMARKET_CORRELATION_GATE_ENABLED", True),
             require_cluster_metadata=_envb("POLYMARKET_REQUIRE_CLUSTER_METADATA", True),
             unknown_cluster_policy=os.getenv("POLYMARKET_UNKNOWN_CLUSTER_POLICY", "shadow"),

@@ -258,7 +258,10 @@ def collect_tests(repo_root: str, runner: Optional[Runner] = None,
 # Artifacts
 # ----------------------------------------------------------------------------- #
 ARTIFACT_DIRS = (
-    "data", "paper_artifacts", "training_artifacts", "shadow_artifacts",
+    # Pass-8/closed-loop: include metrics/ so inspection_summary.json,
+    # closed_loop_learning.json, paper_realism.json, bregman_execution.json, etc.
+    # are bundled (data/ already carries data/training/*.jsonl + learning_state.json).
+    "metrics", "data", "paper_artifacts", "training_artifacts", "shadow_artifacts",
     "post_canary_artifacts", "reports", "replay_artifacts",
     "production_review_artifacts", "guarded_live_artifacts", "micro_live_artifacts",
 )
