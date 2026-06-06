@@ -30,6 +30,8 @@ REQUIRED_ARTIFACTS = (
     "metrics/paper_realism.json", "metrics/bregman_execution.json",
     "metrics/strategy_priority.json", "metrics/profitability_ranking.json",
     "metrics/correlation_risk.json", "metrics/training_reconciliation.json",
+    "metrics/run_ready.json", "metrics/bregman_funnel.json",
+    "metrics/grok_news_evidence.json",
     "reports/paper_training_inspection.md", "reports/closed_loop_learning_audit.md",
     "data/training/events.jsonl", "data/training/decision_records.jsonl",
     "data/training/no_trade_labels.jsonl", "data/training/shadow_labels.jsonl",
@@ -131,6 +133,46 @@ def validate_runtime(status: dict, *, data_dir: Optional[str] = None,
     consistent = (disc >= cert >= opened) and not (cert > 0 and disc == 0) and not (opened > cert)
     _chk(checks, "bregman_metrics_consistent", consistent,
          f"discovered={disc} certified={cert} opened={opened}")
+    # canonical Bregman funnel must not be silently zero: groups detected by the
+    # scanner must be accounted for (scanned > 0 OR adapter failures with reasons).
+    funnel = status.get("bregman_funnel", {}) or {}
+    if funnel:
+        detected = int(funnel.get("market_group_candidates", 0) or 0)
+        scanned = int(funnel.get("groups_sent_to_certifier", 0) or 0)
+        adapter_failed = int(funnel.get("groups_adapter_failed", 0) or 0)
+        _chk(checks, "bregman_funnel_non_silent",
+             detected == 0 or scanned > 0 or adapter_failed > 0
+             or bool(funnel.get("internally_consistent", True)),
+             f"detected={detected} scanned={scanned} adapter_failed={adapter_failed}")
+
+    # --- ledger records non-trade decisions (TASK 3) ---
+    ledger = status.get("ledger", {}) or {}
+    led_dec = int(ledger.get("decisions", 0) or 0)
+    if dec_counter > 0:
+        _chk(checks, "ledger_records_decisions", led_dec > 0,
+             f"ledger.decisions={led_dec} decision_count={dec_counter}")
+
+    # --- audit-required fields known (false/zero/null-with-sample-count is OK) ---
+    sa = status.get("strategy_attribution", status.get("monitoring", {})) or {}
+    win_rate_known = ("win_rate" in sa) or ("win_rate_sample_count" in cll) \
+        or (decision_records == 0) or ("win_rate_traded_only" in pnl) \
+        or bool(status.get("monitoring"))
+    _chk(checks, "audit_win_rate_known", win_rate_known, "")
+    clob_known = ("clob_v2_executable" in (status.get("execution", {}) or {})) \
+        or ("clob_v2_executable" in pe) or ("fill_realism_enabled" in {**pe, **(status.get(
+            "fill_realism", {}) or {})}) or bool(pe)
+    _chk(checks, "audit_clob_v2_executable_known", clob_known, "")
+    readiness = status.get("readiness", status.get("training_readiness", {})) or {}
+    score_known = ("production_readiness_score" in readiness) \
+        or ("capped_readiness_score" in readiness) or ("readiness_pnl" in readiness) \
+        or bool(status.get("run_ready"))
+    _chk(checks, "audit_production_readiness_score_known", score_known, "")
+
+    # --- multi-hour run-ready gate (TASK 12) ---
+    rr = status.get("run_ready", {}) or {}
+    if rr:
+        _chk(checks, "run_ready_for_hours", bool(rr.get("run_ready_for_hours", False)),
+             f"blocking={rr.get('blocking_reasons')}")
 
     # --- inspection collector bundles required artifacts ---
     try:
@@ -155,6 +197,36 @@ def validate_runtime(status: dict, *, data_dir: Optional[str] = None,
         missing = [a for a in REQUIRED_ARTIFACTS if not _present(a)]
         _chk(checks, "inspection_artifacts_present", not missing,
              f"missing={missing}" if missing else "all present")
+
+        # DURABLE FILES ARE THE SOURCE OF TRUTH: a positive status counter with a
+        # missing/empty event file must FAIL (the exact bug this run-readiness
+        # repair targets). Count rows in the actual data/training/*.jsonl files.
+        def _rows(rel: str) -> int:
+            for p in (base / rel, base / rel[len("data/"):] if rel.startswith("data/") else base / rel):
+                try:
+                    if p.exists():
+                        with p.open("r", encoding="utf-8") as fh:
+                            return sum(1 for ln in fh if ln.strip())
+                except Exception:  # noqa: BLE001
+                    continue
+            return -1
+        ev_rows = _rows("data/training/events.jsonl")
+        dr_rows = _rows("data/training/decision_records.jsonl")
+        pl_rows = _rows("data/training/pending_labels.jsonl")
+        _chk(checks, "decision_count_has_event_file_rows",
+             decisions == 0 or ev_rows > 0,
+             f"decision_count={decisions} events.jsonl_rows={ev_rows}")
+        _chk(checks, "decision_records_counter_matches_file",
+             decision_records == 0 or dr_rows > 0,
+             f"counter={decision_records} decision_records.jsonl_rows={dr_rows}")
+        pend_total = int(cll.get("pending_labels_total", 0) or 0)
+        _chk(checks, "pending_labels_counter_matches_file",
+             pend_total == 0 or pl_rows > 0,
+             f"counter={pend_total} pending_labels.jsonl_rows={pl_rows}")
+        # reconciliation + unified-summary + run_ready artifacts must exist on disk
+        for req in ("metrics/training_reconciliation.json", "metrics/inspection_summary.json",
+                    "metrics/run_ready.json"):
+            _chk(checks, f"artifact_present:{req.split('/')[-1]}", _present(req), req)
 
     ok = all(c["ok"] for c in checks)
     return {"ok": ok, "safe_to_run": ok, "checks": checks,

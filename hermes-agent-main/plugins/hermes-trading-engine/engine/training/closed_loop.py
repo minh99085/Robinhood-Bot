@@ -146,6 +146,8 @@ class ClosedLoopLearning:
         self.cfg = cfg
         self.started_ts = now or time.time()
         self.dir = Path(data_dir) / "training"
+        from .training_event_sink import TrainingEventSink
+        self.sink = TrainingEventSink(data_dir, run_id)
         self.records: list = []                  # bounded in-memory tail
         self.pending: list = []                  # pending label records
         self.completed: list = []                # completed feedback records
@@ -188,6 +190,9 @@ class ClosedLoopLearning:
 
     def begin_tick(self) -> None:
         self._tick = self._fresh_tick()
+        # ensure all canonical event files exist from tick 1 so reconciliation,
+        # run-ready, and the inspection zip never see a "missing file" they should.
+        self.sink.ensure_files()
 
     # -- persistence ---------------------------------------------------------
     def _load_state(self) -> bool:
@@ -200,7 +205,20 @@ class ClosedLoopLearning:
             self.state = {}
         return False
 
+    # mapping from legacy file name -> canonical sink stream
+    _STREAM_FOR_FILE = {
+        "events.jsonl": "events", "decision_records.jsonl": "decision_records",
+        "no_trade_labels.jsonl": "no_trade_labels", "shadow_labels.jsonl": "shadow_labels",
+        "diagnostics.jsonl": "diagnostics", "pending_labels.jsonl": "pending_labels",
+        "completed_labels.jsonl": "completed_labels",
+    }
+
     def _append_jsonl(self, name: str, row: dict) -> None:
+        # delegate to the canonical event sink so files + counters share ONE writer
+        stream = self._STREAM_FOR_FILE.get(name)
+        if stream is not None:
+            self.sink._append(stream, row)
+            return
         try:
             self.dir.mkdir(parents=True, exist_ok=True)
             with (self.dir / name).open("a", encoding="utf-8") as fh:
@@ -213,10 +231,7 @@ class ClosedLoopLearning:
             self.dir.mkdir(parents=True, exist_ok=True)
             # ensure the label/decision stores always exist (even with zero rows)
             # so the inspection zip bundles them from tick 1.
-            for _f in ("events.jsonl", "decision_records.jsonl", "no_trade_labels.jsonl",
-                       "shadow_labels.jsonl", "diagnostics.jsonl", "pending_labels.jsonl",
-                       "completed_labels.jsonl"):
-                (self.dir / _f).touch(exist_ok=True)
+            self.sink.ensure_files()
             self.state = self.learning_state()
             (self.dir / "learning_state.json").write_text(
                 json.dumps(self.state, indent=2, default=str), encoding="utf-8")
@@ -456,40 +471,115 @@ class ClosedLoopLearning:
         }
 
     def reconcile(self, *, decision_count: int, rejection_count: int = 0,
-                  candidate_evaluated: int = 0) -> dict:
-        """Invariant: a candidate that increments decision_count MUST emit an event.
-        Returns the training_reconciliation schema; reconciled=False if they diverge."""
+                  candidate_evaluated: int = 0, feature_health: Optional[dict] = None,
+                  ledger_summary: Optional[dict] = None,
+                  missing_report_files: Optional[list] = None) -> dict:
+        """Invariant: a candidate that increments decision_count MUST emit a durable
+        event. Compares FOUR surfaces — runtime counters, durable event files, the
+        canonical ledger, and report/feature-health — and returns the
+        training_reconciliation schema (reconciled=False on any divergence)."""
         c = self.counts
-        dec_ev = c["decision_records_written"]
-        rej_ev = (c["rejection_records_written"] + c["no_trade_labels_written"]
-                  + c["shadow_records_written"] + c["diagnostic_records_written"])
-        cand_ev = c["candidate_evaluated_events"]
+        # DURABLE FILE counts are the source of truth — a positive counter with an
+        # empty/missing file is the exact failure this contract must catch.
+        fc = self.sink.file_line_counts()
+        dec_ev = int(fc.get("decision_records", 0) or 0)
+        no_trade_ev = int(fc.get("no_trade_labels", 0) or 0)
+        shadow_ev = int(fc.get("shadow_labels", 0) or 0)
+        diag_ev = int(fc.get("diagnostics", 0) or 0)
+        pending_ev = int(fc.get("pending_labels", 0) or 0)
+        completed_ev = int(fc.get("completed_labels", 0) or 0)
+        rej_ev = no_trade_ev + shadow_ev + diag_ev
+        cand_ev = dec_ev
+        missing_files = self.sink.missing_files()
+        fh = feature_health or {}
+        led = ledger_summary or self.ledger_summary()
+        ledger_entries = int(led.get("entries", 0) or 0)
+        ledger_decisions = int(led.get("decisions", 0) or 0)
         reconciled = True
         reason = ""
         callsite = ""
-        if int(decision_count) > 0 and dec_ev == 0:
+        if missing_files and int(decision_count) > 0:
             reconciled = False
-            reason = "decision_count>0 but no decision events written"
+            reason = f"decision_count>0 but event files missing: {missing_files}"
+            callsite = "training_event_sink (files not written/collected at this path)"
+        elif int(decision_count) > 0 and dec_ev == 0:
+            reconciled = False
+            reason = "decision_count>0 but decision_records.jsonl is empty"
             callsite = "polymarket_trainer._consider (decision/rejection counter site)"
         elif int(rejection_count) > 0 and rej_ev == 0:
             reconciled = False
-            reason = "rejection_count>0 but no no-trade/shadow/diagnostic events"
+            reason = "rejection_count>0 but no no-trade/shadow/diagnostic event rows"
             callsite = "polymarket_trainer._consider rejection branch"
         elif int(decision_count) > dec_ev:
-            # some decisions did not emit (e.g. an un-hooked early return path)
             reconciled = False
-            reason = f"decision_count({decision_count}) > decision_events({dec_ev})"
+            reason = f"decision_count({decision_count}) > decision_event_rows({dec_ev})"
             callsite = "an un-hooked terminal return in _consider/_open"
+        elif int(decision_count) > 0 and ledger_decisions == 0:
+            reconciled = False
+            reason = f"decision_count({decision_count}) > 0 but ledger.decisions==0"
+            callsite = "start_polymarket_paper_training._write_paper_ledger"
+        # feature-health (report) surface must not claim more than the durable files
+        if int(fh.get("decision_records_written", dec_ev) or 0) > dec_ev and dec_ev == 0:
+            reconciled = False
+            reason = reason or "feature_health.decision_records_written>0 but files empty"
         return {
-            "decision_count_counter": int(decision_count),
-            "decision_events_written": dec_ev,
-            "rejection_count_counter": int(rejection_count),
-            "rejection_events_written": rej_ev,
             "candidate_evaluated_counter": int(candidate_evaluated),
+            "candidate_evaluated_events": cand_ev,
+            "decision_count_counter": int(decision_count),
+            "decision_events": dec_ev,
+            "decision_events_written": dec_ev,    # alias (back-compat)
+            "rejection_count_counter": int(rejection_count),
+            "rejection_events": rej_ev,
+            "rejection_events_written": rej_ev,   # alias (back-compat)
+            "no_trade_label_events": no_trade_ev,
+            "shadow_label_events": shadow_ev,
+            "diagnostic_events": diag_ev,
+            "pending_label_events": pending_ev,
+            "completed_label_events": completed_ev,
             "candidate_events_written": cand_ev,
+            "ledger_entries": ledger_entries,
+            "ledger_decisions": ledger_decisions,
+            "feature_health_decision_records_written": int(
+                fh.get("decision_records_written", c["decision_records_written"]) or 0),
+            "feature_health_no_trade_labels_written": int(
+                fh.get("no_trade_labels_written", c["no_trade_labels_written"]) or 0),
+            "feature_health_pending_labels_total": int(
+                fh.get("pending_labels_total", len(self.pending)) or 0),
             "reconciled": reconciled,
             "divergence_reason": reason,
+            "missing_event_files": missing_files,
+            "missing_report_files": list(missing_report_files or []),
             "missing_event_callsite": callsite,
+        }
+
+    def ledger_summary(self) -> dict:
+        """Decision-ledger summary derived from the canonical event stream (TASK 3).
+
+        The canonical ledger must record NON-TRADE decisions, not only trades —
+        so ``decisions`` counts every evaluated candidate and ``entries`` is the
+        full event count. Read from durable file rows where available."""
+        fc = self.sink.file_line_counts()
+        decisions = int(fc.get("decision_records", 0) or 0) or self.counts["decision_records_written"]
+        no_trade = int(fc.get("no_trade_labels", 0) or 0) or self.counts["no_trade_labels_written"]
+        shadow = int(fc.get("shadow_labels", 0) or 0) or self.counts["shadow_records_written"]
+        diag = int(fc.get("diagnostics", 0) or 0) or self.counts["diagnostic_records_written"]
+        pending = int(fc.get("pending_labels", 0) or 0) or len(self.pending)
+        completed = int(fc.get("completed_labels", 0) or 0) or len(self.completed)
+        trades = self.counts["opened_records_written"] + self.counts[
+            "active_learning_tiny_trades_selected"]
+        bregman_diag = sum(1 for r in self.records
+                           if str(r.get("decision_reason", "")).startswith("bregman_"))
+        return {
+            "entries": int(fc.get("events", 0) or 0) or decisions,
+            "trades": int(trades),
+            "decisions": int(decisions),
+            "rejections": int(self.counts["rejection_records_written"]),
+            "no_trade_labels": int(no_trade),
+            "shadow_labels": int(shadow),
+            "diagnostics": int(diag),
+            "pending_labels": int(pending),
+            "completed_labels": int(completed),
+            "bregman_diagnostics": int(bregman_diag),
         }
 
     def _bottlenecks(self) -> list:

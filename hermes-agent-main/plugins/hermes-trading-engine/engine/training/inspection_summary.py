@@ -71,7 +71,12 @@ def _feature_status(audit_status: str, controls_trades: bool, evidence_val) -> s
 def build_inspection_summary(status: dict, feature_audit: dict, *,
                              trade_ledger: Optional[dict] = None,
                              rejection_waterfall: Optional[dict] = None,
-                             data_quality: Optional[dict] = None) -> dict:
+                             data_quality: Optional[dict] = None,
+                             training_reconciliation: Optional[dict] = None,
+                             ledger: Optional[dict] = None,
+                             grok_news_evidence: Optional[dict] = None,
+                             validation: Optional[dict] = None,
+                             run_ready: Optional[dict] = None) -> dict:
     status = status or {}
     pnl = status.get("pnl", {}) or {}
     pe = status.get("paper_realism", {}) or {}
@@ -183,6 +188,13 @@ def build_inspection_summary(status: dict, feature_audit: dict, *,
         "rejection_waterfall": rejection_waterfall,
         "trade_ledger_summary": trade_ledger,
         "closed_loop_learning": cll,
+        "learning_feedback": status.get("learning_feedback", {}) or {},
+        "training_reconciliation": training_reconciliation or status.get(
+            "training_reconciliation", {}) or {},
+        "ledger": ledger or status.get("ledger", {}) or {},
+        "grok_news_evidence": grok_news_evidence or {},
+        "validation": validation or {},
+        "run_ready": run_ready or {},
         "readiness": readiness,
         "data_quality": data_quality,
         "recommendations": recommendations({
@@ -191,6 +203,158 @@ def build_inspection_summary(status: dict, feature_audit: dict, *,
             "run": run}),
     }
     return summary
+
+
+def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int = 0,
+                         diagnostic_events_written: int = 0) -> dict:
+    """ONE canonical Bregman funnel (TASK 9): all Bregman numbers derive from this.
+
+    Reconciles the market-scanner's detected groups with the constraint-adapter
+    funnel so no report can say discovered>0 in one place and 0 in another without
+    a named, accounted-for distinction (skip_reasons + adapter_missing_fields)."""
+    t = bregman_telemetry or {}
+
+    def _i(*keys) -> int:
+        for k in keys:
+            if t.get(k) is not None:
+                try:
+                    return int(t.get(k) or 0)
+                except (TypeError, ValueError):
+                    continue
+        return 0
+
+    discovered = _i("groups_discovered", "raw_groups_discovered")
+    scanned = _i("constraint_groups_scanned", "groups_sent_to_certifier")
+    skipped = _i("groups_skipped")
+    skip_reasons = dict(t.get("skip_reasons", t.get("rejected_by_reason", {})) or {})
+    candidates = _i("candidate_arbitrages", "candidates_generated", "certified_opportunities")
+    certified = _i("certified_arbitrages", "certified_opportunities", "unique_groups_certified")
+    pre_adapter = max(0, int(market_groups_detected) - discovered - skipped) \
+        if market_groups_detected else 0
+    adapter_failed = skipped
+    adapter_success = discovered
+    # groups that passed the adapter WERE sent to the certifier; when the telemetry
+    # path does not expose an explicit scanned count, derive it from adapter success
+    # (avoids the false "discovered>0 but scanned=0" silent-zero contradiction).
+    sent_to_certifier = scanned or adapter_success
+    return {
+        "market_group_candidates": int(market_groups_detected or (discovered + skipped)),
+        "raw_groups_discovered": discovered,
+        "groups_rejected_pre_adapter": pre_adapter,
+        "groups_adapter_success": adapter_success,
+        "groups_adapter_failed": adapter_failed,
+        "groups_sent_to_certifier": sent_to_certifier,
+        "constraint_groups_scanned": sent_to_certifier,
+        "candidates_generated": candidates,
+        "certified": certified,
+        # legacy aliases kept for back-compat with existing report/tests
+        "certified_opportunities": certified,
+        "unique_groups_certified": _i("unique_groups_certified") or certified,
+        "realistic_executable": _i("executable_depth_certified", "realistic_executable"),
+        "bundles_opened": _i("opened_bregman_bundles", "bundles_opened"),
+        "skip_reasons": skip_reasons,
+        "adapter_missing_fields": dict(t.get("adapter_missing_fields", {}) or {}),
+        "diagnostic_events_written": int(diagnostic_events_written),
+        # consistency invariant: every detected group must be accounted for as
+        # adapter-success (scanned), adapter-failure (diagnostic), or pre-adapter reject.
+        "internally_consistent": bool(
+            (market_groups_detected or 0) == 0
+            or sent_to_certifier > 0 or adapter_failed > 0 or pre_adapter > 0),
+    }
+
+
+def build_grok_news_evidence(research: dict, *, news_items_used: int = 0) -> dict:
+    """Grok/news evidence telemetry with an explicit zero-call reason (TASK 10)."""
+    r = research or {}
+    calls = int(r.get("grok_calls_total", 0) or 0)
+    enabled = bool(r.get("grok_enabled", False))
+    has_key = bool(r.get("grok_has_api_key", r.get("grok_enabled", False)))
+    reason = r.get("grok_zero_call_reason")
+    if calls == 0 and not reason:
+        if not enabled or not has_key:
+            reason = "grok_disabled_or_no_api_key"
+        elif str(r.get("research_mode", "")).lower() not in ("online", "online_research", "live"):
+            reason = "research_mode_not_online"
+        elif int(news_items_used or 0) == 0:
+            reason = "no_news_packet_selected"
+        else:
+            reason = "no_eligible_markets_or_advisory_not_due"
+    return {
+        "grok_enabled": enabled,
+        "grok_has_api_key": has_key,
+        "research_mode": r.get("research_mode"),
+        "news_items_used": int(news_items_used or 0),
+        "grok_calls_total": calls,
+        "grok_calls_with_news": int(r.get("grok_calls_with_news", 0) or 0),
+        "grok_advisory_only_count": int(r.get("grok_advisory_only_count", calls) or 0),
+        "grok_eligible_markets": int(r.get("grok_eligible_markets", 0) or 0),
+        "grok_scheduled_calls": int(r.get("grok_scheduled_calls", 0) or 0),
+        "grok_skipped_rate_limit": int(r.get("grok_skipped_rate_limit", 0) or 0),
+        "grok_skipped_no_news_packet": int(r.get("grok_skipped_no_news_packet", 0) or 0),
+        "grok_skipped_no_market_link": int(r.get("grok_skipped_no_market_link", 0) or 0),
+        "grok_provider_errors": int(r.get("grok_provider_errors", 0) or 0),
+        "grok_zero_call_reason": (reason if calls == 0 else None),
+    }
+
+
+def build_run_ready(*, reconciliation: dict, ledger: dict, bregman_funnel: dict,
+                    missing_event_files: list, missing_report_files: list,
+                    live_trading_disabled: bool, decision_count: int,
+                    bregman_enabled: bool, training_healthy: bool = True) -> dict:
+    """Strict multi-hour run-ready gate (TASK 12). Only sets run_ready_for_hours
+    true after EVERY hard durability/reconciliation requirement passes; otherwise
+    caps max_safe_runtime_minutes at 10 and lists the blocking reasons."""
+    recon = reconciliation or {}
+    led = ledger or {}
+    bf = bregman_funnel or {}
+    blocking: list = []
+    warnings: list = []
+    event_files_present = not missing_event_files
+    if missing_event_files:
+        blocking.append(f"durable event files missing: {missing_event_files}")
+    recon_passed = bool(recon.get("reconciled", False))
+    if not recon and decision_count > 0:
+        blocking.append("training_reconciliation.json missing")
+    elif decision_count > 0 and not recon_passed:
+        blocking.append(f"training reconciliation failed: {recon.get('divergence_reason')}")
+    ledger_decisions = int(led.get("decisions", 0) or 0)
+    ledger_reconciled = not (decision_count > 0 and ledger_decisions == 0)
+    if not ledger_reconciled:
+        blocking.append("ledger.decisions==0 while decision_count>0")
+    bregman_non_silent = (not bregman_enabled) or bool(
+        bf.get("internally_consistent", True)) and (
+        bf.get("market_group_candidates", 0) == 0
+        or bf.get("groups_sent_to_certifier", 0) > 0
+        or bf.get("groups_adapter_failed", 0) > 0)
+    if bregman_enabled and not bregman_non_silent:
+        blocking.append("Bregman enabled but funnel silently scanned zero groups "
+                        "with no adapter diagnostics")
+    inspection_complete = not missing_report_files
+    if missing_report_files:
+        blocking.append(f"inspection artifacts incomplete: {missing_report_files}")
+    if not live_trading_disabled:
+        blocking.append("live trading not disabled")
+    closed_loop_durable = event_files_present and (
+        decision_count == 0 or int(recon.get("decision_events", 0) or 0) > 0)
+    proof = {
+        "training_healthy": bool(training_healthy),
+        "event_files_present": bool(event_files_present),
+        "ledger_reconciled": bool(ledger_reconciled),
+        "training_reconciliation_passed": bool(recon_passed),
+        "bregman_funnel_non_silent": bool(bregman_non_silent),
+        "closed_loop_durable": bool(closed_loop_durable),
+        "inspection_artifacts_complete": bool(inspection_complete),
+        "live_trading_disabled": bool(live_trading_disabled),
+    }
+    run_ready = not blocking and all(proof.values())
+    return {
+        "run_ready_for_hours": bool(run_ready),
+        "max_safe_runtime_minutes": (None if run_ready else 10),
+        "required_before_two_hour_run": list(blocking),
+        "blocking_reasons": list(blocking),
+        "warnings": warnings,
+        "proof": proof,
+    }
 
 
 def recommendations(summary: dict) -> list:

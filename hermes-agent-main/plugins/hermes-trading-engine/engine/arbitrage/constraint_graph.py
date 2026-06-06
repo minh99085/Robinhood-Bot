@@ -254,10 +254,27 @@ _RELATION_BUILDERS = {
 
 
 def _to_float(v) -> Optional[float]:
+    """Parse a price/number from a float or a Polymarket string.
+
+    Accepts raw floats and strings like ``"0.42"``, ``"$0.42"``, ``"42%"``,
+    ``"42.0%"``, and ``"1,234.5"`` (a top cause of ``non_numeric_price`` skips when
+    gamma returns formatted strings). ``%`` values are divided by 100. Pure."""
     try:
         return float(v)
     except (TypeError, ValueError):
-        return None
+        pass
+    if isinstance(v, str):
+        s = v.strip()
+        if not s:
+            return None
+        pct = s.endswith("%")
+        s = s.lstrip("$").rstrip("%").replace(",", "").replace("$", "").strip()
+        try:
+            f = float(s)
+            return f / 100.0 if pct else f
+        except (TypeError, ValueError):
+            return None
+    return None
 
 
 def parse_list_field(v):

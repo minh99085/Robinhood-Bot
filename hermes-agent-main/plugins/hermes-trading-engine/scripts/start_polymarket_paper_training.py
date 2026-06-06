@@ -82,6 +82,27 @@ def _synthetic_catalog(n: int = 60) -> list:
     return out
 
 
+_BREGMAN_REPAIR_HINTS = {
+    "non_numeric_price": "outcomePrices contained a non-numeric string; ensure "
+                         "$/% formats are parsed (constraint_graph._to_float).",
+    "insufficient_outcomes": "market exposed <2 outcome prices; needs a 2+ outcome "
+                             "complement/MECE group.",
+    "malformed_group": "same-event cluster had <2 usable outcomes after normalization.",
+    "insufficient_metadata": "event cluster had no group_kind/negRisk; cannot prove "
+                             "a constraint without inventing one.",
+    "no_orderbook": "enableOrderBook=false; no executable book to certify.",
+    "no_depth": "no top-of-book depth and no liquidity fallback.",
+    "missing_quotes": "bestBid/bestAsk missing and reference quote disallowed.",
+    "degenerate_price": "price outside (0,1); rejected as impossible.",
+    "market_inactive": "market not active/closed/archived.",
+}
+
+
+def _bregman_repair_hint(reason) -> str:
+    return _BREGMAN_REPAIR_HINTS.get(str(reason or ""), "inspect adapter normalization "
+                                     "for this skip reason.")
+
+
 def clear_stale_stop_sentinel(stop_path, keep: bool = False) -> bool:
     """Clear a STALE stop sentinel on an explicit start.
 
@@ -472,6 +493,26 @@ def run(argv=None) -> int:
             metrics_dir.mkdir(parents=True, exist_ok=True)
             (metrics_dir / "bregman.json").write_text(json.dumps(tel, default=str),
                                                       encoding="utf-8")
+            # TASK 8: every skipped Bregman group writes a durable bregman_diagnostic
+            # so bregman_groups_skipped>0 implies bregman_diagnostic_events>0 (the
+            # funnel is never silently zero). Capped per tick to bound IO.
+            try:
+                sink = trainer.closed_loop.sink
+                quota = int(getattr(trainer.cfg,
+                                    "active_learning_diagnostic_samples_per_tick", 50) or 50)
+                for sg in (tel.get("skipped_groups", []) or [])[: max(quota, 1) * 8]:
+                    sink.append_bregman_diagnostic({
+                        "group_id": str(sg.get("market_id", "")),
+                        "source_grouping_method": "constraint_discovery",
+                        "raw_market_ids": [sg.get("market_id")],
+                        "skip_reason": sg.get("reason"),
+                        "missing_fields": [sg.get("reason")] if sg.get("reason") else [],
+                        "detail": sg.get("detail", ""),
+                        "tick": getattr(trainer, "tick", 0),
+                        "repair_hint": _bregman_repair_hint(sg.get("reason")),
+                    })
+            except Exception:  # noqa: BLE001 — diagnostics must never break the scan
+                pass
         except Exception as exc:  # noqa: BLE001 — scan must never break the trainer
             logging.getLogger("hte.training.start").debug("bregman scan failed: %s", exc)
 
@@ -505,9 +546,25 @@ def run(argv=None) -> int:
                        kind="decision", signal_version="abcas-1",
                        gross_ev=_n(tel.get("expected_min_profit"), 0.0),
                        fill_realism_status="n/a")
+            # The canonical ledger MUST record non-trade decisions, not only trades.
+            # Derive the decision-ledger summary from the closed-loop event stream so
+            # ledger.decisions reconciles with decision_count (never silently zero).
+            cl_ledger = {}
+            try:
+                cl_ledger = trainer.closed_loop.ledger_summary()
+            except Exception:  # noqa: BLE001
+                cl_ledger = {}
+            base = led.summary()
+            base["entries"] = max(int(base.get("n_entries", 0) or 0),
+                                  int(cl_ledger.get("entries", 0) or 0))
+            base["trades"] = max(int(base.get("n_trades", 0) or 0),
+                                 int(cl_ledger.get("trades", 0) or 0))
+            base["decisions"] = max(int(base.get("n_decisions", 0) or 0),
+                                    int(cl_ledger.get("decisions", 0) or 0))
+            base["decision_ledger"] = cl_ledger
             payload = {"starting_balance": start, "equity": led.equity(),
                        "entries": [e.to_dict() for e in led.entries],
-                       "summary": led.summary()}
+                       "summary": base, "decision_ledger": cl_ledger}
             (dd / "paper_ledger.json").write_text(json.dumps(payload, default=str),
                                                   encoding="utf-8")
         except Exception as exc:  # noqa: BLE001 — ledger write must never break a tick

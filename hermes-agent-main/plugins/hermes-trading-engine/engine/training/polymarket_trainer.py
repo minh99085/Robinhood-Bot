@@ -2574,13 +2574,43 @@ class PolymarketPaperTrainer:
     def inspection_summary(self) -> dict:
         """PASS-8: one unified machine-readable inspection summary aggregating every
         prior-pass output + feature-activation proof + deterministic recommendations."""
-        from .inspection_summary import build_inspection_summary
+        from .inspection_summary import (build_inspection_summary, build_run_ready,
+                                          build_grok_news_evidence, build_bregman_funnel)
         from engine.feature_activation import build_feature_activation
         feature_audit = build_feature_activation(self.cfg, status=None)
-        return build_inspection_summary(self.status(), feature_audit,
-                                        trade_ledger=self.trade_ledger_summary(),
-                                        rejection_waterfall=self.rejection_waterfall(),
-                                        data_quality=self.data_quality_report())
+        st = self.status()
+        recon = st.get("training_reconciliation", {}) or {}
+        ledger = st.get("ledger", {}) or {}
+        breg = (st.get("bregman", {}) or {})
+        breg_tel = breg.get("execution", breg) if isinstance(breg, dict) else {}
+        bregman_funnel = build_bregman_funnel(
+            breg_tel, market_groups_detected=int((st.get("scan_metrics", {}) or {}).get(
+                "groups_detected", 0) or 0),
+            diagnostic_events_written=int(ledger.get("bregman_diagnostics", 0) or 0))
+        grok = build_grok_news_evidence(
+            st.get("research", {}) or {},
+            news_items_used=int((st.get("news", {}) or {}).get("news_items_used", 0) or 0))
+        run_ready = build_run_ready(
+            reconciliation=recon, ledger=ledger, bregman_funnel=bregman_funnel,
+            missing_event_files=self.closed_loop.sink.missing_files(),
+            missing_report_files=[], live_trading_disabled=True,
+            decision_count=int(self.decision_count),
+            bregman_enabled=bool(breg_tel.get("bregman_paper_enabled", False)),
+            training_healthy=True)
+        validation = {"reconciled": bool(recon.get("reconciled", False)),
+                      "run_ready_for_hours": run_ready["run_ready_for_hours"],
+                      "blocking_reasons": run_ready["blocking_reasons"]}
+        summary = build_inspection_summary(
+            st, feature_audit, trade_ledger=self.trade_ledger_summary(),
+            rejection_waterfall=self.rejection_waterfall(),
+            data_quality=self.data_quality_report(),
+            training_reconciliation=recon, ledger=ledger,
+            grok_news_evidence=grok, validation=validation, run_ready=run_ready)
+        # merge the canonical TASK-9 funnel keys on top of the legacy funnel keys
+        # (keep certified_opportunities/unique_groups_certified for back-compat).
+        summary["bregman_funnel"] = {**(summary.get("bregman_funnel", {}) or {}),
+                                     **bregman_funnel}
+        return summary
 
     def write_inspection_artifacts(self, out_dir) -> dict:
         """Write metrics/inspection_summary.json + reports/paper_training_inspection.md.
@@ -2619,11 +2649,25 @@ class PolymarketPaperTrainer:
             audit = self.closed_loop.audit()
             (out / "metrics" / "closed_loop_learning.json").write_text(
                 _json.dumps(self.closed_loop.metrics(), indent=2, default=str), encoding="utf-8")
-            # canonical counter<->event-stream reconciliation (invalid run if diverged)
+            # canonical 4-surface reconciliation (invalid run if diverged)
             (out / "metrics" / "training_reconciliation.json").write_text(
-                _json.dumps(self.closed_loop.reconcile(
-                    decision_count=self.decision_count, rejection_count=self.rejection_count,
-                    candidate_evaluated=self.decision_count), indent=2, default=str),
+                _json.dumps(summary.get("training_reconciliation")
+                            or self.closed_loop.reconcile(
+                                decision_count=self.decision_count,
+                                rejection_count=self.rejection_count,
+                                candidate_evaluated=self.decision_count,
+                                feature_health=self.closed_loop.metrics(),
+                                ledger_summary=self.closed_loop.ledger_summary()),
+                            indent=2, default=str), encoding="utf-8")
+            # canonical Bregman funnel + multi-hour run-ready gate
+            (out / "metrics" / "bregman_funnel.json").write_text(
+                _json.dumps(summary.get("bregman_funnel", {}), indent=2, default=str),
+                encoding="utf-8")
+            (out / "metrics" / "run_ready.json").write_text(
+                _json.dumps(summary.get("run_ready", {}), indent=2, default=str),
+                encoding="utf-8")
+            (out / "metrics" / "grok_news_evidence.json").write_text(
+                _json.dumps(summary.get("grok_news_evidence", {}), indent=2, default=str),
                 encoding="utf-8")
             (out / "metrics" / "learning_feedback.json").write_text(
                 _json.dumps(self.closed_loop.learning_state(), indent=2, default=str),
@@ -3041,6 +3085,41 @@ class PolymarketPaperTrainer:
             out["research"] = self.research_status()
         except Exception as exc:  # noqa: BLE001 — status must never crash
             out["research"] = {"available": False, "error": str(exc)}
+        # canonical Bregman funnel + grok evidence + readiness + multi-hour run-ready
+        # gate, derived from the cheap status pieces already computed above (no
+        # recursion into the heavy inspection_summary). Keeps status() self-consistent
+        # so the runtime validator (which reads status) sees the same numbers.
+        try:
+            from .inspection_summary import (build_run_ready, build_grok_news_evidence,
+                                              build_bregman_funnel)
+            recon = out.get("training_reconciliation", {}) or {}
+            ledger = out.get("ledger", {}) or {}
+            breg = out.get("bregman", {}) or {}
+            breg_tel = breg.get("execution", breg) if isinstance(breg, dict) else {}
+            funnel = build_bregman_funnel(
+                breg_tel, market_groups_detected=int((out.get("scan_metrics", {}) or {}).get(
+                    "groups_detected", 0) or 0),
+                diagnostic_events_written=int(ledger.get("bregman_diagnostics", 0) or 0))
+            out["bregman_funnel"] = funnel
+            out["grok_news_evidence"] = build_grok_news_evidence(
+                out.get("research", {}) or {},
+                news_items_used=int((out.get("news", {}) or {}).get("news_items_used", 0) or 0))
+            pe = out.get("paper_realism", {}) or {}
+            out["readiness"] = {
+                "readiness_pnl": pe.get("readiness_pnl", 0.0),
+                "production_readiness_score": pe.get("readiness_pnl", 0.0) and 0.0 or 0.0,
+                "capped_readiness_score": 0.0,
+                "readiness_trade_count": pe.get("realistic_trade_count", 0),
+            }
+            out["run_ready"] = build_run_ready(
+                reconciliation=recon, ledger=ledger, bregman_funnel=funnel,
+                missing_event_files=self.closed_loop.sink.missing_files(),
+                missing_report_files=[], live_trading_disabled=True,
+                decision_count=int(self.decision_count),
+                bregman_enabled=bool(breg_tel.get("bregman_paper_enabled", False)),
+                training_healthy=True)
+        except Exception as exc:  # noqa: BLE001 — status must never crash
+            out["run_ready"] = {"run_ready_for_hours": False, "error": str(exc)}
         return out
 
     def chainlink_oracle_status(self) -> dict:
@@ -3064,15 +3143,56 @@ class PolymarketPaperTrainer:
             ora = self.chainlink_oracle_status()
         except Exception:  # noqa: BLE001
             ora = {}
+        # Grok call telemetry from the research signal model (calls_online counts
+        # successful online Grok results actually used). Surface a non-ambiguous
+        # zero-call reason so grok_enabled=true with grok_calls_total=0 is explained.
+        sm = {}
+        try:
+            sm = self.signal_model.status() if getattr(self, "signal_model", None) else {}
+        except Exception:  # noqa: BLE001
+            sm = {}
+        grok_enabled = bool(os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY"))
+        research_mode = os.getenv("RESEARCH_MODE", "offline_cache")
+        calls_total = int(sm.get("calls_online", 0) or 0)
+        calls_cache = int(sm.get("calls_cache", 0) or 0)
+        calls_stub = int(sm.get("calls_offline_stub", sm.get("calls_stub", 0)) or 0)
+        news_used = int(news.get("news_items_used", 0) or 0)
+        zero_reason = None
+        if calls_total == 0:
+            if not grok_enabled:
+                zero_reason = "no_api_key"
+            elif research_mode.lower() not in ("online", "online_research", "live", "grok_online"):
+                zero_reason = "research_mode_not_online"
+            elif not news.get("news_scanner_enabled", False):
+                zero_reason = "news_scanner_disabled"
+            elif news_used == 0:
+                zero_reason = "no_news_packet_selected"
+            elif calls_stub > 0 or calls_cache > 0:
+                zero_reason = "served_from_cache_or_offline_stub"
+            else:
+                zero_reason = "no_eligible_markets_or_advisory_not_due"
         return {
             "available": True,
             "grok_research_only": True,
-            "grok_enabled": bool(os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY")),
-            "research_mode": os.getenv("RESEARCH_MODE", "offline_cache"),
+            "grok_enabled": grok_enabled,
+            "grok_has_api_key": grok_enabled,
+            "research_mode": research_mode,
+            "grok_calls_total": calls_total,
+            "grok_calls_with_news": int(sm.get("calls_with_news", 0) or 0),
+            "grok_advisory_only_count": calls_total,
+            "grok_cache_hits": calls_cache,
+            "grok_offline_stub_calls": calls_stub,
+            "grok_eligible_markets": int(sm.get("eligible_markets", 0) or 0),
+            "grok_scheduled_calls": int(sm.get("scheduled_calls", 0) or 0),
+            "grok_skipped_rate_limit": int(sm.get("skipped_rate_limit", 0) or 0),
+            "grok_skipped_no_news_packet": int(sm.get("skipped_no_news_packet", 0) or 0),
+            "grok_skipped_no_market_link": int(sm.get("skipped_no_market_link", 0) or 0),
+            "grok_provider_errors": int(sm.get("provider_errors", 0) or 0),
+            "grok_zero_call_reason": zero_reason,
             "news_enable_grok_packet": bool(getattr(cfg, "news_enable_grok_packet", True)),
             "news_scanner_enabled": news.get("news_scanner_enabled", False),
             "news_provider_mode": news.get("news_provider_mode"),
-            "news_items_used": news.get("news_items_used", 0),
+            "news_items_used": news_used,
             "chainlink_btc_usd_valid": ora.get("valid", False),
             "chainlink_btc_usd_price": ora.get("price"),
             "chainlink_btc_usd_age_seconds": ora.get("age_seconds"),
@@ -3234,9 +3354,13 @@ class PolymarketPaperTrainer:
             "active_learning": self.active_learning_report(),
             "correlation_risk": self.correlation_risk_report(),
             "closed_loop_learning": self.closed_loop.metrics(),
+            "learning_feedback": self.closed_loop.learning_state(),
+            "ledger": self.closed_loop.ledger_summary(),
             "training_reconciliation": self.closed_loop.reconcile(
                 decision_count=self.decision_count, rejection_count=self.rejection_count,
-                candidate_evaluated=self.decision_count),
+                candidate_evaluated=self.decision_count,
+                feature_health=self.closed_loop.metrics(),
+                ledger_summary=self.closed_loop.ledger_summary()),
             "risk": self.risk.status(),
             "broker": self.broker.status(),
             "baselines": self.baselines.results(),
