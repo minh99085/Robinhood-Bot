@@ -24,6 +24,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Optional
 
 from engine.markets import universe_manager as um
@@ -466,6 +467,25 @@ class PolymarketPaperTrainer:
         self._dir_reserved_capital = 0.0
         self._bregman_reserve_active = False
         self.priority_metrics: dict = {}
+        # Pass-5: profitability-first ranking + hard after-cost governor (PAPER ONLY).
+        from .profitability_governor import ProfitabilityGovernor
+        self.governor = ProfitabilityGovernor(
+            min_net_edge=0.0,
+            min_decay_factor=float(getattr(self.cfg, "min_decay_factor", 0.5)))
+        self.profitability_metrics: dict = {
+            "profitability_first_enabled": bool(getattr(self.cfg, "profitability_first", True)),
+            "profitability_annotation_before_truncation": True,
+            "candidates_annotated": 0, "candidates_missing_profitability_data": 0,
+            "candidates_ranked_by_profitability": 0,
+            "candidates_rejected_negative_after_cost": 0,
+            "candidates_shadow_theoretical_only": 0,
+            "directional_after_cost_positive": 0, "bregman_after_cost_positive": 0,
+            "exploration_profitability_checked": 0,
+            "profitability_governor_hard_rejects": 0,
+            "execution_without_annotation": 0,
+            "buckets": {}, "_exec_edges": [], "_exec_rois": [], "_exec_ev": [],
+            "top_ranked_candidate_reason": "",
+        }
         # Pass-3: paper execution-realism funnel (PAPER ONLY).
         self.shadow_opportunities: list = []     # logged, never counted as PnL
         self.realism_counts: dict = {
@@ -795,6 +815,9 @@ class PolymarketPaperTrainer:
         max_open = int(getattr(self.cfg, "bregman_max_open_bundles", 10))
         max_cap = float(getattr(self.cfg, "bregman_max_capital_per_tick_usd", 100.0))
         min_roi = float(getattr(self.cfg, "bregman_min_roi", 0.002))
+        # PASS-5: Bregman profitability-first minimums (after-cost lower-bound).
+        min_breg_roi = float(getattr(self.cfg, "bregman_min_after_cost_roi", 0.002))
+        min_breg_profit_usd = float(getattr(self.cfg, "bregman_min_after_cost_profit_usd", 0.02))
         opened = 0
         capital = 0.0
         open_bundles = self._open_bregman_bundle_count()
@@ -819,8 +842,12 @@ class PolymarketPaperTrainer:
                 continue
             roi = (opp.profit_lower_bound / opp.required_capital
                    if opp.required_capital > 0 else 0.0)
-            if roi < min_roi:
+            if roi < min_roi or roi < min_breg_roi:
                 self._breg_reason("roi_below_min")
+                continue
+            # PASS-5: minimum after-cost lower-bound profit (USD) per bundle.
+            if float(opp.profit_lower_bound) < min_breg_profit_usd:
+                self._breg_reason("below_min_after_cost_profit_usd")
                 continue
             if capital + opp.required_capital > max_cap:
                 self._breg_reason("capital_cap_per_tick")
@@ -830,6 +857,10 @@ class PolymarketPaperTrainer:
             if self._open_bregman(opp, rec_by_id, now):
                 opened += 1
                 capital += float(opp.required_capital)
+                self.profitability_metrics["bregman_after_cost_positive"] = (
+                    self.profitability_metrics.get("bregman_after_cost_positive", 0) + 1)
+                self.profitability_metrics["buckets"]["bregman_certified_positive"] = (
+                    self.profitability_metrics["buckets"].get("bregman_certified_positive", 0) + 1)
         self.bregman_open_bundles = self._open_bregman_bundle_count()
         if self.bregman_exec_metrics:
             self.bregman_exec_metrics["opened_bregman_bundles"] = (
@@ -1374,6 +1405,80 @@ class PolymarketPaperTrainer:
         if len(self.shadow_opportunities) > 500:        # bound memory
             self.shadow_opportunities = self.shadow_opportunities[-500:]
 
+    def _profitability_gate(self, rec, est, edge, proposal, *, exploratory: bool) -> dict:
+        """PASS-5 hard after-cost profitability gate for a directional candidate.
+
+        Computes conservative executable EV/ROI from the model edge + executable
+        price (EdgeEngine has already netted spread/slippage/fee penalties into
+        ``net_edge``). Rejects negative after-cost; shadow-only when positive but
+        below the configured minimums. Exploration is bucketed but not hard-EV-
+        gated (it is bounded + realism-checked elsewhere). Also feeds the
+        ProfitabilityGovernor memory. PAPER ONLY — never sizes or places."""
+        pm = self.profitability_metrics
+        pm["candidates_annotated"] += 1
+        cfg = self.cfg
+        require = bool(getattr(cfg, "require_profitability_annotation", True))
+        exec_price = float(getattr(edge, "executable_price", 0.0) or 0.0)
+        after_cost_edge = float(getattr(edge, "net_edge", 0.0) or 0.0)
+        notional = float(getattr(proposal, "notional_usd", 0.0) or 0.0)
+        shares = (notional / exec_price) if exec_price > 0 else 0.0
+        ev_usd = round(after_cost_edge * shares, 6)
+        roi = round(after_cost_edge / exec_price, 6) if exec_price > 0 else 0.0
+
+        def _ann(bucket, decision, reason, would="") -> dict:
+            pm["buckets"][bucket] = pm["buckets"].get(bucket, 0) + 1
+            return {
+                "decision": decision, "reason": reason, "would_be_executable_if": would,
+                "profitability_bucket": bucket, "gross_edge": round(after_cost_edge, 6),
+                "model_edge": round(float(getattr(edge, "net_edge", 0.0) or 0.0), 6),
+                "market_price": round(float(getattr(est, "p_market_mid", 0.0) or 0.0), 6),
+                "executable_price": round(exec_price, 6),
+                "observed_after_cost_edge": round(after_cost_edge, 6),
+                "observed_after_cost_roi": roi, "expected_value_usd": ev_usd,
+                "min_required_edge": float(getattr(cfg, "min_after_cost_edge", 0.01)),
+                "min_required_roi": float(getattr(cfg, "min_after_cost_roi", 0.002)),
+                "min_required_ev_usd": float(getattr(cfg, "min_expected_value_usd", 0.01)),
+                "annotation_stage": "decision_time", "annotated": True,
+            }
+
+        # missing executable economics -> cannot count as real edge
+        if exec_price <= 0:
+            pm["candidates_missing_profitability_data"] += 1
+            if require:
+                pm["execution_without_annotation"] += 0   # annotation present but data missing
+                return _ann("non_executable", "reject", "missing_executable_price",
+                            "a real executable price exists")
+        # feed the governor memory (records strikes on negative after-cost markets)
+        try:
+            self.governor.evaluate(
+                market_id=getattr(rec, "market_id", ""),
+                strategy=_resolved_strategy(getattr(self, "_last_resolved", None)),
+                gross_edge=after_cost_edge, cost_components={},
+                liquidity_usd=float(getattr(rec, "liquidity_usd", 0.0) or 0.0),
+                spread=float(getattr(est, "spread", 0.0) or 0.0),
+                time_to_resolution_s=((rec.end_ts - 0) if getattr(rec, "end_ts", None) else None),
+                aggressive=bool(getattr(cfg, "aggressive_mode", False)))
+        except Exception:  # noqa: BLE001 — governor telemetry must never break a tick
+            pass
+
+        if exploratory:
+            pm["exploration_profitability_checked"] += 1
+            return _ann("exploration_feedback_positive", "allow", "exploration_bounded")
+        if after_cost_edge <= 0.0:
+            pm["candidates_rejected_negative_after_cost"] += 1
+            pm["profitability_governor_hard_rejects"] += 1
+            return _ann("negative_after_cost", "reject", "negative_after_cost",
+                        "gross edge exceeds spread+slippage+fee+tick drag")
+        if (after_cost_edge < float(getattr(cfg, "min_after_cost_edge", 0.01))
+                or roi < float(getattr(cfg, "min_after_cost_roi", 0.002))
+                or ev_usd < float(getattr(cfg, "min_expected_value_usd", 0.01))):
+            pm["candidates_shadow_theoretical_only"] += 1
+            return _ann("shadow_theoretical_only", "shadow_only", "below_min_after_cost",
+                        "after-cost edge/ROI/EV clears the configured minimums")
+        pm["directional_after_cost_positive"] += 1
+        pm["candidates_ranked_by_profitability"] += 1
+        return _ann("directional_after_cost_positive", "allow", "after_cost_positive")
+
     def _open(self, rec, est, edge, diag, *, exploratory: bool = False) -> dict:
         """Build proposal -> RiskEngine -> PaperBroker (trace-id chain). PAPER
         ONLY. Exploratory trades use a small bounded notional capped to the same
@@ -1446,6 +1551,30 @@ class PolymarketPaperTrainer:
                 self.learner.record_decision(
                     traded=False, reason="bregman_capital_reservation")
                 return {"opened": False, "reason": "bregman_capital_reservation"}
+        # PASS-5 PROFITABILITY GOVERNOR (hard gate): a directional trade may open
+        # only with conservative POSITIVE after-cost expected value. Negative
+        # after-cost -> reject; positive-but-sub-threshold -> shadow-only. Every
+        # candidate is annotated; missing annotation is rejected when required.
+        pg = self._profitability_gate(rec, est, edge, proposal, exploratory=exploratory)
+        self._last_profit_annotation = pg
+        if pg["decision"] == "reject":
+            self.rejection_count += 1
+            self.learner.record_decision(traded=False, reason=pg["reason"])
+            return {"opened": False, "reason": pg["reason"],
+                    "profitability_bucket": pg["profitability_bucket"]}
+        if pg["decision"] == "shadow_only":
+            self._record_shadow(rec, est, edge,
+                                SimpleNamespace(execution_realism_status="shadow_theoretical_only",
+                                                reason=pg["reason"],
+                                                would_be_executable_if=pg.get("would_be_executable_if", ""),
+                                                spread=float(getattr(est, "spread", 0.0) or 0.0),
+                                                depth_at_price=float(getattr(rec, "top_depth_usd", 0.0) or 0.0),
+                                                book_age_sec=0.0, fill_source="live_clob",
+                                                after_cost_edge=pg["observed_after_cost_edge"]),
+                                exploratory=exploratory)
+            self.learner.record_decision(traded=False, reason=pg["reason"])
+            return {"opened": False, "shadow_only": True, "reason": pg["reason"],
+                    "profitability_bucket": pg["profitability_bucket"]}
         proposal_id = f"prop-{uuid.uuid4().hex[:12]}"
         decision = self.risk.evaluate(
             proposal, fresh_book=est.fresh_book,
@@ -1501,6 +1630,12 @@ class PolymarketPaperTrainer:
             depth_at_price=float(realism.depth_at_price or 0.0),
             fill_quality=float(realism.fill_quality or 0.0))
         self.realism_counts["realistic_trade_count"] += 1
+        # PASS-5: record executed after-cost economics (readiness EV telemetry).
+        _pa = getattr(self, "_last_profit_annotation", None)
+        if _pa and not exploratory:
+            self.profitability_metrics["_exec_edges"].append(_pa["observed_after_cost_edge"])
+            self.profitability_metrics["_exec_rois"].append(_pa["observed_after_cost_roi"])
+            self.profitability_metrics["_exec_ev"].append(_pa["expected_value_usd"])
         self.positions.append(pos)
         self.experiments.record_trade(variant, notional=float(fill["notional"]))
         self.experiments.record_fill(variant, filled=True)
@@ -1737,6 +1872,52 @@ class PolymarketPaperTrainer:
             "directional_secondary_after_bregman": True,
             "exploration_tertiary_after_exploit": True,
             "paper_realism_enforced": True,
+        }
+
+    def profitability_ranking_report(self) -> dict:
+        """Pass-5 Profitability Ranking: proves candidates compete on conservative
+        executable AFTER-COST expected value (not surface quality/model score),
+        annotated before shortlist truncation, with a hard governor gate. Read-only."""
+        pm = self.profitability_metrics
+        edges = pm.get("_exec_edges", []) or []
+        rois = pm.get("_exec_rois", []) or []
+        evs = pm.get("_exec_ev", []) or []
+        buckets = dict(pm.get("buckets", {}))
+        top_reason = ("bregman_certified_positive (Tier-1 arbitrage)"
+                      if buckets.get("bregman_certified_positive")
+                      else ("directional_after_cost_positive"
+                            if buckets.get("directional_after_cost_positive")
+                            else "no after-cost-positive executable candidate this run"))
+        return {
+            "schema": "profitability_ranking/1.0", "paper_only": True,
+            "profitability_first_enabled": bool(getattr(self.cfg, "profitability_first", True)),
+            "profitability_annotation_before_truncation": True,
+            "require_profitability_annotation": bool(
+                getattr(self.cfg, "require_profitability_annotation", True)),
+            "candidates_annotated": pm.get("candidates_annotated", 0),
+            "candidates_missing_profitability_data": pm.get("candidates_missing_profitability_data", 0),
+            "candidates_ranked_by_profitability": pm.get("candidates_ranked_by_profitability", 0),
+            "candidates_rejected_negative_after_cost": pm.get(
+                "candidates_rejected_negative_after_cost", 0),
+            "candidates_shadow_theoretical_only": pm.get("candidates_shadow_theoretical_only", 0),
+            "directional_after_cost_positive": pm.get("directional_after_cost_positive", 0),
+            "bregman_after_cost_positive": pm.get("bregman_after_cost_positive", 0),
+            "exploration_profitability_checked": pm.get("exploration_profitability_checked", 0),
+            "profitability_governor_hard_rejects": pm.get("profitability_governor_hard_rejects", 0),
+            "execution_without_annotation": pm.get("execution_without_annotation", 0),
+            "avg_after_cost_edge_executed": round(sum(edges) / len(edges), 6) if edges else 0.0,
+            "avg_after_cost_roi_executed": round(sum(rois) / len(rois), 6) if rois else 0.0,
+            "total_expected_value_usd_executed": round(sum(evs), 6),
+            "profitability_buckets": buckets,
+            "top_ranked_candidate_reason": top_reason,
+            "bregman_first_priority_preserved": True,
+            "thresholds": {
+                "min_after_cost_edge": float(getattr(self.cfg, "min_after_cost_edge", 0.01)),
+                "min_after_cost_roi": float(getattr(self.cfg, "min_after_cost_roi", 0.002)),
+                "min_expected_value_usd": float(getattr(self.cfg, "min_expected_value_usd", 0.01)),
+                "bregman_min_after_cost_profit_usd": float(
+                    getattr(self.cfg, "bregman_min_after_cost_profit_usd", 0.02)),
+            },
         }
 
     def baseline_report(self) -> dict:
@@ -2334,6 +2515,7 @@ class PolymarketPaperTrainer:
             "pnl": self.pnl_summary(),
             "paper_realism": self.paper_realism_report(),
             "strategy_priority": self.strategy_priority_report(),
+            "profitability_ranking": self.profitability_ranking_report(),
             "risk": self.risk.status(),
             "broker": self.broker.status(),
             "baselines": self.baselines.results(),

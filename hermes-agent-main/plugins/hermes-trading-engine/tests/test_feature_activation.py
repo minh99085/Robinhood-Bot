@@ -49,12 +49,15 @@ def test_audit_classifies_abcas_scanner_as_telemetry_only():
     assert "Bregman paper execution" in audit["summary"]["truly_active"]
 
 
-def test_audit_flags_profitability_and_active_learning_unused():
+def test_audit_active_learning_still_unused():
+    # Pass-5 wired profitability-first ranking + governor (now active); the active
+    # learning selector remains unused.
     audit = build_feature_activation()
     dead = audit["summary"]["dead_or_unused"]
-    assert "Profitability-first ranking" in dead
     assert "Active learning selector" in dead
-    assert "Profitability governor" in dead
+    active = audit["summary"]["truly_active"]
+    assert "Profitability-first ranking" in active
+    assert "Profitability governor" in active
 
 
 def test_audit_flags_pnl_inflation_risks():
@@ -136,6 +139,23 @@ def test_pass4_markdown_section_present():
     md = to_markdown(build_feature_activation())
     assert "Pass 4 — Bregman-first strategy priority" in md
     assert "Bregman execution before directional: **True**" in md
+
+
+def test_pass5_status_proves_profitability_first():
+    p5 = build_feature_activation()["pass5_status"]
+    assert p5["profitability_first_enabled"] is True
+    assert p5["profitability_annotation_before_truncation"] is True
+    assert p5["directional_ranked_by_after_cost_ev"] is True
+    assert p5["bregman_ranked_by_after_cost_profit_roi"] is True
+    assert p5["negative_after_cost_cannot_count_as_edge"] is True
+    assert p5["profitability_governor_active_hard_gate"] is True
+    assert p5["bregman_first_priority_preserved"] is True
+
+
+def test_pass5_markdown_section_present():
+    md = to_markdown(build_feature_activation())
+    assert "Pass 5 — profitability-first ranking" in md
+    assert "Directional ranked by after-cost EV: **True**" in md
 
 
 def test_cli_writes_json_and_markdown(tmp_path):

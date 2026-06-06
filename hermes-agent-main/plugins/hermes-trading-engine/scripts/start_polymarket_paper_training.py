@@ -540,6 +540,9 @@ def run(argv=None) -> int:
             # Pass-4: strategy-priority ladder (Bregman Tier-1 reservation).
             (metrics_dir / "strategy_priority.json").write_text(
                 json.dumps(trainer.strategy_priority_report(), default=str), encoding="utf-8")
+            # Pass-5: profitability-first ranking funnel.
+            (metrics_dir / "profitability_ranking.json").write_text(
+                json.dumps(trainer.profitability_ranking_report(), default=str), encoding="utf-8")
         except Exception:  # noqa: BLE001 — metrics must never break a tick
             pass
         print(f"tick {ticks}: scanned={st['scan_metrics']['scanned']} "

@@ -223,17 +223,40 @@ def annotate_profitability(scored: list, cfg, *, memory=None, decay=None,
     Never sizes or places an order."""
     from .profitability_governor import (STATE_CLEAN, profitability_score,
                                          timing_decision)
+    from engine.execution.slippage import drag_breakdown
+    from engine.markets import universe_manager as _um
     max_spread = max(1e-6, float(getattr(cfg, "max_spread",
                                          getattr(cfg, "max_allowed_spread", 0.08))))
     slip = float(getattr(cfg, "slippage_bps", 25.0)) / 10000.0
     fee = float(getattr(cfg, "taker_fee_bps", 0.0)) / 10000.0
+    min_depth = float(getattr(cfg, "min_depth_at_price", 50.0))
     for d in scored:
         rec = d.get("record")
         if rec is None:
             continue
         base = float(d.get("score", 0.0)) / 100.0
         spread = float(getattr(rec, "spread", 0.0) or 0.0)
-        # cost drag proxy in edge-units: half-spread crossing + slippage + fee
+        depth = float(getattr(rec, "top_depth_usd", 0.0) or 0.0)
+        book_age = getattr(rec, "book_age_s", None)
+        raw = getattr(rec, "raw", None) or {}
+        best_ask = _um._as_float(raw.get("bestAsk"), None)
+        best_bid = _um._as_float(raw.get("bestBid"), None)
+        amb_raw = _um._as_float(raw.get("ambiguity"), None)
+        ambiguity = (amb_raw if amb_raw is not None
+                     else (0.0 if getattr(rec, "has_resolution_text", False) else 0.5))
+        tick = float(getattr(rec, "tick_size", 0.0) or 0.0)
+        # --- conservative executable cost decomposition (labelled estimates) ---
+        if best_ask is not None and best_ask > 0:
+            b = drag_breakdown(float(best_ask), best_bid, tick,
+                               slippage_bps=float(getattr(cfg, "slippage_bps", 25.0)),
+                               fee_bps=float(getattr(cfg, "taker_fee_bps", 0.0)))
+            tick_drag = float(b["tick_rounding"]); slip_drag = float(b["slippage"])
+            fee_drag = float(b["fee"]); spread_drag = float(b["half_spread"])
+        else:
+            tick_drag = slip_drag = fee_drag = 0.0
+            spread_drag = 0.5 * spread
+        execution_drag = round(tick_drag + slip_drag + fee_drag + spread_drag, 8)
+        # quality-base cost proxy (model edge p_final is unknown pre-trade) ----
         cost_proxy = min(1.0, (0.5 * spread + slip + fee) / max_spread)
         net_proxy = base * (1.0 - cost_proxy)
         d["after_cost_score"] = round(net_proxy * 100.0, 3)
@@ -243,6 +266,37 @@ def annotate_profitability(scored: list, cfg, *, memory=None, decay=None,
         d["timing"] = timing_decision(
             net_edge=net_proxy - 0.5, decay_factor=1.0, graylist_state=state,
             aggressive=aggressive, min_net_edge=-0.5)
+        # --- preliminary (cost-side) executable economics + bucket ---
+        # model edge / after-cost EDGE is finalised at decision time in the
+        # profitability governor; here we expose the cost side + executability.
+        missing_ask = best_ask is None or best_ask <= 0
+        thin = depth < min_depth
+        wide = spread > max_spread
+        if missing_ask:
+            bucket, eligible, reason = "non_executable", False, "missing_executable_ask"
+        elif thin or wide:
+            bucket, eligible = "shadow_theoretical_only", False
+            reason = "thin_depth" if thin else "wide_spread"
+        elif amb_raw is None and not getattr(rec, "has_resolution_text", False):
+            bucket, eligible, reason = "insufficient_data", False, "no_resolution_text"
+        else:
+            bucket, eligible = "insufficient_data", True
+            reason = "cost_side_ok_model_edge_pending"
+        d["profitability"] = {
+            "best_ask": best_ask, "best_bid": best_bid, "spread": round(spread, 6),
+            "depth_at_price": round(depth, 4), "book_age_sec": book_age,
+            "ambiguity_score": round(float(ambiguity), 4),
+            "fee_estimate": round(fee_drag, 8), "slippage_estimate": round(slip_drag, 8),
+            "tick_rounding_drag": round(tick_drag, 8), "spread_drag": round(spread_drag, 8),
+            "execution_drag": execution_drag,
+            "profitability_score": d["profitability_score"],
+            "profitability_bucket": bucket, "profitability_eligible": bool(eligible),
+            "profitability_rank_reason": reason,
+            "fee_estimate_source": "conservative_default",
+            "slippage_estimate_source": "depth_based_estimate",
+            "tick_rounding_source": "configured_tick_size",
+            "annotation_stage": "scan_pretrade",
+        }
     if profitability_first:
         scored.sort(key=lambda x: (x.get("after_cost_score", 0.0),
                                    getattr(x.get("record"), "market_id", "")), reverse=True)

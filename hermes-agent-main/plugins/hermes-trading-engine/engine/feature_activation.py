@@ -129,14 +129,20 @@ FEATURES: list[dict] = [
         "files": ["engine/training/candidate_ranker.py:annotate_profitability",
                   "engine/training/profitability_governor.py",
                   "engine/training/market_scanner.py"],
-        "runtime_status": "imported",
-        "controls_trades": False, "telemetry_only": False,
-        "flag": "profitability_first (annotate_profitability arg; UNWIRED)",
+        "runtime_status": "active",
+        "controls_trades": True, "telemetry_only": False,
+        "flag": "profitability_first (POLYMARKET_PROFITABILITY_FIRST=1 default)",
         "evidence": "market_scanner.scan calls rank_candidates (quality score) + "
                     "annotate_feedback_value, then shortlist=ranked[:shortlist_limit]. "
                     "annotate_profitability() is never called in the runtime path.",
         "risk": "HIGH: candidates are truncated by quality score, NOT after-cost EV — "
                 "profitable-but-lower-quality markets are dropped before any decision.",
+        "pass5": "RESOLVED — annotate_profitability now runs in market_scanner.scan "
+                 "BEFORE shortlist truncation and (profitability_first) re-ranks by "
+                 "after-cost score; every candidate carries conservative executable "
+                 "economics (spread/depth/fee/slippage/tick drag + bucket). Directional "
+                 "opens are hard-gated at decision time by the profitability governor "
+                 "(after-cost edge/ROI/EV); negative after-cost is rejected.",
     },
     {
         "feature": "Active learning selector",
@@ -272,12 +278,18 @@ FEATURES: list[dict] = [
     {
         "feature": "Profitability governor",
         "files": ["engine/training/profitability_governor.py"],
-        "runtime_status": "dead",
-        "controls_trades": False, "telemetry_only": False,
-        "flag": "(reached only via the unused annotate_profitability)",
+        "runtime_status": "active",
+        "controls_trades": True, "telemetry_only": False,
+        "flag": "require_profitability_annotation / min_after_cost_edge (cfg)",
         "evidence": "Not referenced by polymarket_trainer.py; only used inside "
                     "annotate_profitability, which is itself never called.",
         "risk": "No after-cost graylist/throttle is applied to directional ranking.",
+        "pass5": "RESOLVED — ProfitabilityGovernor is constructed in the trainer and "
+                 "wired into _open via _profitability_gate: it computes conservative "
+                 "after-cost edge/ROI/EV, hard-rejects negative-after-cost (bucket "
+                 "negative_after_cost), shadows sub-threshold candidates, records "
+                 "strikes in MarketQualityMemory, and never lets an unannotated "
+                 "candidate execute (require_profitability_annotation).",
     },
     {
         "feature": "Position/open-slot governor",
@@ -456,6 +468,35 @@ PASS4_STATUS = {
 }
 
 
+# Pass-5 outcome: profitability-first ranking. Candidates compete on conservative
+# executable AFTER-COST expected value, annotated before truncation, hard-gated
+# by the profitability governor. Bregman-first priority (Pass 4) is preserved.
+PASS5_STATUS = {
+    "profitability_first_enabled": True,
+    "profitability_annotation_before_truncation": True,
+    "directional_ranked_by_after_cost_ev": True,
+    "bregman_ranked_by_after_cost_profit_roi": True,
+    "negative_after_cost_cannot_count_as_edge": True,
+    "missing_annotation_rejected_or_shadow": True,
+    "profitability_governor_active_hard_gate": True,
+    "bregman_first_priority_preserved": True,
+    "exploration_profitability_aware_and_bounded": True,
+    "annotation_layer": "engine/training/candidate_ranker.py:annotate_profitability",
+    "governor": "engine/training/profitability_governor.py:ProfitabilityGovernor",
+    "metrics": ["metrics/profitability_ranking.json"],
+    "buckets": ["bregman_certified_positive", "directional_after_cost_positive",
+                "exploration_feedback_positive", "shadow_theoretical_only",
+                "negative_after_cost", "non_executable", "insufficient_data"],
+    "new_env_flags": {
+        "POLYMARKET_PROFITABILITY_FIRST": 1,
+        "POLYMARKET_REQUIRE_PROFITABILITY_ANNOTATION": 1,
+        "POLYMARKET_MIN_AFTER_COST_EDGE": 0.01, "POLYMARKET_MIN_AFTER_COST_ROI": 0.002,
+        "POLYMARKET_MIN_EXPECTED_VALUE_USD": 0.01,
+        "POLYMARKET_BREGMAN_MIN_AFTER_COST_PROFIT_USD": 0.02,
+    },
+}
+
+
 def build_feature_activation(cfg: Any = None, status: Optional[dict] = None) -> dict:
     """Build the machine-readable feature-activation audit (read-only, pure).
 
@@ -506,6 +547,7 @@ def build_feature_activation(cfg: Any = None, status: Optional[dict] = None) -> 
         "pass2_status": dict(PASS2_STATUS),
         "pass3_status": dict(PASS3_STATUS),
         "pass4_status": dict(PASS4_STATUS),
+        "pass5_status": dict(PASS5_STATUS),
         "live_config": live,
         "note": "PASS-1 audit traced from run_tick to open. PASS-2 wired raw-catalog "
                 "Bregman into certified PAPER execution (see pass2_status / per-feature "
@@ -532,6 +574,25 @@ def to_markdown(audit: dict) -> str:
                  f"**{p2s['bregman_execution_priority_before_directional']}**")
         for e in p2s["evidence"]:
             L.append(f"  - {e}")
+        L.append("")
+    p5 = audit.get("pass5_status")
+    if p5:
+        L.append("## Pass 5 — profitability-first ranking")
+        L.append(f"- Profitability-first enabled: **{p5['profitability_first_enabled']}**")
+        L.append(f"- Annotation before shortlist truncation: "
+                 f"**{p5['profitability_annotation_before_truncation']}**")
+        L.append(f"- Directional ranked by after-cost EV: "
+                 f"**{p5['directional_ranked_by_after_cost_ev']}**")
+        L.append(f"- Bregman ranked by after-cost profit/ROI: "
+                 f"**{p5['bregman_ranked_by_after_cost_profit_roi']}**")
+        L.append(f"- Negative after-cost cannot count as edge: "
+                 f"**{p5['negative_after_cost_cannot_count_as_edge']}**")
+        L.append(f"- Missing annotation rejected/shadow: "
+                 f"**{p5['missing_annotation_rejected_or_shadow']}**")
+        L.append(f"- Profitability governor active (hard gate): "
+                 f"**{p5['profitability_governor_active_hard_gate']}**")
+        L.append(f"- Bregman-first priority preserved: "
+                 f"**{p5['bregman_first_priority_preserved']}**")
         L.append("")
     p4 = audit.get("pass4_status")
     if p4:
@@ -587,6 +648,8 @@ def to_markdown(audit: dict) -> str:
             risk = f"{risk}<br>**Pass-3:** {f['pass3']}"
         if f.get("pass4"):
             risk = f"{risk}<br>**Pass-4:** {f['pass4']}"
+        if f.get("pass5"):
+            risk = f"{risk}<br>**Pass-5:** {f['pass5']}"
         L.append(f"| {f['feature']} | {files} | `{f['runtime_status']}` | "
                  f"{'YES' if f['controls_trades'] else 'no'} | "
                  f"{'YES' if f['telemetry_only'] else 'no'} | {f['flag']} | "

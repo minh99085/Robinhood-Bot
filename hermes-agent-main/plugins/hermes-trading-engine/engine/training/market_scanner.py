@@ -30,7 +30,8 @@ from typing import Optional
 
 from engine.markets import universe_manager as um
 
-from .candidate_ranker import annotate_feedback_value, rank_candidates
+from .candidate_ranker import (annotate_feedback_value, annotate_profitability,
+                               rank_candidates)
 from .institutional_features import compute_features, feature_coverage
 from .market_grouping import bregman_suitability, group_markets, grouping_metrics
 from .metrics import ScanMetrics
@@ -157,6 +158,17 @@ class MarketScanner:
         ranked = rank_candidates(kept, ucfg, category_reliability=cr,
                                  chainlink=self.chainlink,
                                  bregman_by_market=bregman_by_market, now=now)
+        # PASS-5 PROFITABILITY-FIRST: annotate conservative executable economics on
+        # EVERY ranked candidate BEFORE shortlist truncation, and (when enabled)
+        # RE-RANK by after-cost score so fat-spread/thin/stale books cannot crowd
+        # out executable ones. Annotation survives into trainer execution. This is
+        # a pre-trade cost-side proxy (model edge p_final is added at decision time);
+        # estimate sources are labelled (no fake precision). Never sizes/places.
+        profit_first = bool(getattr(self.cfg, "profitability_first", True))
+        annotate_profitability(ranked, self.cfg, profitability_first=profit_first,
+                               aggressive=bool(getattr(self.cfg, "aggressive_mode", False)),
+                               now=now)
+        self._profitability_annotated = len(ranked)
         shortlist_limit = int(getattr(self.cfg, "shortlist_limit", 150))
         shortlist = ranked[:shortlist_limit]
         # Active-learning annotation (aggressive paper mode only): tag each

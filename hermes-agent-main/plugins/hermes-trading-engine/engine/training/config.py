@@ -198,6 +198,27 @@ class TrainingConfig:
     block_directional_on_bregman_markets: bool = True
     block_directional_on_bregman_events: bool = True
     exploration_can_use_bregman_reserved_capacity: bool = False
+    # ---- Pass-5: profitability-first ranking + hard after-cost governor ----
+    # Candidates compete on conservative, executable, AFTER-COST expected value —
+    # not surface quality or model score alone. Annotation runs before shortlist
+    # truncation; the governor hard-rejects negative-after-cost trades. Safe
+    # defaults; thresholds only TIGHTEN (never loosen EdgeEngine).
+    profitability_first: bool = True
+    require_profitability_annotation: bool = True
+    min_after_cost_edge: float = 0.01
+    min_after_cost_roi: float = 0.002
+    min_expected_value_usd: float = 0.01
+    profitability_sort_weight: float = 1.0
+    model_score_sort_weight: float = 0.35
+    liquidity_sort_weight: float = 0.25
+    freshness_sort_weight: float = 0.25
+    ambiguity_penalty_sort_weight: float = 0.50
+    execution_drag_penalty_weight: float = 1.00
+    bregman_profitability_first: bool = True
+    bregman_min_after_cost_profit_usd: float = 0.02
+    bregman_min_after_cost_roi: float = 0.002
+    bregman_profit_sort_weight: float = 1.0
+    bregman_risk_penalty_weight: float = 0.5
     # ---- portfolio risk + aggressive sizing (PAPER ONLY; hard-clamped) ----
     # Additive caps that only ever TIGHTEN the mandatory TrainingRiskGate/RiskEngine.
     max_event_exposure_usd: float = 20.0
@@ -761,6 +782,24 @@ class TrainingConfig:
                 "POLYMARKET_BLOCK_DIRECTIONAL_ON_BREGMAN_EVENTS", True),
             exploration_can_use_bregman_reserved_capacity=_envb(
                 "POLYMARKET_EXPLORATION_CAN_USE_BREGMAN_RESERVED_CAPACITY", False),
+            profitability_first=_envb("POLYMARKET_PROFITABILITY_FIRST", True),
+            require_profitability_annotation=_envb(
+                "POLYMARKET_REQUIRE_PROFITABILITY_ANNOTATION", True),
+            min_after_cost_edge=_envf("POLYMARKET_MIN_AFTER_COST_EDGE", 0.01),
+            min_after_cost_roi=_envf("POLYMARKET_MIN_AFTER_COST_ROI", 0.002),
+            min_expected_value_usd=_envf("POLYMARKET_MIN_EXPECTED_VALUE_USD", 0.01),
+            profitability_sort_weight=_envf("POLYMARKET_PROFITABILITY_SORT_WEIGHT", 1.0),
+            model_score_sort_weight=_envf("POLYMARKET_MODEL_SCORE_SORT_WEIGHT", 0.35),
+            liquidity_sort_weight=_envf("POLYMARKET_LIQUIDITY_SORT_WEIGHT", 0.25),
+            freshness_sort_weight=_envf("POLYMARKET_FRESHNESS_SORT_WEIGHT", 0.25),
+            ambiguity_penalty_sort_weight=_envf("POLYMARKET_AMBIGUITY_PENALTY_WEIGHT", 0.50),
+            execution_drag_penalty_weight=_envf("POLYMARKET_EXECUTION_DRAG_PENALTY_WEIGHT", 1.0),
+            bregman_profitability_first=_envb("POLYMARKET_BREGMAN_PROFITABILITY_FIRST", True),
+            bregman_min_after_cost_profit_usd=_envf(
+                "POLYMARKET_BREGMAN_MIN_AFTER_COST_PROFIT_USD", 0.02),
+            bregman_min_after_cost_roi=_envf("POLYMARKET_BREGMAN_MIN_AFTER_COST_ROI", 0.002),
+            bregman_profit_sort_weight=_envf("POLYMARKET_BREGMAN_PROFIT_SORT_WEIGHT", 1.0),
+            bregman_risk_penalty_weight=_envf("POLYMARKET_BREGMAN_RISK_PENALTY_WEIGHT", 0.5),
             max_event_exposure_usd=_envf("POLYMARKET_MAX_EVENT_EXPOSURE_USD", 20.0),
             max_category_exposure_usd=_envf("POLYMARKET_MAX_CATEGORY_EXPOSURE_USD", 40.0),
             max_bregman_bundle_exposure_usd=_envf("POLYMARKET_MAX_BREGMAN_BUNDLE_EXPOSURE_USD", 30.0),

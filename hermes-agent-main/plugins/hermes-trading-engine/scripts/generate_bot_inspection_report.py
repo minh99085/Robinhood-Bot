@@ -1022,6 +1022,27 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
                  f"{_yn(bool(sp.get('exploration_blocked_from_reserved_bregman_capacity')) and False)}"
                  f" (blocked by default)")
         L.append("")
+    # Pass-5: Profitability Ranking — candidates compete on after-cost EV.
+    prk = status.get("profitability_ranking") or {}
+    if prk:
+        L.append("### 14c. Profitability Ranking (Pass 5)")
+        L.append("")
+        L.append(f"- Profitability-first enabled: {_yn(prk.get('profitability_first_enabled'))}")
+        L.append(f"- Annotation before truncation: "
+                 f"{_yn(prk.get('profitability_annotation_before_truncation'))}")
+        L.append(f"- Bregman-first priority preserved: "
+                 f"{_yn(prk.get('bregman_first_priority_preserved'))} (should be true)")
+        L.append(f"- Execution without annotation: "
+                 f"{_yn(prk.get('execution_without_annotation'))} (should be 0)")
+        for k in ("candidates_annotated", "candidates_missing_profitability_data",
+                  "directional_after_cost_positive", "bregman_after_cost_positive",
+                  "candidates_rejected_negative_after_cost",
+                  "candidates_shadow_theoretical_only", "profitability_governor_hard_rejects",
+                  "avg_after_cost_edge_executed", "avg_after_cost_roi_executed",
+                  "total_expected_value_usd_executed", "top_ranked_candidate_reason"):
+            L.append(f"- {k}: {_yn(prk.get(k))}")
+        L.append(f"- profitability_buckets: {_yn(prk.get('profitability_buckets'))}")
+        L.append("")
     L.append("## 15. Calibration Metrics")
     L.append("")
     for k in ("brier", "ece", "sharpe", "sortino", "calmar", "max_drawdown"):
