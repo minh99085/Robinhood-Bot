@@ -6,23 +6,12 @@ services:
       - "8800:8800"
     volumes:
       - hte_data:/data
-      # Bind-mount the local .env read-only into /app so the in-container loader
-      # (engine/env_loader.load_local_env) reads the xAI/Grok key DIRECTLY at startup.
-      # This works on EVERY Docker Compose version (the `env_file` directive below is
-      # not applied to PID 1 on some versions). PAPER ONLY — the loader skips live
-      # flags and preflight still hard-blocks them.
-      - ./.env:/app/.env:ro
-    # env_file ALSO injects the key on Compose >= v2.24; harmless where unsupported.
-    env_file:
-      - path: .env
-        required: false
-      - path: .env.env
-        required: false
     environment:
       HTE_ENGINE_NAME: "HermesTradingEngine"
-      # Interpolated from the auto-loaded project .env (universal across Compose
-      # versions). Empty only if .env lacks the key — in which case the bind-mount
-      # above + in-container loader still supply it.
+      # xAI/Grok key injected into the container by interpolation from the project
+      # .env that docker compose auto-loads (works on every Compose version + on
+      # Windows; single-file bind mounts are unreliable on Docker Desktop/WSL2).
+      # Put your key in .env as: XAI_API_KEY=xai-...  (or GROK_API_KEY=...).
       GROK_API_KEY: "${GROK_API_KEY:-}"
       XAI_API_KEY: "${XAI_API_KEY:-}"
       HTE_STARTING_BALANCE: "${HTE_STARTING_BALANCE:-500}"
@@ -80,10 +69,9 @@ services:
       # is set in .env; with no key it stays gracefully off. Research-only either
       # way (never sizes/approves/arms/places an order).
       GROK_BRAIN_ONLINE: "${GROK_BRAIN_ONLINE:-1}"
-      # GROK_API_KEY / XAI_API_KEY come from env_file (.env / .env.env) above — NOT
-      # set here, because an `environment:` value overrides env_file and the
-      # "${XAI_API_KEY:-}" default is EMPTY when Docker can't see the project .env
-      # (the bug that kept Grok off). A host-shell key still works via env_file too.
+      # GROK_API_KEY / XAI_API_KEY are interpolated from the project .env that docker
+      # compose auto-loads (defined in the environment block at the top of this
+      # service). Put your key in .env as XAI_API_KEY=xai-...
       GROK_MODEL: "${GROK_MODEL:-grok-4.3}"
       # grok-4.x reasons before answering; 4s reliably trips
       # "xAI The read operation timed out". 30s read budget (override as needed).
@@ -430,20 +418,11 @@ services:
       - hermes-trading-engine
     volumes:
       - hte_data:/data
-      # Bind-mount the local .env so the in-container loader reads the xAI/Grok key
-      # at startup — works on EVERY Compose version (env_file below isn't applied to
-      # PID 1 on some versions). PAPER ONLY — loader skips live flags; preflight blocks.
-      - ./.env:/app/.env:ro
-    env_file:
-      - path: .env
-        required: false
-      - path: .env.env
-        required: false
     environment:
       HTE_DATA_DIR: "/data"
       HTE_MODE: "paper"
-      # Interpolated from the auto-loaded project .env (universal); bind-mount +
-      # loader supply it too if interpolation is empty.
+      # xAI/Grok key via interpolation from the auto-loaded project .env (Windows-
+      # safe; no single-file bind mount). Put XAI_API_KEY=xai-... in .env.
       GROK_API_KEY: "${GROK_API_KEY:-}"
       XAI_API_KEY: "${XAI_API_KEY:-}"
       # Durable artifact dirs (ABSOLUTE, on the persisted /data volume so they
@@ -533,9 +512,8 @@ services:
       CHAINLINK_ENABLED: "1"
       CHAINLINK_RPC_URL: "${CHAINLINK_RPC_URL:-https://ethereum-rpc.publicnode.com}"
       RESEARCH_MODE: "${RESEARCH_MODE:-online_paper}"
-      # GROK_API_KEY / XAI_API_KEY come from env_file (.env / .env.env) above — not
-      # set here so an empty "${XAI_API_KEY:-}" can't override the real key Docker
-      # now loads from the file (the cause of Grok staying off in Docker).
+      # GROK_API_KEY / XAI_API_KEY are interpolated from the auto-loaded project .env
+      # (set in this service's environment block above). Put XAI_API_KEY=xai-... in .env.
       MICRO_LIVE_ENABLED: "0"
       KALSHI_MICRO_LIVE_ENABLED: "0"
       POLYMARKET_MICRO_LIVE_ENABLED: "0"
