@@ -238,7 +238,16 @@ def extract_features(status: dict | None, api: dict | None = None,
                                   _get(status, "bregman", "bregman_paper_enabled"),
                                   mon.get("bregman_enabled")),
         "bregman_arbitrage_disabled": _get(status, "bregman", "arbitrage_disabled"),
-        "bregman_constraint_groups_scanned": _get(status, "bregman", "constraint_groups_scanned"),
+        # CANONICAL: prefer the new funnel's scanned count; the legacy bregman.json
+        # path is telemetry-only and must not drive the groups_scanned_positive gate.
+        "bregman_constraint_groups_scanned": _first(
+            _get(status, "bregman_funnel", "constraint_groups_scanned"),
+            _get(status, "bregman_funnel", "groups_sent_to_certifier"),
+            _get(status, "bregman", "constraint_groups_scanned")),
+        "bregman_funnel_constraint_groups_scanned": _get(
+            status, "bregman_funnel", "constraint_groups_scanned"),
+        "legacy_bregman_constraint_groups_scanned": _get(
+            status, "bregman", "constraint_groups_scanned"),
         # --- ABCAS / aggressive paper mode ---
         "abcas_enabled": _get(status, "bregman", "abcas_enabled"),
         "abcas_mode": _get(status, "bregman", "abcas_mode"),
@@ -1038,21 +1047,43 @@ def build_algorithmic_edge_audit(feats: dict | None, status: dict | None = None,
         "unrealized_pnl": _num(_first(pnl.get("unrealized_pnl"), attr.get("unrealized_pnl"))),
     }
 
-    # 2) Bregman arbitrage diagnostics
+    # 2) Bregman arbitrage diagnostics — CANONICAL source is metrics/bregman_funnel.json
+    # (status["bregman_funnel"]); the legacy metrics/bregman.json (status["bregman"])
+    # is telemetry/diagnostic only and must NOT override the canonical funnel.
+    funnel = _get(status, "bregman_funnel", default={}) or {}
+
+    def _funnel_first(funnel_key, *legacy):
+        v = funnel.get(funnel_key)
+        if v is not None:
+            return _num(v)
+        return _num(_first(*legacy)) if legacy else None
+    # rejected_fees_spread_depth_slippage = sum of the fee/spread/depth/slippage
+    # rejection reasons reported by the canonical funnel.
+    _rej = funnel.get("rejected_by_reason", funnel.get("skip_reasons", {})) or {}
+    _rej_fsds = sum(int(_rej.get(k, 0) or 0) for k in (
+        "depth_too_thin", "spread_too_wide", "stale_book", "no_positive_edge",
+        "thin_depth", "wide_spread", "rejected_fees_spread_depth_slippage")) \
+        if isinstance(_rej, dict) else None
     sections["bregman"] = {
-        "constraint_groups_scanned": _num(_first(
-            breg.get("constraint_groups_scanned"), breg.get("groups_scanned"),
-            feats.get("bregman_candidates_found"))),
+        "constraint_groups_scanned": _funnel_first(
+            "constraint_groups_scanned", breg.get("constraint_groups_scanned"),
+            breg.get("groups_scanned"), feats.get("bregman_candidates_found")),
+        "raw_groups_discovered": _funnel_first(
+            "raw_groups_discovered", breg.get("groups_discovered")),
         "incoherent_groups": _num(_first(breg.get("incoherent_groups"),
                                          breg.get("incoherent"))),
-        "candidate_arbitrages": _num(_first(breg.get("candidate_arbitrages"),
-                                            feats.get("bregman_candidates_found"))),
-        "certified_arbitrages": _num(_first(breg.get("certified_arbitrages"),
-                                            feats.get("bregman_certified_count"))),
-        "executable_depth_certified": _num(_first(
-            breg.get("executable_depth_certified"), breg.get("executable_certified"))),
-        "rejected_fees_spread_depth_slippage": _num(_first(
-            breg.get("rejected_fees_spread_depth_slippage"), breg.get("rejected"))),
+        "candidate_arbitrages": _funnel_first(
+            "candidates_generated", breg.get("candidate_arbitrages"),
+            feats.get("bregman_candidates_found")),
+        "certified_arbitrages": _funnel_first(
+            "certified", breg.get("certified_arbitrages"),
+            feats.get("bregman_certified_count")),
+        "executable_depth_certified": _funnel_first(
+            "realistic_executable", breg.get("executable_depth_certified"),
+            breg.get("executable_certified")),
+        "rejected_fees_spread_depth_slippage": (
+            _rej_fsds if _rej_fsds is not None else _num(_first(
+                breg.get("rejected_fees_spread_depth_slippage"), breg.get("rejected")))),
         "expected_min_profit": _num(_first(breg.get("expected_min_profit"),
                                            feats.get("bregman_certified_profit"))),
         "worst_case_payoff": _num(breg.get("worst_case_payoff")),
@@ -1060,6 +1091,8 @@ def build_algorithmic_edge_audit(feats: dict | None, status: dict | None = None,
                                            breg.get("atomicity_risk")),
         "opportunity_decay_s": _num(_first(breg.get("opportunity_decay_half_life_s"),
                                            feats.get("bregman_opportunity_decay"))),
+        "canonical_source": ("metrics/bregman_funnel.json" if funnel
+                             else "metrics/bregman.json(legacy)"),
     }
     # Bregman audit-required counters are KNOWN ZERO only when the scanner actually
     # ran (telemetry present) — coerce None->0 in that case so a real zero-scan is

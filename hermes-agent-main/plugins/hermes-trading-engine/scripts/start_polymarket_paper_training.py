@@ -498,9 +498,14 @@ def run(argv=None) -> int:
         try:
             tel = bregman_scanner.scan(markets or [])
             bregman_scan_path.write_text(json.dumps(tel, default=str), encoding="utf-8")
-            # ABCAS metrics artifact (metrics/bregman.json) for the report.
+            # ABCAS metrics artifact (metrics/bregman.json) — LEGACY scanner telemetry,
+            # clearly labeled as superseded by the canonical funnel + NOT controlling
+            # run-readiness (TASK 6).
             metrics_dir.mkdir(parents=True, exist_ok=True)
-            (metrics_dir / "bregman.json").write_text(json.dumps(tel, default=str),
+            tel_labeled = {"source": "legacy_abcas_scanner_telemetry",
+                           "controls_run_ready": False,
+                           "superseded_by": "metrics/bregman_funnel.json", **tel}
+            (metrics_dir / "bregman.json").write_text(json.dumps(tel_labeled, default=str),
                                                       encoding="utf-8")
             # TASK 8: every skipped Bregman group writes a durable bregman_diagnostic
             # so bregman_groups_skipped>0 implies bregman_diagnostic_events>0 (the
@@ -636,6 +641,28 @@ def run(argv=None) -> int:
             # ABSOLUTE paths with sizes/rows. A positive counter must NOT be claimed
             # while the file is missing/empty — if so, force run-ready false.
             _cll = (_insp.get("closed_loop_learning") or {})
+            # CANONICAL Bregman source reconciliation (funnel vs legacy scanner).
+            try:
+                _funnel = _insp.get("bregman_funnel", {}) or {}
+                _canon = int(_funnel.get("constraint_groups_scanned",
+                                         _funnel.get("groups_sent_to_certifier", 0)) or 0)
+                _legacy = int((bregman_scanner.last_telemetry or {}).get(
+                    "constraint_groups_scanned", 0) or 0)
+                _disagree = _canon > 0 and _legacy <= 0
+                (metrics_dir / "bregman_source_reconciliation.json").write_text(json.dumps({
+                    "canonical_source": "metrics/bregman_funnel.json",
+                    "legacy_source": "metrics/bregman.json",
+                    "canonical_constraint_groups_scanned": _canon,
+                    "legacy_constraint_groups_scanned": _legacy,
+                    "canonical_controls_run_ready": True,
+                    "legacy_controls_run_ready": False,
+                    "sources_disagree": _disagree,
+                    "classification_impact": "warning_only" if _disagree else "none",
+                    "warning": ("legacy_bregman_scanner_zero_but_canonical_funnel_active"
+                                if _disagree else ""),
+                }, indent=2, default=str), encoding="utf-8")
+            except Exception:  # noqa: BLE001
+                pass
             _verify = verify_durable_writes(
                 art, decision_count=int(trainer.decision_count),
                 pending_count=int(_cll.get("pending_labels_total", 0) or 0))

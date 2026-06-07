@@ -243,6 +243,75 @@ def test_run_ready_false_when_reconciliation_missing():
     assert rr2["run_ready_for_hours"] is False
 
 
+# --- Bregman source-of-truth unification (canonical funnel > legacy scanner) ---
+
+def _write(p, obj):
+    import json as _j
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(_j.dumps(obj) if isinstance(obj, (dict, list)) else str(obj),
+                 encoding="utf-8")
+
+
+def _runtime_dir_with_canonical_funnel(tmp_path, monkeypatch):
+    """Build a REAL runtime data dir (all durable artifacts written by the trainer),
+    then overlay the exact reported Bregman case: canonical funnel scanned=272,
+    certified=0, while the legacy metrics/bregman.json scanned=0."""
+    dd = _run(tmp_path, monkeypatch).data_dir  # real trainer run writes everything
+    t = _trainer(tmp_path, monkeypatch, signal=True, min_net_edge=0.5)
+    cat = [market(i, bid=0.49, ask=0.51, liq=50_000, depth=2000, now=_NOW) for i in range(15)]
+    for _ in range(2):
+        t.run_tick(cat, now=_NOW)
+    t.write_inspection_artifacts(dd)
+    md = Path(dd) / "metrics"
+    funnel = {"raw_catalog_markets_scanned": 864, "eligible_raw_markets": 864,
+              "raw_groups_discovered": 272, "groups_adapter_success": 272,
+              "groups_adapter_failed": 0, "groups_sent_to_certifier": 272,
+              "constraint_groups_scanned": 272, "candidates_generated": 0,
+              "certified": 0, "certified_opportunities": 0, "realistic_executable": 0,
+              "bundles_opened": 0, "internally_consistent": True,
+              "rejected_by_reason": {"depth_too_thin": 5669, "spread_too_wide": 37,
+                                     "stale_book": 153, "no_positive_edge": 74}}
+    _write(md / "bregman_funnel.json", funnel)
+    _write(md / "bregman.json", {"source": "legacy_abcas_scanner_telemetry",
+                                 "constraint_groups_scanned": 0, "groups_skipped": 1129})
+    # patch the status file's bregman_funnel + legacy bregman to the reported case
+    st = json.loads((Path(dd) / "polymarket_training.json").read_text())
+    st["bregman_funnel"] = funnel
+    st["bregman"] = {"execution": {"constraint_groups_scanned": 0, "groups_skipped": 1129,
+                                   "bregman_paper_enabled": True}}
+    st.setdefault("scan_metrics", {})["groups_detected"] = 272
+    _write(Path(dd) / "polymarket_training.json", st)
+    return Path(dd)
+
+
+def test_canonical_funnel_overrides_legacy_zero_scan(tmp_path, monkeypatch):
+    """The exact reported case: funnel scanned=272 but legacy bregman=0 must NOT
+    produce bregman_zero_groups_scanned; classification != FAIL_NOT_RUN_READY."""
+    import scripts.generate_bot_inspection_report as gen
+    dd = _runtime_dir_with_canonical_funnel(tmp_path, monkeypatch)
+    res = gen.generate_report(
+        output_dir=str(tmp_path / "out"), repo_root=str(tmp_path), skip_tests=True,
+        include_docker=False, include_api=False, include_artifacts=False, data_dir=str(dd))
+    rj = json.loads(Path(res["report_json"]).read_text())
+    audit = rj["algorithmic_edge_audit"]
+    assert "bregman_zero_groups_scanned" not in audit["hard_failures"], audit["hard_failures"]
+    assert audit["sections"]["bregman"]["constraint_groups_scanned"] == 272
+    assert res["classification"] != "FAIL_NOT_RUN_READY"
+    assert res["classification"] in ("PASS_RUN_READY", "PASS_WITH_WARNINGS")
+    # run_ready and classification agree
+    assert res["run_ready_for_hours"] is True
+    # source reconciliation + warning surfaced
+    recon = json.loads((Path(res["bundle_dir"]) / "metrics"
+                        / "bregman_source_reconciliation.json").read_text())
+    assert recon["canonical_constraint_groups_scanned"] == 272
+    assert recon["legacy_constraint_groups_scanned"] == 0
+    assert recon["sources_disagree"] is True
+    assert recon["warning"] == "legacy_bregman_scanner_zero_but_canonical_funnel_active"
+    warns = " ".join(rj["warnings"])
+    assert "legacy_bregman_scanner_zero_but_canonical_funnel_active" in warns
+    assert "certified" in warns.lower()
+
+
 # --- end-to-end: a healthy run is run-ready ---------------------------------
 
 def test_healthy_run_is_run_ready_and_ledger_records_decisions(tmp_path, monkeypatch):

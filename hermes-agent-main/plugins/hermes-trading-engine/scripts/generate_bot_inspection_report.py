@@ -361,6 +361,51 @@ def build_report_run_ready(manifest: dict, status: dict, algo_audit: dict,
     }
 
 
+def _reconcile_bregman_sources(status: dict, data_dir) -> dict:
+    """Make metrics/bregman_funnel.json the CANONICAL Bregman source of truth.
+
+    Loads the funnel into status["bregman_funnel"], compares its scanned count with
+    the legacy metrics/bregman.json, and returns the reconciliation record. The
+    legacy scanner scanning zero while the canonical funnel scanned > 0 is a
+    WARNING ONLY — it must not drive run-readiness."""
+    funnel = dict(status.get("bregman_funnel") or {})
+    try:
+        if data_dir:
+            p = Path(data_dir) / "metrics" / "bregman_funnel.json"
+            if p.exists():
+                disk = json.loads(p.read_text(encoding="utf-8")) or {}
+                if isinstance(disk, dict) and disk:
+                    # disk funnel wins (it is the canonical runtime artifact)
+                    funnel = {**funnel, **disk}
+    except Exception:  # noqa: BLE001
+        pass
+    if funnel:
+        status["bregman_funnel"] = funnel
+    canon_scanned = metrics._num(metrics._first(
+        funnel.get("constraint_groups_scanned"),
+        funnel.get("groups_sent_to_certifier"))) or 0
+    legacy = status.get("bregman", {}) or {}
+    legacy_scanned = metrics._num(legacy.get("constraint_groups_scanned")) or 0
+    # mark the legacy telemetry as superseded (does NOT control run-readiness)
+    if isinstance(status.get("bregman"), dict):
+        status["bregman"].setdefault("source", "legacy_abcas_scanner_telemetry")
+        status["bregman"]["controls_run_ready"] = False
+        status["bregman"]["superseded_by"] = "metrics/bregman_funnel.json"
+    disagree = (canon_scanned > 0 and legacy_scanned <= 0)
+    return {
+        "canonical_source": "metrics/bregman_funnel.json",
+        "legacy_source": "metrics/bregman.json",
+        "canonical_constraint_groups_scanned": int(canon_scanned),
+        "legacy_constraint_groups_scanned": int(legacy_scanned),
+        "canonical_controls_run_ready": True,
+        "legacy_controls_run_ready": False,
+        "sources_disagree": bool(disagree),
+        "classification_impact": "warning_only" if disagree else "none",
+        "warning": ("legacy_bregman_scanner_zero_but_canonical_funnel_active"
+                    if disagree else ""),
+    }
+
+
 def _read_file(path: Path) -> Optional[str]:
     try:
         if path.exists() and path.is_file():
@@ -465,6 +510,12 @@ def generate_report(
                 status["bregman"] = merged
     except Exception:  # noqa: BLE001
         pass
+    # CANONICAL Bregman source-of-truth: load metrics/bregman_funnel.json into
+    # status["bregman_funnel"] so the edge audit + validation + run-ready read the
+    # NEW funnel (constraint_groups_scanned) — not the legacy zero-scan bregman.json.
+    bregman_source_reconciliation = _reconcile_bregman_sources(status, data_dir)
+    if bregman_source_reconciliation.get("warning"):
+        warnings.append(bregman_source_reconciliation["warning"])
     runtime_available = bool(status) or bool(
         api_json.get("state")) or bool(api_json.get("health"))
 
@@ -561,6 +612,11 @@ def generate_report(
     bundle.write_json("metrics/run_ready.json", report_run_ready)
     if not report_run_ready["run_ready_for_hours"]:
         warnings.append("NOT RUN-READY: " + "; ".join(report_run_ready["blocking_reasons"]))
+    # certified=0 with a healthy scanned funnel is a STRATEGY result, not a failure.
+    _bf = status.get("bregman_funnel", {}) or {}
+    if int(metrics._num(_bf.get("constraint_groups_scanned")) or 0) > 0 \
+            and int(metrics._num(_bf.get("certified")) or 0) == 0:
+        warnings.append("No certified Bregman opportunities found yet; continue paper training.")
 
     # --- artifact path transparency (Docker vs host mismatch surfacing) ------ #
     artifact_paths = _artifact_paths(data_dir, repo_root, bundle_dir, status_source)
@@ -599,6 +655,8 @@ def generate_report(
     bundle.write_json("quant_responsibilities.json", quant_responsibilities)
     bundle.write_json("final_validation.json", final_validation)
     bundle.write_json("algorithmic_edge_audit.json", algo_audit)
+    bundle.write_json("metrics/bregman_source_reconciliation.json",
+                      bregman_source_reconciliation)
     bundle.write_json("ledger_reconciliation.json", ledger_reconciliation)
     bundle.write_json("validation_contract.json", {
         "contract": validation_contract, "expectancy": expectancy,
