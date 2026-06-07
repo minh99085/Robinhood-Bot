@@ -145,7 +145,8 @@ class ClosedLoopLearning:
         self.run_id = run_id
         self.cfg = cfg
         self.started_ts = now or time.time()
-        self.dir = Path(data_dir) / "training"
+        from .artifact_dirs import training_dir
+        self.dir = training_dir(data_dir)
         from .training_event_sink import TrainingEventSink
         self.sink = TrainingEventSink(data_dir, run_id)
         self.records: list = []                  # bounded in-memory tail

@@ -483,7 +483,16 @@ def run(argv=None) -> int:
         bregman_scanner.enabled, bregman_scanner.disabled_reason)
     bregman_scan_path = dd / "bregman_scan.json"
 
-    metrics_dir = dd / "metrics"
+    # Resolve + create + LOG the absolute artifact directories so files land in a
+    # real, writable location and the logs never print a misleading relative path.
+    from engine.training.artifact_dirs import (resolve_artifact_dirs, ensure_dirs,
+                                               startup_report, proof_lines,
+                                               verify_durable_writes)
+    art = resolve_artifact_dirs(dd)
+    ensure_dirs(art)
+    print(startup_report(art))
+    metrics_dir = Path(art["metrics_dir"])
+    reports_dir = Path(art["reports_dir"])
 
     def _run_bregman_scan(markets) -> None:
         try:
@@ -617,13 +626,38 @@ def run(argv=None) -> int:
             # Pass-7: cluster/correlation risk funnel.
             (metrics_dir / "correlation_risk.json").write_text(
                 json.dumps(trainer.correlation_risk_report(), default=str), encoding="utf-8")
-            # Pass-8: unified inspection summary (machine + human readable) +
-            # compact console line. data_dir is the parent of metrics_dir.
-            _insp = trainer.write_inspection_artifacts(metrics_dir.parent)
+            # Pass-8: unified inspection summary (machine + human readable) written to
+            # the RESOLVED absolute metrics/reports dirs.
+            _insp = trainer.write_inspection_artifacts(
+                dd, metrics_dir=metrics_dir, reports_dir=reports_dir)
             from engine.training.inspection_summary import console_summary as _console
             print(_console(_insp))
+            # TASK 4/5: verify the durable files actually exist on disk and print
+            # ABSOLUTE paths with sizes/rows. A positive counter must NOT be claimed
+            # while the file is missing/empty — if so, force run-ready false.
+            _cll = (_insp.get("closed_loop_learning") or {})
+            _verify = verify_durable_writes(
+                art, decision_count=int(trainer.decision_count),
+                pending_count=int(_cll.get("pending_labels_total", 0) or 0))
+            for _ln in proof_lines(art):
+                print("  " + _ln)
+            if not _verify["ok"]:
+                logging.getLogger("hte.training.start").error(
+                    "DURABLE WRITE FAILURE: missing=%s empty=%s -> run_ready_for_hours=false",
+                    _verify["missing"], _verify["empty"])
+                try:
+                    _rr = dict(_insp.get("run_ready") or {})
+                    _rr["run_ready_for_hours"] = False
+                    _rr["max_safe_runtime_minutes"] = 10
+                    _rr["blocking_reasons"] = sorted(set(
+                        (_rr.get("blocking_reasons") or []) + _verify["blocking_reasons"]))
+                    (metrics_dir / "run_ready.json").write_text(
+                        json.dumps(_rr, indent=2, default=str), encoding="utf-8")
+                except Exception:  # noqa: BLE001
+                    pass
         except Exception as _exc:  # noqa: BLE001 — metrics must never break a tick
-            logging.getLogger("hte.training.start").debug("inspection summary failed: %s", _exc)
+            logging.getLogger("hte.training.start").error(
+                "inspection summary / durable write FAILED: %s", _exc)
         print(f"tick {ticks}: scanned={st['scan_metrics']['scanned']} "
               f"open={st['pnl']['open_positions']} equity={st['pnl']['equity']} "
               f"closed={st['pnl']['trades_closed']}")

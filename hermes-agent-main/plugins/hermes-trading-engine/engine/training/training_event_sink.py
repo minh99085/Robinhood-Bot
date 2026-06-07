@@ -61,7 +61,8 @@ class TrainingEventSink:
     is the single durable writer so files and counters cannot diverge."""
 
     def __init__(self, data_dir, run_id: str = "", *, source_module: str = "polymarket_trainer"):
-        self.dir = Path(data_dir) / "training"
+        from .artifact_dirs import training_dir
+        self.dir = training_dir(data_dir)
         self.run_id = run_id
         self.source_module = source_module
         self.counts = {k: 0 for k in EVENT_FILES}

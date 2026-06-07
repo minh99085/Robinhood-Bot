@@ -452,8 +452,9 @@ def console_summary(summary: dict) -> str:
         f"Reference fills counted as real: {ref_real}",
         f"Random exploration trades: {al.get('random_exploration_opened_trades', 0)}",
         f"Correlation blocks: {corr_blocks}",
-        "Report: reports/paper_training_inspection.md",
-        "Inspection summary: metrics/inspection_summary.json",
+        # NOTE: absolute artifact paths (with exists/size/rows) are printed by the
+        # training entrypoint AFTER the files are flushed — these counters are
+        # in-memory and are not proof of durable writes on their own.
     ])
 
 

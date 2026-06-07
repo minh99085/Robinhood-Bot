@@ -414,6 +414,13 @@ services:
     environment:
       HTE_DATA_DIR: "/data"
       HTE_MODE: "paper"
+      # Durable artifact dirs (ABSOLUTE, on the persisted /data volume so they
+      # survive restarts AND stay visible to the dashboard). The entrypoint creates
+      # + logs these at startup and verifies on-disk writes every tick.
+      POLYMARKET_METRICS_DIR: "/data/metrics"
+      POLYMARKET_REPORTS_DIR: "/data/reports"
+      POLYMARKET_TRAINING_DATA_DIR: "/data/training"
+      POLYMARKET_EVENT_STREAM_PATH: "/data/training/events.jsonl"
       POLYMARKET_ONLY_MODE: "1"
       DISABLE_BTC_PULSE_TRADING: "1"     # legacy BTC pulse autotrade NEVER trades
       # ---- BTC 5-min Pulse PAPER-ONLY isolated training experiment ----

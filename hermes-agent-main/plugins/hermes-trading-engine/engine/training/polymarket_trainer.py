@@ -2612,19 +2612,26 @@ class PolymarketPaperTrainer:
                                      **bregman_funnel}
         return summary
 
-    def write_inspection_artifacts(self, out_dir) -> dict:
+    def write_inspection_artifacts(self, out_dir, *, metrics_dir=None,
+                                   reports_dir=None) -> dict:
         """Write metrics/inspection_summary.json + reports/paper_training_inspection.md.
-        Returns the summary dict. Never raises into the training loop."""
+        Returns the summary dict. Never raises into the training loop.
+
+        ``metrics_dir``/``reports_dir`` override the default ``<out_dir>/metrics`` and
+        ``<out_dir>/reports`` so the entrypoint can write to the resolved absolute
+        artifact dirs (POLYMARKET_METRICS_DIR / POLYMARKET_REPORTS_DIR)."""
         from pathlib import Path as _Path
         from .inspection_summary import to_markdown
         summary = self.inspection_summary()
         out = _Path(out_dir)
-        (out / "metrics").mkdir(parents=True, exist_ok=True)
-        (out / "reports").mkdir(parents=True, exist_ok=True)
+        m_out = _Path(metrics_dir) if metrics_dir else (out / "metrics")
+        r_out = _Path(reports_dir) if reports_dir else (out / "reports")
+        m_out.mkdir(parents=True, exist_ok=True)
+        r_out.mkdir(parents=True, exist_ok=True)
         import json as _json
-        (out / "metrics" / "inspection_summary.json").write_text(
+        (m_out / "inspection_summary.json").write_text(
             _json.dumps(summary, indent=2, default=str), encoding="utf-8")
-        (out / "reports" / "paper_training_inspection.md").write_text(
+        (r_out / "paper_training_inspection.md").write_text(
             to_markdown(summary), encoding="utf-8")
         # P0: write the COMPLETE per-pass metric set here too, so a single call
         # produces every artifact the inspection collector + runtime validator
@@ -2639,7 +2646,7 @@ class PolymarketPaperTrainer:
                 "bregman_execution.json": self.bregman_summary().get("execution", {}),
             }
             for _name, _payload in _per_pass.items():
-                (out / "metrics" / _name).write_text(
+                (m_out / _name).write_text(
                     _json.dumps(_payload, default=str), encoding="utf-8")
         except Exception:  # noqa: BLE001 — metrics must never break a run
             pass
@@ -2647,10 +2654,10 @@ class PolymarketPaperTrainer:
         try:
             from .closed_loop import audit_to_markdown
             audit = self.closed_loop.audit()
-            (out / "metrics" / "closed_loop_learning.json").write_text(
+            (m_out / "closed_loop_learning.json").write_text(
                 _json.dumps(self.closed_loop.metrics(), indent=2, default=str), encoding="utf-8")
             # canonical 4-surface reconciliation (invalid run if diverged)
-            (out / "metrics" / "training_reconciliation.json").write_text(
+            (m_out / "training_reconciliation.json").write_text(
                 _json.dumps(summary.get("training_reconciliation")
                             or self.closed_loop.reconcile(
                                 decision_count=self.decision_count,
@@ -2660,19 +2667,19 @@ class PolymarketPaperTrainer:
                                 ledger_summary=self.closed_loop.ledger_summary()),
                             indent=2, default=str), encoding="utf-8")
             # canonical Bregman funnel + multi-hour run-ready gate
-            (out / "metrics" / "bregman_funnel.json").write_text(
+            (m_out / "bregman_funnel.json").write_text(
                 _json.dumps(summary.get("bregman_funnel", {}), indent=2, default=str),
                 encoding="utf-8")
-            (out / "metrics" / "run_ready.json").write_text(
+            (m_out / "run_ready.json").write_text(
                 _json.dumps(summary.get("run_ready", {}), indent=2, default=str),
                 encoding="utf-8")
-            (out / "metrics" / "grok_news_evidence.json").write_text(
+            (m_out / "grok_news_evidence.json").write_text(
                 _json.dumps(summary.get("grok_news_evidence", {}), indent=2, default=str),
                 encoding="utf-8")
-            (out / "metrics" / "learning_feedback.json").write_text(
+            (m_out / "learning_feedback.json").write_text(
                 _json.dumps(self.closed_loop.learning_state(), indent=2, default=str),
                 encoding="utf-8")
-            (out / "reports" / "closed_loop_learning_audit.md").write_text(
+            (r_out / "closed_loop_learning_audit.md").write_text(
                 audit_to_markdown(audit), encoding="utf-8")
             self.closed_loop.persist()
         except Exception:  # noqa: BLE001 — artifact writing must never break a run
