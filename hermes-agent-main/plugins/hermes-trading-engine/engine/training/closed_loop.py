@@ -361,7 +361,11 @@ class ClosedLoopLearning:
             self.counts["active_learning_shadow_selected"] += 1
 
     def _add_pending(self, r: TrainingDecisionRecord) -> None:
-        row = {"candidate_id": r.candidate_id, "market_id": r.market_id,
+        # run_id + tick + timestamp make the pending-label stream self-describing so
+        # the light-bundle freshness reconciler can prove it advanced with the SAME
+        # run as events.jsonl (not a stale/mixed run).
+        row = {"run_id": r.run_id, "tick": r.tick, "timestamp": r.timestamp,
+               "candidate_id": r.candidate_id, "market_id": r.market_id,
                "condition_id": r.condition_id, "event_id": r.event_id,
                "label_due_at": r.label_due_at, "label_type": r.label_type,
                "model_probability": r.model_probability, "market_probability": r.market_probability,
@@ -568,8 +572,13 @@ class ClosedLoopLearning:
         completed = int(fc.get("completed_labels", 0) or 0) or len(self.completed)
         trades = self.counts["opened_records_written"] + self.counts[
             "active_learning_tiny_trades_selected"]
-        bregman_diag = sum(1 for r in self.records
-                           if str(r.get("decision_reason", "")).startswith("bregman_"))
+        # actual bregman_diagnostic events = in-memory bregman-reason records PLUS
+        # those written directly to the sink by the standalone scanner (which bypass
+        # closed_loop.record). The sink counter makes the count truthful.
+        bregman_diag = max(
+            sum(1 for r in self.records
+                if str(r.get("decision_reason", "")).startswith("bregman_")),
+            int(getattr(self.sink, "bregman_diagnostics_written", 0) or 0))
         return {
             "entries": int(fc.get("events", 0) or 0) or decisions,
             "trades": int(trades),

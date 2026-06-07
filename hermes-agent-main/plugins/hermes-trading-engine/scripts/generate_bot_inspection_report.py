@@ -134,18 +134,84 @@ class Bundle:
             self.files.append(rel)
 
 
-def _locate_artifact(rel: str, search_roots: list) -> Optional[Path]:
-    """Find a canonical artifact across the data dir / repo root, accepting both the
-    canonical ``data/training/...`` layout and the prod ``training/...`` layout."""
+def _locate_artifact(rel: str, search_roots: list, *,
+                     strict_root: Optional[str] = None) -> "tuple[Optional[Path], Optional[str], bool]":
+    """Locate a canonical artifact, returning (path, selected_root, fallback_used).
+
+    Accepts both the canonical ``data/training/...`` layout and the prod
+    ``training/...`` layout. When ``strict_root`` is given (i.e. ``--data-dir`` was
+    supplied), the file is ONLY looked up under that root — never a stale repo-local
+    fallback. ``fallback_used`` is True when the file was found in a root OTHER than
+    the first (primary) search root."""
     rels = [rel]
     if rel.startswith("data/"):
         rels.append(rel[len("data/"):])   # prod /data layout: training/... at root
-    for root in search_roots:
+    roots = [strict_root] if strict_root else list(search_roots)
+    primary = (strict_root if strict_root else (search_roots[0] if search_roots else None))
+    for root in roots:
+        if root is None:
+            continue
         for r in rels:
             p = Path(root) / r
             if p.exists() and p.is_file():
-                return p
+                fallback = (primary is not None and str(Path(root)) != str(Path(primary)))
+                return p, str(root), bool(fallback)
+    return None, None, False
+
+
+def _file_fingerprint(path: Path, size_bytes: int) -> Optional[str]:
+    """Cheap content fingerprint: sha256 over the head+tail (max 8KB each)."""
+    import hashlib
+    try:
+        h = hashlib.sha256()
+        with path.open("rb") as fh:
+            head = fh.read(8192)
+            h.update(head)
+            if size_bytes > 16384:
+                fh.seek(max(0, size_bytes - 8192))
+                h.update(fh.read(8192))
+        return h.hexdigest()[:32]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _row_field(row: str, *keys):
+    try:
+        obj = json.loads(row)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(obj, dict):
+        return None
+    for k in keys:
+        if obj.get(k) is not None:
+            return obj.get(k)
     return None
+
+
+def _tail_meta(rows: list) -> dict:
+    """Extract run-id/tick/timestamp metadata from sampled JSONL rows for freshness
+    + same-run reconciliation across the dedicated training streams."""
+    if not rows:
+        return {"first_tail_timestamp": None, "last_tail_timestamp": None,
+                "first_tail_run_id": None, "last_tail_run_id": None,
+                "run_ids_seen": [], "first_tail_tick": None, "last_tail_tick": None}
+    run_ids: list = []
+    for r in rows:
+        rid = _row_field(r, "run_id")
+        if rid is not None and rid not in run_ids:
+            run_ids.append(str(rid))
+
+    def _ts(r):
+        return _row_field(r, "timestamp", "ts", "created_at", "label_due_at")
+    return {
+        "first_tail_timestamp": _ts(rows[0]),
+        "last_tail_timestamp": _ts(rows[-1]),
+        "first_tail_run_id": _row_field(rows[0], "run_id"),
+        "last_tail_run_id": _row_field(rows[-1], "run_id"),
+        "run_ids_seen": run_ids[-10:],
+        "first_tail_tick": _row_field(rows[0], "tick"),
+        "last_tail_tick": _row_field(rows[-1], "tick"),
+    }
 
 
 # HARD-required artifacts: a synthesized/missing/empty one of these means the run
@@ -214,22 +280,30 @@ def write_closed_loop_artifacts(bundle, data_dir: Optional[str], repo_root: str,
     light = (str(bundle_mode).lower() != "full")
     search_roots = [r for r in (data_dir, repo_root,
                                 str(Path(repo_root) / "data")) if r]
+    # SOURCE-STRICT: when --data-dir is supplied, hard/audit-required files are read
+    # ONLY from that dir — never a stale repo-local data/ fallback (the root cause of
+    # mixed-freshness tail samples). Non-required extras may still fall back.
+    strict_root = str(data_dir) if data_dir else None
     statuses: list = []
     event_stats: list = []
     tail_samples_included = False
+    tail_meta_by_logical: dict = {}
 
     for rel in REQUIRED_CLOSED_LOOP_ARTIFACTS:
-        src = _locate_artifact(rel, search_roots)
+        src, sel_root, fallback_used = _locate_artifact(
+            rel, search_roots, strict_root=strict_root)
         exists = src is not None
         non_empty = False
         synthesized = False
         omitted = False           # intentionally not copied in full (light JSONL)
         is_event_jsonl = rel in EVENT_JSONL_ARTIFACTS
         size_bytes = (src.stat().st_size if exists else -1)
+        mtime = (round(src.stat().st_mtime, 3) if exists else None)
+        logical = Path(rel).name
 
         if is_event_jsonl and light:
             # LIGHT: do NOT copy the full file; verify the source + emit a tail sample.
-            name = Path(rel).name[: -len(".jsonl")]
+            name = logical[: -len(".jsonl")]
             sample_rel = f"samples/{name}_tail_{LIGHT_TAIL_ROWS}.jsonl"
             rows, total = (_tail_rows(src, LIGHT_TAIL_ROWS) if exists else ([], 0))
             non_empty = exists and total > 0
@@ -237,16 +311,26 @@ def write_closed_loop_artifacts(bundle, data_dir: Optional[str], repo_root: str,
             bundle.write_text(sample_rel, ("\n".join(rows) + ("\n" if rows else "")),
                               redact=True)
             tail_samples_included = True
+            meta = _tail_meta(rows)
+            tail_meta_by_logical[logical] = meta
             event_stats.append({
+                "logical_name": logical,
                 "source_path": rel,
+                "selected_absolute_source": (str(src) if exists else None),
+                "selected_root": sel_root,
+                "bundle_sample_path": sample_rel,
                 "exists": bool(exists),
-                "source_size_bytes": int(size_bytes),
-                "total_rows": int(total),
+                "size_bytes": int(size_bytes),
+                "mtime": mtime,
+                "total_rows_exact_if_available": int(total),
                 "included_rows": len(rows),
-                "tail_sample_path": sample_rel,
-                "first_timestamp": (_jsonl_ts(rows[0]) if rows else None),
-                "last_timestamp": (_jsonl_ts(rows[-1]) if rows else None),
+                "source_sha256_head_tail": (_file_fingerprint(src, size_bytes)
+                                            if exists else None),
                 "truncated": bool(total > len(rows)),
+                "source_verified_from_data_dir": bool(exists and not fallback_used
+                                                      and strict_root is not None),
+                "fallback_used": bool(fallback_used),
+                **meta,
             })
         elif exists:
             try:
@@ -257,8 +341,7 @@ def write_closed_loop_artifacts(bundle, data_dir: Optional[str], repo_root: str,
                 # light mode (approved summary files are always copied directly).
                 if (light and size_bytes > SIZE_GUARD_BYTES
                         and not rel.endswith((".json", ".md"))):
-                    name = Path(rel).name
-                    sample_rel = f"samples/{name}.tail.txt"
+                    sample_rel = f"samples/{logical}.tail.txt"
                     rows, total = _tail_rows(src, LIGHT_TAIL_ROWS)
                     bundle.write_text(sample_rel, "\n".join(rows), redact=True)
                     omitted = True
@@ -290,13 +373,20 @@ def write_closed_loop_artifacts(bundle, data_dir: Optional[str], repo_root: str,
             # OR omitted-but-sampled in light mode.
             "valid_for_run_ready": bool(exists and non_empty),
             "source": str(src) if exists else None,
+            "selected_root": sel_root,
+            "fallback_used": bool(fallback_used),
             "source_size_bytes": int(size_bytes),
         })
 
+    # --- light-bundle freshness + mixed-source reconciliation ----------------
+    fresh = _reconcile_tail_freshness(statuses, tail_meta_by_logical,
+                                      strict_root=strict_root)
     if light:
         bundle.write_json("samples/event_file_stats.json", {
             "bundle_mode": "light", "tail_rows": LIGHT_TAIL_ROWS,
+            "data_dir": strict_root, "source_strict": bool(strict_root),
             "generated_from": [r for r in search_roots],
+            "freshness": fresh,
             "files": event_stats,
         })
 
@@ -305,18 +395,26 @@ def write_closed_loop_artifacts(bundle, data_dir: Optional[str], repo_root: str,
     hard_invalid = [s["path"] for s in statuses
                     if s["hard_required"] and not s["valid_for_run_ready"]]
     omitted_paths = [s["path"] for s in statuses if s["omitted_intentionally"]]
+    # mixed source roots: any hard-required file pulled from a non-primary root.
+    mixed_source_roots = [s["path"] for s in statuses
+                          if s["hard_required"] and s.get("fallback_used")]
     source_event_files_verified = all(
-        s["valid_for_run_ready"] for s in statuses
+        s["valid_for_run_ready"] and not s.get("fallback_used") for s in statuses
         if s["path"] in EVENT_JSONL_ARTIFACTS and s["hard_required"])
     manifest = {
         "bundle_mode": "light" if light else "full",
         "required": list(REQUIRED_CLOSED_LOOP_ARTIFACTS),
         "hard_required": list(HARD_REQUIRED_ARTIFACTS),
         "artifacts": statuses,
+        "event_file_stats": event_stats,
+        "tail_freshness": fresh,
         "present_from_runtime": [s["path"] for s in statuses if s["valid_for_run_ready"]],
         "synthesized_empty": synthesized_paths,
         "empty_real_files": empty_real,
         "hard_required_invalid": hard_invalid,
+        "mixed_source_roots": mixed_source_roots,
+        "stale_or_mixed_training_tail_samples": bool(
+            (not fresh.get("compatible", True)) or mixed_source_roots),
         "full_event_files_omitted_intentionally": bool(light and omitted_paths),
         "omitted_full_event_files": omitted_paths,
         "tail_samples_included": bool(tail_samples_included),
@@ -325,9 +423,79 @@ def write_closed_loop_artifacts(bundle, data_dir: Optional[str], repo_root: str,
         "runtime_complete": not synthesized_paths and not empty_real,
         "hard_required_satisfied": not hard_invalid,
         "search_roots": search_roots,
+        "source_strict": bool(strict_root),
     }
     bundle.write_json("metrics/closed_loop_artifacts_manifest.json", manifest)
     return manifest
+
+
+# Dedicated streams that must advance with their event_type in events.jsonl, paired
+# with the events.jsonl event_type and the closed-loop counter that proves activity.
+_STREAM_FRESHNESS = (
+    # (dedicated logical file, closed_loop counter key that should make it advance)
+    ("decision_records.jsonl", "decision_records_written"),
+    ("no_trade_labels.jsonl", "no_trade_labels_written"),
+    ("pending_labels.jsonl", "pending_labels_total"),
+)
+
+
+def _reconcile_tail_freshness(statuses: list, tail_meta: dict, *,
+                              strict_root: Optional[str]) -> dict:
+    """Prove the sampled dedicated training streams are from the SAME run as
+    events.jsonl. A dedicated stream that has rows but a DIFFERENT last run_id than
+    events.jsonl (or no run_id while events advanced) is stale/mixed -> not run-ready.
+
+    An older last timestamp is OK only when the run_id matches events (same run, just
+    no new rows of that type were expected). Returns the freshness record."""
+    ev = tail_meta.get("events.jsonl") or {}
+    ev_run = ev.get("last_tail_run_id")
+    ev_ts = _num_or_none(ev.get("last_tail_timestamp"))
+    reasons: list = []
+    per_stream: dict = {}
+    has_rows = {s["path"].split("/")[-1]: (s["exists"] and s["non_empty"]) for s in statuses}
+
+    for logical, _counter in _STREAM_FRESHNESS:
+        meta = tail_meta.get(logical) or {}
+        rid = meta.get("last_tail_run_id")
+        ts = _num_or_none(meta.get("last_tail_timestamp"))
+        entry = {"last_run_id": rid, "last_timestamp": ts,
+                 "events_run_id": ev_run, "compatible_run_id": None,
+                 "stale_reason": None}
+        if not has_rows.get(logical):
+            entry["compatible_run_id"] = True   # empty file: covered by counter checks
+        elif ev_run is not None and rid is not None:
+            same = (str(rid) == str(ev_run))
+            entry["compatible_run_id"] = same
+            if not same:
+                entry["stale_reason"] = "different_run_id_than_events"
+                reasons.append(f"{logical}: last_run_id={rid} != events run_id={ev_run}")
+        elif ev_run is not None and rid is None and has_rows.get(logical):
+            # events carries a run_id but this stream's rows do not -> cannot prove
+            # same-run; treat as stale/mixed (conservative).
+            entry["compatible_run_id"] = False
+            entry["stale_reason"] = "missing_run_id_while_events_advancing"
+            reasons.append(f"{logical}: rows present but no run_id while events advanced")
+        else:
+            entry["compatible_run_id"] = True
+        per_stream[logical] = entry
+
+    return {
+        "events_last_run_id": ev_run,
+        "events_last_timestamp": ev_ts,
+        "per_stream": per_stream,
+        "incompatible_streams": [k for k, v in per_stream.items()
+                                 if v["compatible_run_id"] is False],
+        "compatible": not reasons,
+        "reasons": reasons,
+        "source_strict": bool(strict_root),
+    }
+
+
+def _num_or_none(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def _artifact_paths(data_dir: Optional[str], repo_root: str, bundle_dir: Path,
@@ -402,6 +570,16 @@ def build_report_run_ready(manifest: dict, status: dict, algo_audit: dict,
     if non_hard_empty:
         warnings.append(f"{len(non_hard_empty)} non-required artifact(s) present but empty "
                         f"(legitimate when zero events): {non_hard_empty}")
+    # LIGHT-mode trust: stale/mixed tail samples (a dedicated stream from a different
+    # run than events.jsonl) or a hard-required file pulled from a stale repo-local
+    # fallback => NOT run-ready. Durable proof must come from ONE runtime data dir.
+    fresh = manifest.get("tail_freshness", {}) or {}
+    if manifest.get("stale_or_mixed_training_tail_samples"):
+        detail = "; ".join(fresh.get("reasons", []) or [])
+        mixed = manifest.get("mixed_source_roots") or []
+        if mixed:
+            detail = (detail + f" | mixed source roots: {mixed}").strip(" |")
+        blocking.append("stale_or_mixed_training_tail_samples: " + (detail or "see manifest"))
 
     event_files_present = _ok("data/training/events.jsonl") and _ok(
         "data/training/decision_records.jsonl")
@@ -450,6 +628,9 @@ def build_report_run_ready(manifest: dict, status: dict, algo_audit: dict,
         "bregman_funnel_non_silent": bool(bregman_non_silent),
         "closed_loop_durable": bool(closed_loop_durable),
         "inspection_artifacts_complete": bool(inspection_complete),
+        "tail_samples_fresh_same_run": not bool(
+            manifest.get("stale_or_mixed_training_tail_samples")),
+        "single_source_data_dir": not bool(manifest.get("mixed_source_roots")),
         "live_trading_disabled": True,
     }
     run_ready = (not blocking) and all(proof.values())
@@ -466,6 +647,9 @@ def build_report_run_ready(manifest: dict, status: dict, algo_audit: dict,
             manifest.get("full_event_files_omitted_intentionally", False)),
         "source_event_files_verified": bool(manifest.get("source_event_files_verified", False)),
         "tail_samples_included": bool(manifest.get("tail_samples_included", False)),
+        "tail_freshness": manifest.get("tail_freshness", {}),
+        "stale_or_mixed_training_tail_samples": bool(
+            manifest.get("stale_or_mixed_training_tail_samples")),
         "source": "inspection_report (artifact-reality verdict)",
     }
 

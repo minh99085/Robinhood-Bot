@@ -99,3 +99,80 @@ def test_quoted_key_in_env_still_enables_brain(tmp_path, monkeypatch):
     b = _brain(tmp_path)
     assert b.api_key == "xai-quoted-key-value"   # quotes stripped
     assert b.status()["enabled"] is True
+
+
+# --- Grok advisory proof call (research-only, rate-limited) -----------------
+
+class _FakeGrokClient:
+    def __init__(self, source="grok_online"):
+        self.source = source
+        self.calls = 0
+
+    def research(self, ctx, news_packet=None):
+        from types import SimpleNamespace
+        self.calls += 1
+        return SimpleNamespace(source=self.source)
+
+
+def test_grok_proof_call_advisory_and_increments_counters():
+    from engine.research.proof_call import GrokProofCaller
+    clock = [1000.0]
+    c = GrokProofCaller(enabled=True, max_per_hour=1, advisory_only=True,
+                        clock=lambda: clock[0])
+    written = []
+    res = c.maybe_call(client=_FakeGrokClient(), online=True, has_key=True,
+                       news_packet=[{"headline": "x"}], market_ctx={"market_id": "m1"},
+                       evidence_sink=written.append)
+    assert res["called"] is True and res["advisory_only"] is True
+    assert res["grok_calls_total"] == 1 and res["grok_calls_with_news"] == 1
+    assert written and written[0]["is_edge_proof"] is False    # never proof of edge
+
+
+def test_grok_proof_call_rate_limited_then_resumes():
+    from engine.research.proof_call import GrokProofCaller
+    clock = [1000.0]
+    c = GrokProofCaller(enabled=True, max_per_hour=1, clock=lambda: clock[0])
+    mk, news = {"market_id": "m1"}, [{"headline": "x"}]
+    assert c.maybe_call(client=_FakeGrokClient(), online=True, has_key=True,
+                        news_packet=news, market_ctx=mk)["called"] is True
+    r2 = c.maybe_call(client=_FakeGrokClient(), online=True, has_key=True,
+                      news_packet=news, market_ctx=mk)
+    assert r2["called"] is False and r2["reason"] == "rate_limit_budget_exhausted"
+    clock[0] += 3700
+    assert c.maybe_call(client=_FakeGrokClient(), online=True, has_key=True,
+                        news_packet=news, market_ctx=mk)["called"] is True
+
+
+def test_grok_proof_call_precise_zero_reasons():
+    from engine.research.proof_call import GrokProofCaller
+    fc, mk, news = _FakeGrokClient(), {"market_id": "m1"}, [{"headline": "x"}]
+    assert GrokProofCaller(enabled=False).maybe_call(
+        client=fc, online=True, has_key=True, news_packet=news,
+        market_ctx=mk)["reason"] == "proof_call_disabled_by_config"
+    assert GrokProofCaller(enabled=True).maybe_call(
+        client=fc, online=True, has_key=True, news_packet=None,
+        market_ctx=mk)["reason"] == "no_news_packet_available"
+    # cache-only result is NOT a real proof call
+    assert GrokProofCaller(enabled=True).maybe_call(
+        client=_FakeGrokClient("grok_cache"), online=True, has_key=True,
+        news_packet=news, market_ctx=mk)["reason"] == "cache_only_mode_enabled"
+
+
+def test_research_status_zero_reason_not_contradictory(tmp_path, monkeypatch):
+    # online + key + news_used>0 but no real call + proof disabled -> the reason must
+    # be the precise proof_call_disabled_by_config, NOT served_from_cache_or_offline_stub.
+    from engine.training import PolymarketPaperTrainer, TrainingConfig
+    from tests._pmtrain_helpers import clean_live_env
+    clean_live_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("XAI_API_KEY", "x" * 84)
+    monkeypatch.setenv("RESEARCH_MODE", "online_paper")
+    t = PolymarketPaperTrainer(TrainingConfig(mode="paper_train"), data_dir=tmp_path)
+    # force a news_items_used>0 view
+    t._news_metrics["items_used"] = 5
+    rs = t.research_status()
+    assert rs["grok_online_active"] is True
+    if rs["grok_calls_total"] == 0:
+        assert rs["grok_zero_call_reason"] != "served_from_cache_or_offline_stub"
+        assert rs["grok_zero_call_reason"] in (
+            "proof_call_disabled_by_config", "not_due_yet", "no_news_packet_selected",
+            "news_scanner_disabled")

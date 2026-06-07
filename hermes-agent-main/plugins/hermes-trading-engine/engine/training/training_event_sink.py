@@ -66,6 +66,7 @@ class TrainingEventSink:
         self.run_id = run_id
         self.source_module = source_module
         self.counts = {k: 0 for k in EVENT_FILES}
+        self.bregman_diagnostics_written = 0   # actual bregman_diagnostic rows emitted
         self.write_errors = 0
         try:
             self.dir.mkdir(parents=True, exist_ok=True)
@@ -129,6 +130,7 @@ class TrainingEventSink:
         return self._emit("diagnostics", "diagnostic", row)
 
     def append_bregman_diagnostic(self, row: dict) -> dict:
+        self.bregman_diagnostics_written += 1
         return self._emit("diagnostics", "bregman_diagnostic", row)
 
     def append_active_learning_selection(self, row: dict) -> dict:

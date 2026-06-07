@@ -195,6 +195,14 @@ class TrainingConfig:
     active_learning_near_miss_samples_per_tick: int = 50
     active_learning_no_trade_labels_per_tick: int = 100
     active_learning_diagnostic_samples_per_tick: int = 50
+    # ---- Grok advisory proof call (PAPER ONLY, research-only) ----
+    # When Grok is enabled + a key + news packets exist but no real call has been
+    # made recently, schedule at most one ADVISORY-ONLY proof call per hour so the
+    # report can show grok_calls_total>0 instead of an ambiguous zero-call reason.
+    # NEVER executes/sizes a trade and never bypasses a quant gate.
+    grok_proof_call_enabled: bool = False
+    grok_proof_call_max_per_hour: int = 1
+    grok_proof_call_advisory_only: bool = True
     active_learning_require_realistic_fill_for_trade: bool = True
     active_learning_allow_shadow_without_fill: bool = True
     # ---- Pass-7: cluster/correlation risk is an ACTIVE hard gate + allocator ----
@@ -844,6 +852,9 @@ class TrainingConfig:
                 "POLYMARKET_ACTIVE_LEARNING_NO_TRADE_LABELS_PER_TICK", 100),
             active_learning_diagnostic_samples_per_tick=_envi(
                 "POLYMARKET_ACTIVE_LEARNING_DIAGNOSTIC_SAMPLES_PER_TICK", 50),
+            grok_proof_call_enabled=_envb("POLYMARKET_GROK_PROOF_CALL_ENABLED", False),
+            grok_proof_call_max_per_hour=_envi("POLYMARKET_GROK_PROOF_CALL_MAX_PER_HOUR", 1),
+            grok_proof_call_advisory_only=_envb("POLYMARKET_GROK_PROOF_CALL_ADVISORY_ONLY", True),
             active_learning_require_realistic_fill_for_trade=_envb(
                 "POLYMARKET_ACTIVE_LEARNING_REQUIRE_REALISTIC_FILL_FOR_TRADE", True),
             active_learning_allow_shadow_without_fill=_envb(

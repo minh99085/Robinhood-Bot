@@ -223,6 +223,40 @@ def validate_runtime(status: dict, *, data_dir: Optional[str] = None,
         _chk(checks, "pending_labels_counter_matches_file",
              pend_total == 0 or pl_rows > 0,
              f"counter={pend_total} pending_labels.jsonl_rows={pl_rows}")
+
+        # FRESHNESS: the dedicated streams must be from the SAME run as events.jsonl.
+        # A dedicated file with rows but a different last run_id than events.jsonl is
+        # stale/mixed -> not safe (durable files must be fresh + reconciled).
+        def _last_run_id(rel: str):
+            import json as _json
+            last = None
+            for p in (base / rel, base / rel[len("data/"):] if rel.startswith("data/") else base / rel):
+                try:
+                    if p.exists():
+                        with p.open("r", encoding="utf-8") as fh:
+                            for ln in fh:
+                                if ln.strip():
+                                    last = ln
+                        if last:
+                            try:
+                                return (_json.loads(last) or {}).get("run_id")
+                            except Exception:  # noqa: BLE001
+                                return None
+                except Exception:  # noqa: BLE001
+                    continue
+            return None
+        ev_run = _last_run_id("data/training/events.jsonl")
+        stale_streams = []
+        if ev_run is not None:
+            for rel in ("data/training/decision_records.jsonl",
+                        "data/training/no_trade_labels.jsonl",
+                        "data/training/pending_labels.jsonl"):
+                if _rows(rel) > 0:
+                    rid = _last_run_id(rel)
+                    if rid is not None and str(rid) != str(ev_run):
+                        stale_streams.append(f"{rel.split('/')[-1]}={rid}")
+        _chk(checks, "training_tail_streams_same_run", not stale_streams,
+             f"events_run_id={ev_run} stale={stale_streams}" if stale_streams else "same run")
         # reconciliation + unified-summary + run_ready artifacts must exist on disk
         for req in ("metrics/training_reconciliation.json", "metrics/inspection_summary.json",
                     "metrics/run_ready.json"):

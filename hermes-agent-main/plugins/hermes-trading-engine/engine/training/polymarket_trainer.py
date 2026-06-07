@@ -604,6 +604,19 @@ class PolymarketPaperTrainer:
                 self._news_scan(watch, now)
             except Exception as exc:  # noqa: BLE001 — news never blocks a tick
                 self._news_error = f"scan_failed:{exc}"
+        # Grok ADVISORY proof call (PAPER ONLY, research-only, rate-limited to 1/hr).
+        # Only when explicitly enabled; never trades/sizes/bypasses a gate. Provides a
+        # real grok_calls_total>0 so the report isn't stuck on an ambiguous zero-call
+        # reason. Guarded — never blocks a tick.
+        if bool(getattr(self.cfg, "grok_proof_call_enabled", False)):
+            try:
+                pkt = self._news_last_packet or None
+                top = watch[0] if watch else None
+                mctx = ({"market_id": top.market_id,
+                         "question": getattr(top, "question", "")} if top else None)
+                self.maybe_grok_proof_call(news_packet=pkt, market_ctx=mctx, now=now)
+            except Exception:  # noqa: BLE001 — proof call never blocks a tick
+                pass
         health = self.subs.reconcile(watch)
         self.metrics.subscribed_assets = health.subscribed_assets
 
@@ -3136,6 +3149,44 @@ class PolymarketPaperTrainer:
                     "source": "chainlink", "valid": False, "stale": True}
         return self.chainlink_oracle.status()
 
+    def _grok_proof_caller(self):
+        """Lazily-built advisory, rate-limited Grok proof caller (research-only)."""
+        caller = getattr(self, "_grok_proof", None)
+        if caller is None:
+            from engine.research.proof_call import GrokProofCaller
+            caller = GrokProofCaller(
+                enabled=bool(getattr(self.cfg, "grok_proof_call_enabled", False)),
+                max_per_hour=int(getattr(self.cfg, "grok_proof_call_max_per_hour", 1)),
+                advisory_only=bool(getattr(self.cfg, "grok_proof_call_advisory_only", True)))
+            self._grok_proof = caller
+        return caller
+
+    def maybe_grok_proof_call(self, *, news_packet=None, market_ctx: Optional[dict] = None,
+                              now: Optional[float] = None) -> dict:
+        """Attempt at most one ADVISORY-ONLY Grok proof call per hour (research-only;
+        never trades/sizes/bypasses a gate). Uses the research signal model's xAI
+        client + a news packet. Returns the proof-call result (precise zero-call
+        reason when not called). Never raises into the training loop."""
+        import os as _os
+        caller = self._grok_proof_caller()
+        client = getattr(getattr(self, "signal_model", None), "_client", None)
+        has_key = bool(_os.getenv("XAI_API_KEY") or _os.getenv("GROK_API_KEY"))
+        mode = (_os.getenv("RESEARCH_MODE") or "offline_cache").strip().lower()
+        online = mode in ("online_paper", "online_shadow", "guarded_live_readonly",
+                          "online", "online_research", "live", "grok_online")
+        if client is None:
+            caller.last_reason = "no_market_link_available" if not market_ctx else "provider_error"
+            return {"called": False, "reason": caller.last_reason}
+        try:
+            return caller.maybe_call(
+                client=client, online=online, has_key=has_key,
+                news_packet=news_packet, market_ctx=market_ctx,
+                evidence_sink=lambda ev: self.closed_loop.sink.append_diagnostic(
+                    {"diagnostic_type": "grok_advisory_proof_call", **ev}),
+                now=now)
+        except Exception as exc:  # noqa: BLE001 — proof call must never break a tick
+            return {"called": False, "reason": "provider_error", "error": str(exc)[:120]}
+
     def research_status(self) -> dict:
         """Aggregate research-evidence status: news packet + Chainlink + Grok
         config. Read-only; Grok stays advisory and never bypasses a gate."""
@@ -3171,7 +3222,15 @@ class PolymarketPaperTrainer:
                             "online", "online_research", "live", "grok_online"}
         mode_is_online = research_mode.strip().lower() in online_modes
         grok_online_active = bool(grok_enabled and mode_is_online)
-        calls_total = int(sm.get("calls_online", 0) or 0)
+        # include advisory proof-call counts so a real proof call shows grok_calls>0.
+        proof = {}
+        try:
+            proof = self._grok_proof_caller().status()
+        except Exception:  # noqa: BLE001
+            proof = {}
+        calls_total = int(sm.get("calls_online", 0) or 0) + int(proof.get("grok_calls_total", 0) or 0)
+        calls_with_news = (int(sm.get("calls_with_news", 0) or 0)
+                           + int(proof.get("grok_calls_with_news", 0) or 0))
         calls_cache = int(sm.get("calls_cache", 0) or 0)
         calls_stub = int(sm.get("calls_offline_stub", sm.get("calls_stub", 0)) or 0)
         news_used = int(news.get("news_items_used", 0) or 0)
@@ -3185,10 +3244,13 @@ class PolymarketPaperTrainer:
                 zero_reason = "news_scanner_disabled"
             elif news_used == 0:
                 zero_reason = "no_news_packet_selected"
-            elif calls_stub > 0 or calls_cache > 0:
-                zero_reason = "served_from_cache_or_offline_stub"
             else:
-                zero_reason = "no_eligible_markets_or_advisory_not_due"
+                # online + key + news but no call: report the PRECISE proof-call
+                # reason (NEVER the contradictory "served_from_cache_or_offline_stub"
+                # when grok_online_active=true and news_items_used>0).
+                zero_reason = (proof.get("grok_proof_call_last_reason")
+                               or ("proof_call_disabled_by_config"
+                                   if not proof.get("grok_proof_call_enabled") else "not_due_yet"))
         return {
             "available": True,
             "grok_research_only": True,
@@ -3197,7 +3259,10 @@ class PolymarketPaperTrainer:
             "grok_online_active": grok_online_active,
             "research_mode": research_mode,
             "grok_calls_total": calls_total,
-            "grok_calls_with_news": int(sm.get("calls_with_news", 0) or 0),
+            "grok_calls_with_news": calls_with_news,
+            "grok_evidence_records_written": int(proof.get("grok_evidence_records_written", 0) or 0),
+            "grok_proof_call_enabled": bool(proof.get("grok_proof_call_enabled", False)),
+            "grok_proof_call_advisory_only": bool(proof.get("grok_proof_call_advisory_only", True)),
             "grok_advisory_only_count": calls_total,
             "grok_cache_hits": calls_cache,
             "grok_offline_stub_calls": calls_stub,

@@ -35,9 +35,11 @@ def _runtime_dir(tmp_path, monkeypatch, big_rows=2000):
         t.run_tick(cat, now=_NOW)
     t.write_inspection_artifacts(dd)
     ev = dd / "training" / "events.jsonl"
+    rid = t.run_id                                 # realistic: events carry the run_id
     with ev.open("a", encoding="utf-8") as fh:
         for i in range(big_rows):
-            fh.write(json.dumps({"event_type": "decision", "i": i, "blob": f"row-{i}"}) + "\n")
+            fh.write(json.dumps({"event_type": "decision", "run_id": rid, "tick": 99,
+                                 "timestamp": _NOW + i, "i": i, "blob": f"row-{i}"}) + "\n")
     (dd / "polymarket_training.json").write_text(json.dumps(t.status(), default=str),
                                                  encoding="utf-8")
     return dd
@@ -86,13 +88,20 @@ def test_light_bundle_includes_event_file_stats(tmp_path, monkeypatch):
     assert stats_p.is_file()
     stats = json.loads(stats_p.read_text())
     ev = next(f for f in stats["files"] if f["source_path"].endswith("events.jsonl"))
-    for k in ("source_path", "exists", "source_size_bytes", "total_rows",
-              "included_rows", "tail_sample_path", "truncated"):
+    for k in ("logical_name", "source_path", "selected_absolute_source", "selected_root",
+              "bundle_sample_path", "exists", "size_bytes", "mtime",
+              "total_rows_exact_if_available", "included_rows", "first_tail_timestamp",
+              "last_tail_timestamp", "first_tail_run_id", "last_tail_run_id",
+              "run_ids_seen", "first_tail_tick", "last_tail_tick",
+              "source_sha256_head_tail", "truncated", "source_verified_from_data_dir",
+              "fallback_used"):
         assert k in ev, k
     assert ev["exists"] is True
     assert ev["included_rows"] <= 500
     assert ev["truncated"] is True              # we wrote >500 rows
-    assert ev["total_rows"] > ev["included_rows"]
+    assert ev["total_rows_exact_if_available"] > ev["included_rows"]
+    # selected source is an absolute path under the supplied --data-dir
+    assert ev["selected_absolute_source"] and ev["fallback_used"] is False
 
 
 # 4. light passes run-ready when source event files verified
@@ -138,6 +147,49 @@ def test_default_bundle_mode_is_light(tmp_path, monkeypatch):
     names = _zip_names(res)
     assert not _has(names, "data/training/events.jsonl")
     assert _has(names, "samples/events_tail_500.jsonl")
+
+
+# --- source-strict + freshness reconciliation (light-bundle trust) ----------
+
+def test_data_dir_never_falls_back_to_repo_local(tmp_path, monkeypatch):
+    # repo-local data/training has a STALE decision_records.jsonl; --data-dir is a
+    # DIFFERENT dir that is MISSING it. Source-strict must NOT use the repo fallback.
+    dd = _runtime_dir(tmp_path, monkeypatch)
+    repo = tmp_path / "repo"
+    (repo / "data" / "training").mkdir(parents=True, exist_ok=True)
+    (repo / "data" / "training" / "decision_records.jsonl").write_text(
+        json.dumps({"run_id": "pmtrain-STALE", "tick": 1}) + "\n", encoding="utf-8")
+    (dd / "training" / "decision_records.jsonl").unlink()   # missing in the data dir
+    res = gen.generate_report(
+        output_dir=str(tmp_path / "out"), repo_root=str(repo), skip_tests=True,
+        include_docker=False, include_api=False, include_artifacts=False,
+        data_dir=str(dd), bundle_mode="light")
+    stats = json.loads((Path(res["bundle_dir"]) / "samples" / "event_file_stats.json").read_text())
+    dr = next(f for f in stats["files"] if f["logical_name"] == "decision_records.jsonl")
+    assert dr["exists"] is False                  # not pulled from the repo fallback
+    assert dr["fallback_used"] is False
+    assert res["run_ready_for_hours"] is False    # hard-required missing -> not ready
+
+
+def test_stale_decision_records_fails_run_ready(tmp_path, monkeypatch):
+    dd = _runtime_dir(tmp_path, monkeypatch)
+    drp = dd / "training" / "decision_records.jsonl"
+    mut = [json.dumps({**json.loads(l), "run_id": "pmtrain-OLD-999"})
+           for l in drp.read_text().splitlines() if l.strip()]
+    drp.write_text("\n".join(mut) + "\n", encoding="utf-8")
+    res = _report(tmp_path, dd, bundle_mode="light")
+    assert res["run_ready_for_hours"] is False
+    assert res["run_ready"]["stale_or_mixed_training_tail_samples"] is True
+    assert any("stale_or_mixed_training_tail_samples" in b
+               for b in res["run_ready"]["blocking_reasons"])
+
+
+def test_compatible_run_ids_pass_run_ready(tmp_path, monkeypatch):
+    dd = _runtime_dir(tmp_path, monkeypatch)
+    res = _report(tmp_path, dd, bundle_mode="light")
+    assert res["classification"] == "PASS_RUN_READY"
+    assert res["run_ready"]["proof"]["tail_samples_fresh_same_run"] is True
+    assert res["run_ready"]["proof"]["single_source_data_dir"] is True
 
 
 # 8. CLI console output shows bundle mode + source-event verification
