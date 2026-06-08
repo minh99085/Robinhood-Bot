@@ -157,6 +157,45 @@ def test_advisory_evidence_persisted_with_analyzed_counters():
     assert st["grok_evidence_records_written"] == 3
 
 
+def test_proof_vs_scheduler_calls_reconciled():
+    # a call WITH a target_kind counts as a SCHEDULER call; without, a PROOF call.
+    c = GrokProofCaller(enabled=True, max_per_hour=10, max_per_run=10,
+                        min_interval_seconds=0)
+    c.maybe_call(client=_OKClient(), online=True, has_key=True,
+                 news_packet=[{"h": "x"}], market_ctx={"market_id": "m1"})  # proof
+    c.maybe_call(client=_OKClient(), online=True, has_key=True,
+                 news_packet=[{"h": "x"}], market_ctx={"market_id": "m2"},
+                 target_kind="bregman_near_miss")                          # scheduler
+    st = c.status()
+    assert st["grok_calls_total"] == 2
+    assert st["grok_proof_calls_total"] == 1
+    assert st["grok_scheduler_calls_total"] == 1
+    # the split reconciles to the total (no contradictory zero scheduled count)
+    assert st["grok_proof_calls_total"] + st["grok_scheduler_calls_total"] == st["grok_calls_total"]
+
+
+def test_research_status_reconciles_scheduled_calls(monkeypatch, tmp_path):
+    from engine.training import PolymarketPaperTrainer, TrainingConfig
+    from tests._pmtrain_helpers import clean_live_env
+    clean_live_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("XAI_API_KEY", "x" * 84)
+    monkeypatch.setenv("RESEARCH_MODE", "online_paper")
+    t = PolymarketPaperTrainer(TrainingConfig(mode="paper_train",
+                                              grok_advisory_min_interval_seconds=0),
+                               data_dir=tmp_path)
+    t.signal_model._client = _OKClient()
+    t._bregman_near_miss_best = {"g1": {"group_key": "g1", "near_miss_score": 0.9,
+                                        "raw_market_ids": ["a"], "completeness": {},
+                                        "simplex": {}}}
+    t.maybe_grok_proof_call(news_packet=[{"market_id": "a", "headline": "x"}],
+                            market_ctx=None, now=1_000_000.0)
+    rs = t.research_status()
+    # the scheduled-advisory call is no longer contradictorily zero
+    assert rs["grok_calls_total"] >= 1
+    assert rs["grok_scheduler_calls_total"] >= 1
+    assert rs["grok_scheduled_calls"] >= 1
+
+
 def test_no_api_key_value_appears_in_evidence_or_status(monkeypatch, tmp_path):
     from engine.training import PolymarketPaperTrainer, TrainingConfig
     from tests._pmtrain_helpers import clean_live_env

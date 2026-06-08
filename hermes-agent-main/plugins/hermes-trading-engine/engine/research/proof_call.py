@@ -53,6 +53,10 @@ class GrokProofCaller:
         self.market_groups_analyzed = 0
         self.bregman_near_misses_analyzed = 0
         self.news_linked_markets_analyzed = 0
+        # clearly separate single PROOF calls (no target) from SCHEDULER advisory
+        # calls (a chosen high-value target) so report metrics never contradict.
+        self.proof_calls_total = 0
+        self.scheduler_calls_total = 0
 
     @staticmethod
     def _classify_result(res) -> Optional[str]:
@@ -172,6 +176,10 @@ class GrokProofCaller:
         self.market_groups_analyzed += int(inc.get("groups_analyzed", 0) or 0)
         self.bregman_near_misses_analyzed += int(inc.get("near_misses_analyzed", 0) or 0)
         self.news_linked_markets_analyzed += int(inc.get("news_linked_analyzed", 0) or 0)
+        if target_kind:
+            self.scheduler_calls_total += 1     # chose a high-value advisory target
+        else:
+            self.proof_calls_total += 1         # bare liveness proof call
         evidence = {
             "kind": "grok_advisory_call", "advisory_only": True,
             "ts": round(now, 3), "market_id": market_ctx.get("market_id"),
@@ -212,6 +220,8 @@ class GrokProofCaller:
             "grok_advisory_min_interval_seconds": self.min_interval_seconds,
             "grok_calls_total": self.calls_total,
             "grok_calls_with_news": self.calls_with_news,
+            "grok_proof_calls_total": self.proof_calls_total,
+            "grok_scheduler_calls_total": self.scheduler_calls_total,
             "grok_evidence_records_written": self.evidence_records_written,
             "grok_advisory_calls_per_hour": self.advisory_calls_per_hour(),
             "grok_market_groups_analyzed": self.market_groups_analyzed,

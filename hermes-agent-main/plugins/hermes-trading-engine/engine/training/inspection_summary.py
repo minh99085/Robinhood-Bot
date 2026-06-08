@@ -305,6 +305,27 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
         "near_miss_depth_only_count": _i("near_miss_depth_only_count"),
         "near_miss_not_exhaustive_count": _i("near_miss_not_exhaustive_count"),
         "near_miss_stale_refresh_failed_count": _i("near_miss_stale_refresh_failed_count"),
+        "near_miss_buckets": dict(t.get("near_miss_buckets", {}) or {}),
+        "near_miss_all_negative_after_cost_lower_bound": bool(
+            t.get("near_miss_all_negative_after_cost_lower_bound", False)),
+        "near_miss_tradeable_count": _i("near_miss_tradeable_count"),
+        # depth-aware census (REQUIRED depth unchanged) + stale-refresh evidence
+        "bregman_required_depth_usd": t.get("bregman_required_depth_usd"),
+        "bregman_depth_sufficient_groups": _i("bregman_depth_sufficient_groups"),
+        "bregman_depth_insufficient_groups": _i("bregman_depth_insufficient_groups"),
+        "bregman_high_liquidity_groups_scanned": _i("bregman_high_liquidity_groups_scanned"),
+        "bregman_all_groups_thin": bool(t.get("bregman_all_groups_thin", False)),
+        "bregman_promising_groups_refreshed": _i("bregman_promising_groups_refreshed"),
+        "bregman_refresh_success": _i("bregman_refresh_success"),
+        "bregman_refresh_failed": _i("bregman_refresh_failed"),
+        "bregman_stale_after_refresh": _i("bregman_stale_after_refresh"),
+        "bregman_refresh_not_attempted_reason": t.get("bregman_refresh_not_attempted_reason"),
+        # precise price/outcome parsing diagnostics (from the ABCAS scanner merge)
+        "non_numeric_price_count": _i("non_numeric_price_count"),
+        "insufficient_outcomes_count": _i("insufficient_outcomes_count"),
+        "malformed_group_count": _i("malformed_group_count", "malformed_groups_rejected"),
+        "parsed_price_success_rate": float(t.get("parsed_price_success_rate", 1.0) or 1.0),
+        "skip_reason_samples": dict(t.get("skip_reason_samples", {}) or {}),
         "blocker_explanation": _bregman_blocker_explanation(t, certified, sent_to_certifier),
         # consistency invariant: every detected group must be ACCOUNTED FOR as either
         # adapter-success (scanned) or adapter-failure (skip with a reason). An
@@ -362,6 +383,9 @@ def build_grok_news_evidence(research: dict, *, news_items_used: int = 0) -> dic
         "grok_advisory_enabled": bool(r.get("grok_advisory_enabled", True)),
         "grok_advisory_max_calls_per_hour": int(r.get("grok_advisory_max_calls_per_hour", 0) or 0),
         "grok_advisory_calls_per_hour": int(r.get("grok_advisory_calls_per_hour", 0) or 0),
+        "grok_proof_calls_total": int(r.get("grok_proof_calls_total", 0) or 0),
+        "grok_scheduler_calls_total": int(r.get("grok_scheduler_calls_total", 0) or 0),
+        "grok_scheduled_calls": int(r.get("grok_scheduled_calls", 0) or 0),
         "grok_market_groups_analyzed": int(r.get("grok_market_groups_analyzed", 0) or 0),
         "grok_bregman_near_misses_analyzed": int(r.get("grok_bregman_near_misses_analyzed", 0) or 0),
         "grok_news_linked_markets_analyzed": int(r.get("grok_news_linked_markets_analyzed", 0) or 0),

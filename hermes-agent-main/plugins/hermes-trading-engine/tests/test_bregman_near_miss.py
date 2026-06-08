@@ -186,3 +186,64 @@ def test_top_near_misses_persisted_and_ranked():
     assert summ["near_miss_depth_only_count"] == 1
     assert summ["near_miss_not_exhaustive_count"] == 1
     assert "depth_too_thin" in summ["near_miss_by_rejection_reason"]
+
+
+def test_near_miss_buckets_and_negative_lower_bound_honesty():
+    # both near-misses have implied sum > payout -> negative after-cost lower bound
+    g1 = SimplexGroup("g1", "exhaustive_event",
+                      [SimplexLeg("a", "YES", "tA", ask=0.6, bid=0.59, depth_usd=5),
+                       SimplexLeg("b", "YES", "tB", ask=0.6, bid=0.59, depth_usd=5)],
+                      exhaustive=True)
+    nm = analyze_rejection(g1, "depth_too_thin", min_depth_usd=25.0,
+                           max_spread=0.08, max_age_s=20.0)
+    summ = summarize([nm], top_n=5)
+    assert "near_miss_buckets" in summ
+    assert set(summ["near_miss_buckets"]).issuperset({
+        "top_by_depth_quality", "top_by_completeness_confidence",
+        "top_by_after_cost_lower_bound", "top_by_one_fix_away",
+        "top_by_grok_news_relevance"})
+    assert summ["near_miss_all_negative_after_cost_lower_bound"] is True
+    assert summ["near_miss_tradeable_count"] == 0      # diagnostics NEVER tradeable
+
+
+# --- trainer depth-sufficient + stale-refresh census ----------------------- #
+def _trainer(tmp_path, monkeypatch):
+    from engine.training import PolymarketPaperTrainer, TrainingConfig
+    from tests._pmtrain_helpers import clean_live_env
+    clean_live_env(monkeypatch, tmp_path)
+    return PolymarketPaperTrainer(TrainingConfig(mode="paper_train"), data_dir=tmp_path)
+
+
+def test_trainer_depth_sufficient_metrics_no_threshold_change(tmp_path, monkeypatch):
+    from engine.markets.universe_manager import MarketRecord
+    t = _trainer(tmp_path, monkeypatch)
+    required = float(t.bregman.min_depth_usd)
+    def rec(mid, ask, depth, gk):
+        return MarketRecord.from_raw({"id": mid, "question": f"Who wins? {mid}",
+            "bestAsk": ask, "bestBid": ask - 0.02, "clobTokenIds": [mid + "y", mid + "n"],
+            "active": True, "groupItemTitle": gk, "liquidityNum": depth, "volumeNum": depth})
+    # one thin leg ($5) + ample legs -> group is depth-insufficient (threshold unchanged)
+    recs = [rec("a", 0.5, 5, "ev"), rec("b", 0.3, 5000, "ev"), rec("c", 0.2, 5000, "ev")]
+    t.closed_loop.begin_tick()
+    t.scan_bregman(recs, now=1000.0)
+    bx = t.bregman_exec_metrics
+    assert bx["bregman_required_depth_usd"] == required   # NOT lowered
+    assert bx["bregman_depth_insufficient_groups"] >= 1
+    assert "bregman_all_groups_thin" in bx
+    assert "bregman_depth_sufficient_groups" in bx
+
+
+def test_trainer_stale_refresh_metrics_reported(tmp_path, monkeypatch):
+    from engine.markets.universe_manager import MarketRecord
+    t = _trainer(tmp_path, monkeypatch)
+    def rec(mid, ask, gk):
+        return MarketRecord.from_raw({"id": mid, "question": f"Q {mid}",
+            "bestAsk": ask, "bestBid": ask - 0.02, "clobTokenIds": [mid + "y", mid + "n"],
+            "active": True, "groupItemTitle": gk, "liquidityNum": 5000, "volumeNum": 5000})
+    recs = [rec("a", 0.5, "ev"), rec("b", 0.45, "ev")]
+    t.closed_loop.begin_tick()
+    t.scan_bregman(recs, now=1000.0)
+    bx = t.bregman_exec_metrics
+    for k in ("bregman_promising_groups_refreshed", "bregman_refresh_success",
+              "bregman_refresh_failed", "bregman_stale_after_refresh"):
+        assert k in bx

@@ -757,6 +757,8 @@ class PolymarketPaperTrainer:
         # Depth-aware ordering: send better-depth groups to the certifier FIRST.
         # This is selection-only — it does NOT change any depth/spread/freshness gate.
         groups = self._order_groups_by_depth(groups)
+        depth_tel = self._bregman_depth_telemetry(groups)
+        stale_tel = self._bregman_refresh_promising(groups, now)
         try:
             certs = self.bregman.certify_all(groups, now=now)
         except Exception:  # noqa: BLE001
@@ -799,8 +801,80 @@ class PolymarketPaperTrainer:
                                         "using group_markets() over the full eligible catalog",
             "evaluated_before_directional": True,
             **nm_summary,
+            **depth_tel,
+            **stale_tel,
         }
         return certs
+
+    def _bregman_depth_telemetry(self, groups: list) -> dict:
+        """Read-only depth-quality census over the certifier's REQUIRED depth (not
+        lowered). Counts depth-sufficient vs insufficient + high-liquidity groups so
+        a thin universe is reported clearly instead of only 'depth_too_thin'."""
+        from engine.training.bregman_near_miss import depth_quality
+        min_depth = float(getattr(self.bregman, "min_depth_usd", 50.0))
+        hi_liq = max(min_depth * 4.0, 100.0)
+        suff = insuff = hi = 0
+        for g in groups:
+            try:
+                dq = depth_quality(g, min_depth_usd=min_depth)
+            except Exception:  # noqa: BLE001
+                continue
+            if dq["thin_legs"] == 0:
+                suff += 1
+            else:
+                insuff += 1
+            if dq["min_leg_depth_usd"] >= hi_liq:
+                hi += 1
+        return {
+            "bregman_required_depth_usd": min_depth,
+            "bregman_depth_sufficient_groups": suff,
+            "bregman_depth_sufficient_groups_sent_to_certifier": suff,
+            "bregman_depth_insufficient_groups": insuff,
+            "bregman_high_liquidity_groups_scanned": hi,
+            "bregman_all_groups_thin": bool(groups and suff == 0),
+        }
+
+    def _bregman_refresh_promising(self, groups: list, now: float) -> dict:
+        """Attempt a read-only book refresh for PROMISING stale groups immediately
+        before certification (freshness is NEVER loosened). Records refresh evidence;
+        when no refresher is configured, explains why."""
+        from engine.training.bregman_near_miss import depth_quality
+        min_depth = float(getattr(self.bregman, "min_depth_usd", 50.0))
+        refresher = self._bregman_book_refresher
+        refreshed = ok = failed = stale_after = 0
+        reason = None
+        for g in groups:
+            stale = any(getattr(l, "stale", False) or not getattr(l, "fresh_book", True)
+                        for l in getattr(g, "legs", []))
+            if not stale:
+                continue
+            try:
+                promising = depth_quality(g, min_depth_usd=min_depth)["thin_legs"] == 0
+            except Exception:  # noqa: BLE001
+                promising = False
+            if not promising:
+                continue
+            if refresher is None:
+                reason = "no_refresher_configured"
+                stale_after += 1
+                continue
+            refreshed += 1
+            try:
+                if bool(refresher(g, now=now)):
+                    ok += 1
+                else:
+                    failed += 1
+                    stale_after += 1
+            except Exception:  # noqa: BLE001
+                failed += 1
+                stale_after += 1
+        return {
+            "bregman_promising_groups_refreshed": refreshed,
+            "bregman_refresh_success": ok,
+            "bregman_refresh_failed": failed,
+            "bregman_stale_after_refresh": stale_after,
+            "bregman_refresh_not_attempted_reason": reason,
+        }
 
     def _order_groups_by_depth(self, groups: list) -> list:
         """Order groups so the certifier sees better-depth candidates first. Pure
@@ -3390,6 +3464,9 @@ class PolymarketPaperTrainer:
                 "grok_advisory_min_interval_seconds",
                 getattr(cfg, "grok_advisory_min_interval_seconds", 900)) or 0),
             "grok_advisory_calls_per_hour": int(proof.get("grok_advisory_calls_per_hour", 0) or 0),
+            # proof vs scheduled-advisory split (reconciles grok_scheduled_calls):
+            "grok_proof_calls_total": int(proof.get("grok_proof_calls_total", 0) or 0),
+            "grok_scheduler_calls_total": int(proof.get("grok_scheduler_calls_total", 0) or 0),
             "grok_market_groups_analyzed": int(proof.get("grok_market_groups_analyzed", 0) or 0),
             "grok_bregman_near_misses_analyzed": int(proof.get(
                 "grok_bregman_near_misses_analyzed", 0) or 0),
@@ -3400,7 +3477,10 @@ class PolymarketPaperTrainer:
             "grok_cache_hits": calls_cache,
             "grok_offline_stub_calls": calls_stub,
             "grok_eligible_markets": int(sm.get("eligible_markets", 0) or 0),
-            "grok_scheduled_calls": int(sm.get("scheduled_calls", 0) or 0),
+            # reconciled: scheduled advisory calls include the bounded scheduler's
+            # calls (was always 0 because it only read the signal model before).
+            "grok_scheduled_calls": (int(sm.get("scheduled_calls", 0) or 0)
+                                     + int(proof.get("grok_scheduler_calls_total", 0) or 0)),
             "grok_skipped_rate_limit": int(sm.get("skipped_rate_limit", 0) or 0),
             "grok_skipped_no_news_packet": int(sm.get("skipped_no_news_packet", 0) or 0),
             "grok_skipped_no_market_link": int(sm.get("skipped_no_market_link", 0) or 0),

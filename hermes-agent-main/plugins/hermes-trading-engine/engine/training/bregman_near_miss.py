@@ -299,6 +299,14 @@ def summarize(items: list, *, top_n: int = 10) -> dict:
         if (it.get("reject_reason") == "stale_book" and fq.get("refresh_attempted")
                 and not fq.get("refresh_ok")):
             stale_refresh_failed += 1
+    # ranking buckets (each is diagnostic only — NEVER implies a tradeable edge).
+    def _top(key, n=5, predicate=None):
+        pool = [it for it in items if (predicate is None or predicate(it))]
+        return sorted(pool, key=key, reverse=True)[:n]
+
+    lbs = [it.get("after_cost_lower_bound") for it in items
+           if it.get("after_cost_lower_bound") is not None]
+    all_negative = bool(lbs) and all(v <= 0 for v in lbs)
     return {
         "bregman_near_misses_total": len(items),
         "bregman_top_near_misses": rank_near_misses(items, top_n=top_n),
@@ -307,4 +315,23 @@ def summarize(items: list, *, top_n: int = 10) -> dict:
         "near_miss_depth_only_count": depth_only,
         "near_miss_not_exhaustive_count": not_exhaustive,
         "near_miss_stale_refresh_failed_count": stale_refresh_failed,
+        # ranking buckets (diagnostic only; none of these are tradeable)
+        "near_miss_buckets": {
+            "top_by_depth_quality": _top(
+                lambda it: it.get("depth_quality", {}).get("min_leg_depth_usd", 0.0)),
+            "top_by_completeness_confidence": _top(
+                lambda it: 1 if it.get("completeness", {}).get("completeness_proven") else 0),
+            "top_by_after_cost_lower_bound": _top(
+                lambda it: (it.get("after_cost_lower_bound") or -1e9)),
+            "top_by_one_fix_away": _top(lambda it: it.get("near_miss_score", 0.0),
+                                        predicate=lambda it: it.get("one_fix_away")),
+            "top_by_grok_news_relevance": _top(
+                lambda it: float((it.get("advisory_features") or {}).get(
+                    "grok_news_relevance_score", 0.0))),
+        },
+        "near_miss_all_negative_after_cost_lower_bound": all_negative,
+        "near_miss_tradeable_count": 0,        # diagnostics NEVER tradeable
+        "near_miss_note": ("all near-misses have non-positive after-cost lower bound; "
+                           "none are tradeable" if all_negative else
+                           "near-misses are diagnostic only and are never executed"),
     }

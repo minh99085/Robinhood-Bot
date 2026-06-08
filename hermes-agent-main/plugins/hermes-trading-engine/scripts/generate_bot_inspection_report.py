@@ -1660,6 +1660,41 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
         nmr = _bf.get("near_miss_by_rejection_reason", {}) or {}
         if nmr:
             L.append(f"- near_miss_by_rejection_reason: {nmr}")
+        if _bf.get("near_miss_all_negative_after_cost_lower_bound"):
+            L.append("- near_miss_after_cost: ALL near-misses have non-positive "
+                     "after-cost lower bound — NONE are tradeable")
+        # parsing + depth/complete-set census (scanner telemetry + funnel)
+        _bsrc = status.get("bregman", {}) or {}
+        def _pv(key, default=0):
+            return _bf.get(key, _bsrc.get(key, default))
+        L.append("")
+        L.append("### 11b. Bregman Price/Outcome Parsing + Depth Census (read-only)")
+        L.append("")
+        L.append(f"- non_numeric_price_count: {_pv('non_numeric_price_count')}")
+        L.append(f"- insufficient_outcomes_count: {_pv('insufficient_outcomes_count')}")
+        L.append(f"- malformed_group_count: {_pv('malformed_group_count')}")
+        L.append(f"- parsed_price_success_rate: {_pv('parsed_price_success_rate', 1.0)}")
+        L.append(f"- bregman_depth_sufficient_groups: {_pv('bregman_depth_sufficient_groups')}")
+        L.append(f"- bregman_depth_insufficient_groups: {_pv('bregman_depth_insufficient_groups')}")
+        L.append(f"- bregman_high_liquidity_groups_scanned: {_pv('bregman_high_liquidity_groups_scanned')}")
+        L.append(f"- bregman_all_groups_thin: {_pv('bregman_all_groups_thin', False)}")
+        L.append(f"- complete_set_count (certified): {_bf.get('certified', 0)}")
+        L.append(f"- incomplete_set_count (not_exhaustive near-misses): "
+                 f"{_bf.get('near_miss_not_exhaustive_count', 0)}")
+        L.append(f"- bregman_promising_groups_refreshed: {_pv('bregman_promising_groups_refreshed')}")
+        L.append(f"- bregman_refresh_success: {_pv('bregman_refresh_success')} "
+                 f"failed: {_pv('bregman_refresh_failed')} "
+                 f"stale_after: {_pv('bregman_stale_after_refresh')}")
+        if _pv('bregman_refresh_not_attempted_reason', None):
+            L.append(f"- refresh_not_attempted_reason: {_pv('bregman_refresh_not_attempted_reason')}")
+        samples = _bf.get("skip_reason_samples", {}) or _bsrc.get("skip_reason_samples", {}) or {}
+        for rkey in ("non_numeric_outcome_prices", "outcome_price_count_mismatch",
+                     "insufficient_outcomes", "malformed_group", "invalid_simplex",
+                     "duplicate_outcome_labels"):
+            if rkey in samples:
+                s = samples[rkey]
+                L.append(f"- example[{rkey}]: market={s.get('market_id')} "
+                         f"detail={s.get('detail')}")
         blk = _bf.get("blocker_explanation", {}) or {}
         if blk:
             L.append(f"- no_bundle_blocker: {blk.get('primary_blocker')} "
