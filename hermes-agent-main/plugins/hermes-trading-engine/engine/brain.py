@@ -62,19 +62,33 @@ _SKIP_MARKERS = ("not found", "not allowed", "multi agent", "multi-agent", "unsu
                  "does not support", "invalid model", "not available", "no access")
 
 
-def read_grok_key() -> str:
-    """Read the xAI/Grok key from env and sanitize it.
-
-    Strips surrounding whitespace AND surrounding quotes — a key pasted into .env as
-    ``XAI_API_KEY="xai-..."`` (or with a trailing newline) otherwise yields a
-    malformed ``Bearer`` header and a 401, the classic 'key suddenly stopped working'
-    cause when the key is delivered via docker compose interpolation (which, unlike
-    the dotenv loader, does not strip quotes). Returns "" when absent."""
-    raw = os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY") or ""
-    key = raw.strip()
+def _sanitize_key(raw: str) -> str:
+    key = (raw or "").strip()
     if len(key) >= 2 and key[0] == key[-1] and key[0] in ("'", '"'):
         key = key[1:-1].strip()
     return key
+
+
+def read_grok_key() -> str:
+    """Read the xAI/Grok key from env and sanitize it (never exposes the value).
+
+    CANONICAL variable is ``XAI_API_KEY``. ``GROK_API_KEY`` is accepted only as an
+    optional backward-compatible fallback — it is never required. Strips surrounding
+    whitespace + quotes so a key pasted as ``XAI_API_KEY="xai-..."`` (or with a
+    trailing newline) doesn't make a malformed Bearer header (-> 401). Returns ""
+    when absent."""
+    return _sanitize_key(os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY") or "")
+
+
+def grok_key_source() -> Optional[str]:
+    """Which env var supplied the key (for health/reporting). Canonical is
+    ``XAI_API_KEY``; ``GROK_API_KEY`` is a legacy fallback. Returns None when absent.
+    NEVER returns the key value."""
+    if _sanitize_key(os.getenv("XAI_API_KEY") or ""):
+        return "XAI_API_KEY"
+    if _sanitize_key(os.getenv("GROK_API_KEY") or ""):
+        return "GROK_API_KEY(legacy)"
+    return None
 
 
 def _score_model(mid: str) -> int:

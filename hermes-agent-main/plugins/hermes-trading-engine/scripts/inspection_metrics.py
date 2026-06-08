@@ -230,6 +230,16 @@ def extract_features(status: dict | None, api: dict | None = None,
             research.get("grok_affected_probability_count", 0) or 0),
         "grok_affected_trade_count": int(research.get("grok_affected_trade_count", 0) or 0),
         "grok_evidence_records_written": int(research.get("grok_evidence_records_written", 0) or 0),
+        # canonical XAI key + brain-readiness (advisory). grok_brain_ready is a real
+        # advisory call proven; calls_total=0 with key+online+news is a blocker.
+        "xai_api_key_present": _first(research.get("xai_api_key_present"),
+                                      research.get("grok_has_api_key")),
+        "xai_api_key_source": research.get("xai_api_key_source", "XAI_API_KEY"),
+        "grok_online_active": research.get("grok_online_active"),
+        "grok_brain_ready": _first(research.get("grok_brain_ready"),
+                                   int(research.get("grok_calls_total", 0) or 0) >= 1),
+        "grok_brain_blocker": research.get("grok_brain_blocker"),
+        "grok_zero_call_reason": research.get("grok_zero_call_reason"),
         # --- bregman (paper scan loop telemetry takes priority) ---
         "bregman_paper_enabled": _first(_get(status, "bregman", "bregman_paper_enabled"),
                                         csafe.get("realistic_fill_enabled"),

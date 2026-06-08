@@ -25,13 +25,20 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def main() -> int:
+    # CANONICAL variable is XAI_API_KEY; GROK_API_KEY is only an optional legacy
+    # fallback (never required). The key VALUE is never printed.
     raw = os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY") or ""
+    source = ("XAI_API_KEY" if (os.getenv("XAI_API_KEY") or "").strip()
+              else ("GROK_API_KEY(legacy)" if (os.getenv("GROK_API_KEY") or "").strip()
+                    else None))
     stripped = raw.strip()
     dequoted = stripped
     if len(dequoted) >= 2 and dequoted[0] == dequoted[-1] and dequoted[0] in ("'", '"'):
         dequoted = dequoted[1:-1].strip()
 
     print("=== xAI/Grok key diagnosis (process environment) ===")
+    print(f"xai_api_key_present : {bool(dequoted)}")
+    print(f"xai_api_key_source  : {source or 'XAI_API_KEY'}")
     print(f"key_present         : {bool(dequoted)}")
     print(f"raw_len             : {len(raw)}")
     print(f"stripped_len        : {len(stripped)}")

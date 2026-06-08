@@ -277,6 +277,7 @@ def build_grok_news_evidence(research: dict, *, news_items_used: int = 0) -> dic
         _online_modes = {"online_paper", "online_shadow", "guarded_live_readonly",
                          "online", "online_research", "live", "grok_online"}
     mode_is_online = str(r.get("research_mode", "")).strip().lower() in _online_modes
+    online_active = bool((enabled and has_key) and mode_is_online)
     reason = r.get("grok_zero_call_reason")
     if calls == 0 and not reason:
         if not enabled or not has_key:
@@ -287,10 +288,19 @@ def build_grok_news_evidence(research: dict, *, news_items_used: int = 0) -> dic
             reason = "no_news_packet_selected"
         else:
             reason = "no_eligible_markets_or_advisory_not_due"
+    # grok_brain_ready = a real advisory call actually happened. Enabled+key+online+
+    # news with zero calls is a BLOCKER (not healthy). Separate from paper run-ready.
+    grok_brain_ready = bool(r.get("grok_brain_ready", calls >= 1))
+    grok_brain_blocker = (None if grok_brain_ready
+                          else r.get("grok_brain_blocker") or reason or "no_grok_call_yet")
     return {
         "grok_enabled": enabled,
         "grok_has_api_key": has_key,
-        "grok_online_active": bool((enabled and has_key) and mode_is_online),
+        "xai_api_key_present": bool(r.get("xai_api_key_present", has_key)),
+        "xai_api_key_source": r.get("xai_api_key_source", "XAI_API_KEY"),
+        "grok_online_active": online_active,
+        "grok_brain_ready": grok_brain_ready,
+        "grok_brain_blocker": grok_brain_blocker,
         "research_mode": r.get("research_mode"),
         "news_items_used": int(news_items_used or 0),
         "grok_calls_total": calls,

@@ -34,10 +34,11 @@ class GrokProofCaller:
     """Stateful, rate-limited advisory proof-caller. Hourly budget is enforced via an
     in-memory ring of recent call timestamps (paper-only; no persistence required)."""
 
-    def __init__(self, *, enabled: bool, max_per_hour: int = 1,
+    def __init__(self, *, enabled: bool, max_per_hour: int = 1, max_per_run: int = 1,
                  advisory_only: bool = True, clock: Optional[Callable[[], float]] = None):
         self.enabled = bool(enabled)
         self.max_per_hour = int(max_per_hour)
+        self.max_per_run = int(max_per_run)
         self.advisory_only = bool(advisory_only)
         self._clock = clock or time.time
         self._calls: list[float] = []          # timestamps of proof calls made
@@ -76,6 +77,8 @@ class GrokProofCaller:
             reason = REASON_NO_NEWS
         elif not market_ctx or not market_ctx.get("market_id"):
             reason = REASON_NO_MARKET
+        elif self.max_per_run > 0 and self.calls_total >= self.max_per_run:
+            reason = REASON_RATE_LIMIT      # per-RUN cap: bounds total API spend
         elif self.max_per_hour > 0 and self._recent_calls(now) >= self.max_per_hour:
             reason = REASON_RATE_LIMIT
         else:
@@ -129,6 +132,7 @@ class GrokProofCaller:
             "grok_proof_call_enabled": self.enabled,
             "grok_proof_call_advisory_only": self.advisory_only,
             "grok_proof_call_max_per_hour": self.max_per_hour,
+            "grok_proof_call_max_per_run": self.max_per_run,
             "grok_calls_total": self.calls_total,
             "grok_calls_with_news": self.calls_with_news,
             "grok_evidence_records_written": self.evidence_records_written,

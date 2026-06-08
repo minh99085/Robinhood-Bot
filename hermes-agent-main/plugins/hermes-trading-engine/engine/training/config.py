@@ -200,8 +200,9 @@ class TrainingConfig:
     # made recently, schedule at most one ADVISORY-ONLY proof call per hour so the
     # report can show grok_calls_total>0 instead of an ambiguous zero-call reason.
     # NEVER executes/sizes a trade and never bypasses a quant gate.
-    grok_proof_call_enabled: bool = False
+    grok_proof_call_enabled: bool = True
     grok_proof_call_max_per_hour: int = 1
+    grok_proof_call_max_per_run: int = 1
     grok_proof_call_advisory_only: bool = True
     active_learning_require_realistic_fill_for_trade: bool = True
     active_learning_allow_shadow_without_fill: bool = True
@@ -852,9 +853,20 @@ class TrainingConfig:
                 "POLYMARKET_ACTIVE_LEARNING_NO_TRADE_LABELS_PER_TICK", 100),
             active_learning_diagnostic_samples_per_tick=_envi(
                 "POLYMARKET_ACTIVE_LEARNING_DIAGNOSTIC_SAMPLES_PER_TICK", 50),
-            grok_proof_call_enabled=_envb("POLYMARKET_GROK_PROOF_CALL_ENABLED", False),
-            grok_proof_call_max_per_hour=_envi("POLYMARKET_GROK_PROOF_CALL_MAX_PER_HOUR", 1),
-            grok_proof_call_advisory_only=_envb("POLYMARKET_GROK_PROOF_CALL_ADVISORY_ONLY", True),
+            # canonical GROK_PROOF_CALL_* env names (default ON for paper training),
+            # with POLYMARKET_-prefixed names accepted as fallback. Advisory + bounded.
+            grok_proof_call_enabled=_envb(
+                "GROK_PROOF_CALL_ENABLED",
+                _envb("POLYMARKET_GROK_PROOF_CALL_ENABLED", True)),
+            grok_proof_call_max_per_hour=_envi(
+                "GROK_PROOF_CALL_MAX_PER_HOUR",
+                _envi("POLYMARKET_GROK_PROOF_CALL_MAX_PER_HOUR", 1)),
+            grok_proof_call_max_per_run=_envi(
+                "GROK_PROOF_CALL_MAX_PER_RUN",
+                _envi("POLYMARKET_GROK_PROOF_CALL_MAX_PER_RUN", 1)),
+            grok_proof_call_advisory_only=_envb(
+                "GROK_PROOF_CALL_ADVISORY_ONLY",
+                _envb("POLYMARKET_GROK_PROOF_CALL_ADVISORY_ONLY", True)),
             active_learning_require_realistic_fill_for_trade=_envb(
                 "POLYMARKET_ACTIVE_LEARNING_REQUIRE_REALISTIC_FILL_FOR_TRADE", True),
             active_learning_allow_shadow_without_fill=_envb(

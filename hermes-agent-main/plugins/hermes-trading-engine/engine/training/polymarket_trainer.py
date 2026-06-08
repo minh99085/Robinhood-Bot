@@ -3155,8 +3155,9 @@ class PolymarketPaperTrainer:
         if caller is None:
             from engine.research.proof_call import GrokProofCaller
             caller = GrokProofCaller(
-                enabled=bool(getattr(self.cfg, "grok_proof_call_enabled", False)),
+                enabled=bool(getattr(self.cfg, "grok_proof_call_enabled", True)),
                 max_per_hour=int(getattr(self.cfg, "grok_proof_call_max_per_hour", 1)),
+                max_per_run=int(getattr(self.cfg, "grok_proof_call_max_per_run", 1)),
                 advisory_only=bool(getattr(self.cfg, "grok_proof_call_advisory_only", True)))
             self._grok_proof = caller
         return caller
@@ -3209,7 +3210,11 @@ class PolymarketPaperTrainer:
             sm = self.signal_model.status() if getattr(self, "signal_model", None) else {}
         except Exception:  # noqa: BLE001
             sm = {}
-        grok_enabled = bool(os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY"))
+        # CANONICAL key = XAI_API_KEY (GROK_API_KEY only an optional legacy fallback).
+        from engine.brain import read_grok_key, grok_key_source
+        _key = read_grok_key()
+        grok_enabled = bool(_key)
+        xai_key_source = grok_key_source()        # never the value
         research_mode = os.getenv("RESEARCH_MODE", "offline_cache")
         # canonical online-mode set (matches engine.research.schemas.ONLINE_MODES +
         # the signal model's _ONLINE_MODES) — online_paper/shadow/guarded_live_readonly
@@ -3251,12 +3256,23 @@ class PolymarketPaperTrainer:
                 zero_reason = (proof.get("grok_proof_call_last_reason")
                                or ("proof_call_disabled_by_config"
                                    if not proof.get("grok_proof_call_enabled") else "not_due_yet"))
+        # grok_brain_ready: a SEPARATE signal from paper run-readiness. The brain is
+        # only "ready" when a real advisory call has actually happened (calls>0). If
+        # enabled+key+online+news but zero calls, that is a Grok readiness BLOCKER —
+        # never reported as a healthy/functional Grok.
+        grok_brain_ready = bool(calls_total >= 1)
+        grok_brain_blocker = None if grok_brain_ready else (zero_reason or (
+            "no_api_key" if not grok_enabled else "no_grok_call_yet"))
         return {
             "available": True,
             "grok_research_only": True,
             "grok_enabled": grok_enabled,
             "grok_has_api_key": grok_enabled,
+            "xai_api_key_present": grok_enabled,
+            "xai_api_key_source": (xai_key_source or "XAI_API_KEY"),
             "grok_online_active": grok_online_active,
+            "grok_brain_ready": grok_brain_ready,
+            "grok_brain_blocker": grok_brain_blocker,
             "research_mode": research_mode,
             "grok_calls_total": calls_total,
             "grok_calls_with_news": calls_with_news,

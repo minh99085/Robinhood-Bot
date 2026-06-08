@@ -544,6 +544,8 @@ def build_report_run_ready(manifest: dict, status: dict, algo_audit: dict,
     recon = status.get("training_reconciliation", {}) or {}
     ledger = status.get("ledger", {}) or {}
     funnel = status.get("bregman_funnel", {}) or {}
+    # Grok evidence: prefer the unified grok_news_evidence block, else research status.
+    _grok = (status.get("grok_news_evidence") or {}) or (status.get("research") or {})
     decision_count = int(metrics._first(recon.get("decision_count_counter"),
                                 status.get("decisions"),
                                 (status.get("pnl", {}) or {}).get("decision_count"), 0) or 0)
@@ -650,6 +652,11 @@ def build_report_run_ready(manifest: dict, status: dict, algo_audit: dict,
         "tail_freshness": manifest.get("tail_freshness", {}),
         "stale_or_mixed_training_tail_samples": bool(
             manifest.get("stale_or_mixed_training_tail_samples")),
+        # Grok brain readiness is a SEPARATE signal from paper run-readiness: paper
+        # training is run-ready even if Grok hasn't proven a call, but the report must
+        # NOT imply a healthy/functional Grok brain when grok_calls_total=0.
+        "grok_brain_ready": bool(_grok.get("grok_brain_ready", False)),
+        "grok_brain_blocker": _grok.get("grok_brain_blocker"),
         "source": "inspection_report (artifact-reality verdict)",
     }
 
@@ -909,6 +916,13 @@ def generate_report(
     bundle.write_json("metrics/run_ready.json", report_run_ready)
     if not report_run_ready["run_ready_for_hours"]:
         warnings.append("NOT RUN-READY: " + "; ".join(report_run_ready["blocking_reasons"]))
+    # Grok brain readiness (separate from paper run-readiness): if Grok is enabled +
+    # key present but no advisory call has proven it, surface a precise blocker so the
+    # report never implies a healthy/functional Grok brain at grok_calls_total=0.
+    if not report_run_ready.get("grok_brain_ready") and (
+            (status.get("research", {}) or {}).get("grok_enabled")):
+        warnings.append("GROK BRAIN NOT READY: "
+                        + str(report_run_ready.get("grok_brain_blocker") or "no_grok_call_yet"))
     # certified=0 with a healthy scanned funnel is a STRATEGY result, not a failure.
     _bf = status.get("bregman_funnel", {}) or {}
     if int(metrics._num(_bf.get("constraint_groups_scanned")) or 0) > 0 \
@@ -1993,6 +2007,8 @@ def main(argv=None) -> int:
     rr = result.get("run_ready", {}) or {}
     print(f"Run-ready      : run_ready_for_hours={rr.get('run_ready_for_hours')} "
           f"(max_safe_runtime_minutes={rr.get('max_safe_runtime_minutes')})")
+    print(f"Grok brain     : grok_brain_ready={rr.get('grok_brain_ready')}"
+          + (f" blocker={rr.get('grok_brain_blocker')}" if not rr.get("grok_brain_ready") else ""))
     if rr.get("blocking_reasons"):
         print("Blocking       : " + "; ".join(rr["blocking_reasons"]))
     ap = result.get("artifact_paths", {}) or {}
