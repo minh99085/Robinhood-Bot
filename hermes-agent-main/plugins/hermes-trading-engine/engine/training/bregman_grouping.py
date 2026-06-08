@@ -276,16 +276,39 @@ def _group_is_exhaustive(recs: list) -> bool:
     declared ``outcomeCount`` — and default to ``False`` otherwise so an
     incomplete scan is never mislabelled as a full hedge.
     """
+    n = len(recs)
+    # explicit completeness markers (any member declaring the set complete proves it)
+    _MARKERS = ("negRiskComplete", "neg_risk_complete", "exhaustive", "complete_set",
+                "is_complete", "isComplete", "mece", "collectively_exhaustive")
+    # declared-count fields; the set is complete when a declared outcome/market count
+    # equals the number of grouped legs (never inferred from prices = no fabrication).
+    _COUNTS = ("outcomeCount", "outcome_count", "marketCount", "market_count",
+               "numOutcomes", "num_outcomes", "seriesLength", "series_length")
     for rec in recs:
         raw = _rec_attr(rec, "raw", {}) or {}
-        if raw.get("negRiskComplete") or raw.get("exhaustive") or raw.get("complete_set"):
+        if any(raw.get(m) for m in _MARKERS):
             return True
-        oc = raw.get("outcomeCount") or raw.get("outcome_count")
-        try:
-            if oc is not None and int(oc) == len(recs):
+        for k in _COUNTS:
+            try:
+                v = raw.get(k)
+                if v is not None and int(v) == n:
+                    return True
+            except (TypeError, ValueError):
+                continue
+        # event-level completeness: events[0] declares its full market/outcome count
+        events = raw.get("events")
+        if isinstance(events, list) and events and isinstance(events[0], dict):
+            ev = events[0]
+            for k in _COUNTS:
+                try:
+                    v = ev.get(k)
+                    if v is not None and int(v) == n:
+                        return True
+                except (TypeError, ValueError):
+                    continue
+            mkts = ev.get("markets")
+            if isinstance(mkts, list) and mkts and len(mkts) == n:
                 return True
-        except (TypeError, ValueError):
-            continue
     return False
 
 

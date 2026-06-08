@@ -784,18 +784,38 @@ class PolymarketPaperTrainer:
         min_depth = float(getattr(self.bregman, "min_depth_usd", 50.0))
         max_spread = float(getattr(self.bregman, "max_spread", 0.08))
         max_age = float(getattr(self.cfg, "bregman_max_book_age_sec", 20.0) or 20.0)
+        # per-STAGE rejection census (grouping/validate_simplex/settlement_consistent/
+        # realism/edge) + divergence stats — cures silent certification.
+        stage_counts: dict = {}
+        best_proj_lb = None
+        max_div_gap = 0.0
         for g, c in zip(groups, certs):
             if c.is_opportunity:
                 continue
             reason = c.no_trade_reason or (
                 c.failure_modes[0] if getattr(c, "failure_modes", None) else "rejected")
             self._breg_reason(reason)
+            cdiag = dict(getattr(c, "certify_diagnostics", {}) or {})
+            stage = getattr(c, "rejection_stage", "") or "realism"
+            stage_counts[stage] = stage_counts.get(stage, 0) + 1
+            max_div_gap = max(max_div_gap, float(cdiag.get("divergence_gap", 0.0) or 0.0))
+            _plb = cdiag.get("projected_profit_lower_bound")
+            if _plb is not None and (best_proj_lb is None or _plb > best_proj_lb):
+                best_proj_lb = _plb
             ra, rok, rreason = self._maybe_refresh_stale(g, reason, now)
             try:
                 nm = analyze_rejection(g, reason, min_depth_usd=min_depth,
                                        max_spread=max_spread, max_age_s=max_age,
                                        refresh_attempted=ra, refresh_ok=rok,
                                        refresh_reason=rreason)
+                # enrich with certifier diagnostics (exhaustive, settlement_consistent,
+                # divergence_gap, projected lower bound, exact stage) — never silent.
+                nm["rejection_stage"] = stage
+                nm["exhaustive"] = cdiag.get("exhaustive")
+                nm["settlement_consistent"] = cdiag.get("settlement_consistent")
+                nm["divergence_gap"] = cdiag.get("divergence_gap")
+                nm["projected_profit_lower_bound"] = _plb
+                nm["certify_diagnostics"] = cdiag
                 self._record_bregman_near_miss(nm)
             except Exception:  # noqa: BLE001 — diagnostics must never break a tick
                 pass
@@ -817,6 +837,10 @@ class PolymarketPaperTrainer:
                                         "using group_markets() over the full eligible catalog",
             "evaluated_before_directional": True,
             "bregman_certifier_exception": None,
+            # per-stage rejection census + divergence proof (certification not silent)
+            "bregman_rejection_stage_counts": dict(sorted(stage_counts.items())),
+            "bregman_max_divergence_gap": round(max_div_gap, 8),
+            "bregman_best_projected_lower_bound": best_proj_lb,
             **nm_summary,
             **depth_tel,
             **stale_tel,

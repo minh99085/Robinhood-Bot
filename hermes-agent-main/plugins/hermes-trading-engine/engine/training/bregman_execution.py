@@ -50,6 +50,40 @@ FAILURE_MODES = (
     "zero_quantity", "market_closed", "partial_fill_breaks_hedge",
 )
 
+# Pipeline STAGE for each reject reason — cures "silent certification" by naming the
+# exact stage a discovered group stopped at (grouping vs structural validity vs
+# settlement consistency vs realism vs edge). Reported on EVERY reject.
+_STAGE_VALIDATE_SIMPLEX = "validate_simplex"
+_STAGE_SETTLEMENT = "settlement_consistent"
+_STAGE_REALISM = "realism"
+_STAGE_EDGE = "edge"
+_STAGE_CERTIFIED = "certified"
+
+_REJECTION_STAGE = {
+    "not_exhaustive": _STAGE_VALIDATE_SIMPLEX,
+    "not_mutually_exclusive": _STAGE_VALIDATE_SIMPLEX,
+    "invalid_simplex": _STAGE_VALIDATE_SIMPLEX,
+    "duplicate_legs": _STAGE_VALIDATE_SIMPLEX,
+    "insufficient_legs": _STAGE_VALIDATE_SIMPLEX,
+    "settlement_ambiguity": _STAGE_SETTLEMENT,
+    "chainlink_stale_or_irrelevant": _STAGE_SETTLEMENT,
+    "missing_leg": _STAGE_REALISM,
+    "no_executable_price": _STAGE_REALISM,
+    "stale_book": _STAGE_REALISM,
+    "tick_size_changed": _STAGE_REALISM,
+    "depth_too_thin": _STAGE_REALISM,
+    "spread_too_wide": _STAGE_REALISM,
+    "market_closed": _STAGE_REALISM,
+    "zero_quantity": _STAGE_REALISM,
+    "partial_fill_breaks_hedge": _STAGE_REALISM,
+    "no_positive_edge": _STAGE_EDGE,
+}
+
+
+def rejection_stage(reason: str) -> str:
+    """Map a certifier reject reason to its pipeline stage (pure, exhaustive)."""
+    return _REJECTION_STAGE.get(str(reason or ""), _STAGE_REALISM)
+
 
 @dataclass
 class CertifiedLeg:
@@ -136,6 +170,11 @@ class CertifiedBregmanOpportunity:
     cost_per_set: float = 0.0
     sets: float = 0.0
     certificate: Optional["BregmanCertificate"] = None
+    # certification-silence cure: the precise pipeline STAGE that stopped the group
+    # (grouping / validate_simplex / settlement_consistent / realism / certified), plus
+    # a structured per-group diagnostic logged EVEN ON REJECT (never silent).
+    rejection_stage: str = ""
+    certify_diagnostics: dict = field(default_factory=dict)
 
     @property
     def is_opportunity(self) -> bool:
@@ -160,6 +199,8 @@ class CertifiedBregmanOpportunity:
             "certified": self.certified, "risk_free": self.risk_free,
             "cost_per_set": round(self.cost_per_set, 6),
             "sets": round(self.sets, 6), "is_opportunity": self.is_opportunity,
+            "rejection_stage": self.rejection_stage,
+            "certify_diagnostics": dict(self.certify_diagnostics),
             "certificate": self.certificate.to_dict() if self.certificate else None,
         }
 
@@ -236,6 +277,33 @@ class BregmanArbitrageEngine:
         def reject(reason: str) -> CertifiedBregmanOpportunity:
             if reason not in failures:
                 failures.append(reason)
+            stage = rejection_stage(reason)
+            # projected lower-bound profit proxy computable EVEN on early reject:
+            # payout - sum(observed executable asks). Logged so certification is
+            # never silent (it may be negative — that is the honest projection).
+            try:
+                implied = float(group.implied_sum)
+            except Exception:  # noqa: BLE001
+                implied = 0.0
+            projected_lb = round(float(group.payout) - implied, 6) if implied > 0 else None
+            diag = {
+                "group_id": group.group_id, "group_type": group.group_type,
+                "n_legs": len(group.legs),
+                "exhaustive": bool(group.exhaustive),
+                "mutually_exclusive": bool(group.mutually_exclusive),
+                "settlement_consistent": bool(settlement_consistent),
+                "divergence_gap": round(float(gap), 8),
+                "projected_profit_lower_bound": projected_lb,
+                "implied_sum": round(implied, 6),
+                "max_ambiguity_score": round(float(max_amb), 6),
+                "max_ambiguity_threshold": float(self.max_ambiguity),
+                "stale_book_score": round(float(stale_sc), 6),
+                "rejection_stage": stage, "failure_mode": reason,
+            }
+            logger.debug("bregman reject: group=%s stage=%s reason=%s exhaustive=%s "
+                         "settlement_consistent=%s gap=%.6g projected_lb=%s",
+                         group.group_id, stage, reason, group.exhaustive,
+                         settlement_consistent, gap, projected_lb)
             return CertifiedBregmanOpportunity(
                 group_id=group.group_id, group_type=group.group_type, legs=[],
                 executable_prices=[], quantities=[], required_capital=0.0,
@@ -243,7 +311,8 @@ class BregmanArbitrageEngine:
                 divergence_method=method, failure_modes=failures,
                 fill_feasibility=0.0, persistence_score=0.0,
                 no_trade_reason=reason, certified=False, risk_free=False,
-                certificate=_certificate(certified=False, risk_free=False))
+                certificate=_certificate(certified=False, risk_free=False),
+                rejection_stage=stage, certify_diagnostics=diag)
 
         ok, why = validate_simplex(group)
         if not ok:
@@ -373,11 +442,24 @@ class BregmanArbitrageEngine:
                 certified=certified, risk_free=risk_free, exec_prices=exec_prices,
                 sets=sets, required_capital=required_capital,
                 worst_case_pnl=worst_case_pnl, drags=drag, depth_suff=depth_suff,
-                fill_prob=all_leg_fill, all_exec=all_executable))
+                fill_prob=all_leg_fill, all_exec=all_executable),
+            rejection_stage=(_STAGE_CERTIFIED if certified else _STAGE_EDGE),
+            certify_diagnostics={
+                "group_id": group.group_id, "group_type": group.group_type,
+                "n_legs": len(group.legs), "exhaustive": bool(group.exhaustive),
+                "mutually_exclusive": bool(group.mutually_exclusive),
+                "settlement_consistent": bool(settlement_consistent),
+                "divergence_gap": round(float(gap), 8),
+                "projected_profit_lower_bound": round(float(profit_lower_bound), 6),
+                "worst_case_pnl": round(float(worst_case_pnl), 6),
+                "cost_per_set": round(float(cost_per_set), 6),
+                "rejection_stage": (_STAGE_CERTIFIED if certified else _STAGE_EDGE),
+                "failure_mode": "" if certified else "not_certified"})
         logger.info("bregman certify group=%s certified=%s risk_free=%s "
-                    "profit_lb=%.6f cost/set=%.4f sets=%.2f gap=%.6f",
+                    "profit_lb=%.6f cost/set=%.4f sets=%.2f gap=%.6f stage=%s",
                     group.group_id, certified, risk_free, profit_lower_bound,
-                    cost_per_set, sets, gap)
+                    cost_per_set, sets, gap,
+                    _STAGE_CERTIFIED if certified else _STAGE_EDGE)
         return opp
 
     def _persistence_score(self, legs: list[SimplexLeg], spreads: list[float],

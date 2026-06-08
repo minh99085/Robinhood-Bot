@@ -1846,6 +1846,26 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
         L.append(f"- bregman_malformed_group_legacy_or_tail_only_count: "
                  f"{_bf.get('bregman_malformed_group_legacy_or_tail_only_count', 0)}")
         L.append(f"- source: {_bf.get('bregman_malformed_group_source', 'none')}")
+        # 11d-stage. trainer certifier per-STAGE census (never-silent certification)
+        scs = _bf.get("bregman_rejection_stage_counts", {}) or {}
+        if scs or _bf.get("bregman_max_divergence_gap") is not None:
+            L.append("")
+            L.append("### 11d-stage. Trainer Certifier Per-Stage Census (read-only)")
+            L.append("")
+            L.append(f"- bregman_rejection_stage_counts: {scs}")
+            L.append(f"- bregman_max_divergence_gap (D(mu*||theta)): "
+                     f"{_bf.get('bregman_max_divergence_gap')}")
+            L.append(f"- bregman_best_projected_lower_bound: "
+                     f"{_bf.get('bregman_best_projected_lower_bound')}")
+            for nm in (_bf.get("bregman_top_near_misses", []) or [])[:3]:
+                if "rejection_stage" in nm or "divergence_gap" in nm:
+                    L.append(f"  - near_miss: {nm.get('group_key')} "
+                             f"stage={nm.get('rejection_stage')} "
+                             f"exhaustive={nm.get('exhaustive')} "
+                             f"settlement_consistent={nm.get('settlement_consistent')} "
+                             f"divergence_gap={nm.get('divergence_gap')} "
+                             f"projected_lb={nm.get('projected_profit_lower_bound')} "
+                             f"reason={nm.get('reject_reason')}")
         # 11e. synthetic fixture proof (isolated; default gates; never live)
         sf = _bf.get("synthetic_fixture", {}) or {}
         if sf:
