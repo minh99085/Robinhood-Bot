@@ -124,6 +124,36 @@ class BregmanResult:
                          for o in self.opportunities if o.certificate.certified]
         atomicity_risk = any(len(o.outcome_ids) > 1
                              for o in self.opportunities if o.certificate.certified)
+        # --- per-stage rejection taxonomy + projected-profit diagnostics ---
+        # Every scanned group computes a worst-case after-fee projected profit (the
+        # Bregman certifier output) and a local Bregman distance D(mu*||theta), even
+        # when rejected. Surfacing the BEST (closest-to-positive) projected profit +
+        # max distance proves the certifier is computing edge, not silently dropping.
+        _CERTIFIER = {"no_positive_worst_case_profit", "no_enumerable_atoms",
+                      "missing_outcome"}
+        _REALISM = {"no_depth", "insufficient_executable_depth",
+                    "REJECTED_INSUFFICIENT_DEPTH", "REJECTED_AFTER_COST_NONPOSITIVE",
+                    "REJECTED_STALE_BOOK"}
+        stage_rejections = {"certifier_no_positive_profit": 0,
+                            "realism_fees_spread_depth": 0, "other": 0}
+        for o in self.opportunities:
+            if o.certificate.certified:
+                continue
+            rr = o.certificate.reason or ""
+            st = getattr(o.certificate, "status", "") or ""
+            if rr in _CERTIFIER:
+                stage_rejections["certifier_no_positive_profit"] += 1
+            elif rr in _REALISM or st in _REALISM:
+                stage_rejections["realism_fees_spread_depth"] += 1
+            else:
+                stage_rejections["other"] += 1
+        projected = [float(o.certificate.after_fee_profit_per_set)
+                     for o in self.opportunities]
+        costs = [float(o.certificate.cost_per_set) for o in self.opportunities
+                 if o.certificate.cost_per_set]
+        distances = [float(o.local_incoherence) for o in self.opportunities]
+        best_proj = max(projected) if projected else 0.0
+        near = self.near_miss_samples(top_n=10)
         return {
             "constraint_groups_scanned": scanned,
             "incoherent_groups": incoherent,
@@ -136,11 +166,44 @@ class BregmanResult:
                 1 for o in self.opportunities if getattr(o.certificate, "fantasy_fill", False)),
             "rejected_fees_spread_depth_slippage": sum(reject_reasons.values()),
             "rejection_reasons": reject_reasons,
+            # explicit per-stage taxonomy (adapter_failed is added by the scanner)
+            "stage_rejections": stage_rejections,
             "expected_min_profit": round(min(certified_profits), 6) if certified_profits else 0.0,
             "worst_case_payoff": round(min(worst_payoffs), 6) if worst_payoffs else 0.0,
+            # projected-profit / Bregman-distance proof (logged even when NOT certified)
+            "best_projected_profit_per_set": round(best_proj, 6),
+            "best_after_fee_profit_per_set": round(best_proj, 6),
+            "max_bregman_distance": round(max(distances), 8) if distances else 0.0,
+            "mean_cost_per_set": round(sum(costs) / len(costs), 6) if costs else 0.0,
+            "near_miss_certified_samples": near,
+            "near_miss_count": len(near),
             "execution_atomicity_risk": bool(atomicity_risk),
             "opportunity_decay_half_life_s": float(half_life_s),
         }
+
+    def near_miss_samples(self, *, top_n: int = 10) -> list:
+        """Groups that REACHED the certifier but were not certified, ranked by how
+        close their worst-case after-fee projected profit was to positive (the true
+        near-misses). Read-only; never tradeable. Each carries the raw group, the
+        Bregman distance D(mu*||theta), projected profit, and the exact reject reason."""
+        rejected = [o for o in self.opportunities if not o.certificate.certified]
+        rejected.sort(key=lambda o: float(o.certificate.after_fee_profit_per_set),
+                      reverse=True)
+        out = []
+        for o in rejected[:max(0, int(top_n))]:
+            c = o.certificate
+            out.append({
+                "relation": o.relation, "outcome_ids": list(o.outcome_ids),
+                "n_legs": len(o.outcome_ids),
+                "bregman_distance": round(float(o.local_incoherence), 8),
+                "worst_case_payoff_per_set": float(c.worst_case_payoff_per_set),
+                "cost_per_set": float(c.cost_per_set),
+                "projected_after_fee_profit_per_set": float(c.after_fee_profit_per_set),
+                "min_leg_depth": float(c.min_leg_depth),
+                "reject_reason": c.reason, "certificate_status": getattr(c, "status", ""),
+                "tradeable": False, "executed": False,
+            })
+        return out
 
     def to_dict(self) -> dict:
         return {

@@ -106,6 +106,16 @@ def build_inspection_summary(status: dict, feature_audit: dict, *,
         "evaluated_before_directional": breg.get("evaluated_before_directional",
                                                  sp.get("bregman_evaluated_before_directional", False)),
         "rejected_by_reason": dict(breg.get("rejected_by_reason", {}) or {}),
+        "bregman_near_misses_total": breg.get("bregman_near_misses_total", 0),
+        "bregman_top_near_misses": list(breg.get("bregman_top_near_misses", []) or []),
+        "near_miss_by_rejection_reason": dict(breg.get("near_miss_by_rejection_reason", {}) or {}),
+        "near_miss_one_fix_away_count": breg.get("near_miss_one_fix_away_count", 0),
+        "near_miss_depth_only_count": breg.get("near_miss_depth_only_count", 0),
+        "near_miss_not_exhaustive_count": breg.get("near_miss_not_exhaustive_count", 0),
+        "near_miss_stale_refresh_failed_count": breg.get("near_miss_stale_refresh_failed_count", 0),
+        "blocker_explanation": _bregman_blocker_explanation(
+            breg, breg.get("certified_opportunities", 0),
+            breg.get("unique_groups_certified", 0)),
     }
 
     run = {
@@ -205,6 +215,38 @@ def build_inspection_summary(status: dict, feature_audit: dict, *,
     return summary
 
 
+def _bregman_blocker_explanation(t: dict, certified: int, scanned: int) -> dict:
+    """Plain-language explanation of WHY no executable Bregman bundle opened, keyed
+    off the dominant rejection reason + near-miss profile. Read-only diagnostic."""
+    reasons = dict(t.get("rejected_by_reason", t.get("skip_reasons", {})) or {})
+    if certified > 0 or int(t.get("opened_bregman_bundles", t.get("bundles_opened", 0)) or 0) > 0:
+        return {"blocked": False, "primary_blocker": None, "detail": "bundles certified/opened"}
+    if scanned == 0:
+        return {"blocked": True, "primary_blocker": "insufficient_market_universe",
+                "detail": "no constraint groups reached the certifier"}
+    top = max(reasons.items(), key=lambda kv: kv[1], default=(None, 0))[0] if reasons else None
+    mapping = {
+        "not_exhaustive": "incomplete_event_families",
+        "not_mutually_exclusive": "incomplete_event_families",
+        "depth_too_thin": "thin_depth",
+        "no_executable_price": "thin_depth",
+        "stale_book": "stale_books",
+        "spread_too_wide": "wide_spreads",
+        "invalid_simplex": "invalid_simplex",
+        "duplicate_legs": "invalid_simplex",
+        "no_positive_edge": "no_positive_after_cost_lower_bound",
+        "settlement_ambiguity": "settlement_ambiguity",
+    }
+    return {
+        "blocked": True,
+        "primary_blocker": mapping.get(top, top or "unknown"),
+        "dominant_rejection_reason": top,
+        "rejection_reason_counts": reasons,
+        "detail": ("groups reached the certifier but every one was rejected by a "
+                   "STRICT gate (not loosened); dominant reason above"),
+    }
+
+
 def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int = 0,
                          diagnostic_events_written: int = 0) -> dict:
     """ONE canonical Bregman funnel (TASK 9): all Bregman numbers derive from this.
@@ -255,6 +297,79 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
         "skip_reasons": skip_reasons,
         "adapter_missing_fields": dict(t.get("adapter_missing_fields", {}) or {}),
         "diagnostic_events_written": int(diagnostic_events_written),
+        # near-miss diagnostics (read-only; explain how close rejected groups were)
+        "bregman_near_misses_total": _i("bregman_near_misses_total"),
+        "bregman_top_near_misses": list(t.get("bregman_top_near_misses", []) or []),
+        "near_miss_by_rejection_reason": dict(t.get("near_miss_by_rejection_reason", {}) or {}),
+        "near_miss_one_fix_away_count": _i("near_miss_one_fix_away_count"),
+        "near_miss_depth_only_count": _i("near_miss_depth_only_count"),
+        "near_miss_not_exhaustive_count": _i("near_miss_not_exhaustive_count"),
+        "near_miss_stale_refresh_failed_count": _i("near_miss_stale_refresh_failed_count"),
+        "near_miss_buckets": dict(t.get("near_miss_buckets", {}) or {}),
+        "near_miss_all_negative_after_cost_lower_bound": bool(
+            t.get("near_miss_all_negative_after_cost_lower_bound", False)),
+        "near_miss_tradeable_count": _i("near_miss_tradeable_count"),
+        # depth-aware census (REQUIRED depth unchanged) + stale-refresh evidence
+        "bregman_required_depth_usd": t.get("bregman_required_depth_usd"),
+        "bregman_depth_sufficient_groups": _i("bregman_depth_sufficient_groups"),
+        "bregman_depth_insufficient_groups": _i("bregman_depth_insufficient_groups"),
+        "bregman_high_liquidity_groups_scanned": _i("bregman_high_liquidity_groups_scanned"),
+        "bregman_all_groups_thin": bool(t.get("bregman_all_groups_thin", False)),
+        "bregman_promising_groups_refreshed": _i("bregman_promising_groups_refreshed"),
+        "bregman_refresh_success": _i("bregman_refresh_success"),
+        "bregman_refresh_failed": _i("bregman_refresh_failed"),
+        "bregman_stale_after_refresh": _i("bregman_stale_after_refresh"),
+        "bregman_refresh_not_attempted_reason": t.get("bregman_refresh_not_attempted_reason"),
+        "bregman_worst_leg_depth_usd": t.get("bregman_worst_leg_depth_usd"),
+        "bregman_best_depth_quality_score": t.get("bregman_best_depth_quality_score"),
+        "bregman_all_groups_depth_insufficient": bool(
+            t.get("bregman_all_groups_depth_insufficient", False)),
+        # canonical price parser census (trainer path)
+        "bregman_price_parse_attempts": _i("bregman_price_parse_attempts"),
+        "bregman_price_parse_success": _i("bregman_price_parse_success"),
+        "bregman_price_parse_failures": _i("bregman_price_parse_failures"),
+        "bregman_price_parse_success_rate": float(
+            t.get("bregman_price_parse_success_rate", t.get("parsed_price_success_rate", 1.0)) or 1.0),
+        "bregman_non_numeric_price_count": _i("bregman_non_numeric_price_count", "non_numeric_price_count"),
+        "bregman_non_numeric_price_examples": list(t.get("bregman_non_numeric_price_examples", []) or []),
+        "bregman_missing_price_count": _i("bregman_missing_price_count"),
+        "bregman_malformed_price_count": _i("bregman_malformed_price_count"),
+        # explicit candidate-generation blocker (candidates=0 is never unexplained)
+        "bregman_groups_entered_certifier": _i("bregman_groups_entered_certifier"),
+        "bregman_groups_failed_before_candidate_generation": _i(
+            "bregman_groups_failed_before_candidate_generation"),
+        "bregman_candidate_generation_blocker": t.get("bregman_candidate_generation_blocker"),
+        "bregman_candidate_generation_blocker_counts": dict(
+            t.get("bregman_candidate_generation_blocker_counts", {}) or {}),
+        "bregman_candidate_generation_blocker_samples": list(
+            t.get("bregman_candidate_generation_blocker_samples", []) or []),
+        # depth-sufficiency-aware zero-candidate hierarchy (never contradictory)
+        "bregman_depth_sufficient_but_negative_edge_count": _i(
+            "bregman_depth_sufficient_but_negative_edge_count"),
+        "bregman_best_depth_sufficient_group_lower_bound": t.get(
+            "bregman_best_depth_sufficient_group_lower_bound"),
+        "bregman_best_depth_sufficient_group_reject_reason": t.get(
+            "bregman_best_depth_sufficient_group_reject_reason"),
+        "bregman_real_market_zero_candidate_reason": t.get(
+            "bregman_real_market_zero_candidate_reason"),
+        "bregman_real_market_zero_candidate_reason_counts": dict(
+            t.get("bregman_real_market_zero_candidate_reason_counts", {}) or {}),
+        "bregman_best_real_group_summary": t.get("bregman_best_real_group_summary"),
+        "bregman_certifier_exception": t.get("bregman_certifier_exception"),
+        # near-miss honesty
+        "best_after_cost_lower_bound": t.get("best_after_cost_lower_bound"),
+        "best_depth_sufficient_lower_bound": t.get("best_depth_sufficient_lower_bound"),
+        "best_complete_group_lower_bound": t.get("best_complete_group_lower_bound"),
+        "best_one_fix_away_reason": t.get("best_one_fix_away_reason"),
+        "all_top_near_misses_negative_lower_bound": bool(
+            t.get("all_top_near_misses_negative_lower_bound", False)),
+        # precise price/outcome parsing diagnostics (from the ABCAS scanner merge)
+        "non_numeric_price_count": _i("non_numeric_price_count"),
+        "insufficient_outcomes_count": _i("insufficient_outcomes_count"),
+        "malformed_group_count": _i("malformed_group_count", "malformed_groups_rejected"),
+        "parsed_price_success_rate": float(t.get("parsed_price_success_rate", 1.0) or 1.0),
+        "skip_reason_samples": dict(t.get("skip_reason_samples", {}) or {}),
+        "blocker_explanation": _bregman_blocker_explanation(t, certified, sent_to_certifier),
         # consistency invariant: every detected group must be ACCOUNTED FOR as either
         # adapter-success (scanned) or adapter-failure (skip with a reason). An
         # unexplained gap (pre_adapter > 0) is a silent-zero contradiction and FAILS.
@@ -306,6 +421,33 @@ def build_grok_news_evidence(research: dict, *, news_items_used: int = 0) -> dic
         "grok_calls_total": calls,
         "grok_calls_with_news": int(r.get("grok_calls_with_news", 0) or 0),
         "grok_advisory_only_count": int(r.get("grok_advisory_only_count", calls) or 0),
+        "grok_evidence_records_written": int(r.get("grok_evidence_records_written", 0) or 0),
+        # bounded advisory scheduler telemetry (research only; never execution)
+        "grok_advisory_enabled": bool(r.get("grok_advisory_enabled", True)),
+        "grok_advisory_max_calls_per_hour": int(r.get("grok_advisory_max_calls_per_hour", 0) or 0),
+        "grok_advisory_calls_per_hour": int(r.get("grok_advisory_calls_per_hour", 0) or 0),
+        "grok_proof_calls_total": int(r.get("grok_proof_calls_total", 0) or 0),
+        "grok_scheduler_calls_total": int(r.get("grok_scheduler_calls_total", 0) or 0),
+        "grok_total_calls_reconciled": bool(r.get("grok_total_calls_reconciled", True)),
+        "grok_scheduled_calls": int(r.get("grok_scheduled_calls", 0) or 0),
+        "grok_scheduler_eligible_targets": int(r.get("grok_scheduler_eligible_targets", 0) or 0),
+        "grok_scheduler_targets_selected": int(r.get("grok_scheduler_targets_selected", 0) or 0),
+        "grok_scheduler_targets_skipped": int(r.get("grok_scheduler_targets_skipped", 0) or 0),
+        "grok_scheduler_skip_reasons": dict(r.get("grok_scheduler_skip_reasons", {}) or {}),
+        "grok_scheduler_rate_limited_count": int(r.get("grok_scheduler_rate_limited_count", 0) or 0),
+        "grok_scheduler_no_target_count": int(r.get("grok_scheduler_no_target_count", 0) or 0),
+        "grok_bregman_incomplete_groups_analyzed": int(r.get("grok_bregman_incomplete_groups_analyzed", 0) or 0),
+        "grok_bregman_malformed_groups_analyzed": int(r.get("grok_bregman_malformed_groups_analyzed", 0) or 0),
+        "grok_learning_features_written": int(r.get("grok_learning_features_written", 0) or 0),
+        "grok_best_bregman_group_analyzed": bool(r.get("grok_best_bregman_group_analyzed", False)),
+        "grok_best_bregman_group_skip_reason": r.get("grok_best_bregman_group_skip_reason"),
+        "grok_market_groups_analyzed": int(r.get("grok_market_groups_analyzed", 0) or 0),
+        "grok_bregman_near_misses_analyzed": int(r.get("grok_bregman_near_misses_analyzed", 0) or 0),
+        "grok_news_linked_markets_analyzed": int(r.get("grok_news_linked_markets_analyzed", 0) or 0),
+        "grok_contributed_learning_features": bool(r.get("grok_contributed_learning_features",
+                                                         calls >= 1)),
+        "grok_advisory_only_invariant": True,
+        "grok_no_execution_override": True,
         "grok_eligible_markets": int(r.get("grok_eligible_markets", 0) or 0),
         "grok_scheduled_calls": int(r.get("grok_scheduled_calls", 0) or 0),
         "grok_skipped_rate_limit": int(r.get("grok_skipped_rate_limit", 0) or 0),

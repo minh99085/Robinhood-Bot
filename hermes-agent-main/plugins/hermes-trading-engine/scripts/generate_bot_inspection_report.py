@@ -661,6 +661,45 @@ def build_report_run_ready(manifest: dict, status: dict, algo_audit: dict,
     }
 
 
+def _reconcile_malformed_groups(status: dict, data_dir) -> None:
+    """Reconcile malformed-group SUMMARY vs diagnostic TAIL into the funnel.
+
+    The summary count comes from the TRAINER certifier path; ``skip_reason=malformed_group``
+    diagnostic rows come from the ABCAS SCANNER path. They are different sources — this
+    counts both and labels them so the light report can never say zero while the tail
+    shows malformed groups. Mutates ``status['bregman_funnel']`` in place."""
+    funnel = status.setdefault("bregman_funnel", {})
+    scanner = status.get("bregman", {}) or {}
+    reported = int(funnel.get("malformed_group_count", 0) or 0)
+    runtime = int((scanner.get("skip_reasons", {}) or {}).get("malformed_group", 0) or 0)
+    runtime += int(scanner.get("malformed_groups_rejected", 0) or 0)
+    tail = 0
+    try:
+        if data_dir:
+            dpath = Path(data_dir) / "training" / "diagnostics.jsonl"
+            if dpath.exists():
+                for line in dpath.read_text(encoding="utf-8").splitlines():
+                    if '"malformed_group"' in line or "'malformed_group'" in line:
+                        try:
+                            row = json.loads(line)
+                        except Exception:  # noqa: BLE001
+                            continue
+                        if row.get("skip_reason") == "malformed_group":
+                            tail += 1
+    except Exception:  # noqa: BLE001
+        pass
+    total = max(reported, runtime, tail)
+    funnel["bregman_malformed_group_runtime_count"] = runtime
+    funnel["bregman_malformed_group_reported_count"] = reported
+    funnel["bregman_malformed_group_tail_count"] = tail
+    # rows in the tail not explained by the certifier-path summary are ABCAS
+    # scanner-path real rejects (counted), NOT legacy/stale — label accordingly.
+    funnel["bregman_malformed_group_legacy_or_tail_only_count"] = max(0, tail - runtime)
+    funnel["malformed_group_count"] = total          # reconciled (no contradiction)
+    funnel["bregman_malformed_group_source"] = (
+        "abcas_scanner_path_real_rejects" if runtime or tail else "none")
+
+
 def _reconcile_bregman_sources(status: dict, data_dir) -> dict:
     """Make metrics/bregman_funnel.json the CANONICAL Bregman source of truth.
 
@@ -835,6 +874,19 @@ def generate_report(
     bregman_source_reconciliation = _reconcile_bregman_sources(status, data_dir)
     if bregman_source_reconciliation.get("warning"):
         warnings.append(bregman_source_reconciliation["warning"])
+    # Reconcile malformed-group SUMMARY (trainer certifier path) with the diagnostic
+    # TAIL (ABCAS scanner path) so the light report never claims zero malformed groups
+    # while tail samples show them. Labels them by source; never contradictory.
+    _reconcile_malformed_groups(status, data_dir)
+    # Known-good synthetic fixture proof (isolated certifier; default gates; never
+    # live, never touches real metrics) — proves real candidates=0 is a DATA problem.
+    try:
+        from engine.training.bregman_fixture import run_bregman_synthetic_fixture
+        synthetic_fixture = run_bregman_synthetic_fixture()
+    except Exception as exc:  # noqa: BLE001
+        synthetic_fixture = {"bregman_synthetic_fixture_passed": False,
+                             "error": f"{type(exc).__name__}: {str(exc)[:120]}"}
+    status.setdefault("bregman_funnel", {})["synthetic_fixture"] = synthetic_fixture
     runtime_available = bool(status) or bool(
         api_json.get("state")) or bool(api_json.get("health"))
 
@@ -1045,6 +1097,10 @@ def generate_report(
         "artifact_paths": artifact_paths,
         "closed_loop_artifacts_manifest": closed_loop_manifest,
         "bundle_mode": bundle_mode,
+        # read-only blocks for the console summary (advisory scheduler + near-misses)
+        "grok_news_evidence": status.get("grok_news_evidence", {}) or {},
+        "bregman_funnel": status.get("bregman_funnel", {}) or {},
+        "bregman_synthetic_fixture": status.get("bregman_funnel", {}).get("synthetic_fixture", {}),
     }
 
 
@@ -1623,12 +1679,190 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
     L.append("")
     for k in ("grok_enabled", "grok_has_api_key", "grok_with_news_count", "grok_cache_hits"):
         L.append(f"- {k}: {_yn(feats.get(k))}")
+    # bounded advisory scheduler summary (research only; never execution)
+    _g = status.get("grok_news_evidence", {}) or {}
+    if _g:
+        L.append("")
+        L.append("### 10a. Grok Advisory Scheduler (research-only)")
+        L.append("")
+        for k in ("grok_advisory_enabled", "grok_brain_ready", "grok_brain_blocker",
+                  "xai_api_key_source", "grok_calls_total", "grok_calls_with_news",
+                  "grok_proof_calls_total", "grok_scheduler_calls_total",
+                  "grok_total_calls_reconciled", "grok_scheduled_calls",
+                  "grok_scheduler_eligible_targets", "grok_scheduler_targets_selected",
+                  "grok_scheduler_targets_skipped", "grok_scheduler_skip_reasons",
+                  "grok_advisory_only_count", "grok_evidence_records_written",
+                  "grok_advisory_max_calls_per_hour", "grok_advisory_calls_per_hour",
+                  "grok_market_groups_analyzed", "grok_bregman_near_misses_analyzed",
+                  "grok_bregman_incomplete_groups_analyzed", "grok_bregman_malformed_groups_analyzed",
+                  "grok_news_linked_markets_analyzed", "grok_learning_features_written",
+                  "grok_best_bregman_group_analyzed", "grok_best_bregman_group_skip_reason",
+                  "grok_contributed_learning_features",
+                  "grok_advisory_only_invariant", "grok_no_execution_override"):
+            if k in _g:
+                L.append(f"- {k}: {_g.get(k)}")
     L.append("")
     L.append("## 11. Bregman Paper Scanner Status")
     L.append("")
     for k in ("bregman_paper_enabled", "bregman_candidates_found", "bregman_certified_count",
               "bregman_certified_profit", "bregman_false_positive_rate"):
         L.append(f"- {k}: {_yn(feats.get(k))}")
+    # ABCAS certifier funnel diagnostics (projected profit + Bregman distance logged
+    # even when 0 certified; per-stage rejection taxonomy; certification near-misses).
+    _abc = status.get("bregman", {}) or {}
+    if _abc:
+        L.append("")
+        L.append("### 11.0 ABCAS Certifier Funnel Diagnostics (read-only)")
+        L.append("")
+        for k in ("constraint_groups_scanned", "candidate_arbitrages", "certified_arbitrages",
+                  "best_projected_profit_per_set", "max_bregman_distance", "mean_cost_per_set",
+                  "expected_min_profit", "near_miss_count"):
+            if k in _abc:
+                L.append(f"- {k}: {_abc.get(k)}")
+        if _abc.get("stage_rejections"):
+            L.append(f"- stage_rejections: {_abc.get('stage_rejections')}")
+        for nm in (_abc.get("near_miss_certified_samples", []) or [])[:5]:
+            L.append(f"  - near_miss(certifier_reached): legs={nm.get('outcome_ids')} "
+                     f"D(mu*||theta)={nm.get('bregman_distance')} "
+                     f"projected_profit/set={nm.get('projected_after_fee_profit_per_set')} "
+                     f"cost/set={nm.get('cost_per_set')} reason={nm.get('reject_reason')} "
+                     f"tradeable=False")
+    # near-miss diagnostics + blocker explanation (read-only; gates never loosened)
+    _bf = status.get("bregman_funnel", {}) or {}
+    if _bf:
+        L.append("")
+        L.append("### 11a. Bregman Near-Miss Diagnostics (read-only)")
+        L.append("")
+        for k in ("bregman_near_misses_total", "near_miss_one_fix_away_count",
+                  "near_miss_depth_only_count", "near_miss_not_exhaustive_count",
+                  "near_miss_stale_refresh_failed_count"):
+            L.append(f"- {k}: {_bf.get(k, 0)}")
+        nmr = _bf.get("near_miss_by_rejection_reason", {}) or {}
+        if nmr:
+            L.append(f"- near_miss_by_rejection_reason: {nmr}")
+        if _bf.get("near_miss_all_negative_after_cost_lower_bound"):
+            L.append("- near_miss_after_cost: ALL near-misses have non-positive "
+                     "after-cost lower bound — NONE are tradeable")
+        # parsing + depth/complete-set census (scanner telemetry + funnel)
+        _bsrc = status.get("bregman", {}) or {}
+        def _pv(key, default=0):
+            return _bf.get(key, _bsrc.get(key, default))
+        L.append("")
+        L.append("### 11b. Bregman Price/Outcome Parsing + Depth Census (read-only)")
+        L.append("")
+        L.append(f"- non_numeric_price_count: {_pv('non_numeric_price_count')}")
+        L.append(f"- insufficient_outcomes_count: {_pv('insufficient_outcomes_count')}")
+        L.append(f"- malformed_group_count: {_pv('malformed_group_count')}")
+        L.append(f"- parsed_price_success_rate: {_pv('parsed_price_success_rate', 1.0)}")
+        L.append(f"- bregman_depth_sufficient_groups: {_pv('bregman_depth_sufficient_groups')}")
+        L.append(f"- bregman_depth_insufficient_groups: {_pv('bregman_depth_insufficient_groups')}")
+        L.append(f"- bregman_high_liquidity_groups_scanned: {_pv('bregman_high_liquidity_groups_scanned')}")
+        L.append(f"- bregman_all_groups_thin: {_pv('bregman_all_groups_thin', False)}")
+        L.append(f"- complete_set_count (certified): {_bf.get('certified', 0)}")
+        L.append(f"- incomplete_set_count (not_exhaustive near-misses): "
+                 f"{_bf.get('near_miss_not_exhaustive_count', 0)}")
+        L.append(f"- bregman_promising_groups_refreshed: {_pv('bregman_promising_groups_refreshed')}")
+        L.append(f"- bregman_refresh_success: {_pv('bregman_refresh_success')} "
+                 f"failed: {_pv('bregman_refresh_failed')} "
+                 f"stale_after: {_pv('bregman_stale_after_refresh')}")
+        if _pv('bregman_refresh_not_attempted_reason', None):
+            L.append(f"- refresh_not_attempted_reason: {_pv('bregman_refresh_not_attempted_reason')}")
+        samples = _bf.get("skip_reason_samples", {}) or _bsrc.get("skip_reason_samples", {}) or {}
+        for rkey in ("non_numeric_outcome_prices", "outcome_price_count_mismatch",
+                     "insufficient_outcomes", "malformed_group", "invalid_simplex",
+                     "duplicate_outcome_labels"):
+            if rkey in samples:
+                s = samples[rkey]
+                L.append(f"- example[{rkey}]: market={s.get('market_id')} "
+                         f"detail={s.get('detail')}")
+        blk = _bf.get("blocker_explanation", {}) or {}
+        if blk:
+            L.append(f"- no_bundle_blocker: {blk.get('primary_blocker')} "
+                     f"({blk.get('detail', '')})")
+        top = _bf.get("bregman_top_near_misses", []) or []
+        if top:
+            L.append("")
+            L.append("Top Bregman near-misses (diagnostic only — NOT executed):")
+            L.append("")
+            for nm in top[:5]:
+                L.append(f"  - {nm.get('group_key')} reason={nm.get('reject_reason')} "
+                         f"score={nm.get('near_miss_score')} "
+                         f"market_ids={nm.get('market_ids')} token_ids={nm.get('token_ids')} "
+                         f"labels={nm.get('outcome_labels')} "
+                         f"one_fix_away={nm.get('one_fix_away')} "
+                         f"tradeable={nm.get('near_miss_tradeable', False)} "
+                         f"blockers={nm.get('remaining_blockers')}")
+        # 11c. certifier / candidate-generation health — candidates=0 is NEVER unexplained
+        L.append("")
+        L.append("### 11c. Bregman Certifier / Candidate Health (read-only)")
+        L.append("")
+        L.append(f"- bregman_groups_entered_certifier: {_pv('bregman_groups_entered_certifier')}")
+        L.append(f"- candidates_generated (certified): {_bf.get('certified', 0)}")
+        L.append(f"- realistic_executable: {_bf.get('realistic_executable', 0)}")
+        L.append(f"- bundles_opened: {_bf.get('bundles_opened', 0)}")
+        L.append(f"- bregman_real_market_zero_candidate_reason: "
+                 f"{_bf.get('bregman_real_market_zero_candidate_reason') or _bf.get('bregman_candidate_generation_blocker')}")
+        rcc = _bf.get("bregman_real_market_zero_candidate_reason_counts", {}) or \
+            _bf.get("bregman_candidate_generation_blocker_counts", {}) or {}
+        if rcc:
+            L.append(f"- bregman_real_market_zero_candidate_reason_counts: {rcc}")
+        L.append(f"- bregman_depth_sufficient_groups: {_pv('bregman_depth_sufficient_groups')}")
+        L.append(f"- bregman_depth_sufficient_but_negative_edge_count: "
+                 f"{_bf.get('bregman_depth_sufficient_but_negative_edge_count', 0)}")
+        L.append(f"- bregman_best_depth_sufficient_group_lower_bound: "
+                 f"{_bf.get('bregman_best_depth_sufficient_group_lower_bound')}")
+        L.append(f"- bregman_best_depth_sufficient_group_reject_reason: "
+                 f"{_bf.get('bregman_best_depth_sufficient_group_reject_reason')}")
+        brg = _bf.get("bregman_best_real_group_summary") or {}
+        if brg:
+            L.append(f"- best_real_group: {brg.get('group_key')} "
+                     f"depth_sufficient={brg.get('depth_sufficient')} "
+                     f"min_leg_depth=${brg.get('min_leg_depth_usd')} "
+                     f"(required ${brg.get('required_depth_usd')}) "
+                     f"reject={brg.get('reject_reason')} "
+                     f"lower_bound={brg.get('after_cost_lower_bound')} "
+                     f"market_ids={brg.get('market_ids')} labels={brg.get('outcome_labels')}")
+        for s in (_bf.get("bregman_candidate_generation_blocker_samples", []) or [])[:3]:
+            L.append(f"  - sample: group={s.get('group_key')} "
+                     f"reason={s.get('reject_reason')} depth_sufficient={s.get('depth_sufficient')} "
+                     f"market_ids={s.get('market_ids')} "
+                     f"token_ids={s.get('token_ids')} labels={s.get('outcome_labels')}")
+        if _bf.get("bregman_certifier_exception"):
+            L.append(f"- bregman_certifier_exception: {_bf.get('bregman_certifier_exception')}")
+        L.append(f"- best_one_fix_away_reason: {_bf.get('best_one_fix_away_reason')}")
+        L.append(f"- all_top_near_misses_negative_lower_bound: "
+                 f"{_bf.get('all_top_near_misses_negative_lower_bound', False)}")
+        # 11d. malformed-group reconciliation (summary vs diagnostic tail)
+        L.append("")
+        L.append("### 11d. Malformed-Group Reconciliation (summary vs tail)")
+        L.append("")
+        L.append(f"- malformed_group_count (reconciled): {_bf.get('malformed_group_count', 0)}")
+        L.append(f"- bregman_malformed_group_reported_count (trainer certifier): "
+                 f"{_bf.get('bregman_malformed_group_reported_count', 0)}")
+        L.append(f"- bregman_malformed_group_runtime_count (ABCAS scanner): "
+                 f"{_bf.get('bregman_malformed_group_runtime_count', 0)}")
+        L.append(f"- bregman_malformed_group_tail_count (diagnostics tail): "
+                 f"{_bf.get('bregman_malformed_group_tail_count', 0)}")
+        L.append(f"- bregman_malformed_group_legacy_or_tail_only_count: "
+                 f"{_bf.get('bregman_malformed_group_legacy_or_tail_only_count', 0)}")
+        L.append(f"- source: {_bf.get('bregman_malformed_group_source', 'none')}")
+        # 11e. synthetic fixture proof (isolated; default gates; never live)
+        sf = _bf.get("synthetic_fixture", {}) or {}
+        if sf:
+            L.append("")
+            L.append("### 11e. Bregman Synthetic Fixture Proof (isolated, default gates)")
+            L.append("")
+            for k in ("bregman_synthetic_fixture_passed",
+                      "synthetic_binary_candidate_generated",
+                      "synthetic_multiway_candidate_generated",
+                      "synthetic_invalid_cases_rejected",
+                      "synthetic_invalid_case_results",
+                      "synthetic_fixture_gate_loosening",
+                      "synthetic_fixture_required_depth_usd",
+                      "synthetic_fixture_live_trading_enabled",
+                      "synthetic_fixture_contaminated_real_metrics"):
+                if k in sf:
+                    L.append(f"- {k}: {sf.get(k)}")
     L.append("")
     L.append("## 12. Paper Training Metrics")
     L.append("")
@@ -2027,6 +2261,22 @@ def main(argv=None) -> int:
           f"(max_safe_runtime_minutes={rr.get('max_safe_runtime_minutes')})")
     print(f"Grok brain     : grok_brain_ready={rr.get('grok_brain_ready')}"
           + (f" blocker={rr.get('grok_brain_blocker')}" if not rr.get("grok_brain_ready") else ""))
+    _ge = result.get("grok_news_evidence", {}) or {}
+    if _ge:
+        print(f"Grok advisory  : calls={_ge.get('grok_calls_total', 0)} "
+              f"with_news={_ge.get('grok_calls_with_news', 0)} "
+              f"near_misses_analyzed={_ge.get('grok_bregman_near_misses_analyzed', 0)} "
+              f"news_linked={_ge.get('grok_news_linked_markets_analyzed', 0)} "
+              f"advisory_only={_ge.get('grok_advisory_only_count', 0)}")
+    _bf2 = result.get("bregman_funnel", {}) or {}
+    if _bf2:
+        _blk = _bf2.get("blocker_explanation", {}) or {}
+        print(f"Bregman near   : total={_bf2.get('bregman_near_misses_total', 0)} "
+              f"one_fix_away={_bf2.get('near_miss_one_fix_away_count', 0)} "
+              f"depth_only={_bf2.get('near_miss_depth_only_count', 0)} "
+              f"not_exhaustive={_bf2.get('near_miss_not_exhaustive_count', 0)}"
+              + (f" | no-bundle blocker={_blk.get('primary_blocker')}"
+                 if _blk.get('blocked') else ""))
     if rr.get("blocking_reasons"):
         print("Blocking       : " + "; ".join(rr["blocking_reasons"]))
     ap = result.get("artifact_paths", {}) or {}

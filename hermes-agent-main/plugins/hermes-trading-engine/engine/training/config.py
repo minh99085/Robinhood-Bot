@@ -205,6 +205,15 @@ class TrainingConfig:
     grok_proof_call_max_per_run: int = 1
     grok_proof_call_min_interval_seconds: int = 900
     grok_proof_call_advisory_only: bool = True
+    # ---- bounded Grok ADVISORY scheduler (research only; never execution) ----
+    # When enabled, replaces single-proof-call behaviour with a bounded scheduler
+    # that makes multiple low-frequency advisory calls per run on high-value targets
+    # (top Bregman near-misses / news-linked / high-liquidity markets).
+    grok_advisory_enabled: bool = True
+    grok_advisory_max_calls_per_hour: int = 4
+    grok_advisory_min_interval_seconds: int = 900
+    grok_advisory_require_news: bool = True
+    grok_advisory_max_calls_per_run: int = 48
     active_learning_require_realistic_fill_for_trade: bool = True
     active_learning_allow_shadow_without_fill: bool = True
     # ---- Pass-7: cluster/correlation risk is an ACTIVE hard gate + allocator ----
@@ -248,6 +257,9 @@ class TrainingConfig:
     bregman_discovery_limit: int = 1000          # max eligible raw markets grouped
     bregman_max_bundles_per_tick: int = 3
     bregman_max_open_bundles: int = 10
+    # ---- near-miss diagnostics (read-only; never executes / never loosens gates) ----
+    bregman_near_miss_store_cap: int = 1000      # max rejected groups tracked
+    bregman_top_near_misses: int = 10            # top-N near-misses surfaced in report
     bregman_max_capital_per_tick_usd: float = 100.0
     bregman_min_roi: float = 0.002               # min after-cost ROI per certified set
     # ---- Pass-4: Bregman-FIRST strategy priority + slot/capital reservation ----
@@ -867,6 +879,12 @@ class TrainingConfig:
                 _envi("POLYMARKET_GROK_PROOF_CALL_MAX_PER_RUN", 1)),
             grok_proof_call_min_interval_seconds=_envi(
                 "GROK_PROOF_CALL_MIN_INTERVAL_SECONDS", 900),
+            grok_advisory_enabled=_envb("GROK_ADVISORY_ENABLED", True),
+            grok_advisory_max_calls_per_hour=_envi("GROK_ADVISORY_MAX_CALLS_PER_HOUR", 4),
+            grok_advisory_min_interval_seconds=_envi(
+                "GROK_ADVISORY_MIN_INTERVAL_SECONDS", 900),
+            grok_advisory_require_news=_envb("GROK_ADVISORY_REQUIRE_NEWS", True),
+            grok_advisory_max_calls_per_run=_envi("GROK_ADVISORY_MAX_CALLS_PER_RUN", 48),
             grok_proof_call_advisory_only=_envb(
                 "GROK_PROOF_CALL_ADVISORY_ONLY",
                 _envb("POLYMARKET_GROK_PROOF_CALL_ADVISORY_ONLY", True)),
@@ -911,6 +929,8 @@ class TrainingConfig:
             bregman_min_profit_usd=_envf("POLYMARKET_BREGMAN_MIN_PROFIT_USD", 0.001),
             bregman_target_capital_usd=_envf("POLYMARKET_BREGMAN_TARGET_CAPITAL_USD", 50.0),
             bregman_discovery_limit=_envi("POLYMARKET_BREGMAN_DISCOVERY_LIMIT", 1000),
+            bregman_near_miss_store_cap=_envi("POLYMARKET_BREGMAN_NEAR_MISS_STORE_CAP", 1000),
+            bregman_top_near_misses=_envi("POLYMARKET_BREGMAN_TOP_NEAR_MISSES", 10),
             bregman_max_bundles_per_tick=_envi("POLYMARKET_BREGMAN_MAX_BUNDLES_PER_TICK", 3),
             bregman_max_open_bundles=_envi("POLYMARKET_BREGMAN_MAX_OPEN_BUNDLES", 10),
             bregman_max_capital_per_tick_usd=_envf("POLYMARKET_BREGMAN_MAX_CAPITAL_PER_TICK", 100.0),

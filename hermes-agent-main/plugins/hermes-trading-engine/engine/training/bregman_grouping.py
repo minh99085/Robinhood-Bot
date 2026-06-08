@@ -138,20 +138,17 @@ def _rec_attr(rec, name, default=None):
 
 
 def _best_ask(rec) -> Optional[float]:
+    """Best ask via the ONE canonical price parser (no reference/mid fallback)."""
+    from engine.arbitrage.price_parsing import parse_price
     raw = _rec_attr(rec, "raw", {}) or {}
-    try:
-        a = float(raw.get("bestAsk")) if raw.get("bestAsk") not in (None, "") else None
-    except (TypeError, ValueError):
-        a = None
+    a = parse_price(raw.get("bestAsk"))
     return a if (a and a > 0) else None
 
 
 def _best_bid(rec) -> Optional[float]:
+    from engine.arbitrage.price_parsing import parse_price
     raw = _rec_attr(rec, "raw", {}) or {}
-    try:
-        b = float(raw.get("bestBid")) if raw.get("bestBid") not in (None, "") else None
-    except (TypeError, ValueError):
-        b = None
+    b = parse_price(raw.get("bestBid"))
     return b if (b and b > 0) else None
 
 
@@ -200,7 +197,36 @@ def build_binary_group(rec, *, no_ask: Optional[float] = None,
     ]
     return SimplexGroup(group_id=group_id or f"binary:{market_id}",
                         group_type="binary_yes_no", legs=legs,
-                        mutually_exclusive=True, exhaustive=True)
+                        mutually_exclusive=True, exhaustive=True,
+                        meta=_group_meta([rec]))
+
+
+def _market_question(rec) -> str:
+    raw = _rec_attr(rec, "raw", {}) or {}
+    return str(_rec_attr(rec, "question", None) or raw.get("question")
+               or raw.get("title") or _rec_attr(rec, "title", "") or "")
+
+
+def _declared_outcome_count(recs: list):
+    for rec in recs:
+        raw = _rec_attr(rec, "raw", {}) or {}
+        oc = raw.get("outcomeCount") or raw.get("outcome_count")
+        try:
+            if oc is not None:
+                return int(oc)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _group_meta(recs: list) -> dict:
+    """Read-only metadata carried on a group for completeness DIAGNOSTICS only
+    (question text + declared outcome count). Never affects certification."""
+    return {
+        "question": _market_question(recs[0]) if recs else "",
+        "outcome_count": _declared_outcome_count(recs),
+        "leg_market_ids": [str(_rec_attr(r, "market_id", "") or "") for r in recs],
+    }
 
 
 def build_event_group(records: list, *, group_id: str, group_type: str = "exhaustive_event",
@@ -237,7 +263,8 @@ def build_event_group(records: list, *, group_id: str, group_type: str = "exhaus
             fresh_book=fresh, stale=not fresh, ambiguity_score=amb,
             chainlink_no_trade=cl_no_trade, chainlink_relevant=cl_relevant))
     return SimplexGroup(group_id=group_id, group_type=group_type, legs=legs,
-                        mutually_exclusive=mutually_exclusive, exhaustive=exhaustive)
+                        mutually_exclusive=mutually_exclusive, exhaustive=exhaustive,
+                        meta=_group_meta(records))
 
 
 def _group_is_exhaustive(recs: list) -> bool:
@@ -262,19 +289,58 @@ def _group_is_exhaustive(recs: list) -> bool:
     return False
 
 
+def _is_fallback_key(gk: str, rec) -> bool:
+    """True when a record's ``group_key`` is the per-market fallback (no explicit
+    shared event id) — these orphans are candidates for normalized-family linking."""
+    mid = str(_rec_attr(rec, "market_id", "") or "")
+    return (not gk) or gk == mid or gk.startswith("market:")
+
+
 def group_markets(records: list, *, chainlink=None, now: Optional[float] = None,
-                  include_binary: bool = True) -> list[SimplexGroup]:
+                  include_binary: bool = True, family_fallback: bool = True
+                  ) -> list[SimplexGroup]:
     """Group market records into simplex groups by their event ``group_key``.
 
     Records sharing a non-degenerate ``group_key`` form a mutually-exclusive
     event group; it is marked ``exhaustive`` ONLY when a completeness signal is
     present (see :func:`_group_is_exhaustive`) so an incomplete scan can never be
-    certified as a full hedge. Singletons optionally become binary YES/NO groups.
+    certified as a full hedge.
+
+    When ``family_fallback`` is set, ORPHAN singletons (markets with only the
+    per-market fallback key) are additionally linked by a normalized event-family
+    key (slug/title/category/expiry — see :mod:`engine.training.bregman_text`) so
+    sibling outcomes of the same event are grouped instead of scanned as isolated
+    binaries. Family-linked groups are ``mutually_exclusive`` but stay
+    ``exhaustive=False`` unless completeness is independently proven — grouping is
+    improved, completeness is NEVER fabricated. Remaining singletons optionally
+    become binary YES/NO groups.
     """
     by_key: dict[str, list] = {}
+    orphans: list = []
     for rec in records:
         gk = str(_rec_attr(rec, "group_key", "") or _rec_attr(rec, "market_id", ""))
-        by_key.setdefault(gk, []).append(rec)
+        if family_fallback and _is_fallback_key(gk, rec):
+            orphans.append(rec)
+        else:
+            by_key.setdefault(gk, []).append(rec)
+
+    # link orphans by normalized event-family key (improves discovery, not exhaustiveness)
+    if family_fallback and orphans:
+        from engine.training.bregman_text import event_family_key
+        fam: dict[str, list] = {}
+        for rec in orphans:
+            try:
+                fk = event_family_key(rec)
+            except Exception:  # noqa: BLE001 — family inference must never break grouping
+                fk = None
+            key = fk if fk else f"market:{_rec_attr(rec, 'market_id', '') or id(rec)}"
+            fam.setdefault(key, []).append(rec)
+        for fk, recs in fam.items():
+            by_key.setdefault(fk, []).extend(recs)
+    elif orphans:
+        for rec in orphans:
+            gk = str(_rec_attr(rec, "group_key", "") or _rec_attr(rec, "market_id", ""))
+            by_key.setdefault(gk, []).append(rec)
 
     groups: list[SimplexGroup] = []
     for gk, recs in by_key.items():
@@ -285,7 +351,8 @@ def group_markets(records: list, *, chainlink=None, now: Optional[float] = None,
                 exhaustive=_group_is_exhaustive(recs), mutually_exclusive=True,
                 chainlink=chainlink, now=now))
         elif include_binary:
-            groups.append(build_binary_group(recs[0]))
+            groups.append(build_binary_group(recs[0], group_id=f"binary:{gk}"
+                                             if gk and not gk.startswith("market:") else None))
     logger.debug("group_markets built %d groups from %d records", len(groups), len(records))
     return groups
 

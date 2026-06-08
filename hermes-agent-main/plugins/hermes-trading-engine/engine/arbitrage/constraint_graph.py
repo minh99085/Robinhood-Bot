@@ -242,10 +242,21 @@ SKIP_NO_DEPTH = "no_depth"
 SKIP_DEGENERATE_PRICE = "degenerate_price"
 SKIP_NO_RELATION = "no_relationship"
 
+# precise outcome-diagnostic reasons (replace the contradictory bare counts).
+SKIP_NON_NUMERIC_OUTCOME_PRICES = "non_numeric_outcome_prices"
+SKIP_OUTCOME_PRICE_COUNT_MISMATCH = "outcome_price_count_mismatch"
+SKIP_MISSING_OUTCOME_PRICES = "missing_outcome_prices"
+SKIP_DUPLICATE_OUTCOME_LABELS = "duplicate_outcome_labels"
+SKIP_INCOMPLETE_MULTIWAY = "incomplete_multway_family"
+SKIP_AMBIGUOUS_MULTIWAY = "ambiguous_multway_group"
+
 SKIP_REASONS = frozenset({
     SKIP_MARKET_INACTIVE, SKIP_NO_ORDERBOOK, SKIP_INSUFFICIENT_OUTCOMES,
     SKIP_NON_NUMERIC_PRICE, SKIP_MISSING_QUOTES, SKIP_NO_DEPTH,
     SKIP_DEGENERATE_PRICE, SKIP_NO_RELATION,
+    SKIP_NON_NUMERIC_OUTCOME_PRICES, SKIP_OUTCOME_PRICE_COUNT_MISMATCH,
+    SKIP_MISSING_OUTCOME_PRICES, SKIP_DUPLICATE_OUTCOME_LABELS,
+    SKIP_INCOMPLETE_MULTIWAY, SKIP_AMBIGUOUS_MULTIWAY,
 })
 
 _RELATION_BUILDERS = {
@@ -254,27 +265,14 @@ _RELATION_BUILDERS = {
 
 
 def _to_float(v) -> Optional[float]:
-    """Parse a price/number from a float or a Polymarket string.
+    """Parse a price/number from a float or a Polymarket string (robust, pure).
 
-    Accepts raw floats and strings like ``"0.42"``, ``"$0.42"``, ``"42%"``,
-    ``"42.0%"``, and ``"1,234.5"`` (a top cause of ``non_numeric_price`` skips when
-    gamma returns formatted strings). ``%`` values are divided by 100. Pure."""
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        pass
-    if isinstance(v, str):
-        s = v.strip()
-        if not s:
-            return None
-        pct = s.endswith("%")
-        s = s.lstrip("$").rstrip("%").replace(",", "").replace("$", "").strip()
-        try:
-            f = float(s)
-            return f / 100.0 if pct else f
-        except (TypeError, ValueError):
-            return None
-    return None
+    Accepts raw floats; numeric strings (``"0.42"``); ``$``/``%`` formatted
+    (``"$0.42"`` / ``"42%"`` -> 0.42); thousands separators (``"1,234.5"``);
+    JSON-list-encoded singletons (``"[0.42]"``); and treats blank / ``"None"`` /
+    ``"null"`` / ``"nan"`` as missing. Delegates to the shared robust parser."""
+    from .price_parsing import parse_price
+    return parse_price(v)
 
 
 def parse_list_field(v):
@@ -342,9 +340,11 @@ def build_constraint_graph(markets: Iterable[dict], *, min_depth_usd: float = 1.
             continue
 
         explicit = m.get("outcomes")
-        if explicit is not None:
-            if not isinstance(explicit, list) or len(explicit) < 2:
-                skip(mid, SKIP_INSUFFICIENT_OUTCOMES, f"{len(explicit or [])} outcomes")
+        explicit_is_dicts = (isinstance(explicit, list) and explicit
+                             and isinstance(explicit[0], dict))
+        if explicit_is_dicts:
+            if len(explicit) < 2:
+                skip(mid, SKIP_INSUFFICIENT_OUTCOMES, f"{len(explicit)} outcomes")
                 continue
             parsed: list[Outcome] = []
             bad = None
@@ -381,12 +381,12 @@ def build_constraint_graph(markets: Iterable[dict], *, min_depth_usd: float = 1.
                 getattr(graph, builder)([p.id for p in parsed])
             continue
 
-        # --- Polymarket binary shape ---
+        # --- Polymarket binary shape (gamma encodes list fields as JSON strings) ---
         if not m.get("enableOrderBook", True):
             skip(mid, SKIP_NO_ORDERBOOK)
             continue
-        prices = m.get("outcomePrices") or []
-        tokens = m.get("clobTokenIds") or []
+        prices = parse_list_field(m.get("outcomePrices"))
+        tokens = parse_list_field(m.get("clobTokenIds"))
         if len(prices) < 2 or len(tokens) < 2:
             skip(mid, SKIP_INSUFFICIENT_OUTCOMES, f"{len(prices)} prices / {len(tokens)} tokens")
             continue

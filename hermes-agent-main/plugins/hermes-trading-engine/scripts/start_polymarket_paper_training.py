@@ -525,12 +525,34 @@ def run(argv=None) -> int:
                     sink.append_bregman_diagnostic({
                         "group_id": str(sg.get("market_id", "")),
                         "source_grouping_method": "constraint_discovery",
+                        "stage": "adapter_failed",
                         "raw_market_ids": [sg.get("market_id")],
                         "skip_reason": sg.get("reason"),
                         "missing_fields": [sg.get("reason")] if sg.get("reason") else [],
                         "detail": sg.get("detail", ""),
                         "tick": getattr(trainer, "tick", 0),
                         "repair_hint": _bregman_repair_hint(sg.get("reason")),
+                    })
+                # NEAR-MISS groups that REACHED the certifier but were not certified:
+                # durable shadow/no-trade evidence with the projected profit + Bregman
+                # distance + exact reject reason (read-only; never tradeable).
+                for nm in (tel.get("near_miss_certified_samples", []) or [])[: max(quota, 1)]:
+                    sink.append_bregman_diagnostic({
+                        "group_id": "+".join(str(x) for x in nm.get("outcome_ids", []))[:80],
+                        "source_grouping_method": "constraint_discovery",
+                        "stage": "certifier_reached_not_certified",
+                        "raw_market_ids": list(nm.get("outcome_ids", [])),
+                        "skip_reason": nm.get("reject_reason"),
+                        "relation": nm.get("relation"),
+                        "bregman_distance": nm.get("bregman_distance"),
+                        "projected_after_fee_profit_per_set":
+                            nm.get("projected_after_fee_profit_per_set"),
+                        "worst_case_payoff_per_set": nm.get("worst_case_payoff_per_set"),
+                        "cost_per_set": nm.get("cost_per_set"),
+                        "min_leg_depth": nm.get("min_leg_depth"),
+                        "certificate_status": nm.get("certificate_status"),
+                        "tradeable": False, "executed": False,
+                        "tick": getattr(trainer, "tick", 0),
                     })
             except Exception:  # noqa: BLE001 — diagnostics must never break the scan
                 pass
