@@ -1707,6 +1707,26 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
     for k in ("bregman_paper_enabled", "bregman_candidates_found", "bregman_certified_count",
               "bregman_certified_profit", "bregman_false_positive_rate"):
         L.append(f"- {k}: {_yn(feats.get(k))}")
+    # ABCAS certifier funnel diagnostics (projected profit + Bregman distance logged
+    # even when 0 certified; per-stage rejection taxonomy; certification near-misses).
+    _abc = status.get("bregman", {}) or {}
+    if _abc:
+        L.append("")
+        L.append("### 11.0 ABCAS Certifier Funnel Diagnostics (read-only)")
+        L.append("")
+        for k in ("constraint_groups_scanned", "candidate_arbitrages", "certified_arbitrages",
+                  "best_projected_profit_per_set", "max_bregman_distance", "mean_cost_per_set",
+                  "expected_min_profit", "near_miss_count"):
+            if k in _abc:
+                L.append(f"- {k}: {_abc.get(k)}")
+        if _abc.get("stage_rejections"):
+            L.append(f"- stage_rejections: {_abc.get('stage_rejections')}")
+        for nm in (_abc.get("near_miss_certified_samples", []) or [])[:5]:
+            L.append(f"  - near_miss(certifier_reached): legs={nm.get('outcome_ids')} "
+                     f"D(mu*||theta)={nm.get('bregman_distance')} "
+                     f"projected_profit/set={nm.get('projected_after_fee_profit_per_set')} "
+                     f"cost/set={nm.get('cost_per_set')} reason={nm.get('reject_reason')} "
+                     f"tradeable=False")
     # near-miss diagnostics + blocker explanation (read-only; gates never loosened)
     _bf = status.get("bregman_funnel", {}) or {}
     if _bf:

@@ -137,6 +137,36 @@ def _clamp01(x) -> float:
         return 0.0
 
 
+def _resolve_model_probability(edge, est):
+    """Model probability for a decision record — prefer a REAL calibrated/model
+    signal, else fall back to the MARKET-IMPLIED mid; NEVER record the degenerate
+    0.02 ensemble floor (used when there is no model signal, e.g. combinatorial
+    candidates). Pure; never fabricates a probability when none is available."""
+    cal = getattr(est, "calibrated_probability", None)
+    if cal is not None:
+        try:
+            cf = float(cal)
+            if 0.0 < cf < 1.0:
+                return round(cf, 6)
+        except (TypeError, ValueError):
+            pass
+    try:
+        pf = float(getattr(edge, "p_final", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        pf = 0.0
+    try:
+        mkt = float(getattr(est, "p_market_mid", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        mkt = 0.0
+    # a genuine (non-floor, non-cap) model signal wins
+    if 0.02 < pf < 0.98:
+        return round(pf, 6)
+    # degenerate clip floor/cap -> use market-implied mid when available
+    if 0.0 < mkt < 1.0:
+        return round(mkt, 6)
+    return round(pf, 6) if pf else None
+
+
 class ClosedLoopLearning:
     """Owns the training-record log, pending/completed label stores, and the
     persistent learning state. Additive + read-mostly (it never trades)."""
@@ -284,7 +314,7 @@ class ClosedLoopLearning:
             depth_at_price=float(getattr(rec, "top_depth_usd", 0.0) or 0.0),
             book_age_sec=getattr(rec, "book_age_s", None),
             ambiguity_score=float(getattr(est, "ambiguity_score", 0.0) or 0.0),
-            model_probability=float(getattr(edge, "p_final", 0.0) or 0.0) or None,
+            model_probability=_resolve_model_probability(edge, est),
             calibrated_probability=getattr(est, "calibrated_probability", None),
             market_probability=float(getattr(est, "p_market_mid", 0.0) or 0.0) or None,
             gross_edge=net_edge, after_cost_edge=pa.get("observed_after_cost_edge", net_edge),
