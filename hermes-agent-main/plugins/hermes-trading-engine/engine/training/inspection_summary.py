@@ -365,6 +365,15 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
         "bregman_positive_projected_rejected_by_stage": dict(
             t.get("bregman_positive_projected_rejected_by_stage", {}) or {}),
         "bregman_zero_certified_explanation": t.get("bregman_zero_certified_explanation"),
+        # per-group profit-lower-bound census (always a float, even negative/zero)
+        "bregman_certify_diagnostics_sample": list(
+            t.get("bregman_certify_diagnostics_sample", []) or []),
+        "bregman_profit_lower_bound_min": t.get("bregman_profit_lower_bound_min"),
+        "bregman_profit_lower_bound_max": t.get("bregman_profit_lower_bound_max"),
+        "bregman_profit_lower_bound_mean": t.get("bregman_profit_lower_bound_mean"),
+        "bregman_groups_negative_lower_bound": _i("bregman_groups_negative_lower_bound"),
+        "bregman_groups_zero_lower_bound": _i("bregman_groups_zero_lower_bound"),
+        "bregman_groups_positive_lower_bound": _i("bregman_groups_positive_lower_bound"),
         "bregman_certifier_exception": t.get("bregman_certifier_exception"),
         # near-miss honesty
         "best_after_cost_lower_bound": t.get("best_after_cost_lower_bound"),

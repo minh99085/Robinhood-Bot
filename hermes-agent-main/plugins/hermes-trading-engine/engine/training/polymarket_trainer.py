@@ -791,17 +791,44 @@ class PolymarketPaperTrainer:
         max_div_gap = 0.0
         positive_proj_rejected = 0          # groups w/ positive raw projected profit
         positive_proj_by_stage: dict = {}   # ...but still rejected (and at which stage)
+        # per-group certify diagnostics: EVERY group logs exhaustive / settlement_
+        # consistent / profit_lower_bound (always a float) / exact reason. A bounded
+        # sample + aggregates are written into bregman_funnel so the report shows them.
+        certify_sample: list = []
+        lb_values: list = []
+        lb_neg = lb_zero = lb_pos = 0
+        sample_cap = int(getattr(self.cfg, "bregman_top_near_misses", 10) or 10)
         for g, c in zip(groups, certs):
+            cdiag = dict(getattr(c, "certify_diagnostics", {}) or {})
+            stage = getattr(c, "rejection_stage", "") or ("certified" if c.is_opportunity
+                                                          else "realism")
+            _plb = cdiag.get("profit_lower_bound",
+                             cdiag.get("projected_profit_lower_bound"))
+            if isinstance(_plb, (int, float)):
+                lb_values.append(float(_plb))
+                if _plb > 0:
+                    lb_pos += 1
+                elif _plb < 0:
+                    lb_neg += 1
+                else:
+                    lb_zero += 1
+            if len(certify_sample) < sample_cap:
+                certify_sample.append({
+                    "group_id": cdiag.get("group_id", getattr(g, "group_id", "")),
+                    "exhaustive": cdiag.get("exhaustive"),
+                    "settlement_consistent": cdiag.get("settlement_consistent"),
+                    "profit_lower_bound": _plb,
+                    "divergence_gap": cdiag.get("divergence_gap"),
+                    "rejection_stage": stage,
+                    "rejection_reason": (c.no_trade_reason or "certified"
+                                         if not c.is_opportunity else "certified")})
             if c.is_opportunity:
                 continue
             reason = c.no_trade_reason or (
                 c.failure_modes[0] if getattr(c, "failure_modes", None) else "rejected")
             self._breg_reason(reason)
-            cdiag = dict(getattr(c, "certify_diagnostics", {}) or {})
-            stage = getattr(c, "rejection_stage", "") or "realism"
             stage_counts[stage] = stage_counts.get(stage, 0) + 1
             max_div_gap = max(max_div_gap, float(cdiag.get("divergence_gap", 0.0) or 0.0))
-            _plb = cdiag.get("projected_profit_lower_bound")
             if _plb is not None and (best_proj_lb is None or _plb > best_proj_lb):
                 best_proj_lb = _plb
             if _plb is not None and _plb > 0:
@@ -853,6 +880,14 @@ class PolymarketPaperTrainer:
             "bregman_zero_certified_explanation": self._bregman_zero_certified_explanation(
                 certified_n, stage_counts, positive_proj_rejected,
                 positive_proj_by_stage, best_proj_lb),
+            # per-group profit-lower-bound census (always-float; even negative/zero)
+            "bregman_certify_diagnostics_sample": certify_sample,
+            "bregman_profit_lower_bound_min": round(min(lb_values), 6) if lb_values else None,
+            "bregman_profit_lower_bound_max": round(max(lb_values), 6) if lb_values else None,
+            "bregman_profit_lower_bound_mean": round(sum(lb_values) / len(lb_values), 6) if lb_values else None,
+            "bregman_groups_negative_lower_bound": lb_neg,
+            "bregman_groups_zero_lower_bound": lb_zero,
+            "bregman_groups_positive_lower_bound": lb_pos,
             **nm_summary,
             **depth_tel,
             **stale_tel,

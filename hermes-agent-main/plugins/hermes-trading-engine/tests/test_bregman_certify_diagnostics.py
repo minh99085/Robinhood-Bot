@@ -152,6 +152,56 @@ def test_zero_certified_explanation_positive_projected_but_rejected(tmp_path, mo
     assert "exhaustive" in expl.lower()       # explains the gate (not loosened)
 
 
+def test_profit_lower_bound_is_always_float_on_reject():
+    eng = _eng()
+    req = float(eng.min_depth_usd)
+    # not_exhaustive (positive lb), coherent (zero lb), overpriced (negative lb)
+    for legs, exh, expect_sign in [
+        ([_leg("a", "YES", "aY", 0.3, req * 4), _leg("b", "YES", "bY", 0.3, req * 4)], False, "pos"),
+        ([_leg("c", "YES", "cY", 0.5, req * 4), _leg("c", "NO", "cN", 0.5, req * 4)], True, "zero"),
+        ([_leg("d", "YES", "dY", 0.6, req * 4), _leg("d", "NO", "dN", 0.6, req * 4)], True, "neg")]:
+        g = SimplexGroup("g", "binary_yes_no" if exh else "mutually_exclusive",
+                         legs, mutually_exclusive=True, exhaustive=exh)
+        lb = eng.certify(g).certify_diagnostics["profit_lower_bound"]
+        assert isinstance(lb, float)          # ALWAYS a float, never None
+        if expect_sign == "pos":
+            assert lb > 0
+        elif expect_sign == "neg":
+            assert lb < 0
+        else:
+            assert abs(lb) < 1e-9
+
+
+def test_per_group_profit_lower_bound_census_in_metrics(tmp_path, monkeypatch):
+    from engine.training import PolymarketPaperTrainer, TrainingConfig
+    from tests._pmtrain_helpers import clean_live_env
+    import engine.training.polymarket_trainer as P
+    clean_live_env(monkeypatch, tmp_path)
+    t = PolymarketPaperTrainer(TrainingConfig(mode="paper_train"), data_dir=tmp_path)
+    req = float(t.bregman.min_depth_usd)
+    g1 = SimplexGroup("ne", "mutually_exclusive",
+                      [_leg("a", "YES", "aY", 0.3, req * 4), _leg("b", "YES", "bY", 0.3, req * 4)],
+                      exhaustive=False)                                    # +0.4
+    g2 = SimplexGroup("over", "binary_yes_no",
+                      [_leg("d", "YES", "dY", 0.6, req * 4), _leg("d", "NO", "dN", 0.6, req * 4)],
+                      exhaustive=True)                                     # -0.2
+    monkeypatch.setattr(P, "group_markets", lambda recs, **kw: [g1, g2])
+    t.closed_loop.begin_tick()
+    t.scan_bregman([{"market_id": "a"}], now=1000.0)
+    bx = t.bregman_exec_metrics
+    # every group is in the sample with an exhaustive flag + float lower bound
+    sample = bx["bregman_certify_diagnostics_sample"]
+    assert len(sample) == 2
+    for s in sample:
+        assert "exhaustive" in s and "settlement_consistent" in s
+        assert isinstance(s["profit_lower_bound"], float)
+        assert s["rejection_reason"]
+    assert bx["bregman_groups_positive_lower_bound"] == 1
+    assert bx["bregman_groups_negative_lower_bound"] == 1
+    assert bx["bregman_profit_lower_bound_min"] is not None
+    assert bx["bregman_profit_lower_bound_max"] is not None
+
+
 def test_zero_certified_explanation_when_certified():
     from engine.training import PolymarketPaperTrainer
     expl = PolymarketPaperTrainer._bregman_zero_certified_explanation(

@@ -1864,6 +1864,22 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
                          f"{_bf.get('bregman_positive_projected_rejected_by_stage')}")
             if _bf.get("bregman_zero_certified_explanation"):
                 L.append(f"- WHY certified=0: {_bf.get('bregman_zero_certified_explanation')}")
+            # per-group profit-lower-bound census (always a float, even negative/zero)
+            L.append(f"- profit_lower_bound (min/mean/max): "
+                     f"{_bf.get('bregman_profit_lower_bound_min')} / "
+                     f"{_bf.get('bregman_profit_lower_bound_mean')} / "
+                     f"{_bf.get('bregman_profit_lower_bound_max')}")
+            L.append(f"- groups by lower_bound sign (neg/zero/pos): "
+                     f"{_bf.get('bregman_groups_negative_lower_bound', 0)} / "
+                     f"{_bf.get('bregman_groups_zero_lower_bound', 0)} / "
+                     f"{_bf.get('bregman_groups_positive_lower_bound', 0)}")
+            for s in (_bf.get("bregman_certify_diagnostics_sample", []) or [])[:5]:
+                L.append(f"  - group: {s.get('group_id')} "
+                         f"exhaustive={s.get('exhaustive')} "
+                         f"settlement_consistent={s.get('settlement_consistent')} "
+                         f"profit_lower_bound={s.get('profit_lower_bound')} "
+                         f"divergence_gap={s.get('divergence_gap')} "
+                         f"reason={s.get('rejection_reason')}")
             for nm in (_bf.get("bregman_top_near_misses", []) or [])[:3]:
                 if "rejection_stage" in nm or "divergence_gap" in nm:
                     L.append(f"  - near_miss: {nm.get('group_key')} "

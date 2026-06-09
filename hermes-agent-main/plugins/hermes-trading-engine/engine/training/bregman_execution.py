@@ -278,14 +278,17 @@ class BregmanArbitrageEngine:
             if reason not in failures:
                 failures.append(reason)
             stage = rejection_stage(reason)
-            # projected lower-bound profit proxy computable EVEN on early reject:
-            # payout - sum(observed executable asks). Logged so certification is
-            # never silent (it may be negative — that is the honest projection).
+            # profit lower bound computable EVEN on early reject: payout - sum(observed
+            # executable asks). ALWAYS a float (negative / zero / positive) so the
+            # certifier is never silent. ``all_legs_priced`` flags reliability when
+            # some legs have no executable ask (the float is then an under-estimate).
             try:
                 implied = float(group.implied_sum)
             except Exception:  # noqa: BLE001
                 implied = 0.0
-            projected_lb = round(float(group.payout) - implied, 6) if implied > 0 else None
+            all_legs_priced = bool(group.legs) and all(
+                (getattr(l, "ask", None) or 0) > 0 for l in group.legs)
+            profit_lb = round(float(group.payout) - implied, 6)
             diag = {
                 "group_id": group.group_id, "group_type": group.group_type,
                 "n_legs": len(group.legs),
@@ -293,17 +296,20 @@ class BregmanArbitrageEngine:
                 "mutually_exclusive": bool(group.mutually_exclusive),
                 "settlement_consistent": bool(settlement_consistent),
                 "divergence_gap": round(float(gap), 8),
-                "projected_profit_lower_bound": projected_lb,
+                "profit_lower_bound": profit_lb,            # ALWAYS a float
+                "projected_profit_lower_bound": profit_lb,  # alias (back-compat)
+                "all_legs_priced": all_legs_priced,
                 "implied_sum": round(implied, 6),
                 "max_ambiguity_score": round(float(max_amb), 6),
                 "max_ambiguity_threshold": float(self.max_ambiguity),
                 "stale_book_score": round(float(stale_sc), 6),
                 "rejection_stage": stage, "failure_mode": reason,
+                "rejection_reason": reason,
             }
             logger.debug("bregman reject: group=%s stage=%s reason=%s exhaustive=%s "
-                         "settlement_consistent=%s gap=%.6g projected_lb=%s",
+                         "settlement_consistent=%s gap=%.6g profit_lb=%.6f",
                          group.group_id, stage, reason, group.exhaustive,
-                         settlement_consistent, gap, projected_lb)
+                         settlement_consistent, gap, profit_lb)
             return CertifiedBregmanOpportunity(
                 group_id=group.group_id, group_type=group.group_type, legs=[],
                 executable_prices=[], quantities=[], required_capital=0.0,
@@ -450,11 +456,14 @@ class BregmanArbitrageEngine:
                 "mutually_exclusive": bool(group.mutually_exclusive),
                 "settlement_consistent": bool(settlement_consistent),
                 "divergence_gap": round(float(gap), 8),
+                "profit_lower_bound": round(float(profit_lower_bound), 6),
                 "projected_profit_lower_bound": round(float(profit_lower_bound), 6),
+                "all_legs_priced": True,
                 "worst_case_pnl": round(float(worst_case_pnl), 6),
                 "cost_per_set": round(float(cost_per_set), 6),
                 "rejection_stage": (_STAGE_CERTIFIED if certified else _STAGE_EDGE),
-                "failure_mode": "" if certified else "not_certified"})
+                "failure_mode": "" if certified else "not_certified",
+                "rejection_reason": "" if certified else "not_certified"})
         logger.info("bregman certify group=%s certified=%s risk_free=%s "
                     "profit_lb=%.6f cost/set=%.4f sets=%.2f gap=%.6f stage=%s",
                     group.group_id, certified, risk_free, profit_lower_bound,
