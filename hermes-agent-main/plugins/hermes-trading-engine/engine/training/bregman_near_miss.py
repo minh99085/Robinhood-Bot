@@ -247,6 +247,90 @@ def after_cost_lower_bound(group) -> Optional[float]:
     return round(float(getattr(group, "payout", 1.0) or 1.0) - sum(prices), 6)
 
 
+# A near-miss whose SINGLE remaining blocker is one of these "recoverable" gates is
+# the most useful for learning — it teaches the model exactly what would unlock a
+# certified set. (Completeness is never fabricated; not_exhaustive stays rejected.)
+_RECOVERABLE_FIX = (FIX_DEPTH, FIX_STALE, FIX_SPREAD, FIX_EXHAUSTIVE)
+_FIX_TO_CONDITION_LABEL = {
+    FIX_DEPTH: "would_certify_if_depth_sufficient",
+    FIX_STALE: "would_certify_if_book_fresh",
+    FIX_SPREAD: "would_certify_if_spread_tightens",
+    FIX_EXHAUSTIVE: "would_certify_if_complete_set",
+    FIX_SIMPLEX: "would_certify_if_valid_simplex",
+    FIX_AMBIGUITY: "would_certify_if_settlement_unambiguous",
+    FIX_EDGE: "no_positive_after_cost_edge",
+}
+
+
+def _learning_signal(*, blockers: list, one_fix_away: bool, fix: str, alb,
+                     score: float, dq: dict, comp: dict, max_age_s: float) -> dict:
+    """Derive ADVISORY learning labels for a near-miss (read-only; never trades).
+
+    Produces ``learning_priority`` (high/medium/low) + score, a ``shadow_label_
+    candidate`` flag for the best near-misses (single recoverable blocker), a clear
+    ``learning_label`` (what one fix would unlock), and a human ``would_trade_if``.
+    These let the training system pick the most informative near-misses; they NEVER
+    relax a gate or imply executability."""
+    n_blockers = len(blockers)
+    single = blockers[0] if (one_fix_away and blockers) else None
+    edge_nonneg = bool(alb is not None and alb >= 0)
+    # a shadow-label candidate: exactly one RECOVERABLE blocker + plausible (non-
+    # strongly-negative) projected edge. depth_too_thin / not_exhaustive dominate.
+    shadow_candidate = bool(one_fix_away and single in _RECOVERABLE_FIX
+                            and (alb is None or alb > -0.02))
+    if n_blockers == 0:
+        learning_label = _FIX_TO_CONDITION_LABEL.get(FIX_EDGE) if fix == FIX_EDGE \
+            else "rejected_no_recoverable_fix"
+    elif one_fix_away:
+        learning_label = _FIX_TO_CONDITION_LABEL.get(single, f"would_certify_if_{single}_fixed")
+    else:
+        learning_label = "needs_multiple_fixes"
+
+    # priority score: closeness (near_miss_score) boosted by one-fix-away, a
+    # recoverable fix, and a non-negative projected edge. Clamped to [0,1].
+    pscore = float(score)
+    if one_fix_away:
+        pscore += 0.20
+    if shadow_candidate:
+        pscore += 0.10
+    if edge_nonneg:
+        pscore += 0.10
+    pscore = round(max(0.0, min(1.0, pscore)), 6)
+    if shadow_candidate and pscore >= 0.7:
+        priority = "high"
+    elif pscore >= 0.45:
+        priority = "medium"
+    else:
+        priority = "low"
+
+    # human-readable unlock condition (diagnostic only).
+    if single == FIX_DEPTH:
+        cond = (f"worst-leg depth ${dq.get('worst_leg_depth_usd')} reaches required "
+                f"${dq.get('required_depth_usd')} (thin legs={dq.get('thin_legs')})")
+    elif single == FIX_EXHAUSTIVE:
+        cond = (f"the outcome family becomes a proven complete set "
+                f"(observed {comp.get('observed_count')} outcomes; "
+                f"kind={comp.get('market_kind')})")
+    elif single == FIX_STALE:
+        cond = f"all leg books are fresh (within {max_age_s}s)"
+    elif single == FIX_SPREAD:
+        cond = "all leg spreads tighten under the max-spread gate"
+    elif single == FIX_SIMPLEX:
+        cond = "the group forms a valid (deduplicated, normalized) simplex"
+    elif n_blockers == 0:
+        cond = "after-cost edge turns positive (structure already valid)"
+    else:
+        cond = f"all {n_blockers} blockers are cleared: {blockers}"
+    return {
+        "learning_priority": priority,
+        "learning_priority_score": pscore,
+        "shadow_label_candidate": shadow_candidate,
+        "learning_label": learning_label,
+        "would_trade_if": cond,
+        "primary_fix": single,
+    }
+
+
 def analyze_rejection(group, reason: str, *, min_depth_usd: float,
                       max_spread: float, max_age_s: float,
                       refresh_attempted: bool = False, refresh_ok: bool = False,
@@ -287,6 +371,8 @@ def analyze_rejection(group, reason: str, *, min_depth_usd: float,
         if not ok]
     one_fix_away = len(blockers) == 1
     ident = leg_identity(group)
+    learn = _learning_signal(blockers=blockers, one_fix_away=one_fix_away, fix=fix,
+                             alb=alb, score=score, dq=dq, comp=comp, max_age_s=max_age_s)
     return {
         "group_key": str(getattr(group, "group_id", "") or ""),
         "group_type": str(getattr(group, "group_type", "") or ""),
@@ -305,6 +391,13 @@ def analyze_rejection(group, reason: str, *, min_depth_usd: float,
         "near_miss_tradeable": False,        # diagnostics are NEVER executable
         "one_fix_away": one_fix_away,
         "remaining_blockers": blockers,
+        # ADVISORY learning signals (read-only; never relax a gate or imply a trade)
+        "learning_priority": learn["learning_priority"],
+        "learning_priority_score": learn["learning_priority_score"],
+        "shadow_label_candidate": learn["shadow_label_candidate"],
+        "learning_label": learn["learning_label"],
+        "would_trade_if": learn["would_trade_if"],
+        "primary_fix": learn["primary_fix"],
         "depth_quality": dq,
         "freshness": fq,
         "spread_quality": sq,
@@ -331,6 +424,10 @@ def summarize(items: list, *, top_n: int = 10) -> dict:
     """Aggregate near-miss metrics for the (light) report. Diagnostic only."""
     by_reason: dict = {}
     one_fix = depth_only = not_exhaustive = stale_refresh_failed = 0
+    # learning-signal aggregates (advisory; help the trainer pick the best near-misses)
+    priority_counts = {"high": 0, "medium": 0, "low": 0}
+    shadow_candidates = 0
+    learning_label_counts: dict = {}
     for it in items:
         r = it.get("reject_reason", "unknown")
         by_reason[r] = by_reason.get(r, 0) + 1
@@ -345,6 +442,13 @@ def summarize(items: list, *, top_n: int = 10) -> dict:
         if (it.get("reject_reason") == "stale_book" and fq.get("refresh_attempted")
                 and not fq.get("refresh_ok")):
             stale_refresh_failed += 1
+        pr = it.get("learning_priority", "low")
+        priority_counts[pr] = priority_counts.get(pr, 0) + 1
+        if it.get("shadow_label_candidate"):
+            shadow_candidates += 1
+        ll = it.get("learning_label")
+        if ll:
+            learning_label_counts[ll] = learning_label_counts.get(ll, 0) + 1
     # ranking buckets (each is diagnostic only — NEVER implies a tradeable edge).
     def _top(key, n=5, predicate=None):
         pool = [it for it in items if (predicate is None or predicate(it))]
@@ -375,6 +479,13 @@ def summarize(items: list, *, top_n: int = 10) -> dict:
         "near_miss_depth_only_count": depth_only,
         "near_miss_not_exhaustive_count": not_exhaustive,
         "near_miss_stale_refresh_failed_count": stale_refresh_failed,
+        # ADVISORY learning-signal aggregates (read-only; never trades)
+        "near_miss_learning_priority_counts": priority_counts,
+        "near_miss_shadow_label_candidate_count": shadow_candidates,
+        "near_miss_learning_label_counts": dict(sorted(learning_label_counts.items())),
+        "near_miss_top_learning_priority": _top(
+            lambda it: it.get("learning_priority_score", 0.0), n=top_n,
+            predicate=lambda it: it.get("shadow_label_candidate")),
         # ranking buckets (diagnostic only; none of these are tradeable)
         "near_miss_buckets": {
             "top_by_depth_quality": _top(

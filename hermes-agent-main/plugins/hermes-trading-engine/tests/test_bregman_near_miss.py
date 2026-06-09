@@ -188,6 +188,65 @@ def test_top_near_misses_persisted_and_ranked():
     assert "depth_too_thin" in summ["near_miss_by_rejection_reason"]
 
 
+def test_learning_priority_and_shadow_label_for_depth_only():
+    # exhaustive binary, thin depth, positive raw edge -> high priority shadow candidate
+    g = SimplexGroup("dep", "binary_yes_no",
+                     [SimplexLeg("m", "YES", "mY", ask=0.4, bid=0.39, depth_usd=5, fresh_book=True),
+                      SimplexLeg("m", "NO", "mN", ask=0.4, bid=0.39, depth_usd=5, fresh_book=True)],
+                     exhaustive=True)
+    nm = analyze_rejection(g, "depth_too_thin", min_depth_usd=25.0,
+                           max_spread=0.08, max_age_s=20.0)
+    assert nm["shadow_label_candidate"] is True
+    assert nm["learning_priority"] == "high"
+    assert nm["learning_label"] == "would_certify_if_depth_sufficient"
+    assert "depth" in nm["would_trade_if"]
+    assert nm["near_miss_tradeable"] is False        # still never tradeable
+
+
+def test_learning_priority_and_shadow_label_for_not_exhaustive():
+    g = SimplexGroup("ne", "mutually_exclusive",
+                     [SimplexLeg("a", "YES", "aY", ask=0.3, bid=0.29, depth_usd=500, fresh_book=True),
+                      SimplexLeg("b", "YES", "bY", ask=0.3, bid=0.29, depth_usd=500, fresh_book=True)],
+                     exhaustive=False)
+    nm = analyze_rejection(g, "not_exhaustive", min_depth_usd=25.0,
+                           max_spread=0.08, max_age_s=20.0)
+    assert nm["shadow_label_candidate"] is True
+    assert nm["learning_label"] == "would_certify_if_complete_set"
+    assert nm["primary_fix"] == "not_exhaustive"
+
+
+def test_multi_blocker_is_not_shadow_candidate():
+    g = SimplexGroup("mu", "mutually_exclusive",
+                     [SimplexLeg("a", "YES", "aY", ask=0.3, bid=0.29, depth_usd=5, fresh_book=True),
+                      SimplexLeg("b", "YES", "bY", ask=0.3, bid=0.29, depth_usd=5, fresh_book=True)],
+                     exhaustive=False)
+    nm = analyze_rejection(g, "depth_too_thin", min_depth_usd=25.0,
+                           max_spread=0.08, max_age_s=20.0)
+    assert nm["one_fix_away"] is False
+    assert nm["shadow_label_candidate"] is False
+    assert nm["learning_label"] == "needs_multiple_fixes"
+
+
+def test_summarize_learning_aggregates():
+    g1 = SimplexGroup("dep", "binary_yes_no",
+                      [SimplexLeg("m", "YES", "mY", ask=0.4, bid=0.39, depth_usd=5, fresh_book=True),
+                       SimplexLeg("m", "NO", "mN", ask=0.4, bid=0.39, depth_usd=5, fresh_book=True)],
+                      exhaustive=True)
+    g2 = SimplexGroup("ne", "mutually_exclusive",
+                      [SimplexLeg("a", "YES", "aY", ask=0.3, bid=0.29, depth_usd=500, fresh_book=True),
+                       SimplexLeg("b", "YES", "bY", ask=0.3, bid=0.29, depth_usd=500, fresh_book=True)],
+                      exhaustive=False)
+    nm1 = analyze_rejection(g1, "depth_too_thin", min_depth_usd=25.0, max_spread=0.08, max_age_s=20.0)
+    nm2 = analyze_rejection(g2, "not_exhaustive", min_depth_usd=25.0, max_spread=0.08, max_age_s=20.0)
+    s = summarize([nm1, nm2], top_n=5)
+    assert s["near_miss_shadow_label_candidate_count"] == 2
+    assert sum(s["near_miss_learning_priority_counts"].values()) == 2
+    assert s["near_miss_learning_label_counts"]
+    # top-learning-priority lists only shadow candidates, ranked by score
+    ids = [x["group_key"] for x in s["near_miss_top_learning_priority"]]
+    assert set(ids) == {"dep", "ne"}
+
+
 def test_near_miss_buckets_and_negative_lower_bound_honesty():
     # both near-misses have implied sum > payout -> negative after-cost lower bound
     g1 = SimplexGroup("g1", "exhaustive_event",

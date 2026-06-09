@@ -1740,6 +1740,21 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
         nmr = _bf.get("near_miss_by_rejection_reason", {}) or {}
         if nmr:
             L.append(f"- near_miss_by_rejection_reason: {nmr}")
+        # ADVISORY learning signals — which near-misses the trainer should learn from
+        lpc = _bf.get("near_miss_learning_priority_counts", {}) or {}
+        if lpc or _bf.get("near_miss_shadow_label_candidate_count"):
+            L.append(f"- near_miss_learning_priority_counts (high/med/low): {lpc}")
+            L.append(f"- near_miss_shadow_label_candidate_count: "
+                     f"{_bf.get('near_miss_shadow_label_candidate_count', 0)}")
+            llc = _bf.get("near_miss_learning_label_counts", {}) or {}
+            if llc:
+                L.append(f"- near_miss_learning_label_counts: {llc}")
+            for nm in (_bf.get("near_miss_top_learning_priority", []) or [])[:5]:
+                L.append(f"  - learn: {nm.get('group_key')} "
+                         f"priority={nm.get('learning_priority')}({nm.get('learning_priority_score')}) "
+                         f"label={nm.get('learning_label')} "
+                         f"shadow_candidate={nm.get('shadow_label_candidate')} "
+                         f"would_trade_if={nm.get('would_trade_if')}")
         if _bf.get("near_miss_all_negative_after_cost_lower_bound"):
             L.append("- near_miss_after_cost: ALL near-misses have non-positive "
                      "after-cost lower bound — NONE are tradeable")

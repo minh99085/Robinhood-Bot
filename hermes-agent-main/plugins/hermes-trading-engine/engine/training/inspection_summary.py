@@ -305,6 +305,14 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
         "near_miss_depth_only_count": _i("near_miss_depth_only_count"),
         "near_miss_not_exhaustive_count": _i("near_miss_not_exhaustive_count"),
         "near_miss_stale_refresh_failed_count": _i("near_miss_stale_refresh_failed_count"),
+        # ADVISORY learning-signal aggregates (read-only; help trainer pick near-misses)
+        "near_miss_learning_priority_counts": dict(
+            t.get("near_miss_learning_priority_counts", {}) or {}),
+        "near_miss_shadow_label_candidate_count": _i("near_miss_shadow_label_candidate_count"),
+        "near_miss_learning_label_counts": dict(
+            t.get("near_miss_learning_label_counts", {}) or {}),
+        "near_miss_top_learning_priority": list(
+            t.get("near_miss_top_learning_priority", []) or []),
         "near_miss_buckets": dict(t.get("near_miss_buckets", {}) or {}),
         "near_miss_all_negative_after_cost_lower_bound": bool(
             t.get("near_miss_all_negative_after_cost_lower_bound", False)),
