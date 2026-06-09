@@ -260,6 +260,9 @@ class TrainingConfig:
     # ---- near-miss diagnostics (read-only; never executes / never loosens gates) ----
     bregman_near_miss_store_cap: int = 1000      # max rejected groups tracked
     bregman_top_near_misses: int = 10            # top-N near-misses surfaced in report
+    # profit-discovery learning (durable shadow labels + bandit router; never trades)
+    bregman_shadow_labels_per_tick: int = 25     # rate-limit durable shadow-label writes
+    profit_discovery_bandit_enabled: bool = True
     bregman_max_capital_per_tick_usd: float = 100.0
     bregman_min_roi: float = 0.002               # min after-cost ROI per certified set
     # ---- Pass-4: Bregman-FIRST strategy priority + slot/capital reservation ----
@@ -931,6 +934,8 @@ class TrainingConfig:
             bregman_discovery_limit=_envi("POLYMARKET_BREGMAN_DISCOVERY_LIMIT", 1000),
             bregman_near_miss_store_cap=_envi("POLYMARKET_BREGMAN_NEAR_MISS_STORE_CAP", 1000),
             bregman_top_near_misses=_envi("POLYMARKET_BREGMAN_TOP_NEAR_MISSES", 10),
+            bregman_shadow_labels_per_tick=_envi("POLYMARKET_BREGMAN_SHADOW_LABELS_PER_TICK", 25),
+            profit_discovery_bandit_enabled=_envb("POLYMARKET_PROFIT_DISCOVERY_BANDIT_ENABLED", True),
             bregman_max_bundles_per_tick=_envi("POLYMARKET_BREGMAN_MAX_BUNDLES_PER_TICK", 3),
             bregman_max_open_bundles=_envi("POLYMARKET_BREGMAN_MAX_OPEN_BUNDLES", 10),
             bregman_max_capital_per_tick_usd=_envf("POLYMARKET_BREGMAN_MAX_CAPITAL_PER_TICK", 100.0),

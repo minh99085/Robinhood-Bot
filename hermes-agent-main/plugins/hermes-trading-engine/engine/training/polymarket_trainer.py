@@ -471,6 +471,18 @@ class PolymarketPaperTrainer:
         # optional read-only book-refresher for promising stale groups (set by the
         # runner when a live book source exists; None => refresh not available).
         self._bregman_book_refresher = None
+        # profit-discovery: persist Bregman shadow-label candidates as durable
+        # LEARNING-ONLY shadow labels (rate-limited, deduped) + a contextual-bandit
+        # learning router. Never trades / sizes / bypasses a gate.
+        self._bregman_shadow_written_keys: set = set()
+        self._bregman_shadow_labels_written = 0
+        self._bregman_shadow_candidates_seen = 0
+        self._bregman_shadow_write_rejections: dict = {}
+        self._shadow_labels_per_tick = int(getattr(
+            self.cfg, "bregman_shadow_labels_per_tick", 25) or 25)
+        from engine.training.profit_discovery import ProfitDiscoveryBandit
+        self._profit_bandit = ProfitDiscoveryBandit(
+            enabled=bool(getattr(self.cfg, "profit_discovery_bandit_enabled", True)))
         # Pass-4: strategy-priority ladder (Bregman Tier-1 reservation) telemetry.
         self._bregman_certified_realistic_count = 0
         self._bregman_open_markets: set = set()
@@ -852,10 +864,16 @@ class PolymarketPaperTrainer:
             except Exception:  # noqa: BLE001 — diagnostics must never break a tick
                 pass
         self.bregman_log = [c.to_dict() for c in certs]
-        nm_summary = summarize(list(self._bregman_near_miss_best.values()),
+        all_near = list(self._bregman_near_miss_best.values())
+        nm_summary = summarize(all_near,
                                top_n=int(getattr(self.cfg, "bregman_top_near_misses", 10) or 10))
         certified_n = sum(1 for c in certs if c.is_opportunity)
         cand_tel = self._bregman_candidate_blocker(groups, certs, certified_n)
+        # persist shadow-label candidates (learning-only) + build the profit-discovery
+        # queue + run the LEARNING-budget bandit. None of this trades/sizes/gates.
+        shadow_tel = self._persist_bregman_shadow_labels(all_near)
+        queue_tel = self._build_profit_discovery_queue(all_near)
+        bandit_tel = self._run_profit_bandit(all_near, shadow_tel)
         self.bregman_exec_metrics = {
             "raw_catalog_markets_scanned": len(records),
             "raw_groups_discovered": raw_n,
@@ -893,8 +911,109 @@ class PolymarketPaperTrainer:
             **stale_tel,
             **parse_tel,
             **cand_tel,
+            **shadow_tel,
+            **queue_tel,
+            **bandit_tel,
         }
         return certs
+
+    def _persist_bregman_shadow_labels(self, near_misses: list) -> dict:
+        """Write durable LEARNING-ONLY shadow labels for near-misses flagged
+        ``shadow_label_candidate`` (rate-limited per tick + deduped per group). A
+        shadow label NEVER counts as a paper trade, never affects readiness PnL, and
+        never bypasses the certifier / gates — incomplete/invalid/stale/thin groups
+        stay rejected. Returns proof metrics for the report."""
+        sink = getattr(self.closed_loop, "sink", None)
+        candidates = [nm for nm in near_misses if nm.get("shadow_label_candidate")]
+        self._bregman_shadow_candidates_seen = len(candidates)
+        written_this_tick = 0
+        if sink is None:
+            self._bregman_shadow_write_rejections["no_sink"] = (
+                self._bregman_shadow_write_rejections.get("no_sink", 0) + 1)
+        else:
+            for nm in candidates:
+                if written_this_tick >= self._shadow_labels_per_tick:
+                    self._bregman_shadow_write_rejections["rate_limited"] = (
+                        self._bregman_shadow_write_rejections.get("rate_limited", 0) + 1)
+                    continue
+                key = nm.get("group_key") or ""
+                if key in self._bregman_shadow_written_keys:
+                    self._bregman_shadow_write_rejections["already_written"] = (
+                        self._bregman_shadow_write_rejections.get("already_written", 0) + 1)
+                    continue
+                try:
+                    sink.append_shadow_label({
+                        "strategy_source": "bregman", "strategy_tier": "bregman",
+                        "group_key": key, "group_type": nm.get("group_type"),
+                        "market_ids": nm.get("market_ids"),
+                        "token_ids": nm.get("token_ids"),
+                        "outcome_labels": nm.get("outcome_labels"),
+                        "reject_reason": nm.get("reject_reason"),
+                        "shadow_reason": nm.get("reject_reason"),
+                        "learning_label": nm.get("learning_label"),
+                        "would_trade_if": nm.get("would_trade_if"),
+                        "learning_priority": nm.get("learning_priority"),
+                        "depth_quality": nm.get("depth_quality"),
+                        "freshness": nm.get("freshness"),
+                        "spread_quality": nm.get("spread_quality"),
+                        "simplex": nm.get("simplex"),
+                        "completeness": nm.get("completeness"),
+                        "after_cost_lower_bound": nm.get("after_cost_lower_bound"),
+                        "decision": "shadow_only", "label_status": "shadow",
+                        # hard learning-only invariants
+                        "advisory_only": True, "executed": False,
+                        "trade_gate_bypassed": False, "counts_for_readiness": False,
+                        "is_paper_trade": False, "tick": getattr(self, "tick_count", 0),
+                    })
+                    self._bregman_shadow_written_keys.add(key)
+                    self._bregman_shadow_labels_written += 1
+                    written_this_tick += 1
+                    # reflect in the closed-loop shadow counter (still learning-only)
+                    try:
+                        self.closed_loop.counts["shadow_records_written"] += 1
+                    except Exception:  # noqa: BLE001
+                        pass
+                except Exception as exc:  # noqa: BLE001 — persistence never breaks a tick
+                    self._bregman_shadow_write_rejections[f"error:{type(exc).__name__}"] = (
+                        self._bregman_shadow_write_rejections.get(
+                            f"error:{type(exc).__name__}", 0) + 1)
+        # cap the dedupe set to stay bounded
+        if len(self._bregman_shadow_written_keys) > 5000:
+            self._bregman_shadow_written_keys = set(
+                list(self._bregman_shadow_written_keys)[-4000:])
+        cand = self._bregman_shadow_candidates_seen
+        return {
+            "bregman_shadow_label_candidates": cand,
+            "bregman_shadow_labels_written": self._bregman_shadow_labels_written,
+            "bregman_shadow_labels_written_this_tick": written_this_tick,
+            "bregman_shadow_label_write_rate": round(
+                self._bregman_shadow_labels_written / max(1, cand), 4),
+            "shadow_label_write_rejection_reasons": dict(self._bregman_shadow_write_rejections),
+        }
+
+    def _build_profit_discovery_queue(self, near_misses: list) -> dict:
+        from engine.training.profit_discovery import build_profit_discovery_queue
+        try:
+            return build_profit_discovery_queue(near_misses)
+        except Exception:  # noqa: BLE001
+            return {"profit_discovery_queue_items": 0,
+                    "profit_discovery_queue_by_priority": {}}
+
+    def _run_profit_bandit(self, near_misses: list, shadow_tel: dict) -> dict:
+        """Select a LEARNING source + record its reward (never trades/sizes/gates)."""
+        try:
+            action = self._profit_bandit.select()
+            if action is not None:
+                grok = int(getattr(self, "_grok_proof", None).bregman_near_misses_analyzed
+                           if getattr(self, "_grok_proof", None) else 0)
+                reward = self._profit_bandit.reward_for(
+                    action, near_misses=near_misses,
+                    shadow_written=int(shadow_tel.get("bregman_shadow_labels_written_this_tick", 0)),
+                    grok_analyzed=grok)
+                self._profit_bandit.update(action, reward)
+            return self._profit_bandit.status()
+        except Exception:  # noqa: BLE001
+            return {"bandit_router_enabled": False}
 
     def _bregman_price_parse_census(self, records: list) -> dict:
         """ONE canonical-parser price census over the raw records (read-only). Counts

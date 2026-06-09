@@ -878,6 +878,22 @@ def generate_report(
     # TAIL (ABCAS scanner path) so the light report never claims zero malformed groups
     # while tail samples show them. Labels them by source; never contradictory.
     _reconcile_malformed_groups(status, data_dir)
+    # Shadow-label durability proof: count durable shadow_labels.jsonl rows so the
+    # report can prove shadow candidates are actually persisted (not just counted).
+    try:
+        _sl_rows = 0
+        if data_dir:
+            _slp = Path(data_dir) / "training" / "shadow_labels.jsonl"
+            if _slp.exists():
+                _sl_rows = sum(1 for ln in _slp.read_text(encoding="utf-8").splitlines()
+                               if ln.strip())
+        _bfn = status.setdefault("bregman_funnel", {})
+        _bfn["shadow_labels_tail_nonempty"] = bool(_sl_rows > 0)
+        _bfn["shadow_records_written"] = max(
+            int(_bfn.get("bregman_shadow_labels_written", 0) or 0), _sl_rows,
+            int((status.get("closed_loop_learning", {}) or {}).get("shadow_records_written", 0) or 0))
+    except Exception:  # noqa: BLE001
+        pass
     # Known-good synthetic fixture proof (isolated certifier; default gates; never
     # live, never touches real metrics) — proves real candidates=0 is a DATA problem.
     try:
@@ -1921,6 +1937,32 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
                       "synthetic_fixture_contaminated_real_metrics"):
                 if k in sf:
                     L.append(f"- {k}: {sf.get(k)}")
+        # 11f. profit-discovery: durable shadow labels + queue + bandit (learning-only)
+        L.append("")
+        L.append("### 11f. Profit-Discovery Learning (shadow labels + queue + bandit)")
+        L.append("")
+        cll = status.get("closed_loop_learning", {}) or {}
+        L.append(f"- bregman_shadow_label_candidates: {_bf.get('bregman_shadow_label_candidates', 0)}")
+        L.append(f"- bregman_shadow_labels_written: {_bf.get('bregman_shadow_labels_written', 0)}")
+        L.append(f"- bregman_shadow_label_write_rate: {_bf.get('bregman_shadow_label_write_rate', 0.0)}")
+        L.append(f"- shadow_records_written: "
+                 f"{_bf.get('shadow_records_written', cll.get('shadow_records_written', 0))}")
+        L.append(f"- shadow_labels_tail_nonempty: {bool(_bf.get('shadow_labels_tail_nonempty', False))}")
+        if _bf.get("shadow_label_write_rejection_reasons"):
+            L.append(f"- shadow_label_write_rejection_reasons: "
+                     f"{_bf.get('shadow_label_write_rejection_reasons')}")
+        L.append(f"- profit_discovery_queue_items: {_bf.get('profit_discovery_queue_items', 0)}")
+        L.append(f"- profit_discovery_queue_by_priority: "
+                 f"{_bf.get('profit_discovery_queue_by_priority', {})}")
+        L.append(f"- profit_learning_status: {_bf.get('profit_learning_status')}")
+        L.append(f"- profit_data_sufficiency: {_bf.get('profit_data_sufficiency')}")
+        if _bf.get("shadow_label_writer_blocker"):
+            L.append(f"- BLOCKER: {_bf.get('shadow_label_writer_blocker')}")
+        L.append(f"- bandit_router_enabled: {_bf.get('bandit_router_enabled', False)}")
+        L.append(f"- bandit_action_counts: {_bf.get('bandit_action_counts', {})}")
+        L.append(f"- bandit_action_rewards: {_bf.get('bandit_action_rewards', {})}")
+        L.append(f"- bandit_selected_action: {_bf.get('bandit_selected_action')}")
+        L.append(f"- bandit_no_gate_override: {_bf.get('bandit_no_gate_override', True)}")
     L.append("")
     L.append("## 12. Paper Training Metrics")
     L.append("")

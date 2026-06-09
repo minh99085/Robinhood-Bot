@@ -279,8 +279,30 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
     # path does not expose an explicit scanned count, derive it from adapter success
     # (avoids the false "discovered>0 but scanned=0" silent-zero contradiction).
     sent_to_certifier = scanned or adapter_success
+    # profit-learning status (learning-only; never trade PnL):
+    _sl_written = _i("bregman_shadow_labels_written")
+    _sl_cand = _i("bregman_shadow_label_candidates", "near_miss_shadow_label_candidate_count")
+    _bundles = _i("opened_bregman_bundles", "bundles_opened")
+    if _sl_cand > 0 and _sl_written == 0:
+        _profit_status = "shadow_writer_not_persisting_candidates"
+    elif _sl_written > 0 and _bundles == 0:
+        _profit_status = "shadow_data_only"          # learning from shadows, 0 real trades
+    elif _sl_written > 0 and _bundles > 0:
+        _profit_status = "shadow_and_paper_trades"
+    elif _sl_cand == 0:
+        _profit_status = "no_near_miss_signal_yet"
+    else:
+        _profit_status = "idle"
+    _profit_sufficiency = ("sufficient" if _sl_written >= 200 else
+                           "building" if _sl_written >= 50 else
+                           "insufficient")
+    _writer_blocker = ("shadow_label_writer_not_persisting_candidates"
+                       if (_sl_cand > 0 and _sl_written == 0) else None)
     return {
         "market_group_candidates": int(market_groups_detected or (discovered + skipped)),
+        "profit_learning_status": _profit_status,
+        "profit_data_sufficiency": _profit_sufficiency,
+        "shadow_label_writer_blocker": _writer_blocker,
         "raw_groups_discovered": discovered,
         "groups_rejected_pre_adapter": pre_adapter,
         "groups_adapter_success": adapter_success,
@@ -313,6 +335,23 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
             t.get("near_miss_learning_label_counts", {}) or {}),
         "near_miss_top_learning_priority": list(
             t.get("near_miss_top_learning_priority", []) or []),
+        # profit-discovery: durable shadow labels + queue + bandit (learning-only)
+        "bregman_shadow_label_candidates": _i("bregman_shadow_label_candidates"),
+        "bregman_shadow_labels_written": _i("bregman_shadow_labels_written"),
+        "bregman_shadow_label_write_rate": float(
+            t.get("bregman_shadow_label_write_rate", 0.0) or 0.0),
+        "shadow_label_write_rejection_reasons": dict(
+            t.get("shadow_label_write_rejection_reasons", {}) or {}),
+        "profit_discovery_queue_items": _i("profit_discovery_queue_items"),
+        "profit_discovery_queue_by_priority": dict(
+            t.get("profit_discovery_queue_by_priority", {}) or {}),
+        "profit_discovery_queue_actions": dict(
+            t.get("profit_discovery_queue_actions", {}) or {}),
+        "bandit_router_enabled": bool(t.get("bandit_router_enabled", False)),
+        "bandit_action_counts": dict(t.get("bandit_action_counts", {}) or {}),
+        "bandit_action_rewards": dict(t.get("bandit_action_rewards", {}) or {}),
+        "bandit_selected_action": t.get("bandit_selected_action"),
+        "bandit_no_gate_override": bool(t.get("bandit_no_gate_override", True)),
         "near_miss_buckets": dict(t.get("near_miss_buckets", {}) or {}),
         "near_miss_all_negative_after_cost_lower_bound": bool(
             t.get("near_miss_all_negative_after_cost_lower_bound", False)),
