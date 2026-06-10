@@ -344,6 +344,36 @@ def test_cooldown_metrics_reconcile():
 
 
 # --- trainer integration: telemetry + no gate change ----------------------- #
+def test_live_trainer_path_populates_binary_metrics_from_bregman(tmp_path, monkeypatch):
+    """End-to-end LIVE path: scan_bregman() -> _run_targeted_scan(bregman_groups=...) ->
+    bregman_exec_metrics. Proves binary metrics come from Bregman-normalized groups
+    (the user's exact bug: 'binaries seen=0' while Bregman has binary_yes_no groups)."""
+    from engine.training import PolymarketPaperTrainer, TrainingConfig
+    from engine.markets.universe_manager import MarketRecord
+    from tests._pmtrain_helpers import clean_live_env
+    clean_live_env(monkeypatch, tmp_path)
+    t = PolymarketPaperTrainer(TrainingConfig(mode="paper_train"), data_dir=tmp_path)
+    now = time.time()
+    recs = [MarketRecord.from_raw(
+        {"id": f"m{i}", "question": f"Will event {i} happen?",
+         "outcomes": json.dumps(["Yes", "No"]),
+         "outcomePrices": json.dumps(["0.5", "0.49"]), "clobTokenIds": [f"m{i}Y", f"m{i}N"],
+         "bestBid": "0.5", "bestAsk": "0.51", "topDepthUsd": "5",
+         "bookUpdatedTs": str(now - 5), "liquidityNum": "8000"}, now=now) for i in range(6)]
+    t.closed_loop.begin_tick()
+    t.scan_bregman(recs, now=now)                  # the LIVE path
+    bx = t.bregman_exec_metrics
+    assert bx["bregman_near_misses_total"] >= 6
+    # binary metrics MUST be populated from Bregman-normalized groups (never 0)
+    assert bx["targeted_scan_bregman_groups_seen"] >= 6
+    assert bx["targeted_scan_binary_groups_seen"] >= 6     # was 'binaries seen=0'
+    assert bx["targeted_scan_yes_no_pairs_seen"] >= 6
+    assert bx["complete_yes_no_tight_spread_markets_scanned"] >= 6
+    # thin markets -> high_liquidity_binary may be 0, but the EXACT blocker is proven
+    assert bx["targeted_scan_normalized_reject_reasons"].get("depth_too_thin", 0) >= 1
+    assert bx["targeted_scan_field_source"].startswith("bregman_normalized_groups")
+
+
 def test_trainer_targeted_scan_metrics_and_no_trade(tmp_path, monkeypatch):
     from engine.training import PolymarketPaperTrainer, TrainingConfig
     from engine.markets.universe_manager import MarketRecord
