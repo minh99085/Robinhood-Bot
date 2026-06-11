@@ -173,6 +173,17 @@ class PaperBroker:
         return {"orders": self.orders, "fills": self.fills, "rejects": self.rejects}
 
 
+def _micro_depth_cfg(base, min_depth: float):
+    """A read-only proxy of ``base`` cfg with ONLY ``min_depth_at_price`` lowered (for
+    the $1-capped micro-exploration path). Every other gate/threshold is unchanged."""
+    class _MicroDepthCfg:
+        def __getattr__(self, k):
+            if k == "min_depth_at_price":
+                return float(min_depth)
+            return getattr(base, k)
+    return _MicroDepthCfg()
+
+
 @dataclass
 class PaperPosition:
     proposal_id: str
@@ -350,6 +361,13 @@ class PolymarketPaperTrainer:
         from .paper_execution import PaperExecutionPolicy
         self.paper_exec_policy = PaperExecutionPolicy(self.cfg, bregman=False)
         self.bregman_exec_policy = PaperExecutionPolicy(self.cfg, bregman=True)
+        # Micro-exploration execution policy: identical to the Bregman policy EXCEPT a
+        # relaxed depth floor (justified by the hard <=$1 notional cap). It keeps every
+        # other gate (stale/missing-ask/reference/ambiguity/spread/closed) unchanged.
+        self.bregman_micro_exec_policy = PaperExecutionPolicy(
+            _micro_depth_cfg(self.cfg,
+                             float(getattr(self.cfg, "paper_micro_exploration_min_depth_usd", 1.0))),
+            bregman=True)
 
         # idempotent SQLite training store (own DB file; never wipes engine tables)
         self.tstore = None
@@ -478,7 +496,15 @@ class PolymarketPaperTrainer:
                                                     default_clob_book_fetcher)
         self._bregman_clob_hydrator = BregmanClobHydrator(
             book_fetcher=default_clob_book_fetcher(),
-            max_book_age_s=float(getattr(self.cfg, "bregman_max_book_age_sec", 20.0) or 20.0))
+            max_book_age_s=float(getattr(self.cfg, "bregman_max_book_age_sec", 20.0) or 20.0),
+            max_groups_per_tick=int(getattr(self.cfg, "bregman_clob_hydration_max_groups", 120)))
+        # hydrated groups from the latest scan (reused by paper micro-exploration)
+        self._bregman_hydrated_groups: list = []
+        # paper micro-exploration state (PAPER ONLY; see _run_micro_exploration)
+        self._micro_exploration_trades_total = 0
+        self._micro_exploration_reject_reasons: dict = {}
+        self._micro_exploration_candidates_total = 0
+        self._micro_engine = None
         # profit-discovery: persist Bregman shadow-label candidates as durable
         # LEARNING-ONLY shadow labels (rate-limited, deduped) + a contextual-bandit
         # learning router. Never trades / sizes / bypasses a gate.
@@ -550,7 +576,7 @@ class PolymarketPaperTrainer:
             "stale_book_rejection_count": 0, "missing_ask_rejection_count": 0,
             "thin_depth_rejection_count": 0, "wide_spread_rejection_count": 0,
             "ambiguity_rejection_count": 0, "reference_fill_blocked_count": 0,
-            "hard_reject_count": 0,
+            "hard_reject_count": 0, "paper_micro_exploration_trades": 0,
         }
         self.started_ts = time.time()
         # final monitoring + kill-switch state (PAPER ONLY). Aggressive mode
@@ -714,6 +740,7 @@ class PolymarketPaperTrainer:
             self.experiments.begin_tick(alloc)
             bregman_opened = self._open_bregman_sets(
                 tradable, self._bregman_records, now, cap=alloc.get(BREGMAN_VARIANT))
+            bregman_opened += self._run_micro_exploration(self._bregman_records, now)
         else:
             bregman_opened = self._run_bregman(self._bregman_records, now)
         opened += bregman_opened
@@ -768,7 +795,7 @@ class PolymarketPaperTrainer:
     # -- flagship Bregman arbitrage -----------------------------------------
     def enable_clob_hydration(self, book_fetcher=None, *,
                               max_book_age_s: float = None,
-                              max_groups_per_tick: int = 40) -> bool:
+                              max_groups_per_tick: int = None) -> bool:
         """Attach a READ-ONLY CLOB order-book fetcher so Bregman binary groups are
         hydrated with real YES/NO books before certification. Called by the paper
         entrypoint when CLOB read-only is enabled; tests inject a mock fetcher. When
@@ -779,9 +806,10 @@ class PolymarketPaperTrainer:
         fetcher = book_fetcher if book_fetcher is not None else clob_book_fetcher()
         age = float(max_book_age_s if max_book_age_s is not None
                     else getattr(self.cfg, "bregman_max_book_age_sec", 20.0) or 20.0)
+        cap = int(max_groups_per_tick if max_groups_per_tick is not None
+                  else getattr(self.cfg, "bregman_clob_hydration_max_groups", 120))
         self._bregman_clob_hydrator = BregmanClobHydrator(
-            book_fetcher=fetcher, max_book_age_s=age,
-            max_groups_per_tick=int(max_groups_per_tick))
+            book_fetcher=fetcher, max_book_age_s=age, max_groups_per_tick=cap)
         return self._bregman_clob_hydrator.enabled
 
     def scan_bregman(self, records: list, now: float) -> list:
@@ -961,6 +989,9 @@ class PolymarketPaperTrainer:
             **nx_tel,
             **hydration_tel,
         }
+        # cache the hydrated groups so paper micro-exploration can re-certify them
+        # with a relaxed-depth profile (real books already filled in).
+        self._bregman_hydrated_groups = groups
         return certs
 
     def _run_targeted_scan(self, records: list, near_misses: list, now: float) -> dict:
@@ -1578,14 +1609,139 @@ class PolymarketPaperTrainer:
 
     def _run_bregman(self, records: list, now: float) -> int:
         tradable = self._bregman_tradable(records, now)
-        return self._open_bregman_sets(tradable, records, now, cap=None)
+        opened = self._open_bregman_sets(tradable, records, now, cap=None)
+        opened += self._run_micro_exploration(records, now)
+        return opened
+
+    # ---- paper micro-exploration (PAPER ONLY) ------------------------------
+    def _micro_certifier(self):
+        """A second Bregman certifier with a RELAXED depth floor (because each paper
+        trade is hard-capped at <= $1 notional). It keeps EVERY other hard gate
+        (missing-ask, stale, market-closed, tick, chainlink, ambiguity, spread, and
+        positive-after-cost edge). Synthetic-NO bundles are blocked at open."""
+        if self._micro_engine is not None:
+            return self._micro_engine
+        from engine.training.bregman_execution import BregmanArbitrageEngine
+        micro_depth = float(getattr(self.cfg, "paper_micro_exploration_min_depth_usd", 1.0))
+        self._micro_engine = BregmanArbitrageEngine(cfg=_micro_depth_cfg(self.cfg, micro_depth))
+        return self._micro_engine
+
+    def _run_micro_exploration(self, records: list, now: float) -> int:
+        """Paper-only: take a tiny ($1-capped) REAL-book paper trade when a positive
+        after-cost edge exists but is below the full readiness margin. Never trades a
+        synthetic-NO/stale/missing-ask/reference/negative-edge group, never enables
+        live trading, and tags trades as exploration (excluded from readiness PnL).
+        Returns the number of micro trades opened this tick."""
+        cfg = self.cfg
+        enabled = bool(getattr(cfg, "paper_micro_exploration_enabled", False))
+        # PAPER ONLY: only ever runs in paper_train with Bregman execution on.
+        paper_ok = (self.mode == "paper_train"
+                    and bool(getattr(cfg, "bregman_execution_enabled", True)))
+        max_trades = int(getattr(cfg, "paper_micro_exploration_max_trades", 5))
+        groups = list(self._bregman_hydrated_groups or [])
+        remaining = max_trades - self._micro_exploration_trades_total
+        candidates: list = []
+        micro_certs: list = []
+        if enabled and paper_ok and groups and remaining > 0:
+            micro_certs = self._micro_certifier().certify_all(groups)
+            opened_gids = {p.group_key for p in self.positions
+                           if getattr(p, "strategy", "") == "bregman"}
+            for g, c in zip(groups, micro_certs):
+                synthetic = bool(getattr(c, "has_synthetic_leg", False))
+                # MUST use REAL CLOB books: every leg has to have been hydrated from the
+                # live order book (excludes synthetic/derived/reference-only groups).
+                real_clob = bool(getattr(g, "legs", None)) and all(
+                    bool(getattr(l, "hydrated_from_clob", False)) for l in g.legs)
+                if (c.is_opportunity and not synthetic and real_clob
+                        and c.group_id not in opened_gids):
+                    candidates.append(c)
+                else:
+                    reason = ("synthetic_no_diagnostic_only" if synthetic
+                              else "not_real_clob_book" if not real_clob
+                              else "already_open_full_bundle" if c.group_id in opened_gids
+                              else (c.no_trade_reason or "not_certified"))
+                    self._micro_exploration_reject_reasons[reason] = \
+                        self._micro_exploration_reject_reasons.get(reason, 0) + 1
+            candidates.sort(key=lambda c: float(getattr(c, "profit_lower_bound", 0.0)),
+                            reverse=True)
+        self._micro_exploration_candidates_total += len(candidates)
+
+        opened = 0
+        rec_by_id = {r.market_id: r for r in records}
+        notional_cap = float(getattr(cfg, "paper_micro_exploration_max_notional_usd", 1.0))
+        for c in candidates:
+            if self._micro_exploration_trades_total >= max_trades:
+                break
+            if self._open_bregman(c, rec_by_id, now, exploration=True,
+                                  notional_cap=notional_cap):
+                opened += 1
+            else:
+                self._micro_exploration_reject_reasons["open_rejected"] = \
+                    self._micro_exploration_reject_reasons.get("open_rejected", 0) + 1
+
+        hydrated_positive = sum(
+            1 for g, c in zip(groups, micro_certs)
+            if c.is_opportunity and not bool(getattr(c, "has_synthetic_leg", False))
+            and bool(getattr(g, "legs", None))
+            and all(bool(getattr(l, "hydrated_from_clob", False)) for l in g.legs))
+        best_edge = max(
+            (float(c.certify_diagnostics.get("projected_profit_lower_bound", 0.0))
+             for c in micro_certs if getattr(c, "certify_diagnostics", None)),
+            default=0.0)
+        self._update_micro_metrics(enabled=enabled, hydrated_positive=hydrated_positive,
+                                   best_edge=best_edge)
+        return opened
+
+    def _update_micro_metrics(self, *, enabled: bool, hydrated_positive: int = 0,
+                              best_edge: float = 0.0) -> None:
+        """Surface paper-pressure + micro-exploration metrics (and an exact
+        zero-trade blocker) into the Bregman execution funnel."""
+        m = self.bregman_exec_metrics
+        if not isinstance(m, dict):
+            return
+        realistic_total = int(self.realism_counts.get("realistic_trade_count", 0))
+        micro_total = int(self._micro_exploration_trades_total)
+        m["paper_trade_pressure_enabled"] = bool(
+            getattr(self.cfg, "paper_trade_pressure_enabled", False))
+        m["paper_micro_exploration_enabled"] = bool(enabled)
+        m["paper_micro_exploration_candidates"] = int(self._micro_exploration_candidates_total)
+        m["paper_micro_exploration_trades"] = micro_total
+        m["paper_micro_exploration_reject_reasons"] = dict(self._micro_exploration_reject_reasons)
+        m["hydrated_positive_after_cost_candidates"] = int(hydrated_positive)
+        m["realistic_trade_goal_met_11h"] = bool(realistic_total >= 1)
+        if realistic_total >= 1 or micro_total >= 1:
+            m["zero_trade_blocker_if_any"] = ""
+        else:
+            # prefer the micro-exploration path's own reasons (most relevant to why no
+            # $1 paper trade opened); fall back to the strict certifier's reasons.
+            reasons = self._micro_exploration_reject_reasons or self.bregman_reject_reasons or {}
+            dominant = max(reasons.items(), key=lambda kv: kv[1])[0] if reasons else "none"
+            att = int(m.get("bregman_clob_hydration_attempted", 0))
+            rb = int(m.get("bregman_real_yes_no_books_seen", 0))
+            if hydrated_positive <= 0:
+                m["zero_trade_blocker_if_any"] = (
+                    f"no_positive_after_cost_real_book_opportunity: "
+                    f"best_after_cost_edge={round(best_edge, 4)}; "
+                    f"dominant_reject={dominant}; "
+                    f"hydration_attempted={att}; real_yes_no_books={rb}")
+            else:
+                m["zero_trade_blocker_if_any"] = (
+                    f"micro_candidates_found_but_unfilled: "
+                    f"{dict(self._micro_exploration_reject_reasons)}")
 
     def _open_bregman(self, opp: CertifiedBregmanOpportunity, rec_by_id: dict,
-                      now: float) -> bool:
+                      now: float, *, exploration: bool = False,
+                      notional_cap: float = None) -> bool:
         """Open a fully-hedged Bregman set in PAPER. Every leg routes through the
         deterministic RiskEngine FIRST; the set is placed only if ALL legs are
         approved and fill — never leaving partial, un-hedged exposure. PAPER
-        ONLY: no real orders, no signing, no live submit."""
+        ONLY: no real orders, no signing, no live submit.
+
+        When ``exploration`` is set, the bundle is a paper MICRO-exploration trade:
+        per-leg notional is capped to ``notional_cap``/n_legs (bundle <= $1), the
+        positions are tagged ``exploration=True`` (excluded from readiness PnL), and
+        ALL hard realism gates still apply (stale/missing-ask/reference/synthetic are
+        rejected upstream; the broker still enforces fresh-book fills)."""
         legs = opp.legs
         recs = [rec_by_id.get(l.market_id) for l in legs]
         if any(r is None for r in recs):
@@ -1614,14 +1770,20 @@ class PolymarketPaperTrainer:
                 tick_size=float(getattr(r, "tick_size", 0.0) or 0.0),
                 gross_edge=None, is_bregman_leg=True)
             self.realism_counts["candidates_considered"] += 1
-            d = self.bregman_exec_policy.evaluate(ctx)
+            policy = self.bregman_micro_exec_policy if exploration else self.bregman_exec_policy
+            d = policy.evaluate(ctx)
             self._tally_realism(d)
             if not d.allow_executable_trade:
                 self.bregman_rejected += 1
                 self._breg_reason(bregman_leg_reason(d.reason))
                 return False
             leg_realism.append(d)
-        cap = float(self.cfg.max_order_notional_usd)
+        if exploration:
+            # hard $1-per-bundle cap split across legs (never exceeds max_order_notional)
+            per_leg = float(notional_cap or 0.0) / max(1, len(legs))
+            cap = min(float(self.cfg.max_order_notional_usd), per_leg)
+        else:
+            cap = float(self.cfg.max_order_notional_usd)
         proposals: list = []
         for l in legs:
             notional = min(cap, max(0.0, l.executable_price * l.quantity))
@@ -1698,8 +1860,9 @@ class PolymarketPaperTrainer:
                 liquidity=float(getattr(rec, "liquidity_usd", 0.0) or 0.0),
                 open_tick=self.tick_count, yes_price_entry=fill["fill_price"],
                 executable_price_entry=fill["fill_price"], p_market_entry=fill["fill_price"],
-                strategy="bregman", mark=fill["fill_price"],
-                experiment_id=self.experiments.experiment_id, strategy_variant=BREGMAN_VARIANT,
+                strategy="bregman", mark=fill["fill_price"], exploration=bool(exploration),
+                experiment_id=self.experiments.experiment_id,
+                strategy_variant=("bregman_micro_exploration" if exploration else BREGMAN_VARIANT),
                 execution_realism_status=lr.execution_realism_status,
                 fill_source=lr.fill_source, book_source=lr.book_source,
                 price_source=lr.price_source,
@@ -1720,6 +1883,10 @@ class PolymarketPaperTrainer:
                 "asset_id": p.asset_id, "outcome": p.outcome,
                 "price": fill["fill_price"], "qty": fill["fill_qty"],
                 "notional": fill["notional"], "tick": self.tick_count})
+        if exploration:
+            self._micro_exploration_trades_total += 1
+            self.realism_counts["paper_micro_exploration_trades"] = (
+                self.realism_counts.get("paper_micro_exploration_trades", 0) + 1)
         self.bregman_sets_opened += 1
         self.experiments.record_trade(BREGMAN_VARIANT, notional=bundle_notional)
         self.experiments.record_fill(BREGMAN_VARIANT, filled=True)

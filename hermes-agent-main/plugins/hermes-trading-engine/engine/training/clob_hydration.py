@@ -115,23 +115,64 @@ class BregmanClobHydrator:
             leg.stale = not leg.fresh_book
         return True, None
 
-    @staticmethod
-    def _binary_first(groups: list) -> list:
-        """Order groups so binary YES/NO (the targeted-scan hydration target) are
-        hydrated FIRST within the per-tick budget. Selection-only; no gate change."""
-        binary, other = [], []
-        for g in (groups or []):
-            (binary if getattr(g, "group_type", "") == "binary_yes_no" else other).append(g)
-        return binary + other
+    # depth/spread heuristics for category-aware hydration priority (selection-only)
+    HIGH_LIQUIDITY_DEPTH_USD = 100.0
+    TIGHT_SPREAD = 0.05
+
+    @classmethod
+    def _has_real_tokens(cls, group) -> bool:
+        """A group is hydration-ELIGIBLE only if at least one leg carries a real CLOB
+        token id (not the synthetic ``<market>:YES`` placeholder)."""
+        for leg in (getattr(group, "legs", None) or []):
+            tok = str(getattr(leg, "token_id", "") or "")
+            if tok and not (":" in tok and tok.split(":")[-1] in ("YES", "NO")):
+                return True
+        return False
+
+    @classmethod
+    def _priority_bucket(cls, group) -> int:
+        """Lower = hydrate first. 0 = high_liquidity_binary, 1 =
+        complete_yes_no_tight_spread, 2 = other binary, 3 = everything else."""
+        gtype = getattr(group, "group_type", "")
+        is_binary = gtype == "binary_yes_no"
+        legs = list(getattr(group, "legs", None) or [])
+        if not legs:
+            return 3
+        def _depth(l):
+            return float(getattr(l, "visible_ask_depth_usd", None)
+                         or getattr(l, "depth_usd", 0.0) or 0.0)
+        def _fresh(l):
+            return bool(getattr(l, "fresh_book", True)) and not bool(getattr(l, "stale", False))
+        def _tight(l):
+            sp = getattr(l, "spread", None)
+            return sp is None or float(sp) <= cls.TIGHT_SPREAD
+        deep = all(_depth(l) >= cls.HIGH_LIQUIDITY_DEPTH_USD for l in legs)
+        fresh = all(_fresh(l) for l in legs)
+        tight = all(_tight(l) for l in legs)
+        if is_binary and deep and fresh and tight:
+            return 0                              # high_liquidity_binary
+        if (is_binary or gtype in ("yes_no", "event_complete")) and tight and fresh:
+            return 1                              # complete_yes_no_tight_spread
+        if is_binary:
+            return 2
+        return 3
+
+    @classmethod
+    def _prioritize(cls, groups: list) -> list:
+        """Order groups: high_liquidity_binary first, then complete_yes_no_tight_spread,
+        then other binaries, then the rest. Selection-only; no gate change."""
+        return sorted(list(groups or []), key=cls._priority_bucket)
 
     def hydrate(self, groups: list, *, now: Optional[float] = None) -> dict:
-        """Hydrate up to ``max_groups_per_tick`` groups with real CLOB books (binary
-        YES/NO groups first). Returns metrics. On any leg failure the group's leg keeps
-        its synthetic price and is flagged so the certifier treats it as
-        diagnostic/shadow only."""
+        """Hydrate up to ``max_groups_per_tick`` groups with real CLOB books, in
+        category priority (high_liquidity_binary -> complete_yes_no_tight_spread ->
+        other). Returns metrics incl. eligible/selected/coverage. On any leg failure the
+        group's leg keeps its synthetic price and is flagged diagnostic/shadow only."""
         now = float(now if now is not None else self._clock())
         attempted = success = failed = real_books = synthetic_only = 0
         failure_reasons: dict = {}
+        eligible = [g for g in (groups or []) if self._has_real_tokens(g)]
+        eligible_n = len(eligible)
         if not self.enabled:
             return {
                 "bregman_clob_hydration_enabled": False,
@@ -142,8 +183,12 @@ class BregmanClobHydrator:
                 "bregman_synthetic_no_diagnostic_only_count": 0,
                 "bregman_certifier_used_real_clob_books": False,
                 "bregman_hydration_failure_reasons": {},
+                "bregman_clob_hydration_eligible_groups": eligible_n,
+                "bregman_clob_hydration_selected_groups": 0,
+                "bregman_clob_hydration_coverage_rate": 0.0,
             }
-        for g in self._binary_first(groups)[: self.max_groups_per_tick]:
+        selected = self._prioritize(eligible)[: self.max_groups_per_tick]
+        for g in selected:
             legs = list(getattr(g, "legs", None) or [])
             if not legs:
                 continue
@@ -164,6 +209,7 @@ class BregmanClobHydrator:
                 # any leg still synthetic -> the group is diagnostic/shadow only
                 if any(getattr(l, "synthetic_price", False) for l in legs):
                     synthetic_only += 1
+        selected_n = len(selected)
         return {
             "bregman_clob_hydration_enabled": True,
             "bregman_clob_hydration_attempted": attempted,
@@ -173,6 +219,10 @@ class BregmanClobHydrator:
             "bregman_synthetic_no_diagnostic_only_count": synthetic_only,
             "bregman_certifier_used_real_clob_books": bool(success > 0),
             "bregman_hydration_failure_reasons": failure_reasons,
+            "bregman_clob_hydration_eligible_groups": eligible_n,
+            "bregman_clob_hydration_selected_groups": selected_n,
+            "bregman_clob_hydration_coverage_rate": (
+                round(selected_n / eligible_n, 4) if eligible_n else 0.0),
         }
 
 

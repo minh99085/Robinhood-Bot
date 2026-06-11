@@ -365,6 +365,13 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
             "bregman_clob_hydration_success", "bregman_clob_hydration_failed",
             "bregman_real_yes_no_books_seen", "bregman_synthetic_no_diagnostic_only_count",
             "bregman_certifier_used_real_clob_books", "bregman_hydration_failure_reasons",
+            "bregman_clob_hydration_eligible_groups", "bregman_clob_hydration_selected_groups",
+            "bregman_clob_hydration_coverage_rate",
+            # paper trade pressure + micro-exploration proof
+            "paper_trade_pressure_enabled", "paper_micro_exploration_enabled",
+            "paper_micro_exploration_candidates", "paper_micro_exploration_trades",
+            "paper_micro_exploration_reject_reasons", "hydrated_positive_after_cost_candidates",
+            "realistic_trade_goal_met_11h", "zero_trade_blocker_if_any",
             "targeted_scan_budget_by_category", "targeted_scan_hits_by_category",
             "targeted_scan_markets_by_category", "market_quality_tier_counts",
             "market_quality_score_distribution", "high_liquidity_binary_markets_scanned",

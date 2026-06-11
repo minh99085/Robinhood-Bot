@@ -311,6 +311,21 @@ class TrainingConfig:
     bregman_min_after_cost_roi: float = 0.002
     bregman_profit_sort_weight: float = 1.0
     bregman_risk_penalty_weight: float = 0.5
+    # ---- paper trade pressure + micro-exploration (PAPER ONLY) ----
+    # Pressure raises the read-only opportunity surface (hydration coverage + learning
+    # samples). It NEVER loosens stale/missing-ask/synthetic-NO/reference/negative-edge
+    # protections or enables live trading.
+    paper_trade_pressure_enabled: bool = True
+    # CLOB hydration per-tick cap (was hard-coded 40). Higher => more real YES/NO books.
+    bregman_clob_hydration_max_groups: int = 120
+    # Paper-only micro-exploration: take a tiny ($1-capped) REAL-book paper trade when a
+    # positive after-cost edge exists but is below the full readiness margin. All hard
+    # realism gates still apply; trades are tagged exploration (excluded from readiness
+    # PnL). It can never trade a synthetic-NO/stale/missing-ask/reference/negative-edge.
+    paper_micro_exploration_enabled: bool = True
+    paper_micro_exploration_max_notional_usd: float = 1.0   # per bundle (hard cap)
+    paper_micro_exploration_max_trades: int = 5             # per run (~11h)
+    paper_micro_exploration_min_depth_usd: float = 1.0      # smaller ONLY due to $1 cap
     # ---- portfolio risk + aggressive sizing (PAPER ONLY; hard-clamped) ----
     # Additive caps that only ever TIGHTEN the mandatory TrainingRiskGate/RiskEngine.
     max_event_exposure_usd: float = 20.0
@@ -573,6 +588,21 @@ class TrainingConfig:
     def __post_init__(self):
         if self.mode not in MODES:
             self.mode = "observe_only"
+        # Paper micro-exploration HARD safety clamps (can never exceed the documented
+        # caps even if overridden): notional <= $1.00, <= 5 trades / run, depth >= 0.
+        self.paper_micro_exploration_max_notional_usd = max(
+            0.0, min(1.0, float(self.paper_micro_exploration_max_notional_usd)))
+        self.paper_micro_exploration_max_trades = max(
+            0, min(5, int(self.paper_micro_exploration_max_trades)))
+        self.paper_micro_exploration_min_depth_usd = max(
+            0.0, float(self.paper_micro_exploration_min_depth_usd))
+        self.bregman_clob_hydration_max_groups = max(
+            1, int(self.bregman_clob_hydration_max_groups))
+        # Trade pressure: raise the READ-ONLY learning/opportunity surface (more shadow
+        # samples + near-misses surfaced). Never loosens a gate or enables live trading.
+        if bool(self.paper_trade_pressure_enabled):
+            self.bregman_shadow_labels_per_tick = max(self.bregman_shadow_labels_per_tick, 50)
+            self.bregman_top_near_misses = max(self.bregman_top_near_misses, 25)
         # Algorithm-freeze (campaign) mode: evidence quality over new code. It can
         # NEVER promote production-like parameters and NEVER touches a live flag.
         if bool(self.algorithm_freeze_mode):
@@ -947,6 +977,15 @@ class TrainingConfig:
             bregman_near_miss_store_cap=_envi("POLYMARKET_BREGMAN_NEAR_MISS_STORE_CAP", 1000),
             bregman_top_near_misses=_envi("POLYMARKET_BREGMAN_TOP_NEAR_MISSES", 10),
             bregman_shadow_labels_per_tick=_envi("POLYMARKET_BREGMAN_SHADOW_LABELS_PER_TICK", 25),
+            paper_trade_pressure_enabled=_envb("POLYMARKET_PAPER_TRADE_PRESSURE_ENABLED", True),
+            bregman_clob_hydration_max_groups=_envi("POLYMARKET_BREGMAN_CLOB_HYDRATION_MAX_GROUPS", 120),
+            paper_micro_exploration_enabled=_envb("POLYMARKET_PAPER_MICRO_EXPLORATION_ENABLED", True),
+            paper_micro_exploration_max_notional_usd=_envf(
+                "POLYMARKET_PAPER_MICRO_EXPLORATION_MAX_NOTIONAL_USD", 1.0),
+            paper_micro_exploration_max_trades=_envi(
+                "POLYMARKET_PAPER_MICRO_EXPLORATION_MAX_TRADES", 5),
+            paper_micro_exploration_min_depth_usd=_envf(
+                "POLYMARKET_PAPER_MICRO_EXPLORATION_MIN_DEPTH_USD", 1.0),
             profit_discovery_bandit_enabled=_envb("POLYMARKET_PROFIT_DISCOVERY_BANDIT_ENABLED", True),
             targeted_market_scan_enabled=_envb("TARGETED_MARKET_SCAN_ENABLED", True),
             targeted_scan_cooldown_ticks=_envi("POLYMARKET_TARGETED_SCAN_COOLDOWN_TICKS", 20),

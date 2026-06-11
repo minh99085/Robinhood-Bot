@@ -1993,6 +1993,24 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
             if _bf.get("bregman_hydration_failure_reasons"):
                 L.append(f"- bregman_hydration_failure_reasons: "
                          f"{_bf.get('bregman_hydration_failure_reasons')}")
+            L.append(f"- bregman_clob_hydration_eligible_groups: "
+                     f"{_bf.get('bregman_clob_hydration_eligible_groups', 0)} "
+                     f"selected={_bf.get('bregman_clob_hydration_selected_groups', 0)} "
+                     f"coverage_rate={_bf.get('bregman_clob_hydration_coverage_rate', 0.0)}")
+            # paper trade pressure + micro-exploration
+            L.append(f"- paper_trade_pressure_enabled: {_bf.get('paper_trade_pressure_enabled', False)}")
+            L.append(f"- paper_micro_exploration_enabled: {_bf.get('paper_micro_exploration_enabled', False)}")
+            L.append(f"- paper_micro_exploration_candidates: "
+                     f"{_bf.get('paper_micro_exploration_candidates', 0)} "
+                     f"trades={_bf.get('paper_micro_exploration_trades', 0)}")
+            L.append(f"- hydrated_positive_after_cost_candidates: "
+                     f"{_bf.get('hydrated_positive_after_cost_candidates', 0)}")
+            L.append(f"- realistic_trade_goal_met_11h: {_bf.get('realistic_trade_goal_met_11h', False)}")
+            if _bf.get("paper_micro_exploration_reject_reasons"):
+                L.append(f"- paper_micro_exploration_reject_reasons: "
+                         f"{_bf.get('paper_micro_exploration_reject_reasons')}")
+            if _bf.get("zero_trade_blocker_if_any"):
+                L.append(f"- zero_trade_blocker_if_any: {_bf.get('zero_trade_blocker_if_any')}")
             L.append(f"- market_quality_tier_counts: {_bf.get('market_quality_tier_counts', {})}")
             L.append(f"- market_quality_score_distribution: {_bf.get('market_quality_score_distribution', {})}")
             L.append(f"- targeted_scan_budget_by_category: {_bf.get('targeted_scan_budget_by_category', {})}")
