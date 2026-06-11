@@ -471,6 +471,14 @@ class PolymarketPaperTrainer:
         # optional read-only book-refresher for promising stale groups (set by the
         # runner when a live book source exists; None => refresh not available).
         self._bregman_book_refresher = None
+        # read-only CLOB orderbook hydrator: fills legs with REAL best bid/ask + depth
+        # before certification so a real NO-token ask replaces the synthetic price.
+        # OFF unless BREGMAN_CLOB_HYDRATION_ENABLED (default fetcher returns None).
+        from engine.training.clob_hydration import (BregmanClobHydrator,
+                                                    default_clob_book_fetcher)
+        self._bregman_clob_hydrator = BregmanClobHydrator(
+            book_fetcher=default_clob_book_fetcher(),
+            max_book_age_s=float(getattr(self.cfg, "bregman_max_book_age_sec", 20.0) or 20.0))
         # profit-discovery: persist Bregman shadow-label candidates as durable
         # LEARNING-ONLY shadow labels (rate-limited, deduped) + a contextual-bandit
         # learning router. Never trades / sizes / bypasses a gate.
@@ -758,6 +766,24 @@ class PolymarketPaperTrainer:
                 "open_positions": len(self.open_positions()), "equity": self.equity()}
 
     # -- flagship Bregman arbitrage -----------------------------------------
+    def enable_clob_hydration(self, book_fetcher=None, *,
+                              max_book_age_s: float = None,
+                              max_groups_per_tick: int = 40) -> bool:
+        """Attach a READ-ONLY CLOB order-book fetcher so Bregman binary groups are
+        hydrated with real YES/NO books before certification. Called by the paper
+        entrypoint when CLOB read-only is enabled; tests inject a mock fetcher. When
+        ``book_fetcher`` is None a public-CLOB ``/book`` fetcher is built. Returns
+        True when hydration is active. PAPER ONLY: read-only, never trades/sizes."""
+        from engine.training.clob_hydration import (BregmanClobHydrator,
+                                                    clob_book_fetcher)
+        fetcher = book_fetcher if book_fetcher is not None else clob_book_fetcher()
+        age = float(max_book_age_s if max_book_age_s is not None
+                    else getattr(self.cfg, "bregman_max_book_age_sec", 20.0) or 20.0)
+        self._bregman_clob_hydrator = BregmanClobHydrator(
+            book_fetcher=fetcher, max_book_age_s=age,
+            max_groups_per_tick=int(max_groups_per_tick))
+        return self._bregman_clob_hydrator.enabled
+
     def scan_bregman(self, records: list, now: float) -> list:
         """Certify Bregman opportunities across the candidate set (read-only).
 
@@ -777,6 +803,13 @@ class PolymarketPaperTrainer:
         # Depth-aware ordering: send better-depth groups to the certifier FIRST.
         # This is selection-only — it does NOT change any depth/spread/freshness gate.
         groups = self._order_groups_by_depth(groups)
+        # READ-ONLY CLOB hydration BEFORE certification: fill legs with REAL best
+        # bid/ask + side depth so the certifier uses a real NO-token ask (synthetic
+        # 1-YES-bid stays diagnostic only). No-op (shadow-only) when no client.
+        try:
+            hydration_tel = self._bregman_clob_hydrator.hydrate(groups, now=now)
+        except Exception:  # noqa: BLE001 — hydration must never break a tick
+            hydration_tel = {"bregman_clob_hydration_enabled": False}
         depth_tel = self._bregman_depth_telemetry(groups)
         stale_tel = self._bregman_refresh_promising(groups, now)
         parse_tel = self._bregman_price_parse_census(records)
@@ -926,6 +959,7 @@ class PolymarketPaperTrainer:
             **bandit_tel,
             **targeted_tel,
             **nx_tel,
+            **hydration_tel,
         }
         return certs
 
@@ -1486,9 +1520,11 @@ class PolymarketPaperTrainer:
             if open_bundles + opened >= max_open:
                 self._breg_reason("max_open_bundles")
                 break
-            # never act on a synthesized leg price (binary NO leg is derived); a
-            # synthetic YES/NO bundle is not all-leg-real-executable.
-            if opp.group_type == "binary_yes_no":
+            # never act on a SYNTHESIZED leg price (derived 1-YES-bid NO leg); such a
+            # bundle is diagnostic/shadow only. A binary whose legs were hydrated with
+            # REAL CLOB books (has_synthetic_leg=False) may proceed, subject to ALL
+            # unchanged strict gates below.
+            if getattr(opp, "has_synthetic_leg", opp.group_type == "binary_yes_no"):
                 self._breg_reason("synthetic_binary_not_executable")
                 continue
             # completeness: only execute a verified mutually-exclusive + exhaustive set.

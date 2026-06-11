@@ -175,6 +175,10 @@ class CertifiedBregmanOpportunity:
     # a structured per-group diagnostic logged EVEN ON REJECT (never silent).
     rejection_stage: str = ""
     certify_diagnostics: dict = field(default_factory=dict)
+    # True when ANY leg uses a SYNTHETIC (derived 1-YES-bid) price -> diagnostic only,
+    # never executable. Real CLOB-hydrated legs set this False so a real binary can
+    # open (subject to all unchanged strict gates).
+    has_synthetic_leg: bool = False
 
     @property
     def is_opportunity(self) -> bool:
@@ -201,6 +205,7 @@ class CertifiedBregmanOpportunity:
             "sets": round(self.sets, 6), "is_opportunity": self.is_opportunity,
             "rejection_stage": self.rejection_stage,
             "certify_diagnostics": dict(self.certify_diagnostics),
+            "has_synthetic_leg": self.has_synthetic_leg,
             "certificate": self.certificate.to_dict() if self.certificate else None,
         }
 
@@ -449,6 +454,7 @@ class BregmanArbitrageEngine:
                 sets=sets, required_capital=required_capital,
                 worst_case_pnl=worst_case_pnl, drags=drag, depth_suff=depth_suff,
                 fill_prob=all_leg_fill, all_exec=all_executable),
+            has_synthetic_leg=any(getattr(l, "synthetic_price", False) for l in group.legs),
             rejection_stage=(_STAGE_CERTIFIED if certified else _STAGE_EDGE),
             certify_diagnostics={
                 "group_id": group.group_id, "group_type": group.group_type,

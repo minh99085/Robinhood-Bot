@@ -41,7 +41,10 @@ class SimplexLeg:
     token_id: str = ""
     ask: Optional[float] = None       # executable BUY price (best ask)
     bid: Optional[float] = None       # best bid (for spread checks)
-    depth_usd: float = 0.0            # top-of-book executable depth (USD)
+    depth_usd: float = 0.0            # top-of-book executable (ASK-side) depth (USD)
+    visible_ask_depth_usd: Optional[float] = None   # real CLOB ask-side depth (buy)
+    visible_bid_depth_usd: Optional[float] = None   # real CLOB bid-side depth (sell)
+    hydrated_from_clob: bool = False  # True when a REAL CLOB book populated this leg
     tick_size: float = _DEFAULT_TICK
     fresh_book: bool = True
     stale: bool = False

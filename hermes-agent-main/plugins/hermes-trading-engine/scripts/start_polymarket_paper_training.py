@@ -437,6 +437,27 @@ def run(argv=None) -> int:
         logging.getLogger("hte.training.start").info(
             "applied control overrides at startup: %s", _applied)
     trainer = PolymarketPaperTrainer(cfg, data_dir=data_dir)
+    # READ-ONLY CLOB order-book hydration: fill Bregman binary YES/NO groups with REAL
+    # YES+NO books (best bid/ask + side depth + book age) before certification so a
+    # real NO-token ask replaces the synthetic 1-YES-bid (which stays diagnostic only).
+    # ON by default whenever CLOB read-only is enabled; disable with
+    # BREGMAN_CLOB_HYDRATION_ENABLED=0. PAPER ONLY: read-only GETs, never trades/sizes.
+    _hyd_disabled = str(os.getenv("BREGMAN_CLOB_HYDRATION_ENABLED", "")).strip().lower() \
+        in ("0", "false", "no", "off")
+    _clob_ro = bool(getattr(cfg, "clob_enabled", True)) and bool(getattr(cfg, "clob_read_only", True))
+    if _clob_ro and not _hyd_disabled:
+        try:
+            _hyd_on = trainer.enable_clob_hydration()
+        except Exception as exc:  # noqa: BLE001 — never block startup on hydration wiring
+            _hyd_on = False
+            logging.getLogger("hte.training.start").warning("clob hydration wiring failed: %s", exc)
+        logging.getLogger("hte.training.start").info(
+            "bregman CLOB order-book hydration: enabled=%s (read-only /book per token; "
+            "real NO ask preferred; synthetic stays diagnostic only)", _hyd_on)
+    else:
+        logging.getLogger("hte.training.start").info(
+            "bregman CLOB order-book hydration: enabled=False (clob_read_only=%s disabled=%s)",
+            _clob_ro, _hyd_disabled)
     dd = trainer.data_dir
     stop_path = dd / "polymarket_training.stop"
     # An explicit start overrides any stale stop sentinel left in the data volume

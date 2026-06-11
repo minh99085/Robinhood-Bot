@@ -360,6 +360,11 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
             "targeted_scan_raw_market_matches", "targeted_scan_field_source",
             "targeted_scan_bregman_categories", "targeted_scan_raw_market_categories",
             "targeted_scan_normalized_reject_reasons",
+            # read-only CLOB orderbook hydration proof (real YES/NO books)
+            "bregman_clob_hydration_enabled", "bregman_clob_hydration_attempted",
+            "bregman_clob_hydration_success", "bregman_clob_hydration_failed",
+            "bregman_real_yes_no_books_seen", "bregman_synthetic_no_diagnostic_only_count",
+            "bregman_certifier_used_real_clob_books", "bregman_hydration_failure_reasons",
             "targeted_scan_budget_by_category", "targeted_scan_hits_by_category",
             "targeted_scan_markets_by_category", "market_quality_tier_counts",
             "market_quality_score_distribution", "high_liquidity_binary_markets_scanned",

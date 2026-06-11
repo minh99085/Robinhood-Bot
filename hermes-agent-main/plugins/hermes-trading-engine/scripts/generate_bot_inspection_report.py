@@ -1980,6 +1980,19 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
             L.append(f"- targeted_scan_raw_market_categories: {_bf.get('targeted_scan_raw_market_categories', {})}")
             L.append(f"- targeted_scan_normalized_reject_reasons: "
                      f"{_bf.get('targeted_scan_normalized_reject_reasons', {})}")
+            # read-only CLOB orderbook hydration (real YES/NO books; synthetic = shadow)
+            L.append(f"- bregman_clob_hydration_enabled: {_bf.get('bregman_clob_hydration_enabled', False)}")
+            L.append(f"- bregman_clob_hydration_attempted: {_bf.get('bregman_clob_hydration_attempted', 0)} "
+                     f"success={_bf.get('bregman_clob_hydration_success', 0)} "
+                     f"failed={_bf.get('bregman_clob_hydration_failed', 0)}")
+            L.append(f"- bregman_real_yes_no_books_seen: {_bf.get('bregman_real_yes_no_books_seen', 0)}")
+            L.append(f"- bregman_certifier_used_real_clob_books: "
+                     f"{_bf.get('bregman_certifier_used_real_clob_books', False)}")
+            L.append(f"- bregman_synthetic_no_diagnostic_only_count: "
+                     f"{_bf.get('bregman_synthetic_no_diagnostic_only_count', 0)}")
+            if _bf.get("bregman_hydration_failure_reasons"):
+                L.append(f"- bregman_hydration_failure_reasons: "
+                         f"{_bf.get('bregman_hydration_failure_reasons')}")
             L.append(f"- market_quality_tier_counts: {_bf.get('market_quality_tier_counts', {})}")
             L.append(f"- market_quality_score_distribution: {_bf.get('market_quality_score_distribution', {})}")
             L.append(f"- targeted_scan_budget_by_category: {_bf.get('targeted_scan_budget_by_category', {})}")
