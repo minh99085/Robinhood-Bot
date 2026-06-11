@@ -23,6 +23,11 @@ codebase — if you still see it, you are running a stale image / stray copy.
 
 ## User preference (ALWAYS follow)
 
+**Always push finished work to the repo `main` branch.** The user wants every
+completed change to land on `main` (open a PR targeting `main` and merge it, or
+push to `main` directly where permitted). Do not leave finished work stranded on
+a side branch. Never force‑push or amend; commit normally, then push to `main`.
+
 **At the end of every task, give simple copy‑paste instructions to start the
 system** — short, runnable commands, no long prose. The user runs this on
 Windows + Docker Desktop and wants the same easy "how to start it" block each
