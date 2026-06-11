@@ -21,3 +21,5 @@ reports/
 .laptop_agent.local.json
 .env.laptop_agent
 runtime_data/
+# fresh-package archives any prior inspection_reports here before regenerating
+_stale_inspection_reports_*/

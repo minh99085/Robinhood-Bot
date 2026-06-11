@@ -74,6 +74,16 @@ SECRET_KEYS = frozenset({
 # A short, stable marker the VPS echoes back on a successful SSH probe.
 VPS_OK_MARKER = "hermes-vps-ok"
 
+# Provenance / freshness guardrails (Phase 2). These files live INSIDE the report
+# bundle dir so a package carries proof of the exact workspace state it came from.
+REPORT_PROVENANCE = "laptop_agent_provenance.json"            # report + validation proof
+PACKAGE_PROVENANCE = "laptop_agent_package_provenance.json"   # written at package time
+VALIDATION_RESULT = "laptop_agent_validation_result.txt"      # captured validate output
+# Existing inspection_reports are archived here (git-ignored) instead of being reused.
+STALE_DIR_PREFIX = "_stale_inspection_reports_"
+# Relative path recorded in provenance (never an absolute/secret path).
+SCRIPT_REL_PATH = "scripts/laptop_agent.py"
+
 RunResult = "tuple[int, str, str]"
 Runner = Callable[..., "tuple[int, str, str]"]
 
@@ -343,6 +353,154 @@ def make_package(src_dir: Path, dest_zip: Path) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# Provenance & freshness guardrails (Phase 2)
+# --------------------------------------------------------------------------- #
+def _iso(now: _dt.datetime) -> str:
+    return now.replace(microsecond=0).isoformat()
+
+
+def _write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _read_json(path: Path) -> Optional[dict]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def capture_repo_state(ctx: "Ctx") -> dict:
+    """SECRET-FREE snapshot of the git workspace: local HEAD, origin/main HEAD,
+    cleanliness, and whether they are in sync. Unknown fields are None/False so a
+    caller can never mistake 'could not verify' for 'verified safe'."""
+    dirty = probe_repo_dirty(ctx)
+    local = probe_local_head(ctx)
+    remote = probe_remote_head(ctx)
+    in_sync = bool(local and remote and local == remote)
+    return {
+        "local_head": local,
+        "remote_main_head": remote,
+        "repo_clean": (None if dirty is None else (not dirty)),
+        "in_sync_with_main": in_sync if (local and remote) else None,
+    }
+
+
+def report_provenance_path(report_dir: Path) -> Path:
+    return report_dir / REPORT_PROVENANCE
+
+
+def read_report_provenance(report_dir: Optional[Path]) -> Optional[dict]:
+    if report_dir is None:
+        return None
+    return _read_json(report_provenance_path(report_dir))
+
+
+def write_report_provenance(ctx: "Ctx", report_dir: Path, state: dict, *,
+                            validation_at: Optional[str] = None,
+                            validation_epoch: Optional[float] = None,
+                            validation_result_path: Optional[str] = None) -> dict:
+    """Write/merge the report-level provenance INSIDE the report bundle. Contains only
+    non-secret git evidence + timestamps. Never includes VPS host/user/key/source."""
+    now = ctx.now_fn()
+    prov = read_report_provenance(report_dir) or {}
+    prov.setdefault("report_generated_at", _iso(now))
+    prov.setdefault("report_generated_epoch", now.timestamp())
+    prov["report_dir"] = str(report_dir.relative_to(ctx.repo_root)) \
+        if _is_relative(report_dir, ctx.repo_root) else report_dir.name
+    prov["local_head"] = state.get("local_head")
+    prov["remote_main_head"] = state.get("remote_main_head")
+    prov["repo_clean"] = state.get("repo_clean")
+    prov["in_sync_with_main"] = state.get("in_sync_with_main")
+    if validation_at is not None:
+        prov["validation_completed_at"] = validation_at
+        prov["validation_epoch"] = validation_epoch
+        prov["validation_result_path"] = validation_result_path
+    _write_json(report_provenance_path(report_dir), prov)
+    return prov
+
+
+def _is_relative(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+def assess_package_freshness(ctx: "Ctx", report_dir: Optional[Path]):
+    """Return (ok, reasons, state, prov). A package is fresh ONLY if every invariant
+    holds: report exists + has provenance, repo clean, local==origin/main now, the
+    report's recorded git HEAD matches the current HEAD, and validation ran AFTER the
+    report was generated."""
+    state = capture_repo_state(ctx)
+    prov = read_report_provenance(report_dir)
+    reasons: list = []
+    if report_dir is None:
+        reasons.append("no inspection report found (run report/fresh-package first)")
+    if report_dir is not None and prov is None:
+        reasons.append("report has no provenance (generated outside the fresh flow)")
+    if state["repo_clean"] is False:
+        reasons.append("repo is dirty (main must be the source of truth)")
+    if state["repo_clean"] is None:
+        reasons.append("could not read git status")
+    if state["in_sync_with_main"] is None:
+        reasons.append("could not determine local/remote main hashes")
+    elif state["in_sync_with_main"] is False:
+        reasons.append("local HEAD differs from origin/main")
+    if prov is not None:
+        if prov.get("local_head") and state.get("local_head") \
+                and prov["local_head"] != state["local_head"]:
+            reasons.append("report git evidence does not match current local HEAD")
+        if not prov.get("validation_completed_at"):
+            reasons.append("validation did not run after report generation")
+        elif prov.get("validation_epoch") is not None \
+                and prov.get("report_generated_epoch") is not None \
+                and prov["validation_epoch"] < prov["report_generated_epoch"]:
+            reasons.append("validation ran before the report was generated")
+    return (not reasons, reasons, state, prov)
+
+
+def build_package_provenance(ctx: "Ctx", *, report_dir: Path, state: dict,
+                             report_prov: Optional[dict], package_path: Path) -> dict:
+    """Assemble the SECRET-FREE package provenance written into every uploaded zip."""
+    now = ctx.now_fn()
+    rp = report_prov or {}
+    return {
+        "package_created_at": _iso(now),
+        "report_generated_at": rp.get("report_generated_at"),
+        "validation_completed_at": rp.get("validation_completed_at"),
+        "local_head": state.get("local_head"),
+        "remote_main_head": state.get("remote_main_head"),
+        "repo_clean": state.get("repo_clean"),
+        "in_sync_with_main": state.get("in_sync_with_main"),
+        "report_dir": (str(report_dir.relative_to(ctx.repo_root))
+                       if _is_relative(report_dir, ctx.repo_root) else report_dir.name),
+        "validation_result_path": rp.get("validation_result_path"),
+        "package_path": (str(package_path.relative_to(ctx.repo_root))
+                         if _is_relative(package_path, ctx.repo_root) else package_path.name),
+        "laptop_agent_script_path": SCRIPT_REL_PATH,
+        "generated_by": "laptop_agent.fresh-package",
+    }
+
+
+def archive_stale_reports(ctx: "Ctx", out_dir: Path) -> Optional[Path]:
+    """Move an existing inspection_reports dir to a timestamped, git-ignored stale
+    folder so a fresh report can NEVER reuse old evidence. Returns the archive path."""
+    if not out_dir.exists():
+        return None
+    ts = ctx.now_fn().strftime("%Y%m%d_%H%M%S")
+    dest = ctx.repo_root / f"{STALE_DIR_PREFIX}{ts}"
+    n = 1
+    while dest.exists():
+        dest = ctx.repo_root / f"{STALE_DIR_PREFIX}{ts}_{n}"
+        n += 1
+    out_dir.rename(dest)
+    return dest
+
+
+# --------------------------------------------------------------------------- #
 # Output context
 # --------------------------------------------------------------------------- #
 @dataclass
@@ -354,6 +512,7 @@ class Ctx:
     runner: Runner
     printer: Callable[[str], None]
     now_fn: Callable[[], _dt.datetime]
+    allow_stale: bool = False                      # --allow-stale-package override
     planned: list = field(default_factory=list)   # commands we WOULD run (dry-run)
     executed: list = field(default_factory=list)   # commands we actually ran
 
@@ -494,9 +653,8 @@ def _next_command(ctx: Ctx, *, safe: bool, reasons: list, rt_present: bool) -> s
             return "python scripts/laptop_agent.py collect --execute"
         return ("configure runtime_source in .laptop_agent.local.json, then "
                 "`python scripts/laptop_agent.py collect --execute`")
-    if find_latest_report_dir(ctx.repo_root / c.inspection_output_dir) is None:
-        return "python scripts/laptop_agent.py report --execute"
-    return "python scripts/laptop_agent.py package --execute   (then upload the zip to ChatGPT)"
+    return ("python scripts/laptop_agent.py fresh-package --execute"
+            "   (builds a fresh, provenance-verified zip to upload to ChatGPT)")
 
 
 def cmd_repo_status(ctx: Ctx) -> int:
@@ -608,6 +766,10 @@ def cmd_report(ctx: Ctx) -> int:
     if out.strip():
         ctx.say(out.rstrip())
     if rc == 0:
+        # stamp report provenance so a later `package` can prove freshness
+        latest = find_latest_report_dir(ctx.repo_root / ctx.cfg.inspection_output_dir)
+        if latest is not None:
+            write_report_provenance(ctx, latest, capture_repo_state(ctx))
         ctx.say("report generated.")
         ctx.say("NEXT COMMAND: python scripts/laptop_agent.py validate --execute")
         return 0
@@ -615,6 +777,27 @@ def cmd_report(ctx: Ctx) -> int:
     if err.strip():
         ctx.say(f"  detail: {err.strip().splitlines()[-1]}")
     return 1
+
+
+def _record_validation(ctx: Ctx, rc: int, out: str, err: str) -> None:
+    """Persist validation output + timestamp into the latest report's provenance so a
+    package can prove validation ran AFTER report generation. Records pass/fail
+    honestly — a failure is never hidden."""
+    latest = find_latest_report_dir(ctx.repo_root / ctx.cfg.inspection_output_dir)
+    if latest is None:
+        return
+    now = ctx.now_fn()
+    result_path = latest / VALIDATION_RESULT
+    body = (f"validation_rc={rc}\ncompleted_at={_iso(now)}\n\n"
+            f"--- stdout ---\n{out}\n--- stderr ---\n{err}\n")
+    try:
+        result_path.write_text(body, encoding="utf-8")
+    except OSError:
+        result_path = None
+    write_report_provenance(
+        ctx, latest, capture_repo_state(ctx), validation_at=_iso(now),
+        validation_epoch=now.timestamp(),
+        validation_result_path=(VALIDATION_RESULT if result_path else None))
 
 
 def cmd_validate(ctx: Ctx) -> int:
@@ -625,6 +808,7 @@ def cmd_validate(ctx: Ctx) -> int:
     rc, out, err = res
     if out.strip():
         ctx.say(out.rstrip())
+    _record_validation(ctx, rc, out, err)
     if rc == 0:
         ctx.say("DECISION: SAFE TO CONTINUE — runtime validation passed.")
         return 0
@@ -635,23 +819,153 @@ def cmd_validate(ctx: Ctx) -> int:
     return 3
 
 
+def _finalize_package(ctx: Ctx, *, report_dir: Path, state: dict,
+                      report_prov: Optional[dict], out_dir: Path) -> Path:
+    """Write the package provenance INTO the report dir, then zip it (so the proof
+    travels inside the uploaded package). Returns the zip path."""
+    dest = build_package_path(out_dir, ctx.now_fn())
+    pkg_prov = build_package_provenance(ctx, report_dir=report_dir, state=state,
+                                        report_prov=report_prov, package_path=dest)
+    _write_json(report_dir / PACKAGE_PROVENANCE, pkg_prov)
+    make_package(report_dir, dest)
+    return dest
+
+
 def cmd_package(ctx: Ctx) -> int:
     out_dir = ctx.repo_root / ctx.cfg.inspection_output_dir
     latest = find_latest_report_dir(out_dir)
-    if latest is None:
-        ctx.say(f"no inspection report found under '{ctx.cfg.inspection_output_dir}'.")
-        ctx.say("NEXT COMMAND: python scripts/laptop_agent.py report --execute")
+    ok, reasons, state, prov = assess_package_freshness(ctx, latest)
+
+    if not ok:
+        if not ctx.allow_stale:
+            # DEFAULT: STOP — never silently zip stale reports.
+            ctx.say("DECISION: STOP — refusing to package a STALE/unverified report.")
+            for r in reasons:
+                ctx.say(f"  - {r}")
+            ctx.say("NEXT COMMAND: python scripts/laptop_agent.py fresh-package --execute")
+            ctx.say("  (or, only if you understand the risk, re-run with --allow-stale-package)")
+            return 3
+        ctx.say("WARNING: --allow-stale-package set — packaging an UNVERIFIED report.")
+        for r in reasons:
+            ctx.say(f"  - (ignored) {r}")
+
+    if latest is None:   # nothing to zip even under override
+        ctx.say("no inspection report found to package.")
+        ctx.say("NEXT COMMAND: python scripts/laptop_agent.py fresh-package --execute")
         return 2
-    dest = build_package_path(out_dir, ctx.now_fn())
+
     if not ctx.execute:
-        ctx.say(f"  [DRY-RUN] would package latest report:")
+        dest = build_package_path(out_dir, ctx.now_fn())
+        ctx.say("  [DRY-RUN] would package the verified report:")
         ctx.say(f"    source : {latest}")
         ctx.say(f"    zip    : {dest}")
-        ctx.say(f"    (add --execute to create the zip)")
+        ctx.say(f"    + write {PACKAGE_PROVENANCE} into the package")
+        ctx.say("    (add --execute to create the zip)")
         return 0
-    count = make_package(latest, dest)
-    ctx.say(f"packaged {count} file(s) -> {dest}")
+
+    dest = _finalize_package(ctx, report_dir=latest, state=state,
+                             report_prov=prov, out_dir=out_dir)
+    ctx.say(f"packaged verified report -> {dest}")
     ctx.say("UPLOAD REPORT TO CHATGPT: yes — upload the zip above for an independent judge.")
+    return 0
+
+
+def cmd_fresh_package(ctx: Ctx) -> int:
+    """Provenance-guarded packaging: refuse a dirty/ahead repo, archive any stale
+    reports, generate a fresh report, validate, prove freshness, then zip with
+    provenance. This is the command operators should use to build an upload."""
+    out_dir = ctx.repo_root / ctx.cfg.inspection_output_dir
+    state = capture_repo_state(ctx)
+
+    gate = []
+    if state["repo_clean"] is False:
+        gate.append("repo is dirty (commit/stash; main is the source of truth)")
+    if state["repo_clean"] is None:
+        gate.append("could not read git status")
+    if state["in_sync_with_main"] is None:
+        gate.append("could not determine local/remote main hashes (no network?)")
+    elif state["in_sync_with_main"] is False:
+        gate.append("local HEAD differs from origin/main")
+    if gate:
+        ctx.say("DECISION: STOP — workspace is not clean & in sync with origin/main.")
+        for r in gate:
+            ctx.say(f"  - {r}")
+        if any("differs" in r for r in gate):
+            ctx.say(f"NEXT COMMAND: git pull {ctx.cfg.git_remote} {ctx.cfg.git_main_branch}")
+        elif any("dirty" in r for r in gate):
+            ctx.say("NEXT COMMAND: review changes, then `git stash` or commit")
+        else:
+            ctx.say(f"NEXT COMMAND: git fetch {ctx.cfg.git_remote} {ctx.cfg.git_main_branch}")
+        return 3
+
+    report_cmd = build_inspection_report_cmd(ctx.cfg)
+    validate_cmd = build_validate_cmd(ctx.cfg)
+
+    if not ctx.execute:
+        ctx.say("  [DRY-RUN] fresh-package would, in order (mutating NOTHING now):")
+        ctx.say(f"    1. archive any existing '{ctx.cfg.inspection_output_dir}' -> "
+                f"{STALE_DIR_PREFIX}<timestamp>/ (git-ignored)")
+        ctx.say(f"    2. {' '.join(shlex.quote(t) for t in report_cmd)}")
+        ctx.say(f"    3. {' '.join(shlex.quote(t) for t in validate_cmd)}")
+        ctx.say(f"    4. write {REPORT_PROVENANCE} + verify report/validation freshness")
+        ctx.say(f"    5. write {PACKAGE_PROVENANCE} and create a timestamped zip")
+        ctx.say("    (add --execute to run this sequence)")
+        return 0
+
+    if not runtime_data_present(ctx):
+        ctx.say("runtime_data is missing or empty — cannot build a report.")
+        if ctx.cfg.collect_configured():
+            ctx.say("NEXT COMMAND: python scripts/laptop_agent.py collect --execute")
+        return 2
+
+    # 1) archive stale reports so nothing old can be reused
+    archived = archive_stale_reports(ctx, out_dir)
+    if archived is not None:
+        ctx.say(f"archived stale reports -> {archived.name}/")
+
+    # 2) generate the fresh report
+    ctx.say(f"  [EXECUTE] {' '.join(shlex.quote(t) for t in report_cmd)}")
+    rc, out, err = ctx.runner(report_cmd, cwd=str(ctx.repo_root), timeout=3600)
+    if out.strip():
+        ctx.say(out.rstrip())
+    if rc != 0:
+        ctx.say(f"DECISION: STOP — report generation failed (rc={rc}).")
+        if err.strip():
+            ctx.say(f"  detail: {err.strip().splitlines()[-1]}")
+        return 3
+    latest = find_latest_report_dir(out_dir)
+    if latest is None:
+        ctx.say("DECISION: STOP — report command produced no bundle directory.")
+        return 3
+    report_state = capture_repo_state(ctx)
+    write_report_provenance(ctx, latest, report_state)
+
+    # 3) validate AFTER the report, and record it
+    ctx.say(f"  [EXECUTE] {' '.join(shlex.quote(t) for t in validate_cmd)}")
+    vrc, vout, verr = ctx.runner(validate_cmd, cwd=str(ctx.repo_root), timeout=600)
+    if vout.strip():
+        ctx.say(vout.rstrip())
+    _record_validation(ctx, vrc, vout, verr)
+    if vrc != 0:
+        ctx.say(f"DECISION: STOP — validation FAILED (rc={vrc}). Not packaging.")
+        if verr.strip():
+            ctx.say(f"  detail: {verr.strip().splitlines()[-1]}")
+        return 3
+
+    # 4) prove freshness end-to-end
+    ok, reasons, final_state, prov = assess_package_freshness(ctx, latest)
+    if not ok:
+        ctx.say("DECISION: STOP — freshness check failed after generation:")
+        for r in reasons:
+            ctx.say(f"  - {r}")
+        return 3
+
+    # 5) write package provenance + zip
+    dest = _finalize_package(ctx, report_dir=latest, state=final_state,
+                             report_prov=prov, out_dir=out_dir)
+    ctx.say("DECISION: SAFE TO CONTINUE — fresh, verified package created.")
+    ctx.say(f"PACKAGE: {dest}")
+    ctx.say(f"UPLOAD REPORT TO CHATGPT: yes — upload this exact zip:\n  {dest}")
     return 0
 
 
@@ -667,6 +981,7 @@ COMMANDS = {
     "report": cmd_report,
     "validate": cmd_validate,
     "package": cmd_package,
+    "fresh-package": cmd_fresh_package,
 }
 
 
@@ -705,10 +1020,16 @@ def build_parser() -> argparse.ArgumentParser:
         "collect": "copy runtime artifacts into runtime_data (needs --execute)",
         "report": "run the light-mode inspection report (needs --execute)",
         "validate": "run training-runtime validation (needs --execute)",
-        "package": "zip the latest inspection report (needs --execute)",
+        "package": "zip the latest report ONLY if provenance is fresh (needs --execute)",
+        "fresh-package": "clean+sync gated: archive stale, report, validate, prove, "
+                         "zip with provenance (needs --execute)",
     }
     for name in COMMANDS:
-        sub.add_parser(name, parents=[shared], help=helps.get(name, ""))
+        sp = sub.add_parser(name, parents=[shared], help=helps.get(name, ""))
+        if name == "package":
+            sp.add_argument(
+                "--allow-stale-package", action="store_true",
+                help="DANGER: package even when freshness checks fail. Default is STOP.")
     return p
 
 
@@ -732,7 +1053,8 @@ def main(argv=None, *, runner: Optional[Runner] = None,
 
     cfg, found = load_config(repo_root=repo_root, explicit_path=args.config, env=env)
     ctx = Ctx(cfg=cfg, config_found=found, execute=execute, repo_root=repo_root,
-              runner=runner, printer=printer, now_fn=now_fn)
+              runner=runner, printer=printer, now_fn=now_fn,
+              allow_stale=bool(getattr(args, "allow_stale_package", False)))
 
     handler = COMMANDS.get(args.command)
     if handler is None:  # pragma: no cover — argparse restricts choices

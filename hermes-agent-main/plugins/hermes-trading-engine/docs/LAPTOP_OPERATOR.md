@@ -33,58 +33,65 @@ CONTINUE** or you should **STOP**, plus the exact next command to run.
    python scripts/laptop_agent.py --help
    ```
 
-## Everyday workflow
+## Everyday workflow (the short version)
 
 Everything defaults to a **safe dry-run**. Add `--execute` only when the tool tells
 you to. Run these from the plugin folder
 (`...\hermes-agent-main\plugins\hermes-trading-engine`):
 
-1. **Check where you stand** (read-only, always safe):
+1. **See where you stand** (read-only, always safe):
    ```powershell
-   python scripts/laptop_agent.py status
+   python scripts/laptop_agent.py status --dry-run
    ```
-   Read the bottom three lines: `DECISION:`, `NEXT COMMAND:`, and
-   `UPLOAD REPORT TO CHATGPT:`. If it says **STOP**, follow the next command (usually
-   `git pull origin main`) until `status` says **SAFE TO CONTINUE**.
+   If it says **STOP**, follow the `NEXT COMMAND:` (usually `git pull origin main`)
+   until it says **SAFE TO CONTINUE**.
 
-2. **Confirm you match GitHub main:**
+2. **Bring runtime data over from the VPS** (only when you need fresh data):
    ```powershell
-   python scripts/laptop_agent.py verify-sync
-   ```
-
-3. **(Optional) check your tooling:**
-   ```powershell
-   python scripts/laptop_agent.py check-docker
-   python scripts/laptop_agent.py check-vps --execute
+   python scripts/laptop_agent.py collect --execute
    ```
 
-4. **Bring runtime data over from the VPS** (replaces local `runtime_data`):
+3. **Build a fresh, provenance-verified package** (the one command to remember):
    ```powershell
-   python scripts/laptop_agent.py collect            # dry-run: shows the command
-   python scripts/laptop_agent.py collect --execute  # actually copies
+   python scripts/laptop_agent.py fresh-package --dry-run    # preview the steps
+   python scripts/laptop_agent.py fresh-package --execute    # do it for real
    ```
 
-5. **Build the light-mode inspection report:**
-   ```powershell
-   python scripts/laptop_agent.py report --execute
-   ```
-   This runs exactly:
+4. **Upload the printed zip to ChatGPT** for an independent review. The exact path is
+   printed on the `PACKAGE:` / `UPLOAD REPORT TO CHATGPT:` line.
+
+> **Always use `fresh-package`, not `package`, to build an upload.** `fresh-package`
+> refuses a dirty or behind/ahead repo, archives any old `inspection_reports`,
+> regenerates the report, validates it, proves freshness, and writes a
+> `laptop_agent_package_provenance.json` *inside* the zip so the upload can prove it
+> came from the current clean `origin/main` state.
+
+## What `fresh-package --execute` does (in order)
+
+1. **Refuses** if the repo is dirty or your local HEAD ≠ `origin/main`.
+2. **Archives** any existing `inspection_reports/` to a git-ignored
+   `_stale_inspection_reports_<timestamp>/` (old evidence is never reused).
+3. Runs the light-mode report:
    `python scripts/generate_bot_inspection_report.py --output inspection_reports --data-dir runtime_data --bundle-mode light`
-
-6. **Validate the runtime (never hides a failure):**
-   ```powershell
-   python scripts/laptop_agent.py validate --execute
-   ```
-   This runs exactly:
+4. Runs validation:
    `python scripts/validate_training_runtime.py --data-dir runtime_data`
-   If it says **STOP**, do not proceed — share the output with Cursor.
+5. Verifies the report/validation pair is fresh (validation ran *after* the report,
+   git evidence matches the current HEAD).
+6. Writes `laptop_agent_package_provenance.json` and creates a timestamped zip.
+7. Prints the exact zip path to upload.
 
-7. **Package the report and upload it to ChatGPT:**
-   ```powershell
-   python scripts/laptop_agent.py package --execute
-   ```
-   Upload the resulting `hermes_inspection_package_<timestamp>.zip` to ChatGPT for an
-   independent review.
+## The lower-level commands (advanced)
+
+`status`, `verify-sync`, `local-head`, `remote-head`, `check-docker`,
+`check-vps --execute`, `collect --execute`, `report --execute`,
+`validate --execute`, and `package --execute` are still available.
+
+> **Do not use `package` on its own** unless `status` is **SAFE** and the report's
+> provenance is fresh. By default `package --execute` **refuses** to zip a stale
+> report — it STOPs if the report is missing, has no provenance, the repo is dirty,
+> your HEAD differs from `origin/main`, the report's git evidence doesn't match your
+> current HEAD, or validation didn't run after the report. (`--allow-stale-package`
+> exists only as a deliberate, risky override.)
 
 ## Safety rules built into the tool
 
