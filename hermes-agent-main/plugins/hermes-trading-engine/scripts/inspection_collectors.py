@@ -204,6 +204,34 @@ def _parse_pytest_summary(stdout: str, stderr: str) -> dict:
     return summary
 
 
+# Modules the report generator + test suite import. A missing one is the exact cause
+# of FAIL_NOT_RUN_READY/"pytest_failed" when the host report venv is incomplete.
+REQUIRED_REPORT_MODULES = ("pydantic", "numpy", "pytest", "fastapi", "httpx")
+
+
+def report_dependency_status(required=None, *, finder=None) -> dict:
+    """Check that every module the report/test path needs is importable. Returns
+    ``{ok, required, missing, message}`` — never imports the modules, never raises.
+    ``finder`` is injectable for tests (defaults to ``importlib.util.find_spec``)."""
+    import importlib.util
+    required = list(required or REQUIRED_REPORT_MODULES)
+    finder = finder or importlib.util.find_spec
+
+    def _missing(mod: str) -> bool:
+        try:
+            return finder(mod) is None
+        except (ImportError, ValueError):
+            return True
+    missing = [m for m in required if _missing(m)]
+    msg = ""
+    if missing:
+        msg = ("report environment incomplete — missing module(s): "
+               + ", ".join(missing) + ". Do NOT pip-install by hand; run "
+               "`bash scripts/vps_generate_light_report.sh` which builds .report_venv "
+               "and installs all required dependencies.")
+    return {"ok": not missing, "required": required, "missing": missing, "message": msg}
+
+
 def pytest_base_cmd() -> list:
     """Build a platform-safe ``python -m pytest`` base command.
 

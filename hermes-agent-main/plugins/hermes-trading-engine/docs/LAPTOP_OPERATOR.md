@@ -141,6 +141,37 @@ Run these from the plugin folder in **PowerShell**:
    `inspection_summary.json` are inside — then: **upload that zip to ChatGPT for
    inspection.**
 
+## Generating the light report ON THE VPS (one command)
+
+Run this **on the Vultr VPS** (over SSH), from the plugin directory
+`.../hermes-agent-main/plugins/hermes-trading-engine`:
+
+```bash
+bash scripts/vps_generate_light_report.sh
+```
+
+This is the single, permanent VPS report command. It is fully self-bootstrapping —
+**no manual `pip install` is ever needed**:
+
+- creates/updates a dedicated `.report_venv` and installs all report + test
+  dependencies from `requirements.txt` + `requirements-dev.txt` (and explicitly
+  `pytest`, `pydantic`, `numpy`, `fastapi`, `httpx`) — fixing the old
+  `FAIL_NOT_RUN_READY` "missing pydantic/pytest/numpy" failures;
+- uses `.report_venv/bin/python` for everything (never system python);
+- prints `docker compose ps` + a tail of the `hermes-training` logs and the container
+  state/health first (so a stale status shows whether the container is stopped,
+  unhealthy, or `runtime_data` was copied too late);
+- refreshes `runtime_data` via `docker cp hermes-training:/data runtime_data` (and
+  `chown`s it), deletes the old `inspection_reports`, regenerates the light report, and
+  runs `validate_training_runtime.py`;
+- writes a **unique** `vps_light_report_<timestamp>.zip` and also updates
+  `vps_light_report_latest.zip`, including `inspection_reports`,
+  `runtime_data/metrics`, `validation_light_latest.txt`, and `report_logs/`.
+
+It still enforces run-ready gating and exits with the report generator's own exit code
+(it does **not** hide real failures). Then download/upload `vps_light_report_latest.zip`
+to ChatGPT for inspection.
+
 ## Collecting runtime data on Windows (rsync vs scp)
 
 `collect` copies `runtime_data` from the VPS and **replaces** your local copy. It
