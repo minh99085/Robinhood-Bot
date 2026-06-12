@@ -268,54 +268,117 @@ def build_event_group(records: list, *, group_id: str, group_type: str = "exhaus
             fresh_book=fresh, stale=not fresh, ambiguity_score=amb,
             book_age_s=_rec_attr(rec, "book_age_s", None),
             chainlink_no_trade=cl_no_trade, chainlink_relevant=cl_relevant))
+    meta = _group_meta(records)
+    fc = family_completeness_report(records)
+    fc["group_id"] = group_id
+    meta["family_completeness"] = fc
     return SimplexGroup(group_id=group_id, group_type=group_type, legs=legs,
                         mutually_exclusive=mutually_exclusive, exhaustive=exhaustive,
-                        meta=_group_meta(records))
+                        meta=meta)
+
+
+# Completeness signal field names (shared by detection + diagnostics).
+_COMPLETE_MARKERS = ("negRiskComplete", "neg_risk_complete", "exhaustive", "complete_set",
+                     "is_complete", "isComplete", "mece", "collectively_exhaustive")
+_COMPLETE_COUNTS = ("outcomeCount", "outcome_count", "marketCount", "market_count",
+                    "numOutcomes", "num_outcomes", "seriesLength", "series_length")
+
+
+def _truthy(v) -> bool:
+    """Strict truthiness for completeness markers. CRITICAL: a string like ``"false"``
+    / ``"0"`` / ``"no"`` must NOT count as complete (a plain ``bool(v)`` would treat
+    any non-empty string as True and certify an INCOMPLETE set — a safety bug)."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return v != 0
+    if isinstance(v, str):
+        return v.strip().lower() in ("1", "true", "yes", "y", "t", "complete", "mece")
+    return bool(v)
+
+
+def _declared_outcome_count(recs: list):
+    """The declared FULL outcome/market count for an event family (from any member's
+    declared count fields or its ``events[0]`` markets/count), or None if undeclared.
+    Never inferred from prices (no fabrication)."""
+    for rec in recs:
+        raw = _rec_attr(rec, "raw", {}) or {}
+        for k in _COMPLETE_COUNTS:
+            try:
+                v = raw.get(k)
+                if v is not None:
+                    return int(float(v))      # tolerate "3" / 3.0
+            except (TypeError, ValueError):
+                continue
+        events = raw.get("events")
+        if isinstance(events, list) and events and isinstance(events[0], dict):
+            ev = events[0]
+            for k in _COMPLETE_COUNTS:
+                try:
+                    v = ev.get(k)
+                    if v is not None:
+                        return int(float(v))
+                except (TypeError, ValueError):
+                    continue
+            mkts = ev.get("markets")
+            if isinstance(mkts, list) and mkts:
+                return len(mkts)
+    return None
+
+
+def _has_complete_marker(recs: list) -> bool:
+    """True iff any member carries a TRUTHY explicit completeness marker."""
+    for rec in recs:
+        raw = _rec_attr(rec, "raw", {}) or {}
+        if any(_truthy(raw.get(m)) for m in _COMPLETE_MARKERS):
+            return True
+        events = raw.get("events")
+        if isinstance(events, list) and events and isinstance(events[0], dict):
+            if any(_truthy(events[0].get(m)) for m in _COMPLETE_MARKERS):
+                return True
+    return False
 
 
 def _group_is_exhaustive(recs: list) -> bool:
     """Conservatively decide if an event group covers ALL outcomes.
 
-    A "buy the complete set" hedge is only valid when the scanned legs are the
-    FULL outcome set. We therefore require an explicit completeness signal — a
-    ``negRiskComplete`` / ``exhaustive`` marker, or a leg count matching a
-    declared ``outcomeCount`` — and default to ``False`` otherwise so an
-    incomplete scan is never mislabelled as a full hedge.
-    """
+    A "buy the complete set" hedge is only valid when the scanned legs are the FULL
+    outcome set. We require an explicit completeness signal — a TRUTHY
+    ``negRiskComplete`` / ``exhaustive`` marker, or a declared outcome/market count
+    that EQUALS the number of grouped legs — and default to ``False`` otherwise so an
+    incomplete scan is never mislabelled as a full hedge. Marker truthiness is strict
+    (``"false"`` is not complete); counts tolerate string/float and ``events[0]``."""
+    if _has_complete_marker(recs):
+        return True
+    declared = _declared_outcome_count(recs)
+    return declared is not None and declared == len(recs)
+
+
+def family_completeness_report(recs: list) -> dict:
+    """SECRET-FREE per-family completeness diagnostics: how many legs were scanned, the
+    declared full count (if any), whether a marker is present, whether the family is
+    complete, and which outcome labels are present/missing. Used by the report to show
+    EXACTLY why a family was treated as incomplete (and to count false rejects)."""
     n = len(recs)
-    # explicit completeness markers (any member declaring the set complete proves it)
-    _MARKERS = ("negRiskComplete", "neg_risk_complete", "exhaustive", "complete_set",
-                "is_complete", "isComplete", "mece", "collectively_exhaustive")
-    # declared-count fields; the set is complete when a declared outcome/market count
-    # equals the number of grouped legs (never inferred from prices = no fabrication).
-    _COUNTS = ("outcomeCount", "outcome_count", "marketCount", "market_count",
-               "numOutcomes", "num_outcomes", "seriesLength", "series_length")
+    declared = _declared_outcome_count(recs)
+    has_marker = _has_complete_marker(recs)
+    complete = bool(has_marker or (declared is not None and declared == n))
+    present = []
     for rec in recs:
-        raw = _rec_attr(rec, "raw", {}) or {}
-        if any(raw.get(m) for m in _MARKERS):
-            return True
-        for k in _COUNTS:
-            try:
-                v = raw.get(k)
-                if v is not None and int(v) == n:
-                    return True
-            except (TypeError, ValueError):
-                continue
-        # event-level completeness: events[0] declares its full market/outcome count
-        events = raw.get("events")
-        if isinstance(events, list) and events and isinstance(events[0], dict):
-            ev = events[0]
-            for k in _COUNTS:
-                try:
-                    v = ev.get(k)
-                    if v is not None and int(v) == n:
-                        return True
-                except (TypeError, ValueError):
-                    continue
-            mkts = ev.get("markets")
-            if isinstance(mkts, list) and mkts and len(mkts) == n:
-                return True
-    return False
+        lbl = (_rec_attr(rec, "question", "") or _rec_attr(rec, "outcome", "")
+               or _rec_attr(rec, "market_id", ""))
+        present.append(str(lbl)[:80])
+    missing_count = (max(0, declared - n) if declared is not None else None)
+    return {
+        "group_id": "", "n_legs_scanned": n, "declared_outcome_count": declared,
+        "has_complete_marker": has_marker, "complete": complete,
+        "missing_outcome_count": missing_count,
+        "present_outcomes_sample": present[:6],
+        # a FALSE incomplete = declared count matches scanned legs yet (pre-fix) it
+        # would have been left incomplete. With the fix this can never be a false reject.
+        "would_be_false_incomplete": bool(declared is not None and declared == n
+                                          and not complete),
+    }
 
 
 def _is_fallback_key(gk: str, rec) -> bool:

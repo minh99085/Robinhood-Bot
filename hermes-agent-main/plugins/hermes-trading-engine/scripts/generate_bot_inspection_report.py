@@ -2028,6 +2028,31 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
             if _bf.get("paper_relaxed_reject_reasons"):
                 L.append(f"- paper_relaxed_reject_reasons: "
                          f"{_bf.get('paper_relaxed_reject_reasons')}")
+            L.append(f"- paper_relaxed_real_book_candidates_seen: "
+                     f"{_bf.get('paper_relaxed_real_book_candidates_seen', 0)} "
+                     f"positive={_bf.get('paper_relaxed_positive_real_book_candidates_seen', 0)}")
+            if _bf.get("paper_relaxed_candidate_source_counts"):
+                L.append(f"- paper_relaxed_candidate_source_counts: "
+                         f"{_bf.get('paper_relaxed_candidate_source_counts')}")
+            if _bf.get("paper_relaxed_candidates_blocked_by_reason"):
+                L.append(f"- paper_relaxed_candidates_blocked_by_reason: "
+                         f"{_bf.get('paper_relaxed_candidates_blocked_by_reason')}")
+            if _bf.get("paper_relaxed_best_real_book_candidate"):
+                L.append(f"- paper_relaxed_best_real_book_candidate: "
+                         f"{_bf.get('paper_relaxed_best_real_book_candidate')}")
+            if _bf.get("paper_relaxed_best_reject_example"):
+                L.append(f"- paper_relaxed_best_reject_example: "
+                         f"{_bf.get('paper_relaxed_best_reject_example')}")
+            # B) event-family completeness diagnostics
+            L.append(f"- bregman_false_incomplete_family_count: "
+                     f"{_bf.get('bregman_false_incomplete_family_count', 0)} "
+                     f"near_miss_promoted={_bf.get('bregman_near_miss_promoted_to_candidate_count', 0)}")
+            if _bf.get("bregman_incomplete_family_examples"):
+                L.append(f"- bregman_incomplete_family_examples: "
+                         f"{_bf.get('bregman_incomplete_family_examples')}")
+            if _bf.get("bregman_missing_outcome_examples"):
+                L.append(f"- bregman_missing_outcome_examples: "
+                         f"{_bf.get('bregman_missing_outcome_examples')}")
             L.append(f"- market_quality_tier_counts: {_bf.get('market_quality_tier_counts', {})}")
             L.append(f"- market_quality_score_distribution: {_bf.get('market_quality_score_distribution', {})}")
             L.append(f"- targeted_scan_budget_by_category: {_bf.get('targeted_scan_budget_by_category', {})}")

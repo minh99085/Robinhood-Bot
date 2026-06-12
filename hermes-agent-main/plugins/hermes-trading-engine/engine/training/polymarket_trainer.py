@@ -509,6 +509,13 @@ class PolymarketPaperTrainer:
         self._micro_exploration_open_ts: list = []     # epoch ts of each opened trade
         self._micro_after_cost_positive_seen = 0
         self._micro_real_clob_seen = 0
+        # relaxed candidate-STREAM diagnostics (real-book groups, not only certified)
+        self._relaxed_real_book_seen = 0
+        self._relaxed_positive_real_book_seen = 0
+        self._relaxed_blocked_by_reason: dict = {}
+        self._relaxed_source_counts: dict = {}
+        self._relaxed_best_candidate: dict = {}        # best positive real-book example
+        self._relaxed_best_reject: dict = {}           # best (least-bad) blocked example
         # profit-discovery: persist Bregman shadow-label candidates as durable
         # LEARNING-ONLY shadow labels (rate-limited, deduped) + a contextual-bandit
         # learning router. Never trades / sizes / bypasses a gate.
@@ -992,6 +999,7 @@ class PolymarketPaperTrainer:
             **targeted_tel,
             **nx_tel,
             **hydration_tel,
+            **self._bregman_family_completeness_telemetry(groups, certs),
         }
         # cache the hydrated groups so paper micro-exploration can re-certify them
         # with a relaxed-depth profile (real books already filled in).
@@ -1689,23 +1697,95 @@ class PolymarketPaperTrainer:
                 self._micro_exploration_reject_reasons["open_rejected"] = \
                     self._micro_exploration_reject_reasons.get("open_rejected", 0) + 1
 
-        # real CLOB groups + positive-after-cost candidates seen this tick (cumulative)
-        real_clob_groups = [
-            g for g in groups if bool(getattr(g, "legs", None))
-            and all(bool(getattr(l, "hydrated_from_clob", False)) for l in g.legs)]
-        hydrated_positive = sum(
-            1 for g, c in zip(groups, micro_certs)
-            if c.is_opportunity and not bool(getattr(c, "has_synthetic_leg", False))
-            and g in real_clob_groups)
+        # ---- relaxed candidate-STREAM accounting (real-book groups, not only the
+        # certified bundles). A "real-book candidate" passed the relaxed HARD gates:
+        # all legs hydrated from a live CLOB book, executable ask, fresh, >= $1 depth.
+        real_clob_groups = []
+        hydrated_positive = 0
+        best_edge = None                              # true max (may be negative)
+        for g, c in zip(groups, micro_certs):
+            if not getattr(c, "certify_diagnostics", None):
+                continue
+            edge = float(c.certify_diagnostics.get("projected_profit_lower_bound", 0.0))
+            if c.is_opportunity:
+                edge = float(getattr(c, "profit_lower_bound", edge) or edge)
+            best_edge = edge if best_edge is None else max(best_edge, edge)
+            real_clob = bool(getattr(g, "legs", None)) and all(
+                bool(getattr(l, "hydrated_from_clob", False)) for l in g.legs)
+            synthetic = bool(getattr(c, "has_synthetic_leg", False))
+            gtype = getattr(g, "group_type", "unknown")
+            if not real_clob:
+                continue                              # not on the real-book stream
+            real_clob_groups.append(g)
+            self._relaxed_source_counts[gtype] = self._relaxed_source_counts.get(gtype, 0) + 1
+            positive = bool(c.is_opportunity and not synthetic)
+            if positive:
+                hydrated_positive += 1
+                if not self._relaxed_best_candidate or edge > self._relaxed_best_candidate.get(
+                        "after_cost_edge", -1e9):
+                    self._relaxed_best_candidate = {
+                        "group_id": getattr(g, "group_id", ""), "group_type": gtype,
+                        "after_cost_edge": round(edge, 6), "n_legs": len(g.legs)}
+            else:
+                reason = ("synthetic_no" if synthetic
+                          else (c.no_trade_reason or "not_certified"))
+                self._relaxed_blocked_by_reason[reason] = \
+                    self._relaxed_blocked_by_reason.get(reason, 0) + 1
+                if not self._relaxed_best_reject or edge > self._relaxed_best_reject.get(
+                        "after_cost_edge", -1e9):
+                    self._relaxed_best_reject = {
+                        "group_id": getattr(g, "group_id", ""), "group_type": gtype,
+                        "reason": reason, "after_cost_edge": round(edge, 6)}
         self._micro_real_clob_seen += len(real_clob_groups)
+        self._relaxed_real_book_seen += len(real_clob_groups)
+        self._relaxed_positive_real_book_seen += hydrated_positive
         self._micro_after_cost_positive_seen += hydrated_positive
-        best_edge = max(
-            (float(c.certify_diagnostics.get("projected_profit_lower_bound", 0.0))
-             for c in micro_certs if getattr(c, "certify_diagnostics", None)),
-            default=0.0)
         self._update_micro_metrics(enabled=enabled, hydrated_positive=hydrated_positive,
-                                   best_edge=best_edge)
+                                   best_edge=(best_edge if best_edge is not None else 0.0))
         return opened
+
+    def _bregman_family_completeness_telemetry(self, groups: list, certs: list) -> dict:
+        """B) Event-family completeness diagnostics: surface EXACTLY why multi-outcome
+        families were treated as incomplete (declared vs scanned outcomes), count any
+        FALSE incomplete rejects (declared count == scanned legs yet not complete — must
+        be 0 after the fix), and how many proven-complete families became candidates."""
+        cert_by_gid = {getattr(c, "group_id", ""): c for c in (certs or [])}
+        incomplete_examples: list = []
+        missing_examples: list = []
+        false_incomplete = 0
+        promoted = 0
+        for g in (groups or []):
+            legs = getattr(g, "legs", None) or []
+            if len(legs) < 2:
+                continue                      # binaries handled separately
+            fc = dict((getattr(g, "meta", {}) or {}).get("family_completeness", {}) or {})
+            if not fc:
+                continue
+            if fc.get("would_be_false_incomplete"):
+                false_incomplete += 1         # declared==scanned but flagged incomplete
+            cert = cert_by_gid.get(getattr(g, "group_id", ""))
+            if bool(getattr(g, "exhaustive", False)) and cert is not None \
+                    and getattr(cert, "is_opportunity", False):
+                promoted += 1                 # proven-complete family became a candidate
+            if not bool(getattr(g, "exhaustive", False)):
+                if len(incomplete_examples) < 8:
+                    incomplete_examples.append({
+                        "group_id": fc.get("group_id", getattr(g, "group_id", "")),
+                        "n_legs_scanned": fc.get("n_legs_scanned"),
+                        "declared_outcome_count": fc.get("declared_outcome_count"),
+                        "has_complete_marker": fc.get("has_complete_marker"),
+                        "missing_outcome_count": fc.get("missing_outcome_count")})
+                if len(missing_examples) < 8 and fc.get("missing_outcome_count"):
+                    missing_examples.append({
+                        "group_id": fc.get("group_id", getattr(g, "group_id", "")),
+                        "present_outcomes_sample": fc.get("present_outcomes_sample"),
+                        "missing_outcome_count": fc.get("missing_outcome_count")})
+        return {
+            "bregman_incomplete_family_examples": incomplete_examples,
+            "bregman_missing_outcome_examples": missing_examples,
+            "bregman_false_incomplete_family_count": int(false_incomplete),
+            "bregman_near_miss_promoted_to_candidate_count": int(promoted),
+        }
 
     def _micro_budget_remaining(self, now: float) -> int:
         """Remaining relaxed-exploration trades allowed at ``now`` under the per-hour,
@@ -1754,24 +1834,38 @@ class PolymarketPaperTrainer:
         m["paper_relaxed_real_clob_book_seen"] = int(self._micro_real_clob_seen)
         # readiness PnL ALWAYS excludes relaxed-exploration trades (separate accounting)
         m["paper_relaxed_readiness_pnl_excluded"] = True
+        # ---- relaxed candidate-STREAM diagnostics (real-book stream, not only certs) ----
+        m["paper_relaxed_real_book_candidates_seen"] = int(self._relaxed_real_book_seen)
+        m["paper_relaxed_positive_real_book_candidates_seen"] = int(
+            self._relaxed_positive_real_book_seen)
+        m["paper_relaxed_candidates_blocked_by_reason"] = dict(self._relaxed_blocked_by_reason)
+        m["paper_relaxed_candidate_source_counts"] = dict(self._relaxed_source_counts)
+        m["paper_relaxed_best_real_book_candidate"] = dict(self._relaxed_best_candidate)
+        m["paper_relaxed_best_reject_example"] = dict(self._relaxed_best_reject)
         if realistic_total >= 1 or micro_total >= 1:
             m["zero_trade_blocker_if_any"] = ""
         else:
-            # prefer the micro-exploration path's own reasons (most relevant to why no
-            # $1 paper trade opened); fall back to the strict certifier's reasons.
-            reasons = self._micro_exploration_reject_reasons or self.bregman_reject_reasons or {}
-            dominant = max(reasons.items(), key=lambda kv: kv[1])[0] if reasons else "none"
             att = int(m.get("bregman_clob_hydration_attempted", 0))
             rb = int(m.get("bregman_real_yes_no_books_seen", 0))
-            if hydrated_positive <= 0:
+            real_seen = int(self._relaxed_real_book_seen)
+            pos_seen = int(self._relaxed_positive_real_book_seen)
+            if real_seen <= 0:
+                # no real-book candidate stream at all (hydration produced none)
+                dom = (max(self._relaxed_blocked_by_reason.items(), key=lambda kv: kv[1])[0]
+                       if self._relaxed_blocked_by_reason else "no_real_book_hydrated")
                 m["zero_trade_blocker_if_any"] = (
-                    f"no_positive_after_cost_real_book_opportunity: "
+                    f"no_real_book_candidates: real_book_candidates_seen=0; "
+                    f"hydration_attempted={att}; real_yes_no_books={rb}; reason={dom}")
+            elif pos_seen <= 0:
+                m["zero_trade_blocker_if_any"] = (
+                    f"real_book_candidates_but_no_positive_after_cost_edge: "
+                    f"real_book_candidates_seen={real_seen}; positive=0; "
                     f"best_after_cost_edge={round(best_edge, 4)}; "
-                    f"dominant_reject={dominant}; "
-                    f"hydration_attempted={att}; real_yes_no_books={rb}")
+                    f"best_reject={self._relaxed_best_reject or '{}'}")
             else:
                 m["zero_trade_blocker_if_any"] = (
-                    f"micro_candidates_found_but_unfilled: "
+                    f"positive_candidates_found_but_unfilled: "
+                    f"positive={pos_seen}; reject_reasons="
                     f"{dict(self._micro_exploration_reject_reasons)}")
 
     def _open_bregman(self, opp: CertifiedBregmanOpportunity, rec_by_id: dict,

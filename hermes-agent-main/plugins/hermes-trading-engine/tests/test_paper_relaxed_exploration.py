@@ -149,6 +149,32 @@ def test_relaxed_disabled_flag_blocks_lane(tmp_path, monkeypatch):
     assert not [p for p in t.positions if p.exploration]
 
 
+def test_relaxed_candidate_stream_metrics_present(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    _enable(t)
+    t._run_bregman([_rec()], _NOW)
+    m = t.bregman_exec_metrics
+    # real-book candidate STREAM (not only certified bundles) is surfaced
+    assert m["paper_relaxed_real_book_candidates_seen"] >= 1
+    assert m["paper_relaxed_positive_real_book_candidates_seen"] >= 1
+    assert isinstance(m["paper_relaxed_candidate_source_counts"], dict)
+    assert m["paper_relaxed_candidate_source_counts"].get("binary_yes_no", 0) >= 1
+    assert m["paper_relaxed_best_real_book_candidate"].get("after_cost_edge", 0) > 0
+    assert isinstance(m["paper_relaxed_candidates_blocked_by_reason"], dict)
+
+
+def test_relaxed_negative_edge_records_blocked_reason_and_example(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    _enable(t, _books(0.55, 0.50))                     # negative after-cost edge
+    t._run_bregman([_rec()], _NOW)
+    m = t.bregman_exec_metrics
+    assert m["paper_relaxed_real_book_candidates_seen"] >= 1     # it IS on the stream
+    assert m["paper_relaxed_positive_real_book_candidates_seen"] == 0
+    assert m["paper_relaxed_candidates_blocked_by_reason"].get("no_positive_edge", 0) >= 1
+    assert m["paper_relaxed_best_reject_example"].get("reason") == "no_positive_edge"
+    assert "real_book_candidates_but_no_positive_after_cost_edge" in m["zero_trade_blocker_if_any"]
+
+
 def test_full_readiness_gates_not_loosened(tmp_path, monkeypatch):
     # The relaxed lane must not turn a thin/sub-margin opportunity into a CERTIFIED
     # readiness opportunity: certified_opportunities stays 0 while the lane still trades.
