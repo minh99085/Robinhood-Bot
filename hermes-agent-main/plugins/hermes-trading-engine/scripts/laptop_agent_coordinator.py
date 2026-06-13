@@ -43,6 +43,18 @@ EXAMPLE_CONFIG = ".laptop_agent.example.json"
 DEFAULT_CONTAINER = "hermes-training"
 VPS_OK_MARKER = "hermes-coordinator-ok"
 
+# Remote Python detection: a normal Ubuntu VPS often has only ``python3`` (no bare
+# ``python``). This shell snippet, run over SSH, prefers python3, falls back to python,
+# and STOPS early (rc 127) with a clear message if neither exists. Subsequent steps use
+# the resolved ``"$PYBIN"`` so the remote workflow is operator-proof.
+REMOTE_PY_DETECT = (
+    'PYBIN="$(command -v python3 || command -v python || true)"; '
+    'if [ -z "$PYBIN" ]; then '
+    'echo "FATAL: no python3 or python on the VPS PATH (install python3)" 1>&2; '
+    'exit 127; fi; '
+    'echo "remote python: $PYBIN"'
+)
+
 # Config keys whose VALUES must never be printed.
 SECRET_KEYS = frozenset({"vps_host", "vps_user", "vps_ssh_key"})
 
@@ -285,18 +297,26 @@ def build_remote_collect_script(cfg: Config, remote_zip: str) -> str:
     light inspection report -> runtime validation (tee'd) -> zip the 3 artifacts."""
     plugin = cfg.vps_remote_plugin_path
     container = cfg.hermes_training_container
+    # NOTE: the report/validation steps run through the DETECTED "$PYBIN" (python3 ->
+    # python), never a bare `python`, so a python3-only VPS works.
     return (
         f"set -e; cd {shlex.quote(plugin)}; "
+        f"{REMOTE_PY_DETECT}; "
         f"rm -rf runtime_data; "
         f"docker cp {shlex.quote(container)}:/data runtime_data; "
-        f"python scripts/generate_bot_inspection_report.py "
+        f'"$PYBIN" scripts/generate_bot_inspection_report.py '
         f"--output inspection_reports --data-dir runtime_data --bundle-mode light; "
-        f"python scripts/validate_training_runtime.py --data-dir runtime_data "
+        f'"$PYBIN" scripts/validate_training_runtime.py --data-dir runtime_data '
         f"| tee {VALIDATION_FILE}; "
         f"rm -f {shlex.quote(remote_zip)}; "
         f"zip -r {shlex.quote(remote_zip)} inspection_reports "
         f"{INSPECTION_SUMMARY} {VALIDATION_FILE}"
     )
+
+
+def build_remote_python_probe(cfg: Config) -> list:
+    """SSH probe that prints the remote Python path (python3 preferred), or NO_PYTHON."""
+    return build_ssh_cmd(cfg, "command -v python3 || command -v python || echo NO_PYTHON")
 
 
 # --------------------------------------------------------------------------- #
@@ -433,6 +453,15 @@ def cmd_vps_smoke(ctx: Ctx) -> int:
                          timeout=25, redact_display=True)
     results.append(_check(ctx, "Docker available on VPS", rc == 0 and bool(out.strip()),
                           out.strip().splitlines()[0] if out.strip() else ""))
+
+    # remote Python preflight: collection runs python3 (or python) on the VPS, never a
+    # bare `python` — report exactly which executable will be used.
+    rc, out, _ = ctx.run(build_remote_python_probe(cfg), timeout=20, redact_display=True)
+    remote_py = (out.strip().splitlines()[-1] if out.strip() else "")
+    py_ok = rc == 0 and bool(remote_py) and remote_py != "NO_PYTHON"
+    results.append(_check(ctx, "remote Python available", py_ok,
+                          f"will use {remote_py}" if py_ok
+                          else "no python3/python on VPS PATH (install python3)"))
 
     # hermes-training is OPTIONAL — report status if present, don't fail if absent.
     rc, out, _ = ctx.run(

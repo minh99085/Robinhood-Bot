@@ -119,8 +119,12 @@ Run these from the plugin folder in **PowerShell**:
    ```powershell
    python scripts/laptop_agent_coordinator.py vps-smoke --config .laptop_agent.json
    ```
-   Confirms SSH works, the remote plugin path exists, Docker is up, and reports the
-   `hermes-training` container status.
+   Confirms SSH works, the remote plugin path exists, Docker is up, reports the
+   `hermes-training` container status, and shows **which remote Python** will be used
+   (`[PASS] remote Python available — will use /usr/bin/python3`). A normal Ubuntu VPS
+   has only `python3` (no bare `python`); collection detects and uses it automatically.
+   If it shows `[FAIL] remote Python available`, install Python on the VPS:
+   `sudo apt-get update && sudo apt-get install -y python3`.
 
 4. **Collect a light report zip from the VPS** (one command):
    ```powershell

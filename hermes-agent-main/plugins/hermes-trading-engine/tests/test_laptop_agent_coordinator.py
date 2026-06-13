@@ -223,12 +223,64 @@ def test_remote_collect_script_has_exact_workflow(tmp_path):
     assert "cd /opt/hermes/plugins/hermes-trading-engine" in s
     assert "rm -rf runtime_data" in s
     assert "docker cp hermes-training:/data runtime_data" in s
-    assert ("python scripts/generate_bot_inspection_report.py --output inspection_reports "
+    # remote Python is DETECTED (python3 -> python), never a bare `python`
+    assert 'command -v python3 || command -v python' in s
+    assert ('"$PYBIN" scripts/generate_bot_inspection_report.py --output inspection_reports '
             "--data-dir runtime_data --bundle-mode light") in s
-    assert "python scripts/validate_training_runtime.py --data-dir runtime_data | tee " \
+    assert '"$PYBIN" scripts/validate_training_runtime.py --data-dir runtime_data | tee ' \
            "validation_light_latest.txt" in s
+    assert "python scripts/generate_bot_inspection_report.py" not in s   # no bare python
+    assert "python scripts/validate_training_runtime.py" not in s
     assert "zip -r" in s and "inspection_reports" in s
     assert "runtime_data/inspection_summary.json" in s and "validation_light_latest.txt" in s
+
+
+def test_remote_collect_script_stops_when_no_python():
+    cfg = co.Config(vps_remote_plugin_path="/opt/p")
+    s = co.build_remote_collect_script(cfg, "/opt/r.zip")
+    # clear early failure (rc 127) if neither python3 nor python exists on the VPS
+    assert 'if [ -z "$PYBIN" ]' in s and "exit 127" in s
+    assert "no python3 or python" in s.lower()
+
+
+def test_remote_python_probe_prefers_python3():
+    cfg = co.Config(vps_host="h", vps_user="u", vps_remote_plugin_path="/opt/p")
+    probe = co.build_remote_python_probe(cfg)
+    assert probe[0] == "ssh" and probe[-1] == "command -v python3 || command -v python || echo NO_PYTHON"
+    # python3 is attempted BEFORE python
+    cmd = probe[-1]
+    assert cmd.index("python3") < cmd.index("|| command -v python ")
+
+
+def test_vps_smoke_reports_remote_python(tmp_path):
+    _plugin(tmp_path)
+    write_cfg(tmp_path)
+    # python3-only VPS: the probe returns the python3 path
+    runner = SpyRunner({"echo hermes-coordinator-ok": (0, "hermes-coordinator-ok\n", ""),
+                        "test -d": (0, "hermes-coordinator-ok\n", ""),
+                        "docker version": (0, "27.0\n", ""),
+                        "command -v python3": (0, "/usr/bin/python3\n", ""),
+                        "docker inspect": (0, "running\n", "")})
+    rc, lines = _run(["vps-smoke", "--config", str(tmp_path / co.DEFAULT_CONFIG)],
+                     tmp_path, runner=runner)
+    out = "\n".join(lines)
+    assert rc == 0
+    assert "[PASS] remote Python available" in out and "/usr/bin/python3" in out
+
+
+def test_vps_smoke_fails_when_no_remote_python(tmp_path):
+    _plugin(tmp_path)
+    write_cfg(tmp_path)
+    runner = SpyRunner({"echo hermes-coordinator-ok": (0, "hermes-coordinator-ok\n", ""),
+                        "test -d": (0, "hermes-coordinator-ok\n", ""),
+                        "docker version": (0, "27.0\n", ""),
+                        "command -v python3": (0, "NO_PYTHON\n", ""),
+                        "docker inspect": (0, "running\n", "")})
+    rc, lines = _run(["vps-smoke", "--config", str(tmp_path / co.DEFAULT_CONFIG)],
+                     tmp_path, runner=runner)
+    out = "\n".join(lines)
+    assert rc == 1 and "[FAIL] remote Python available" in out
+    assert "install python3" in out
 
 
 def test_remote_zip_name_is_timestamped():
@@ -253,6 +305,7 @@ def test_vps_smoke_output_has_no_secrets(tmp_path):
     runner = SpyRunner({"echo hermes-coordinator-ok": (0, "hermes-coordinator-ok\n", ""),
                         "test -d": (0, "hermes-coordinator-ok\n", ""),
                         "docker version": (0, "27.0\n", ""),
+                        "command -v python3": (0, "/usr/bin/python3\n", ""),
                         "docker inspect": (0, "running\n", "")})
     rc, lines = _run(["vps-smoke", "--config", str(tmp_path / co.DEFAULT_CONFIG)],
                      tmp_path, runner=runner)
