@@ -43,17 +43,47 @@ EXAMPLE_CONFIG = ".laptop_agent.example.json"
 DEFAULT_CONTAINER = "hermes-training"
 VPS_OK_MARKER = "hermes-coordinator-ok"
 
-# Remote Python detection: a normal Ubuntu VPS often has only ``python3`` (no bare
-# ``python``). This shell snippet, run over SSH, prefers python3, falls back to python,
-# and STOPS early (rc 127) with a clear message if neither exists. Subsequent steps use
-# the resolved ``"$PYBIN"`` so the remote workflow is operator-proof.
-REMOTE_PY_DETECT = (
-    'PYBIN="$(command -v python3 || command -v python || true)"; '
-    'if [ -z "$PYBIN" ]; then '
-    'echo "FATAL: no python3 or python on the VPS PATH (install python3)" 1>&2; '
-    'exit 127; fi; '
-    'echo "remote python: $PYBIN"'
+# Module the report generator + tests require; a Python that can't import it is useless
+# for report generation (the exact `ModuleNotFoundError: pydantic` failure).
+REMOTE_REQUIRED_IMPORT = "pydantic"
+
+# Candidate remote interpreters, in PREFERENCE order: a dependency-capable project venv
+# first (.report_venv is what scripts/vps_generate_light_report.sh builds), then plugin/
+# repo/root venvs, then bare python3/python. The plugin dir is the CWD on the remote.
+REMOTE_PY_CANDIDATES = (
+    "./.report_venv/bin/python ./.venv/bin/python ../.venv/bin/python "
+    "../../.venv/bin/python ./venv/bin/python python3 python"
 )
+# Documented one-command setup that creates a dependency-capable venv on the VPS.
+REMOTE_DEP_FIX = "bash scripts/vps_generate_light_report.sh"
+
+
+def remote_python_select(*, on_fail_exit: bool) -> str:
+    """Shell snippet (run from the plugin dir) that picks a DEPENDENCY-CAPABLE remote
+    Python: it tries each candidate in preference order and uses the FIRST one that can
+    ``import pydantic``. Prints ``remote python: <path>`` on success. On failure it
+    prints which candidates were tested + the exact safe fix command, then either
+    exits 12 (``on_fail_exit``) or prints ``NO_DEP_PYTHON`` (probe mode). It NEVER
+    auto-installs packages."""
+    fail = (
+        'echo "FATAL: no dependency-capable Python on the VPS (none could import '
+        f'{REMOTE_REQUIRED_IMPORT})." 1>&2; '
+        f'echo "tested candidates: {REMOTE_PY_CANDIDATES}" 1>&2; '
+        f'echo "FIX (safe, no manual pip): run \\"{REMOTE_DEP_FIX}\\" in the plugin dir '
+        'to build .report_venv and install all report dependencies." 1>&2; '
+        + ("exit 12" if on_fail_exit else 'echo "NO_DEP_PYTHON"'))
+    return (
+        'PYBIN=""; '
+        f'for cand in {REMOTE_PY_CANDIDATES}; do '
+        'c="$cand"; '
+        'case "$cand" in */*) [ -x "$c" ] || continue;; '
+        '*) c="$(command -v "$cand" 2>/dev/null)" || continue;; esac; '
+        '[ -n "$c" ] || continue; '
+        f'if "$c" -c "import {REMOTE_REQUIRED_IMPORT}" >/dev/null 2>&1; '
+        'then PYBIN="$c"; break; fi; '
+        'done; '
+        f'if [ -z "$PYBIN" ]; then {fail}; else echo "remote python: $PYBIN"; fi'
+    )
 
 # Config keys whose VALUES must never be printed.
 SECRET_KEYS = frozenset({"vps_host", "vps_user", "vps_ssh_key"})
@@ -297,11 +327,14 @@ def build_remote_collect_script(cfg: Config, remote_zip: str) -> str:
     light inspection report -> runtime validation (tee'd) -> zip the 3 artifacts."""
     plugin = cfg.vps_remote_plugin_path
     container = cfg.hermes_training_container
-    # NOTE: the report/validation steps run through the DETECTED "$PYBIN" (python3 ->
-    # python), never a bare `python`, so a python3-only VPS works.
+    # The report/validation steps run through the DEPENDENCY-CAPABLE "$PYBIN" (a venv
+    # that can import pydantic, preferred), never a bare `python`. Python selection runs
+    # BEFORE `set -e` (its candidate probing legitimately fails for absent candidates);
+    # if no dependency-capable Python exists it exits 12 with an exact fix instruction.
     return (
-        f"set -e; cd {shlex.quote(plugin)}; "
-        f"{REMOTE_PY_DETECT}; "
+        f"cd {shlex.quote(plugin)} || {{ echo 'cannot cd to plugin' 1>&2; exit 12; }}; "
+        f"{remote_python_select(on_fail_exit=True)}; "
+        f"set -e; "
         f"rm -rf runtime_data; "
         f"docker cp {shlex.quote(container)}:/data runtime_data; "
         f'"$PYBIN" scripts/generate_bot_inspection_report.py '
@@ -315,8 +348,12 @@ def build_remote_collect_script(cfg: Config, remote_zip: str) -> str:
 
 
 def build_remote_python_probe(cfg: Config) -> list:
-    """SSH probe that prints the remote Python path (python3 preferred), or NO_PYTHON."""
-    return build_ssh_cmd(cfg, "command -v python3 || command -v python || echo NO_PYTHON")
+    """SSH probe that selects a dependency-capable remote Python from the plugin dir and
+    prints ``remote python: <path>`` (or ``NO_DEP_PYTHON`` + the fix). Never exits non-zero
+    for a missing candidate, so vps-smoke can read + report the result."""
+    return build_ssh_cmd(
+        cfg, f"cd {shlex.quote(cfg.vps_remote_plugin_path)} 2>/dev/null; "
+             + remote_python_select(on_fail_exit=False))
 
 
 # --------------------------------------------------------------------------- #
@@ -442,11 +479,14 @@ def cmd_vps_smoke(ctx: Ctx) -> int:
     results.append(_check(ctx, "SSH connection works", rc == 0 and VPS_OK_MARKER in out,
                           "" if rc == 0 else (err.strip().splitlines() or [""])[-1]))
 
-    rc, out, _ = ctx.run(
-        build_ssh_cmd(cfg, f"test -d {shlex.quote(cfg.vps_remote_plugin_path)} "
+    # Use the SAME `cd` that collect uses (authoritative; avoids `test -d` false
+    # negatives) and surface stderr on failure.
+    rc, out, err = ctx.run(
+        build_ssh_cmd(cfg, f"cd {shlex.quote(cfg.vps_remote_plugin_path)} "
                            f"&& echo {VPS_OK_MARKER}"),
         timeout=20, redact_display=True)
-    results.append(_check(ctx, "remote plugin path exists", rc == 0 and VPS_OK_MARKER in out))
+    results.append(_check(ctx, "remote plugin path exists", rc == 0 and VPS_OK_MARKER in out,
+                          "" if rc == 0 else (err.strip().splitlines() or ["cd failed"])[-1]))
 
     rc, out, _ = ctx.run(build_ssh_cmd(cfg, "docker version --format '{{.Server.Version}}' "
                                             "|| docker --version"),
@@ -454,14 +494,19 @@ def cmd_vps_smoke(ctx: Ctx) -> int:
     results.append(_check(ctx, "Docker available on VPS", rc == 0 and bool(out.strip()),
                           out.strip().splitlines()[0] if out.strip() else ""))
 
-    # remote Python preflight: collection runs python3 (or python) on the VPS, never a
-    # bare `python` — report exactly which executable will be used.
-    rc, out, _ = ctx.run(build_remote_python_probe(cfg), timeout=20, redact_display=True)
-    remote_py = (out.strip().splitlines()[-1] if out.strip() else "")
-    py_ok = rc == 0 and bool(remote_py) and remote_py != "NO_PYTHON"
-    results.append(_check(ctx, "remote Python available", py_ok,
-                          f"will use {remote_py}" if py_ok
-                          else "no python3/python on VPS PATH (install python3)"))
+    # remote Python preflight: collection needs a DEPENDENCY-CAPABLE Python (can import
+    # pydantic), not merely any python3. Report which executable is selected + the dep
+    # check result, with the exact fix if none qualifies.
+    rc, out, _ = ctx.run(build_remote_python_probe(cfg), timeout=25, redact_display=True)
+    sel = ""
+    for ln in out.splitlines():
+        if ln.startswith("remote python: "):
+            sel = ln.split("remote python: ", 1)[1].strip()
+    py_ok = bool(sel) and "NO_DEP_PYTHON" not in out
+    results.append(_check(
+        ctx, f"remote Python can import {REMOTE_REQUIRED_IMPORT}", py_ok,
+        f"will use {sel}" if py_ok
+        else f"no dependency-capable Python; FIX: run `{REMOTE_DEP_FIX}` on the VPS"))
 
     # hermes-training is OPTIONAL — report status if present, don't fail if absent.
     rc, out, _ = ctx.run(

@@ -119,12 +119,21 @@ Run these from the plugin folder in **PowerShell**:
    ```powershell
    python scripts/laptop_agent_coordinator.py vps-smoke --config .laptop_agent.json
    ```
-   Confirms SSH works, the remote plugin path exists, Docker is up, reports the
-   `hermes-training` container status, and shows **which remote Python** will be used
-   (`[PASS] remote Python available — will use /usr/bin/python3`). A normal Ubuntu VPS
-   has only `python3` (no bare `python`); collection detects and uses it automatically.
-   If it shows `[FAIL] remote Python available`, install Python on the VPS:
-   `sudo apt-get update && sudo apt-get install -y python3`.
+   Confirms SSH works, the remote plugin path exists (via the same `cd` collection
+   uses, with stderr shown on failure), Docker is up, reports the `hermes-training`
+   container status, and shows **which dependency-capable remote Python** will be used
+   (`[PASS] remote Python can import pydantic — will use .../.report_venv/bin/python`).
+   Collection picks the first interpreter that can `import pydantic`, preferring a
+   project venv (`.report_venv`/`.venv`) over bare `python3`/`python`.
+
+   If it shows `[FAIL] remote Python can import pydantic`, the VPS Python lacks the
+   report dependencies. Build the dependency venv on the VPS with the one documented
+   command (it never needs manual `pip install`):
+   ```bash
+   # on the VPS, in the plugin dir:
+   bash scripts/vps_generate_light_report.sh
+   ```
+   Then re-run `vps-smoke` / `collect-light-report`.
 
 4. **Collect a light report zip from the VPS** (one command):
    ```powershell

@@ -223,8 +223,8 @@ def test_remote_collect_script_has_exact_workflow(tmp_path):
     assert "cd /opt/hermes/plugins/hermes-trading-engine" in s
     assert "rm -rf runtime_data" in s
     assert "docker cp hermes-training:/data runtime_data" in s
-    # remote Python is DETECTED (python3 -> python), never a bare `python`
-    assert 'command -v python3 || command -v python' in s
+    # remote Python is a DEPENDENCY-CAPABLE selection (can import pydantic), via "$PYBIN"
+    assert "import pydantic" in s
     assert ('"$PYBIN" scripts/generate_bot_inspection_report.py --output inspection_reports '
             "--data-dir runtime_data --bundle-mode light") in s
     assert '"$PYBIN" scripts/validate_training_runtime.py --data-dir runtime_data | tee ' \
@@ -235,52 +235,79 @@ def test_remote_collect_script_has_exact_workflow(tmp_path):
     assert "runtime_data/inspection_summary.json" in s and "validation_light_latest.txt" in s
 
 
-def test_remote_collect_script_stops_when_no_python():
+def test_remote_python_selection_prefers_venv_then_requires_pydantic():
+    s = co.remote_python_select(on_fail_exit=True)
+    # venv candidates are tried BEFORE bare python3/python
+    assert s.index(".report_venv/bin/python") < s.index(" python3 ")
+    assert s.index(".venv/bin/python") < s.index(" python3 ")
+    assert s.index(" python3 ") < s.index(" python;") or "python3 python" in co.REMOTE_PY_CANDIDATES
+    # every candidate must import pydantic to qualify
+    assert 'import pydantic' in s
+
+
+def test_remote_collect_script_stops_when_no_dependency_capable_python():
     cfg = co.Config(vps_remote_plugin_path="/opt/p")
     s = co.build_remote_collect_script(cfg, "/opt/r.zip")
-    # clear early failure (rc 127) if neither python3 nor python exists on the VPS
-    assert 'if [ -z "$PYBIN" ]' in s and "exit 127" in s
-    assert "no python3 or python" in s.lower()
+    assert 'if [ -z "$PYBIN" ]' in s and "exit 12" in s
+    assert "no dependency-capable python" in s.lower()
+    assert "vps_generate_light_report.sh" in s          # exact safe fix, no manual pip
+    assert "pip install" not in s.lower()               # never auto-installs
 
 
-def test_remote_python_probe_prefers_python3():
+def test_remote_python_probe_checks_pydantic_and_does_not_exit():
     cfg = co.Config(vps_host="h", vps_user="u", vps_remote_plugin_path="/opt/p")
     probe = co.build_remote_python_probe(cfg)
-    assert probe[0] == "ssh" and probe[-1] == "command -v python3 || command -v python || echo NO_PYTHON"
-    # python3 is attempted BEFORE python
     cmd = probe[-1]
-    assert cmd.index("python3") < cmd.index("|| command -v python ")
+    assert probe[0] == "ssh"
+    assert "import pydantic" in cmd
+    assert "NO_DEP_PYTHON" in cmd and "exit 12" not in cmd   # probe never exits non-zero
+    assert ".report_venv/bin/python" in cmd                  # venv preferred
 
 
-def test_vps_smoke_reports_remote_python(tmp_path):
+def _smoke_runner(*, py_out="remote python: /opt/p/.report_venv/bin/python\n",
+                  path_rc=0, path_out="hermes-coordinator-ok\n", path_err=""):
+    # ORDER matters: the path check ("cd ... && echo MARKER") must match BEFORE the
+    # bare SSH-connection echo ("echo MARKER").
+    return SpyRunner({"&& echo hermes-coordinator-ok": (path_rc, path_out, path_err),
+                      "echo hermes-coordinator-ok": (0, "hermes-coordinator-ok\n", ""),
+                      "import pydantic": (0, py_out, ""),
+                      "docker version": (0, "27.0\n", ""),
+                      "docker inspect": (0, "running\n", "")})
+
+
+def test_vps_smoke_reports_dependency_capable_python(tmp_path):
     _plugin(tmp_path)
     write_cfg(tmp_path)
-    # python3-only VPS: the probe returns the python3 path
-    runner = SpyRunner({"echo hermes-coordinator-ok": (0, "hermes-coordinator-ok\n", ""),
-                        "test -d": (0, "hermes-coordinator-ok\n", ""),
-                        "docker version": (0, "27.0\n", ""),
-                        "command -v python3": (0, "/usr/bin/python3\n", ""),
-                        "docker inspect": (0, "running\n", "")})
     rc, lines = _run(["vps-smoke", "--config", str(tmp_path / co.DEFAULT_CONFIG)],
-                     tmp_path, runner=runner)
+                     tmp_path, runner=_smoke_runner())
     out = "\n".join(lines)
     assert rc == 0
-    assert "[PASS] remote Python available" in out and "/usr/bin/python3" in out
+    assert "[PASS] remote Python can import pydantic" in out
+    assert "/opt/p/.report_venv/bin/python" in out
+    assert "[PASS] remote plugin path exists" in out
 
 
-def test_vps_smoke_fails_when_no_remote_python(tmp_path):
+def test_vps_smoke_fails_when_no_dependency_capable_python(tmp_path):
     _plugin(tmp_path)
     write_cfg(tmp_path)
-    runner = SpyRunner({"echo hermes-coordinator-ok": (0, "hermes-coordinator-ok\n", ""),
-                        "test -d": (0, "hermes-coordinator-ok\n", ""),
-                        "docker version": (0, "27.0\n", ""),
-                        "command -v python3": (0, "NO_PYTHON\n", ""),
-                        "docker inspect": (0, "running\n", "")})
+    rc, lines = _run(["vps-smoke", "--config", str(tmp_path / co.DEFAULT_CONFIG)],
+                     tmp_path, runner=_smoke_runner(py_out="NO_DEP_PYTHON\n"))
+    out = "\n".join(lines)
+    assert rc == 1 and "[FAIL] remote Python can import pydantic" in out
+    assert "vps_generate_light_report.sh" in out          # exact fix shown
+
+
+def test_vps_smoke_plugin_path_uses_cd_and_shows_detail_on_failure(tmp_path):
+    _plugin(tmp_path)
+    write_cfg(tmp_path)
+    # path-check failure surfaces the remote stderr detail (no false-negative parsing)
+    runner = _smoke_runner(path_rc=1, path_out="",
+                           path_err="bash: cd: /nope: No such file or directory\n")
     rc, lines = _run(["vps-smoke", "--config", str(tmp_path / co.DEFAULT_CONFIG)],
                      tmp_path, runner=runner)
     out = "\n".join(lines)
-    assert rc == 1 and "[FAIL] remote Python available" in out
-    assert "install python3" in out
+    assert "[FAIL] remote plugin path exists" in out
+    assert "No such file or directory" in out             # explicit detail included
 
 
 def test_remote_zip_name_is_timestamped():
@@ -303,9 +330,8 @@ def test_vps_smoke_output_has_no_secrets(tmp_path):
     _plugin(tmp_path)
     write_cfg(tmp_path)
     runner = SpyRunner({"echo hermes-coordinator-ok": (0, "hermes-coordinator-ok\n", ""),
-                        "test -d": (0, "hermes-coordinator-ok\n", ""),
                         "docker version": (0, "27.0\n", ""),
-                        "command -v python3": (0, "/usr/bin/python3\n", ""),
+                        "import pydantic": (0, "remote python: /usr/bin/python3\n", ""),
                         "docker inspect": (0, "running\n", "")})
     rc, lines = _run(["vps-smoke", "--config", str(tmp_path / co.DEFAULT_CONFIG)],
                      tmp_path, runner=runner)
