@@ -34,6 +34,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -1545,6 +1546,310 @@ def _status_next_command(ctx: Ctx, vps_ssh: str, latest_zip) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Phase 6: Mission-Control Agent (one-command operator mission)
+# --------------------------------------------------------------------------- #
+MISSION_MODES = ("inspect-only", "proof2h", "long")
+# Wait (seconds) the approved proof/long run accumulates before collecting the report.
+# Operator-overridable with --proof-wait-seconds (0 = collect immediately, used by tests).
+MODE_WAIT_SECONDS = {"inspect-only": 0, "proof2h": 7200, "long": 39600}
+
+# The 100X paper-training runtime env the hermes-training container MUST carry. Live/
+# real-money flags are checked separately (detect_live_flags) and must all be off.
+REQUIRED_100X_ENV = {
+    "AGGRESSIVE_PAPER_TRAINING": "1", "PAPER_PROFIT_DISCOVERY_PROFILE": "1",
+    "HERMES_ACCELERATED_DISCOVERY": "1", "FEEDBACK_ACCELERATOR_ENABLED": "1",
+    "FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER": "100",
+    "POLYMARKET_ACTIVE_LEARNING_ENABLED": "1", "POLYMARKET_EXPLORATION_ENABLED": "1",
+    "EXPLORATION_TINY_SIZE_ENABLED": "1", "NEWS_SCANNER_ENABLED": "1",
+    "NEWS_PROVIDER_MODE": "live_read_only",
+}
+
+
+def build_remote_compose_config_cmd(cfg: Config) -> str:
+    return f"cd {shlex.quote(cfg.vps_remote_plugin_path)} && docker compose config -q"
+
+
+def build_remote_vps_sync_cmd(cfg: Config) -> str:
+    return (f"cd {shlex.quote(cfg.vps_remote_plugin_path)} && git fetch origin && "
+            f"git pull --ff-only origin main && git rev-parse HEAD")
+
+
+def build_remote_container_env_cmd(cfg: Config) -> str:
+    # works whether the container is running or merely created; never errors hard.
+    return ("docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "
+            f"{shlex.quote(cfg.hermes_training_container)} 2>/dev/null || true")
+
+
+def build_remote_rebuild_cmd(cfg: Config) -> str:
+    """Approved rebuild via EXISTING compose commands (PAPER ONLY; never live)."""
+    return (f"cd {shlex.quote(cfg.vps_remote_plugin_path)} && "
+            f"docker compose down --remove-orphans && docker compose build --no-cache && "
+            f"docker compose up -d")
+
+
+def _remote_compose_config_ok(ctx: Ctx) -> "tuple[bool, str]":
+    rc, _o, err = ctx.run(build_ssh_cmd(ctx.cfg, build_remote_compose_config_cmd(ctx.cfg)),
+                          timeout=120, redact_display=True)
+    return (rc == 0), ("" if rc == 0 else (err.strip().splitlines() or ["compose config failed"])[-1])
+
+
+def _remote_vps_git_pull(ctx: Ctx) -> "tuple[bool, str, str]":
+    rc, out, err = ctx.run(build_ssh_cmd(ctx.cfg, build_remote_vps_sync_cmd(ctx.cfg)),
+                           timeout=180, redact_display=True)
+    return (rc == 0), _hex_commit(out), ("" if rc == 0 else
+            (err.strip().splitlines() or ["vps git pull failed"])[-1])
+
+
+def _remote_container_env(ctx: Ctx) -> dict:
+    rc, out, _ = ctx.run(build_ssh_cmd(ctx.cfg, build_remote_container_env_cmd(ctx.cfg)),
+                         timeout=30, redact_display=True)
+    env: dict = {}
+    if rc == 0:
+        for ln in out.splitlines():
+            if "=" in ln:
+                k, _, v = ln.partition("=")
+                env[k.strip()] = v.strip()
+    return env
+
+
+def _remote_100x_proof(ctx: Ctx) -> "tuple[bool, dict, list]":
+    """Verify the hermes-training container env carries the 100X paper profile. Returns
+    (ok, present_subset, mismatched[]). Never exposes secrets (only the 100X keys)."""
+    env = _remote_container_env(ctx)
+    present = {k: env.get(k) for k in REQUIRED_100X_ENV}
+    mismatched = [f"{k}={env.get(k)!r}(want {want})"
+                  for k, want in REQUIRED_100X_ENV.items() if env.get(k) != want]
+    return (not mismatched and bool(env)), present, mismatched
+
+
+def _mission_dirty_artifacts(ctx: Ctx) -> "tuple[list, str]":
+    """Return (dirty_generated_paths, safe_cleanup_command_text). Read-only: it NEVER
+    deletes anything — it only reports generated artifacts dirtying git status + offers
+    the exact safe cleanup command for the operator to run themselves."""
+    rc, out, _ = ctx.run(["git", "status", "--porcelain"], timeout=30)
+    if rc != 0:
+        return [], ""
+    markers = ("validation_light_latest.txt", "vps_light_report", "hermes_light_report",
+               "report_logs/", ".report_venv", "git_commit_proof.txt",
+               "runtime_data_light_", "inspection_reports_light_")
+    dirty = []
+    for ln in out.splitlines():
+        path = ln[3:].strip() if len(ln) > 3 else ln.strip()
+        if any(m in path for m in markers):
+            dirty.append(path)
+    cleanup = ("git rm --cached -r --ignore-unmatch " + " ".join(dirty)) if dirty else ""
+    return dirty, cleanup
+
+
+def _remote_rebuild(ctx: Ctx, *, dry_run: bool) -> int:
+    cfg = ctx.cfg
+    remote = build_remote_rebuild_cmd(cfg)
+    ssh_cmd = build_ssh_cmd(cfg, remote)
+    ctx.say("  approved rebuild (PAPER ONLY; existing compose commands):")
+    ctx.say(f"    {remote}")
+    if dry_run:
+        ctx.say(f"  [DRY-RUN] would run: {redact(ssh_cmd, cfg)}")
+        return 0
+    rc, out, err = ctx.run(ssh_cmd, timeout=3600, redact_display=True)
+    if out.strip():
+        ctx.say(out.rstrip())
+    if rc != 0 and err.strip():
+        ctx.say(f"  detail: {err.strip().splitlines()[-1]}")
+    return rc
+
+
+def _print_mission_summary(ctx: Ctx, *, mode: str, safe: bool, local_commit: str,
+                           vps_commit: str, compose_config_ok, paper_running: bool,
+                           container_status: str, env100_ok, zip_path, zip_complete,
+                           instr: str, cursor_needed: bool, cursor_file: str,
+                           dirty_artifacts: list, cleanup_cmd: str) -> None:
+    ctx.say("\n" + "=" * 64)
+    ctx.say(f"MISSION-CONTROL — FINAL STATUS (mode={mode})")
+    ctx.say("=" * 64)
+    ctx.say(f"  RESULT              : {'SAFE TO CONTINUE' if safe else 'STOP'}")
+    ctx.say(f"  local commit        : {local_commit or 'unknown'}")
+    ctx.say(f"  VPS commit          : {vps_commit or 'unknown'}")
+    ctx.say(f"  docker compose config: {'OK' if compose_config_ok else 'FAILED' if compose_config_ok is False else 'not checked'}")
+    ctx.say(f"  hermes-training     : {'RUNNING' if paper_running else 'NOT running'} "
+            f"({container_status})")
+    ctx.say(f"  100X env proof      : {'OK' if env100_ok else 'NOT proven' if env100_ok is False else 'not checked'}")
+    ctx.say(f"  report zip (local)  : {zip_path if zip_path else '(none)'}")
+    ctx.say(f"  report bundle       : {'COMPLETE' if zip_complete else 'THIN/incomplete' if zip_complete is False else 'n/a'}")
+    ctx.say(f"  Cursor needed       : {'YES' if cursor_needed else 'no'}"
+            + (f" -> {cursor_file}" if cursor_needed and cursor_file else ""))
+    if dirty_artifacts:
+        ctx.say(f"  WARNING: generated artifacts dirty git status: {dirty_artifacts}")
+        ctx.say(f"    safe cleanup (run yourself; never auto-run): {cleanup_cmd}")
+    ctx.say("-" * 64)
+    if zip_path is not None and zip_complete:
+        ctx.say(f"  UPLOAD TO CHATGPT   : {zip_path}")
+        ctx.say(f"  upload instructions : {instr or '(could not write)'}")
+        ctx.say("  -> Upload that zip to ChatGPT and ask it to inspect the light report.")
+    else:
+        ctx.say("  UPLOAD TO CHATGPT   : (no complete report bundle — see blockers above)")
+    ctx.say("  (No ChatGPT free text is ever executed; Cursor is never auto-run.)")
+
+
+def cmd_mission_control(ctx: Ctx, *, mode: str = "inspect-only",
+                        approved_paper_run: bool = False, approved_by_chatgpt: bool = False,
+                        dry_run: bool = False, proof_wait_seconds=None) -> int:
+    """Phase 6 ONE-COMMAND mission for the non-coder operator. inspect-only (default)
+    runs read-only checks + canonical report collection and NEVER starts a run. proof2h
+    requires --approved-paper-run; long requires --approved-paper-run AND
+    --approved-by-chatgpt. Live trading is never enabled, no gate is loosened, no ChatGPT
+    free text is executed, and Cursor is never auto-run (a handoff FILE is written only on
+    a blocker)."""
+    import os as _os
+    cfg = ctx.cfg
+    mode = (mode or "inspect-only").lower()
+    blockers: list = []
+    cursor_needed = False
+    cursor_file = ""
+    state = {"compose_config_ok": None, "env100_ok": None, "vps_commit": "",
+             "paper_running": False, "container_status": "unknown",
+             "zip": None, "zip_complete": None, "instr": ""}
+
+    ctx.say("=" * 64)
+    ctx.say(f"MISSION-CONTROL — {mode} (PAPER ONLY; live trading disabled)")
+    ctx.say("=" * 64)
+
+    def _finish(rc_safe: bool, rc: int) -> int:
+        nonlocal cursor_file
+        if (blockers or not rc_safe) and not cursor_file:
+            cursor_file = _write_cycle_blocker_handoff(
+                ctx, blockers or [f"mission-control stopped (mode={mode})"])
+        dirty, cleanup = _mission_dirty_artifacts(ctx)
+        _append_ledger(ctx, {
+            "timestamp": _dt.datetime.now().replace(microsecond=0).isoformat(),
+            "event": "mission-control", "mode": mode, "local_commit": _local_commit(ctx),
+            "vps_commit": state["vps_commit"], "compose_config_ok": state["compose_config_ok"],
+            "paper_running": state["paper_running"], "env100_ok": state["env100_ok"],
+            "report_zip": (str(state["zip"]) if state["zip"] else ""),
+            "zip_complete": state["zip_complete"], "approved_paper_run": bool(approved_paper_run),
+            "approved_by_chatgpt": bool(approved_by_chatgpt), "blockers": blockers,
+            "cursor_needed": bool(cursor_file)})
+        _print_mission_summary(
+            ctx, mode=mode, safe=rc_safe, local_commit=_local_commit(ctx),
+            vps_commit=state["vps_commit"], compose_config_ok=state["compose_config_ok"],
+            paper_running=state["paper_running"], container_status=state["container_status"],
+            env100_ok=state["env100_ok"], zip_path=state["zip"],
+            zip_complete=state["zip_complete"], instr=state["instr"],
+            cursor_needed=bool(cursor_file), cursor_file=cursor_file,
+            dirty_artifacts=dirty, cleanup_cmd=cleanup)
+        return rc
+
+    # --- mode + approval gating (NO run starts without explicit approval) ---
+    if mode not in MISSION_MODES:
+        ctx.say(f"STOP — unknown mode '{mode}' (use {', '.join(MISSION_MODES)}).")
+        return _finish(False, 2)
+    if mode in ("proof2h", "long") and not approved_paper_run:
+        blockers.append(f"{mode} requires explicit --approved-paper-run")
+        ctx.say(f"STOP — mode '{mode}' starts/rebuilds a paper run and REQUIRES "
+                "--approved-paper-run. Refusing (inspect-only is the safe default).")
+        return _finish(False, 3)
+    if mode == "long" and not approved_by_chatgpt:
+        blockers.append("long requires --approved-by-chatgpt")
+        ctx.say("STOP — mode 'long' additionally REQUIRES --approved-by-chatgpt "
+                "(only after ChatGPT approved a long run).")
+        return _finish(False, 3)
+
+    # --- live/real-money flags must all be off (fail closed) ---
+    live = detect_live_flags(_os.environ)
+    if live:
+        blockers.append(f"live/real-money flags enabled: {', '.join(live)}")
+        ctx.say(f"STOP — live/real-money flag(s) detected: {', '.join(live)}. PAPER ONLY.")
+        return _finish(False, 2)
+
+    # --- read-only verification phase (always) ---
+    ctx.say("\n[1] local doctor")
+    if cmd_doctor(ctx) != 0:
+        blockers.append("local environment/config check failed (doctor)")
+        return _finish(False, 2)
+    ctx.say("\n[2] sync local GitHub main (fast-forward only)")
+    if cmd_sync_main(ctx) != 0:
+        blockers.append("could not safely sync local GitHub main")
+        return _finish(False, 2)
+    ctx.say("\n[3] VPS SSH smoke check")
+    if cmd_vps_smoke(ctx) != 0:
+        blockers.append("VPS access / Docker check failed (vps-smoke)")
+        return _finish(False, 2)
+    ctx.say("\n[4] VPS git fetch/pull main")
+    sync_ok, state["vps_commit"], sync_detail = _remote_vps_git_pull(ctx)
+    ctx.say(f"  VPS commit          : {state['vps_commit'] or 'unknown'}"
+            + ("" if sync_ok else f"  (pull issue: {sync_detail})"))
+    if not sync_ok:
+        blockers.append(f"VPS git pull main failed: {sync_detail}")
+    ctx.say("\n[5] docker compose config -q on VPS")
+    state["compose_config_ok"], cc_detail = _remote_compose_config_ok(ctx)
+    ctx.say(f"  compose config      : {'OK' if state['compose_config_ok'] else 'FAILED: ' + cc_detail}")
+    if not state["compose_config_ok"]:
+        blockers.append(f"docker compose config -q failed on VPS: {cc_detail}")
+        cursor_needed = True
+        return _finish(False, 2)
+    ctx.say("\n[6] hermes-training status + 100X env proof")
+    state["paper_running"], state["container_status"] = _remote_paper_status(ctx)
+    ctx.say(f"  hermes-training     : {'RUNNING' if state['paper_running'] else 'NOT running'} "
+            f"({state['container_status']})")
+    if state["paper_running"]:
+        state["env100_ok"], _present, _missing = _remote_100x_proof(ctx)
+        ctx.say(f"  100X env proof      : {'OK' if state['env100_ok'] else 'NOT proven: ' + str(_missing)}")
+
+    # --- APPROVED rebuild (proof2h / long only) ---
+    if approved_paper_run and mode in ("proof2h", "long"):
+        ctx.say(f"\n[7] APPROVED rebuild + proof run (mode={mode})")
+        if _remote_rebuild(ctx, dry_run=dry_run) != 0:
+            blockers.append("approved rebuild failed (docker compose down/build/up)")
+            cursor_needed = True
+            return _finish(False, 1)
+        if not dry_run:
+            state["env100_ok"], _present, _missing = _remote_100x_proof(ctx)
+            ctx.say(f"  100X runtime env    : {'OK' if state['env100_ok'] else 'NOT proven: ' + str(_missing)}")
+            if not state["env100_ok"]:
+                blockers.append(f"100X runtime env not proven after rebuild: {_missing}")
+                cursor_needed = True
+                return _finish(False, 1)
+            state["paper_running"], state["container_status"] = _remote_paper_status(ctx)
+            wait = (int(proof_wait_seconds) if proof_wait_seconds is not None
+                    else MODE_WAIT_SECONDS.get(mode, 0))
+            if wait > 0:
+                ctx.say(f"  waiting {wait}s for the proof run to accumulate before collecting…")
+                time.sleep(wait)
+
+    # --- collect the canonical light report (both modes) ---
+    ctx.say("\n[8] collect canonical light report + copy zip locally")
+    collect_rc = cmd_collect_light_report(ctx, dry_run=dry_run)
+    if dry_run:
+        ctx.say("\n[DRY-RUN] mission preview complete (nothing rebuilt/collected/started).")
+        return _finish(not blockers, 0 if not blockers else 1)
+    if collect_rc != 0:
+        blockers.append("canonical light-report collection failed / thin zip refused")
+        cursor_needed = True
+
+    art = _artifact_dir(ctx)
+    z = _latest_zip(art)
+    state["zip"] = z
+    if z is not None:
+        try:
+            with zipfile.ZipFile(z) as zf:
+                complete, _missing = zip_completeness(zf.namelist())
+            state["zip_complete"] = complete
+        except (OSError, zipfile.BadZipFile):
+            state["zip_complete"] = False
+    else:
+        state["zip_complete"] = False
+    if not state["zip_complete"]:
+        blockers.append("report zip incomplete (missing required bundle markers)")
+        cursor_needed = True
+
+    ctx.say("\n[9] write ChatGPT upload handoff")
+    state["instr"] = _write_upload_instructions(ctx, z)
+
+    if cursor_needed and not cursor_file:
+        cursor_file = _write_cycle_blocker_handoff(ctx, blockers or ["mission blocker"])
+    return _finish(not blockers, 0 if not blockers else 1)
+
+
+# --------------------------------------------------------------------------- #
 # Parser & main
 # --------------------------------------------------------------------------- #
 COMMANDS = {
@@ -1555,6 +1860,7 @@ COMMANDS = {
     "collect-report": cmd_collect_light_report,     # friendly alias (same behavior)
     "handoff-summary": cmd_handoff_summary,
     "operator-cycle": cmd_operator_cycle,
+    "mission-control": cmd_mission_control,
     "record-chatgpt-decision": cmd_record_chatgpt_decision,
     "prepare-cursor-handoff": cmd_prepare_cursor_handoff,
     "sync-main": cmd_sync_main,
@@ -1580,6 +1886,8 @@ def build_parser() -> argparse.ArgumentParser:
         "handoff-summary": "print the ChatGPT upload checklist for the latest zip",
         "operator-cycle": "ONE-COMMAND safe workflow: verify+sync+VPS+collect+handoff "
                           "(+ optional approved paper run)",
+        "mission-control": "Phase 6 mission: inspect-only (default, never starts a run) or "
+                           "approved proof2h/long rebuild + 100X proof + canonical report",
         "record-chatgpt-decision": "classify ChatGPT's saved response (no auto-execute)",
         "prepare-cursor-handoff": "extract+save a Cursor prompt from ChatGPT's response",
         "sync-main": "fast-forward-only pull of origin/main (refuses dirty tree)",
@@ -1592,7 +1900,7 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--config", default=DEFAULT_CONFIG,
                         help=f"path to coordinator config (default: {DEFAULT_CONFIG})")
         if name in ("collect-light-report", "collect-report", "operator-cycle",
-                    "start-paper-run"):
+                    "mission-control", "start-paper-run"):
             sp.add_argument("--dry-run", action="store_true",
                             help="print the exact remote/scp commands without running them")
         if name == "operator-cycle":
@@ -1602,6 +1910,17 @@ def build_parser() -> argparse.ArgumentParser:
             sp.add_argument("--mode", choices=["short", "long"], default="short",
                             help="approved paper run length: short=2h proof, long=approved "
                                  "longer paper run (default: short)")
+        if name == "mission-control":
+            sp.add_argument("--mode", choices=list(MISSION_MODES), default="inspect-only",
+                            help="inspect-only (default; never starts a run) | proof2h "
+                                 "(needs --approved-paper-run) | long (needs both approvals)")
+            sp.add_argument("--approved-paper-run", action="store_true",
+                            help="REQUIRED to rebuild/start a paper run (proof2h/long)")
+            sp.add_argument("--approved-by-chatgpt", action="store_true",
+                            help="additionally REQUIRED for --mode long")
+            sp.add_argument("--proof-wait-seconds", type=int, default=None,
+                            help="override the proof-run wait before collecting (default: "
+                                 "per-mode; 0 collects immediately)")
         if name == "init-config":
             sp.add_argument("--force", action="store_true",
                             help="overwrite an existing config file")
@@ -1646,6 +1965,12 @@ def main(argv=None, *, runner: Optional[Runner] = None,
         return handler(ctx, dry_run=bool(getattr(args, "dry_run", False)),
                        approved_paper_run=bool(getattr(args, "approved_paper_run", False)),
                        mode=getattr(args, "mode", "short"))
+    if args.command == "mission-control":
+        return handler(ctx, mode=getattr(args, "mode", "inspect-only"),
+                       approved_paper_run=bool(getattr(args, "approved_paper_run", False)),
+                       approved_by_chatgpt=bool(getattr(args, "approved_by_chatgpt", False)),
+                       dry_run=bool(getattr(args, "dry_run", False)),
+                       proof_wait_seconds=getattr(args, "proof_wait_seconds", None))
     if args.command in ("collect-light-report", "collect-report"):
         return handler(ctx, dry_run=bool(getattr(args, "dry_run", False)))
     if args.command in ("record-chatgpt-decision", "prepare-cursor-handoff"):

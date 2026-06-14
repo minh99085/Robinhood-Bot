@@ -51,9 +51,20 @@ Run from local Windows PowerShell at
 # 0. (anytime) one-glance status + the suggested next command
 python scripts/laptop_agent_coordinator.py status --config .laptop_agent.json
 
-# 1. ONE command — the whole safe mechanical workflow (verify repo+config, sync GitHub
-#    main, verify VPS SSH+commit+Docker, verify paper/live safety, collect the VPS light
-#    report, copy the zip locally, and print exactly what to upload to ChatGPT).
+# 1. THE one command — mission-control. inspect-only (default) NEVER starts a run:
+#    local doctor -> sync GitHub main -> VPS SSH smoke -> VPS git pull main ->
+#    docker compose config -q on VPS -> hermes-training status + 100X env proof ->
+#    collect the canonical light report -> copy zip locally -> verify it's a FULL bundle
+#    -> print SAFE TO CONTINUE / STOP + the exact ChatGPT upload path.
+python scripts/laptop_agent_coordinator.py mission-control --config .laptop_agent.json
+
+#    Approved PROOF run (rebuild + 100X proof + 2h proof + canonical report). Never
+#    starts without --approved-paper-run; live trading stays OFF.
+python scripts/laptop_agent_coordinator.py mission-control --config .laptop_agent.json --approved-paper-run --mode proof2h
+#    Approved LONG run additionally requires --approved-by-chatgpt:
+python scripts/laptop_agent_coordinator.py mission-control --config .laptop_agent.json --approved-paper-run --mode long --approved-by-chatgpt
+
+# (operator-cycle is still available as the earlier one-command mechanical workflow)
 python scripts/laptop_agent_coordinator.py operator-cycle --config .laptop_agent.json
 
 # (optional) ALSO start an approved PAPER run at the end — never starts without this flag.

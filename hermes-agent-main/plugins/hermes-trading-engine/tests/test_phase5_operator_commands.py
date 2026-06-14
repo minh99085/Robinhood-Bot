@@ -397,5 +397,191 @@ def _seed_repo_root_cfg(tmp_path, repo_root: str) -> Path:
         "vps_remote_plugin_path": "/opt/hermes", "local_artifact_dir": "artifacts"}),
         encoding="utf-8")
     return p
-    # it targets the PLUGIN's own tests dir explicitly (robust discovery)
-    assert "pytest" in out and "tests" in out
+
+
+# --------------------------------------------------------------------------- #
+# Phase 6: Mission-Control Agent
+# --------------------------------------------------------------------------- #
+def _mission_runner(tmp_path, *, started=None, env_100x=True, running=True, dirty="",
+                    thin_zip=False, calls=None):
+    """Runner for mission-control: local git, VPS git sync, compose config -q, container
+    env inspect (100X), rebuild (records started), canonical report, scp (full/thin)."""
+    art = tmp_path / "artifacts"
+
+    def runner(argv, cwd=None, timeout=None):
+        s = " ".join(str(a) for a in argv)
+        if calls is not None:
+            calls.append(s)
+        if argv and argv[0] == "git":                       # local git (doctor/sync-main)
+            if "rev-parse" in argv:
+                return (0, ("main\n" if "--abbrev-ref" in argv else "localcommit1\n"), "")
+            if "status" in argv:
+                return (0, dirty, "")
+            return (0, "", "")
+        if argv and argv[0] == "scp":
+            if thin_zip:
+                art.mkdir(parents=True, exist_ok=True)
+                with zipfile.ZipFile(art / co.CANONICAL_REPORT_ZIP, "w") as zf:
+                    zf.writestr("inspection_reports/report.json", "{}")   # thin
+            else:
+                _write_full_bundle(art / co.CANONICAL_REPORT_ZIP)
+            return (0, "", "")
+        # ---- ssh remote commands (argv[0] == "ssh") ----
+        # NOTE: the remote-python probe embeds "vps_generate_light_report.sh" in its FIX
+        # message, so check "import pydantic" BEFORE the canonical-report branch.
+        if "import pydantic" in s:
+            return (0, "remote python: /usr/bin/python3\n", "")
+        if "docker compose config" in s:
+            return (0, "", "")
+        if "git rev-parse HEAD" in s:                       # VPS git sync
+            return (0, "vpscommit123\n", "")
+        if "Config.Env" in s:                               # container 100X env inspect
+            if not env_100x:
+                return (0, "FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER=10\n", "")
+            return (0, "\n".join(f"{k}={v}" for k, v in co.REQUIRED_100X_ENV.items()) + "\n", "")
+        if "docker compose up" in s or "docker compose down" in s:   # rebuild
+            if started is not None:
+                started.append(s)
+            return (0, "rebuilt\n", "")
+        if "vps_generate_light_report.sh" in s:             # canonical report collection
+            return (0, "report ok\n", "")
+        if "State.Status" in s or "docker inspect" in s:
+            return (0, ("running\n" if running else "exited\n"), "")
+        if "echo hermes-coordinator-ok" in s:
+            return (0, "hermes-coordinator-ok\n", "")
+        if "docker version" in s:
+            return (0, "27.0\n", "")
+        return (0, "ok\n", "")
+    return runner
+
+
+def test_mission_control_in_parser_help():
+    assert "mission-control" in co.COMMANDS
+    p = co.build_parser()
+    ns = p.parse_args(["mission-control", "--mode", "proof2h", "--approved-paper-run"])
+    assert ns.command == "mission-control" and ns.mode == "proof2h"
+    assert ns.approved_paper_run is True
+
+
+def test_mission_control_inspect_only_does_not_start_run(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    started = []
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _mission_runner(tmp_path, started=started))
+    assert rc == 0
+    assert not started                                       # inspect-only NEVER rebuilds
+    assert "MISSION-CONTROL — FINAL STATUS" in out
+    assert "SAFE TO CONTINUE" in out
+    assert "UPLOAD TO CHATGPT" in out
+    assert (tmp_path / "artifacts" / co.CANONICAL_REPORT_ZIP).is_file()
+
+
+def test_mission_control_proof2h_refuses_without_approval(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    started = []
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path), "--mode", "proof2h"],
+                   tmp_path, _mission_runner(tmp_path, started=started))
+    assert rc == 3
+    assert "--approved-paper-run" in out and "STOP" in out
+    assert not started
+
+
+def test_mission_control_long_refuses_without_chatgpt_approval(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    started = []
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path), "--mode", "long",
+                    "--approved-paper-run"], tmp_path, _mission_runner(tmp_path, started=started))
+    assert rc == 3
+    assert "--approved-by-chatgpt" in out
+    assert not started
+
+
+def test_mission_control_live_flag_stops(tmp_path, monkeypatch):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    monkeypatch.setenv("MICRO_LIVE_ENABLED", "1")
+    started = []
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path), "--mode", "proof2h",
+                    "--approved-paper-run", "--proof-wait-seconds", "0"], tmp_path,
+                   _mission_runner(tmp_path, started=started))
+    assert rc == 2
+    assert "STOP" in out and "MICRO_LIVE_ENABLED" in out
+    assert not started                                       # never rebuilds under live flag
+
+
+def test_mission_control_compose_config_before_rebuild(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    calls = []
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path), "--mode", "proof2h",
+                    "--approved-paper-run", "--proof-wait-seconds", "0"], tmp_path,
+                   _mission_runner(tmp_path, calls=calls))
+    assert rc == 0
+    cfg_idx = next(i for i, c in enumerate(calls) if "docker compose config" in c)
+    rebuild_idx = next(i for i, c in enumerate(calls)
+                       if "docker compose build --no-cache" in c)
+    assert cfg_idx < rebuild_idx                             # config -q BEFORE rebuild
+
+
+def test_mission_control_verifies_100x_env_blocks_when_missing(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path), "--mode", "proof2h",
+                    "--approved-paper-run", "--proof-wait-seconds", "0"], tmp_path,
+                   _mission_runner(tmp_path, env_100x=False))
+    assert rc != 0
+    assert "100X" in out and "STOP" in out
+
+
+def test_mission_control_approved_proof2h_runs_safely(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    started = []
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path), "--mode", "proof2h",
+                    "--approved-paper-run", "--proof-wait-seconds", "0"], tmp_path,
+                   _mission_runner(tmp_path, started=started))
+    assert rc == 0
+    assert started and any("docker compose up -d" in s for s in started)
+    assert "SAFE TO CONTINUE" in out
+    assert "UPLOAD TO CHATGPT" in out
+    assert (tmp_path / "artifacts" / co.CANONICAL_REPORT_ZIP).is_file()
+
+
+def test_mission_control_thin_zip_refused(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _mission_runner(tmp_path, thin_zip=True))
+    assert rc != 0
+    assert "THIN/incomplete" in out
+    assert "STOP" in out
+
+
+def test_mission_control_blocker_writes_cursor_handoff(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+
+    def runner(argv, cwd=None, timeout=None):
+        base = _mission_runner(tmp_path)
+        s = " ".join(str(a) for a in argv)
+        if "docker compose config" in s and argv and argv[0] == "ssh":
+            return (1, "", "yaml: duplicate key")        # compose config fails -> blocker
+        return base(argv, cwd=cwd, timeout=timeout)
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path, runner)
+    assert rc != 0
+    assert "STOP" in out
+    handoffs = list((tmp_path / co.CURSOR_HANDOFF_DIR).glob("cursor_blocker_*.md"))
+    assert handoffs                                          # handoff FILE written
+    assert "Cursor needed       : YES" in out
+
+
+def test_mission_control_uses_canonical_report_script(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    calls = []
+    _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+         _mission_runner(tmp_path, calls=calls))
+    assert any("bash scripts/vps_generate_light_report.sh" in c for c in calls)
