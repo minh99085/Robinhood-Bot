@@ -51,9 +51,22 @@ Run from local Windows PowerShell at
 # 0. (anytime) one-glance status + the suggested next command
 python scripts/laptop_agent_coordinator.py status --config .laptop_agent.json
 
-# 1. collect a report + prepare the ChatGPT upload handoff, then STOP
+# 1. ONE command — the whole safe mechanical workflow (verify repo+config, sync GitHub
+#    main, verify VPS SSH+commit+Docker, verify paper/live safety, collect the VPS light
+#    report, copy the zip locally, and print exactly what to upload to ChatGPT).
 python scripts/laptop_agent_coordinator.py operator-cycle --config .laptop_agent.json
+
+# (optional) ALSO start an approved PAPER run at the end — never starts without this flag.
+#   short = 2-hour proof run;  long = approved longer paper run.  Live trading stays OFF.
+python scripts/laptop_agent_coordinator.py operator-cycle --config .laptop_agent.json --approved-paper-run --mode short
+python scripts/laptop_agent_coordinator.py operator-cycle --config .laptop_agent.json --approved-paper-run --mode long
 ```
+
+`operator-cycle` prints a final status block: **SAFE TO CONTINUE / STOP**, the local +
+VPS commit hashes, whether paper training is running, the local report-zip path, the
+exact ChatGPT upload instruction, and whether Cursor is needed (a Cursor handoff file is
+prepared only when a blocker is detected — it is never auto-run). `collect-report` is a
+friendly alias of `collect-light-report`.
 
 Then **upload the printed zip to ChatGPT** and save ChatGPT's reply to a `.md` file
 (e.g. `decision.md`). Classify it (the coordinator never auto-runs risky actions):

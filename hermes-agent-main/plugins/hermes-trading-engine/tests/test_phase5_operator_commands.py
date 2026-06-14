@@ -98,7 +98,8 @@ def test_operator_cycle_stops_after_report_handoff(tmp_path):
     rc, out = _run(["operator-cycle", "--config", _cfg_arg(tmp_path)], tmp_path,
                    _runner(tmp_path, started=started))
     assert rc == 0
-    assert "STOP and wait for ChatGPT inspection" in out
+    assert "SAFE TO CONTINUE" in out
+    assert "UPLOAD TO CHATGPT" in out                        # exact upload instruction
     assert (tmp_path / "artifacts" / co.UPLOAD_INSTRUCTIONS).is_file()
     assert not started                                       # never starts a run
 
@@ -276,5 +277,112 @@ def test_post_cursor_verify_safe_when_tests_pass(tmp_path):
     rc, out = _run(["post-cursor-verify", "--config", _cfg_arg(tmp_path)], tmp_path,
                    _runner(tmp_path))
     assert rc == 0 and "SAFE TO COLLECT" in out
+
+
+# --------------------------------------------------------------------------- #
+# laptop operator UX: collect-report alias + one-command operator-cycle
+# --------------------------------------------------------------------------- #
+def test_collect_report_alias_works(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["collect-report", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _runner(tmp_path))
+    assert rc == 0
+    assert "collect light-mode report" in out.lower()
+    assert list((tmp_path / "artifacts").glob("hermes_light_report_*.zip"))   # zip pulled
+
+
+def test_collect_light_report_still_works(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["collect-light-report", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _runner(tmp_path))
+    assert rc == 0
+    assert list((tmp_path / "artifacts").glob("hermes_light_report_*.zip"))
+
+
+def test_operator_cycle_runs_safe_sequence(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["operator-cycle", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _runner(tmp_path))
+    assert rc == 0
+    # the safe mechanical steps appear, in order, without internal command names required
+    for marker in ("verify local repo path + config", "sync GitHub main",
+                   "verify VPS access + Docker", "verify VPS commit + paper/live safety",
+                   "collect / generate the VPS light report", "ChatGPT upload handoff"):
+        assert marker in out, marker
+    # final status block fields
+    for marker in ("OPERATOR CYCLE — FINAL STATUS", "RESULT", "local commit", "VPS commit",
+                   "paper training", "report zip (local)", "UPLOAD TO CHATGPT",
+                   "Cursor needed"):
+        assert marker in out, marker
+
+
+def test_operator_cycle_does_not_start_run_without_approval(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    started = []
+    rc, out = _run(["operator-cycle", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _runner(tmp_path, started=started))
+    assert rc == 0
+    assert not started                                       # NO run started
+
+
+def test_operator_cycle_starts_approved_paper_run(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    started = []
+    rc, out = _run(["operator-cycle", "--config", _cfg_arg(tmp_path),
+                    "--approved-paper-run", "--mode", "short"], tmp_path,
+                   _runner(tmp_path, started=started))
+    assert rc == 0
+    assert started                                          # approved -> run started
+    assert any("docker compose up" in s for s in started)
+    assert "approved paper run  : STARTED" in out
+
+
+def test_operator_cycle_refuses_live_flags(tmp_path, monkeypatch):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    monkeypatch.setenv("MICRO_LIVE_ENABLED", "1")           # a live flag is on
+    started = []
+    rc, out = _run(["operator-cycle", "--config", _cfg_arg(tmp_path),
+                    "--approved-paper-run", "--mode", "long"], tmp_path,
+                   _runner(tmp_path, started=started))
+    assert rc == 2
+    assert "STOP" in out and "MICRO_LIVE_ENABLED" in out
+    assert not started                                      # never starts under a live flag
+
+
+def test_operator_cycle_prints_report_path_and_upload_instruction(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["operator-cycle", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _runner(tmp_path))
+    assert rc == 0
+    assert "report zip (local)" in out
+    assert "hermes_light_report_" in out                    # the actual local zip path
+    assert "UPLOAD TO CHATGPT" in out
+    assert (tmp_path / "artifacts" / co.UPLOAD_INSTRUCTIONS).is_file()
+
+
+def test_local_repo_root_hermes_agent_supported(tmp_path):
+    # config-driven repo_root is honored verbatim; no old path is hardcoded anywhere.
+    load = co.load_config(_seed_repo_root_cfg(tmp_path, r"C:\hermes-agent\x\plugins\hte"))
+    assert load.found
+    assert load.cfg.repo_root == r"C:\hermes-agent\x\plugins\hte"
+    example = (Path(__file__).resolve().parents[1] / ".laptop_agent.example.json").read_text()
+    assert "hermes-agent-cursor" not in example
+    assert r"C:\\hermes-agent\\" in example
+
+
+def _seed_repo_root_cfg(tmp_path, repo_root: str) -> Path:
+    p = tmp_path / co.DEFAULT_CONFIG
+    p.write_text(json.dumps({
+        "repo_root": repo_root, "plugin_path": repo_root, "vps_host": "h", "vps_user": "u",
+        "vps_remote_plugin_path": "/opt/hermes", "local_artifact_dir": "artifacts"}),
+        encoding="utf-8")
+    return p
     # it targets the PLUGIN's own tests dir explicitly (robust discovery)
     assert "pytest" in out and "tests" in out

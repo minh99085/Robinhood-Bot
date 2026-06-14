@@ -523,7 +523,8 @@ def test_operator_cycle_collects_and_stops_for_handoff(tmp_path):
                      tmp_path, runner=_cycle_runner(tmp_path, started=started))
     out = "\n".join(lines)
     assert rc == 0
-    assert "STOP and wait for ChatGPT inspection" in out
+    assert "SAFE TO CONTINUE" in out
+    assert "UPLOAD TO CHATGPT" in out                                # exact upload instruction
     assert (tmp_path / "artifacts" / co.UPLOAD_INSTRUCTIONS).is_file()      # handoff written
     assert not started                                               # never started a run
     # ledger appended with the cycle record

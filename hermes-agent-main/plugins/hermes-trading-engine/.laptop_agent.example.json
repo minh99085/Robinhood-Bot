@@ -15,8 +15,8 @@
   "runtime_source": "ubuntu@YOUR.VPS.IP.OR.HOST:/opt/hermes/plugins/hermes-trading-engine/runtime_data/",
 
   "_coordinator_README": "Fields below are used by scripts/laptop_agent_coordinator.py (Phase 2 operator handoff).",
-  "repo_root": "C:\\hermes-agent-cursor\\hermes-agent-main\\plugins\\hermes-trading-engine",
-  "plugin_path": "C:\\hermes-agent-cursor\\hermes-agent-main\\plugins\\hermes-trading-engine",
+  "repo_root": "C:\\hermes-agent\\hermes-agent-main\\plugins\\hermes-trading-engine",
+  "plugin_path": "C:\\hermes-agent\\hermes-agent-main\\plugins\\hermes-trading-engine",
   "vps_remote_plugin_path": "/opt/hermes/plugins/hermes-trading-engine",
   "local_artifact_dir": "inspection_reports_artifacts",
   "hermes_training_container": "hermes-training"

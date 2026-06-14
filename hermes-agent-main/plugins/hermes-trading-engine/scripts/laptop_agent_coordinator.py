@@ -98,6 +98,29 @@ VALIDATE_SCRIPT = "scripts/validate_training_runtime.py"
 VALIDATION_FILE = "validation_light_latest.txt"
 INSPECTION_SUMMARY = "runtime_data/inspection_summary.json"
 
+# Live / real-money flags that must NEVER be enabled for the mechanical paper workflow.
+# If any is truthy the coordinator STOPS immediately (it never enables a live path and
+# never loosens a gate — it only refuses to proceed). Mirrors engine.aggressive_paper.
+LIVE_FORBIDDEN_FLAGS = (
+    "BTC_PULSE_LIVE_ENABLED", "BTC_AUTOTRADE_ENABLED", "GUARDED_LIVE_ENABLED",
+    "MICRO_LIVE_ENABLED", "MICRO_LIVE_EXECUTION_ENABLED",
+    "PRODUCTION_REVIEW_ENABLE_PRODUCTION_EXECUTION", "ARB_EXECUTION_ENABLED",
+    "HTE_AUTOTRADE", "LIVE_TRADING_ENABLED", "REAL_MONEY_ENABLED",
+)
+
+
+def _flag_truthy(v) -> bool:
+    return str(v).strip().lower() in ("1", "true", "yes", "on") if v is not None else False
+
+
+def detect_live_flags(env=None) -> list:
+    """Return the list of LIVE_FORBIDDEN_FLAGS that are currently TRUTHY in ``env``
+    (defaults to ``os.environ``). Pure + read-only; used to fail closed before any
+    mechanical step or approved paper run."""
+    import os as _os
+    e = env if env is not None else _os.environ
+    return [f for f in LIVE_FORBIDDEN_FLAGS if _flag_truthy(e.get(f))]
+
 Runner = Callable[..., "tuple[int, str, str]"]
 
 
@@ -879,29 +902,177 @@ def _read_text_file(path: Path):
 
 
 # ---- operator-cycle -------------------------------------------------------- #
-def cmd_operator_cycle(ctx: Ctx, *, dry_run: bool = False) -> int:
-    """One command: doctor -> vps-smoke -> collect-light-report -> write the ChatGPT
-    upload handoff, then STOP and wait for human/ChatGPT inspection. It never starts a
-    run on its own."""
+def _hex_commit(text: str) -> str:
+    """Extract a git commit hash (7–40 hex chars) from output, else '' (so a mocked or
+    noisy SSH reply is never shown as a fake commit)."""
+    for tok in (text or "").split():
+        t = tok.strip()
+        if 7 <= len(t) <= 40 and all(c in "0123456789abcdef" for c in t.lower()):
+            return t
+    return ""
+
+
+def _remote_vps_commit(ctx: Ctx) -> str:
+    """Read-only: the VPS repo's current commit at the remote plugin path. Never fails
+    the cycle (informational); returns '' when unknown."""
     cfg = ctx.cfg
+    try:
+        rc, out, _ = ctx.run(
+            build_ssh_cmd(cfg, f"cd {shlex.quote(cfg.vps_remote_plugin_path)} 2>/dev/null "
+                               f"&& git rev-parse HEAD 2>/dev/null || true"),
+            timeout=25, redact_display=True)
+        return _hex_commit(out) if rc == 0 else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _remote_paper_status(ctx: Ctx) -> "tuple[bool, str]":
+    """Read-only: (paper_training_running, container_status) from `docker inspect` of the
+    hermes-training container. Never fails the cycle."""
+    cfg = ctx.cfg
+    try:
+        rc, out, _ = ctx.run(
+            build_ssh_cmd(cfg, f"docker inspect -f '{{{{.State.Status}}}}' "
+                               f"{shlex.quote(cfg.hermes_training_container)} 2>/dev/null "
+                               f"|| echo absent"), timeout=25, redact_display=True)
+        status = out.strip().splitlines()[-1] if out.strip() else "unknown"
+    except Exception:  # noqa: BLE001
+        status = "unknown"
+    return (status == "running"), status
+
+
+def _write_cycle_blocker_handoff(ctx: Ctx, blockers: list) -> str:
+    """Prepare (NEVER auto-run) a Cursor handoff FILE describing a mechanical blocker so
+    the operator can paste it into web Cursor. Only called when a blocker is detected."""
+    out_dir = ctx.repo_root / CURSOR_HANDOFF_DIR
+    ts = ctx.now_fn().strftime("%Y%m%d_%H%M%S")
+    body = (
+        "# Cursor handoff — operator-cycle blocker\n\n"
+        "The laptop coordinator hit a mechanical blocker while running the safe operator\n"
+        "cycle. Investigate + fix in web Cursor (push to GitHub `main`, report the commit\n"
+        "hash). Do NOT enable live trading or loosen any gate.\n\n"
+        "## Blockers detected\n" + "".join(f"- {b}\n" for b in blockers) + "\n"
+        "## After the fix\n"
+        "```\n"
+        f"python scripts/laptop_agent_coordinator.py post-cursor-verify "
+        f"--config {ctx.cfg.source_file or DEFAULT_CONFIG}\n"
+        "```\n")
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        dest = out_dir / f"cursor_blocker_{ts}.md"
+        dest.write_text(body, encoding="utf-8")
+        return str(dest)
+    except OSError:
+        return ""
+
+
+def _print_cycle_summary(ctx: Ctx, *, safe: bool, vps_commit: str, local_commit: str,
+                         paper_running: bool, container_status: str, zip_path,
+                         instr: str, cursor_needed: bool, cursor_file: str,
+                         run_started: bool, mode: str) -> None:
+    cfg_name = ctx.cfg.source_file or DEFAULT_CONFIG
+    ctx.say("\n" + "=" * 64)
+    ctx.say("OPERATOR CYCLE — FINAL STATUS")
     ctx.say("=" * 64)
-    ctx.say("OPERATOR CYCLE — collect report + prepare ChatGPT handoff (then STOP)")
+    ctx.say(f"  RESULT              : {'SAFE TO CONTINUE' if safe else 'STOP'}")
+    ctx.say(f"  local commit        : {local_commit or 'unknown'}")
+    ctx.say(f"  VPS commit          : {vps_commit or 'unknown'}")
+    ctx.say(f"  paper training      : {'RUNNING' if paper_running else 'NOT running'} "
+            f"({container_status})")
+    if run_started:
+        ctx.say(f"  approved paper run  : STARTED (mode={mode}, PAPER ONLY, live disabled)")
+    ctx.say(f"  report zip (local)  : {zip_path if zip_path else '(none)'}")
+    ctx.say(f"  Cursor needed       : {'YES' if cursor_needed else 'no'}"
+            + (f" -> {cursor_file}" if cursor_needed and cursor_file else ""))
+    ctx.say("-" * 64)
+    if zip_path is not None:
+        ctx.say(f"  UPLOAD TO CHATGPT   : {zip_path}")
+        ctx.say(f"  upload instructions : {instr or '(could not write)'}")
+        ctx.say("  -> Upload that zip to ChatGPT and ask it to inspect the light report.")
+    else:
+        ctx.say("  UPLOAD TO CHATGPT   : (no report zip produced — see blockers above)")
+    ctx.say("  (No ChatGPT free text is ever executed; Cursor is never auto-run.)")
+
+
+def cmd_operator_cycle(ctx: Ctx, *, dry_run: bool = False,
+                       approved_paper_run: bool = False, mode: str = "short") -> int:
+    """ONE command for the non-coder operator. Runs the safe mechanical steps in order:
+    verify local repo+config -> sync GitHub main -> verify VPS SSH+commit+Docker ->
+    verify paper/live safety -> collect/generate the VPS light report -> copy the zip
+    locally -> write the exact ChatGPT upload handoff. It NEVER starts a run unless
+    ``--approved-paper-run`` is explicitly given, NEVER enables live trading, NEVER
+    loosens a gate, NEVER executes ChatGPT free text, and NEVER auto-runs Cursor (it
+    only prepares a Cursor handoff FILE when a blocker is detected)."""
+    import os as _os
+    cfg = ctx.cfg
+    mode = (mode or "short").lower()
+    blockers: list = []
+    cursor_needed = False
+    cursor_file = ""
     ctx.say("=" * 64)
-    ctx.say("\n[1/3] doctor")
+    ctx.say("OPERATOR CYCLE — safe mechanical workflow (one command)")
+    ctx.say("=" * 64)
+
+    # (safety) fail closed on any live/micro-live/production flag BEFORE anything else.
+    live = detect_live_flags(_os.environ)
+    if live:
+        ctx.say(f"\nSTOP — live/real-money flag(s) detected: {', '.join(live)}. "
+                "This workflow is PAPER ONLY. Disable them and retry.")
+        _print_cycle_summary(ctx, safe=False, vps_commit="", local_commit=_local_commit(ctx),
+                             paper_running=False, container_status="unknown", zip_path=None,
+                             instr="", cursor_needed=False, cursor_file="",
+                             run_started=False, mode=mode)
+        return 2
+
+    ctx.say("\n[1/6] verify local repo path + config (doctor)")
     if cmd_doctor(ctx) != 0:
-        ctx.say("\nSTOP — doctor failed; fix the items above before collecting.")
+        blockers.append("local environment/config check failed (doctor)")
+        cursor_file = _write_cycle_blocker_handoff(ctx, blockers)
+        _print_cycle_summary(ctx, safe=False, vps_commit="", local_commit=_local_commit(ctx),
+                             paper_running=False, container_status="unknown", zip_path=None,
+                             instr="", cursor_needed=True, cursor_file=cursor_file,
+                             run_started=False, mode=mode)
         return 2
-    ctx.say("\n[2/3] vps-smoke")
+
+    ctx.say("\n[2/6] sync GitHub main (fast-forward only)")
+    if cmd_sync_main(ctx) != 0:
+        blockers.append("could not safely sync GitHub main")
+        _print_cycle_summary(ctx, safe=False, vps_commit="", local_commit=_local_commit(ctx),
+                             paper_running=False, container_status="unknown", zip_path=None,
+                             instr="", cursor_needed=False, cursor_file="",
+                             run_started=False, mode=mode)
+        return 2
+
+    ctx.say("\n[3/6] verify VPS access + Docker (vps-smoke)")
     if cmd_vps_smoke(ctx) != 0:
-        ctx.say("\nSTOP — vps-smoke failed; fix the VPS items above before collecting.")
+        blockers.append("VPS access / Docker check failed (vps-smoke)")
+        _print_cycle_summary(ctx, safe=False, vps_commit="", local_commit=_local_commit(ctx),
+                             paper_running=False, container_status="unknown", zip_path=None,
+                             instr="", cursor_needed=False, cursor_file="",
+                             run_started=False, mode=mode)
         return 2
-    ctx.say("\n[3/3] collect-light-report")
+
+    ctx.say("\n[4/6] verify VPS commit + paper/live safety status")
+    vps_commit = _remote_vps_commit(ctx)
+    paper_running, container_status = _remote_paper_status(ctx)
+    ctx.say(f"  VPS commit          : {vps_commit or 'unknown'}")
+    ctx.say(f"  paper training      : {'RUNNING' if paper_running else 'NOT running'} "
+            f"({container_status})")
+    ctx.say("  live trading        : DISABLED (paper-only workflow; no gate changed)")
+
+    ctx.say("\n[5/6] collect / generate the VPS light report (+ copy zip locally)")
     if cmd_collect_light_report(ctx, dry_run=dry_run) != 0:
-        ctx.say("\nSTOP — report collection failed (see detail above).")
-        return 1
+        blockers.append("light-report collection failed")
+        cursor_needed = True
     if dry_run:
-        ctx.say("\n[DRY-RUN] cycle preview complete (nothing collected).")
-        return 0
+        ctx.say("\n[DRY-RUN] cycle preview complete (nothing collected/started).")
+        cursor_file = _write_cycle_blocker_handoff(ctx, blockers) if cursor_needed else ""
+        _print_cycle_summary(ctx, safe=not blockers, vps_commit=vps_commit,
+                             local_commit=_local_commit(ctx), paper_running=paper_running,
+                             container_status=container_status, zip_path=None, instr="",
+                             cursor_needed=cursor_needed, cursor_file=cursor_file,
+                             run_started=False, mode=mode)
+        return 0 if not blockers else 1
 
     art = _artifact_dir(ctx)
     z = _latest_zip(art)
@@ -914,23 +1085,49 @@ def cmd_operator_cycle(ctx: Ctx, *, dry_run: bool = False) -> int:
             has_summary = any(n.endswith("inspection_summary.json") for n in names)
         except (OSError, zipfile.BadZipFile):
             pass
+    if z is None or not (has_validation and has_summary):
+        blockers.append("report zip incomplete (missing validation/inspection_summary)")
+        cursor_needed = True
+
+    ctx.say("\n[6/6] write the ChatGPT upload handoff")
     instr = _write_upload_instructions(ctx, z)
+
+    # approved paper run (ONLY with explicit --approved-paper-run, and only if clean).
+    run_started = False
+    if approved_paper_run:
+        if blockers:
+            ctx.say("\nSTOP — blockers detected; refusing to start an approved paper run.")
+        else:
+            ctx.say(f"\n[run] approved paper run requested (mode={mode}) — PAPER ONLY")
+            run_rc = cmd_start_paper_run(ctx, mode=mode, approved_by_chatgpt=True,
+                                         dry_run=dry_run)
+            run_started = (run_rc == 0)
+            if not run_started:
+                blockers.append(f"approved paper run failed to start (rc={run_rc})")
+            else:
+                paper_running, container_status = _remote_paper_status(ctx)
+
+    if cursor_needed and not cursor_file:
+        cursor_file = _write_cycle_blocker_handoff(ctx, blockers)
+
     _append_ledger(ctx, {
         "timestamp": _dt.datetime.now().replace(microsecond=0).isoformat(),
         "event": "operator-cycle", "local_commit": _local_commit(ctx),
-        "report_zip": (str(z) if z else ""), "validation_present": has_validation,
-        "inspection_summary_present": has_summary,
+        "vps_commit": vps_commit, "report_zip": (str(z) if z else ""),
+        "validation_present": has_validation, "inspection_summary_present": has_summary,
+        "paper_running": bool(paper_running), "approved_paper_run": bool(approved_paper_run),
+        "run_started": bool(run_started), "mode": mode, "blockers": blockers,
+        "cursor_needed": bool(cursor_needed),
         "handoff_files": [UPLOAD_INSTRUCTIONS] if instr else [],
         "decision_classification": None})
-    ctx.say("\n" + "=" * 64)
-    ctx.say("CYCLE COMPLETE — STOP and wait for ChatGPT inspection.")
-    if z is not None:
-        ctx.say(f"  UPLOAD THIS ZIP to ChatGPT: {z}")
-    ctx.say(f"  Handoff instructions written: {instr or '(could not write)'}")
-    ctx.say("  After ChatGPT replies, save its response to a .md file and run:")
-    ctx.say(f"    python scripts/laptop_agent_coordinator.py record-chatgpt-decision "
-            f"--config {cfg.source_file or DEFAULT_CONFIG} --file <decision.md>")
-    return 0
+
+    safe = not blockers
+    _print_cycle_summary(ctx, safe=safe, vps_commit=vps_commit,
+                         local_commit=_local_commit(ctx), paper_running=paper_running,
+                         container_status=container_status, zip_path=z, instr=instr,
+                         cursor_needed=cursor_needed, cursor_file=cursor_file,
+                         run_started=run_started, mode=mode)
+    return 0 if safe else 1
 
 
 def _write_upload_instructions(ctx: Ctx, zip_path) -> str:
@@ -1292,6 +1489,7 @@ COMMANDS = {
     "doctor": cmd_doctor,
     "vps-smoke": cmd_vps_smoke,
     "collect-light-report": cmd_collect_light_report,
+    "collect-report": cmd_collect_light_report,     # friendly alias (same behavior)
     "handoff-summary": cmd_handoff_summary,
     "operator-cycle": cmd_operator_cycle,
     "record-chatgpt-decision": cmd_record_chatgpt_decision,
@@ -1315,8 +1513,10 @@ def build_parser() -> argparse.ArgumentParser:
         "doctor": "check the local environment (repo/plugin/git/ssh/python/artifacts)",
         "vps-smoke": "read-only VPS checks over SSH (reachable/path/docker/container)",
         "collect-light-report": "collect a light-mode report zip from the VPS",
+        "collect-report": "alias of collect-light-report",
         "handoff-summary": "print the ChatGPT upload checklist for the latest zip",
-        "operator-cycle": "doctor + vps-smoke + collect + ChatGPT upload handoff (then STOP)",
+        "operator-cycle": "ONE-COMMAND safe workflow: verify+sync+VPS+collect+handoff "
+                          "(+ optional approved paper run)",
         "record-chatgpt-decision": "classify ChatGPT's saved response (no auto-execute)",
         "prepare-cursor-handoff": "extract+save a Cursor prompt from ChatGPT's response",
         "sync-main": "fast-forward-only pull of origin/main (refuses dirty tree)",
@@ -1328,9 +1528,17 @@ def build_parser() -> argparse.ArgumentParser:
         sp = sub.add_parser(name, help=helps.get(name, ""))
         sp.add_argument("--config", default=DEFAULT_CONFIG,
                         help=f"path to coordinator config (default: {DEFAULT_CONFIG})")
-        if name in ("collect-light-report", "operator-cycle", "start-paper-run"):
+        if name in ("collect-light-report", "collect-report", "operator-cycle",
+                    "start-paper-run"):
             sp.add_argument("--dry-run", action="store_true",
                             help="print the exact remote/scp commands without running them")
+        if name == "operator-cycle":
+            sp.add_argument("--approved-paper-run", action="store_true",
+                            help="explicitly approve starting a PAPER run at the end of the "
+                                 "cycle (no run starts without this flag; live stays OFF)")
+            sp.add_argument("--mode", choices=["short", "long"], default="short",
+                            help="approved paper run length: short=2h proof, long=approved "
+                                 "longer paper run (default: short)")
         if name == "init-config":
             sp.add_argument("--force", action="store_true",
                             help="overwrite an existing config file")
@@ -1371,7 +1579,11 @@ def main(argv=None, *, runner: Optional[Runner] = None,
     handler = COMMANDS[args.command]
     if args.command == "init-config":
         return handler(ctx, target=cfg_path, force=bool(getattr(args, "force", False)))
-    if args.command in ("collect-light-report", "operator-cycle"):
+    if args.command == "operator-cycle":
+        return handler(ctx, dry_run=bool(getattr(args, "dry_run", False)),
+                       approved_paper_run=bool(getattr(args, "approved_paper_run", False)),
+                       mode=getattr(args, "mode", "short"))
+    if args.command in ("collect-light-report", "collect-report"):
         return handler(ctx, dry_run=bool(getattr(args, "dry_run", False)))
     if args.command in ("record-chatgpt-decision", "prepare-cursor-handoff"):
         return handler(ctx, file=args.file)
