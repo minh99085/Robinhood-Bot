@@ -555,11 +555,11 @@ services:
       POLYMARKET_MAX_SPREAD: "0.08"
       POLYMARKET_MAX_AMBIGUITY_SCORE: "0.45"
       POLYMARKET_EXPLORATION_ENABLED: "1"
-      POLYMARKET_EXPLORATION_RATE: "0.5"
-      POLYMARKET_EXPLORATION_MIN_EDGE: "-0.05"
-      POLYMARKET_EXPLORATION_NOTIONAL_USD: "2"
+      # NOTE: POLYMARKET_EXPLORATION_RATE / _MIN_EDGE / _NOTIONAL_USD and
+      # PAPER_MAX_ORDER_NOTIONAL_USD are defined exactly ONCE in the 100X profile block
+      # above (loosened soft selection gates + tiny <=$2 hard cap). Do NOT redefine them
+      # here — duplicate YAML mapping keys make docker compose config fail to parse.
       POLYMARKET_EXPLORATION_BUDGET_USD: "20"
-      PAPER_MAX_ORDER_NOTIONAL_USD: "5"
       PAPER_MAX_TOTAL_EXPOSURE_USD: "100"
       PAPER_MAX_DAILY_LOSS_USD: "50"
     # BTC_PULSE_ENABLED=1 (above) unfreezes the pulse experiment on its own.
