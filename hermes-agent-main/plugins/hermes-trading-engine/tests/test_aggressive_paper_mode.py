@@ -13,12 +13,39 @@ from engine.aggressive_paper import (
     FORBIDDEN_LIVE_FLAGS,
     PAPER_ONLY_LOCKS,
     AggressivePaperUnsafe,
+    aggressive_paper_proof,
     apply_aggressive_paper_env,
     assert_paper_only,
     enabled_live_flags,
     is_aggressive_paper,
     real_execution_possible,
 )
+
+
+def test_aggressive_paper_proof_block_after_apply():
+    env = {}
+    apply_aggressive_paper_env(env)
+    proof = aggressive_paper_proof(env)
+    assert proof["aggressive_paper_training_enabled"] is True
+    assert proof["feedback_accelerator_enabled"] is True
+    assert proof["feedback_accelerator_target_multiplier"] == 100   # 100X profile
+    assert proof["paper_profit_discovery_profile_enabled"] is True
+    assert proof["real_execution_possible"] is False               # hard invariant
+    assert proof["live_flags_forced_off"] is True
+
+
+def test_proof_real_execution_impossible_even_if_live_flag_flips():
+    env = {}
+    apply_aggressive_paper_env(env)
+    env["BTC_AUTOTRADE_ENABLED"] = "1"          # something flips a live flag later
+    proof = aggressive_paper_proof(env)
+    assert proof["real_execution_possible"] is False   # aggressive mode pins it off
+
+
+def test_vps_paper_profile_multiplier_is_100():
+    assert AGGRESSIVE_PAPER_DEFAULTS["FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER"] == "100"
+    assert AGGRESSIVE_PAPER_DEFAULTS["FEEDBACK_ACCELERATOR_ENABLED"] == "1"
+    assert AGGRESSIVE_PAPER_DEFAULTS["PAPER_PROFIT_DISCOVERY_PROFILE"] == "1"
 
 
 def test_apply_forces_paper_only_locks():

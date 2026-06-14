@@ -60,10 +60,11 @@ AGGRESSIVE_PAPER_DEFAULTS = {
     "MARKET_LIVE_WATCHLIST_LIMIT": "150", "MARKET_TRADE_CANDIDATE_LIMIT": "80",
     "POLYMARKET_SCAN_INTERVAL_SECONDS": "15", "SCORE_REFRESH_SECONDS": "15",
     "CATALOG_REFRESH_SECONDS": "180", "POLYMARKET_MAX_CONCURRENT_REQUESTS": "16",
-    # feedback acceleration + labeling
+    # feedback acceleration + labeling (100X paper profit-discovery profile)
     "FEEDBACK_ACCELERATOR_ENABLED": "1", "FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER": "100",
+    "PAPER_PROFIT_DISCOVERY_PROFILE": "1",
     "SHADOW_DECISION_LOGGING_ENABLED": "1", "NO_TRADE_LABELING_ENABLED": "1",
-    "ACTIVE_LEARNING_ENABLED": "1",
+    "ACTIVE_LEARNING_ENABLED": "1", "EXPLORATION_TINY_SIZE_ENABLED": "1",
     # exploration buckets (training only; never readiness)
     "POLYMARKET_EXPLORATION_ENABLED": "1", "POLYMARKET_EXPLORATION_RATE": "0.75",
     "POLYMARKET_EXPLORATION_MIN_EDGE": "-0.10", "POLYMARKET_EXPLORATION_NOTIONAL_USD": "1",
@@ -114,6 +115,31 @@ def real_execution_possible(env: Optional[Mapping] = None) -> bool:
 def enabled_live_flags(env: Optional[Mapping] = None) -> list:
     env = env if env is not None else os.environ
     return [f for f in FORBIDDEN_LIVE_FLAGS if _truthy(env.get(f))]
+
+
+def aggressive_paper_proof(env: Optional[Mapping] = None) -> dict:
+    """Report-grade proof block for the 100X paper profit-discovery profile.
+
+    PURE + read-only. Proves, from the resolved environment, that aggressive paper
+    mode is active, the Feedback Accelerator + 100X multiplier are on, real execution
+    is impossible, and every forbidden live flag is forced off. Never enables a live
+    path. Safe for inclusion in status/report telemetry."""
+    e = env if env is not None else os.environ
+    agg = is_aggressive_paper(e)
+    try:
+        mult = int(float(e.get("FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER", 0) or 0))
+    except (TypeError, ValueError):
+        mult = 0
+    return {
+        "aggressive_paper_training_enabled": bool(agg),
+        "feedback_accelerator_enabled": _truthy(e.get("FEEDBACK_ACCELERATOR_ENABLED")),
+        "feedback_accelerator_target_multiplier": mult,
+        "paper_profit_discovery_profile_enabled": (
+            _truthy(e.get("PAPER_PROFIT_DISCOVERY_PROFILE")) or bool(agg)),
+        # Hard invariants — both are constant under aggressive paper locks.
+        "real_execution_possible": real_execution_possible(e),
+        "live_flags_forced_off": not enabled_live_flags(e),
+    }
 
 
 def assert_paper_only(env: Optional[Mapping] = None) -> None:

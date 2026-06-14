@@ -477,14 +477,18 @@ services:
       BTC_FAST_PRICE_LOG_ENABLED: "${BTC_FAST_PRICE_LOG_ENABLED:-1}"
       BTC_PULSE_REQUIRE_FAST_PRICE: "${BTC_PULSE_REQUIRE_FAST_PRICE:-0}"
       BTC_PULSE_MAX_ORACLE_DISAGREEMENT_BPS: "${BTC_PULSE_MAX_ORACLE_DISAGREEMENT_BPS:-150}"
-      # ---- 10x Feedback Accelerator (PAPER ONLY; default OFF) ----
-      # This is the service that runs the training loop, so the accelerator env
-      # MUST live here. Set FEEDBACK_ACCELERATOR_ENABLED=1 in your .env to turn it
-      # on. It only speeds up LEARNING (more decisions, shadow + no-trade labels,
-      # tiny capped exploration). Hard safety gates never loosen; PAPER ONLY.
-      FEEDBACK_ACCELERATOR_ENABLED: "${FEEDBACK_ACCELERATOR_ENABLED:-0}"
-      FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER: "${FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER:-10}"
-      EXPLORATION_ENABLED: "${EXPLORATION_ENABLED:-0}"
+      # ---- 100X Feedback Accelerator + AGGRESSIVE PAPER profile (PAPER ONLY) ----
+      # hermes-training boots the 100X paper profit-discovery profile by DEFAULT:
+      # AGGRESSIVE_PAPER_TRAINING=1 forces paper-only locks + fails closed on any
+      # real-money flag (real execution stays impossible), and the Feedback
+      # Accelerator speeds up LEARNING (more decisions, shadow + no-trade labels,
+      # tiny capped exploration). Hard safety gates NEVER loosen; PAPER ONLY.
+      # Override any of these in your .env (e.g. AGGRESSIVE_PAPER_TRAINING=0) to opt out.
+      AGGRESSIVE_PAPER_TRAINING: "${AGGRESSIVE_PAPER_TRAINING:-1}"
+      PAPER_PROFIT_DISCOVERY_PROFILE: "${PAPER_PROFIT_DISCOVERY_PROFILE:-1}"
+      FEEDBACK_ACCELERATOR_ENABLED: "${FEEDBACK_ACCELERATOR_ENABLED:-1}"
+      FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER: "${FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER:-100}"
+      EXPLORATION_ENABLED: "${EXPLORATION_ENABLED:-1}"
       EXPLORATION_TINY_SIZE_ENABLED: "${EXPLORATION_TINY_SIZE_ENABLED:-1}"
       EXPLORATION_COUNTS_FOR_READINESS: "${EXPLORATION_COUNTS_FOR_READINESS:-0}"
       SHADOW_DECISION_LOGGING_ENABLED: "${SHADOW_DECISION_LOGGING_ENABLED:-1}"
