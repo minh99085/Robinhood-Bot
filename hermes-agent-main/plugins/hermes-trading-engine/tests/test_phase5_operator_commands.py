@@ -585,3 +585,180 @@ def test_mission_control_uses_canonical_report_script(tmp_path):
     _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
          _mission_runner(tmp_path, calls=calls))
     assert any("bash scripts/vps_generate_light_report.sh" in c for c in calls)
+
+
+# --------------------------------------------------------------------------- #
+# Phase 6b: exact VPS failure diagnostics (classified; no generic-only blocker)
+# --------------------------------------------------------------------------- #
+def _stage_of(s: str) -> str:
+    if "import pydantic" in s:
+        return "import-pydantic"
+    if "docker compose config" in s:
+        return "compose-config"
+    if "docker compose ps" in s:
+        return "compose-ps"
+    if "docker compose down" in s or "docker compose up" in s:
+        return "rebuild"
+    if "Config.Env" in s:
+        return "env"
+    if "git rev-parse HEAD" in s:
+        return "git"
+    if "vps_generate_light_report.sh" in s:
+        return "report"
+    if "docker version" in s:
+        return "docker"
+    if "State.Status" in s or "docker inspect" in s:
+        return "status"
+    if co.VPS_OK_MARKER in s and "cd " in s:
+        return "path"
+    if co.VPS_OK_MARKER in s:
+        return "ssh"
+    return "other"
+
+
+def _diag_runner(tmp_path, *, fail=None, fail_rc=255, fail_err="", running=True,
+                 env_100x=True):
+    """Mission runner that can fail ONE named SSH stage with a given rc/stderr, so the
+    classifier + evidence printing can be asserted. Local git always succeeds."""
+    art = tmp_path / "artifacts"
+
+    def runner(argv, cwd=None, timeout=None):
+        s = " ".join(str(a) for a in argv)
+        if argv and argv[0] == "git":
+            if "rev-parse" in argv:
+                return (0, ("main\n" if "--abbrev-ref" in argv else "lc1\n"), "")
+            if "status" in argv:
+                return (0, "", "")
+            return (0, "", "")
+        if argv and argv[0] == "scp":
+            _write_full_bundle(art / co.CANONICAL_REPORT_ZIP)
+            return (0, "", "")
+        stage = _stage_of(s)
+        if fail and stage == fail:
+            return (fail_rc, "", fail_err)
+        return {
+            "ssh": (0, co.VPS_OK_MARKER + "\n", ""),
+            "path": (0, co.VPS_OK_MARKER + "\n", ""),
+            "git": (0, "vpsc1234567\n", ""),
+            "docker": (0, "27.0\n", ""),
+            "compose-config": (0, "", ""),
+            "compose-ps": (0, "NAME STATE\nhermes-training running\n", ""),
+            "rebuild": (0, "rebuilt\n", ""),
+            "env": (0, ("\n".join(f"{k}={v}" for k, v in co.REQUIRED_100X_ENV.items()) + "\n"
+                        if env_100x else "FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER=10\n"), ""),
+            "status": (0, ("running\n" if running else "exited\n"), ""),
+            "import-pydantic": (0, "remote python: /usr/bin/python3\n", ""),
+            "report": (0, "report ok\n", ""),
+        }.get(stage, (0, "ok\n", ""))
+    return runner
+
+
+def _handoff_text(tmp_path):
+    files = list((tmp_path / co.CURSOR_HANDOFF_DIR).glob("cursor_blocker_*.md"))
+    return files[-1].read_text(encoding="utf-8") if files else ""
+
+
+def test_mission_ssh_auth_failure_classified_and_printed(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _diag_runner(tmp_path, fail="ssh", fail_rc=255,
+                                fail_err="Permission denied (publickey)."))
+    assert rc == 2
+    assert "SSH_AUTH_FAILED" in out
+    assert "Permission denied (publickey)." in out          # exact stderr tail
+    assert "exit_code     : 255" in out
+    assert "cannot continue until" in out.lower() or "key auth works" in out.lower()
+    assert "SECRET-HOST" not in out                          # host redacted
+    hand = _handoff_text(tmp_path)
+    assert "SSH_AUTH_FAILED" in hand and "Permission denied" in hand and "exit_code" in hand
+
+
+def test_mission_compose_config_failure_classified(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _diag_runner(tmp_path, fail="compose-config", fail_rc=1,
+                                fail_err="yaml: duplicate key POLYMARKET_EXPLORATION_RATE"))
+    assert rc == 2
+    assert "DOCKER_COMPOSE_FAILED" in out
+    assert "duplicate key" in out
+    assert "exit_code     : 1" in out
+
+
+def test_mission_vps_path_missing_classified(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _diag_runner(tmp_path, fail="path", fail_rc=1,
+                                fail_err="bash: line 0: cd: /opt/hermes: No such file or directory"))
+    assert rc == 2
+    assert "VPS_PATH_MISSING" in out
+    assert "No such file or directory" in out
+
+
+def test_mission_container_not_running_classified(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _diag_runner(tmp_path, running=False))
+    assert "CONTAINER_NOT_RUNNING" in out
+    assert "NOT running" in out
+    assert "100X env proof      : skipped" in out
+
+
+def test_mission_final_summary_includes_exact_blocker(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _diag_runner(tmp_path, fail="compose-config", fail_rc=1,
+                                fail_err="yaml: duplicate key"))
+    final = out.split("FINAL STATUS", 1)[1]                  # only the summary block
+    assert "DOCKER_COMPOSE_FAILED" in final
+    assert "failing stage" in final and "exit=1" in final
+
+
+def test_mission_handoff_includes_stdout_stderr_and_exit(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+         _diag_runner(tmp_path, fail="docker", fail_rc=127,
+                      fail_err="bash: docker: command not found"))
+    hand = _handoff_text(tmp_path)
+    assert "DOCKER_MISSING" in hand
+    assert "exit_code: `127`" in hand
+    assert "command not found" in hand
+    assert "stderr_tail" in hand and "stdout_tail" in hand
+
+
+def test_mission_redacts_secrets_in_evidence(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)             # vps_host=SECRET-HOST, key path under tmp
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path)], tmp_path,
+                   _diag_runner(tmp_path, fail="ssh", fail_rc=255,
+                                fail_err="Permission denied (publickey)."))
+    hand = _handoff_text(tmp_path)
+    assert "SECRET-HOST" not in out and "SECRET-HOST" not in hand
+    assert "id_key" not in out and "id_key" not in hand     # ssh key path redacted
+    assert "<redacted>" in hand                              # remote command shown redacted
+
+
+def test_debug_flag_prints_traces(tmp_path):
+    _plugin(tmp_path)
+    _write_cfg(tmp_path)
+    rc, out = _run(["mission-control", "--config", _cfg_arg(tmp_path), "--debug"], tmp_path,
+                   _diag_runner(tmp_path))
+    assert "[debug] exit=" in out
+
+
+def test_classify_remote_failure_units():
+    assert co.classify_remote_failure("SSH connectivity", 255,
+                                      "", "Permission denied (publickey).") == "SSH_AUTH_FAILED"
+    assert co.classify_remote_failure("SSH connectivity", 255,
+                                      "", "ssh: connect to host x port 22: Connection refused") == "SSH_CONNECT_FAILED"
+    assert co.classify_remote_failure("VPS git commit", 128,
+                                      "", "fatal: not a git repository") == "GIT_REPO_MISSING"
+    assert co.classify_remote_failure("Docker available", 127,
+                                      "", "bash: docker: command not found") == "DOCKER_MISSING"
+    assert co.classify_remote_failure("docker compose config -q", 1,
+                                      "", "yaml: duplicate key") == "DOCKER_COMPOSE_FAILED"

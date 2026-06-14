@@ -311,6 +311,128 @@ def redact(argv, cfg: Config) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Remote-failure diagnostics (exact, classified, secret-safe)
+# --------------------------------------------------------------------------- #
+# Detected failure classes (operator-actionable). UNKNOWN is the safe fallback.
+FAILURE_CLASSES = (
+    "SSH_AUTH_FAILED", "SSH_CONNECT_FAILED", "VPS_PATH_MISSING", "GIT_REPO_MISSING",
+    "DOCKER_MISSING", "DOCKER_COMPOSE_FAILED", "CONTAINER_NOT_RUNNING", "API_UNHEALTHY",
+    "UNKNOWN",
+)
+
+
+def _tail_text(s: str, n: int = 6) -> str:
+    """Last ``n`` non-empty lines of ``s`` joined with ' | ' (compact, log-safe)."""
+    lines = [ln.rstrip() for ln in (s or "").splitlines() if ln.strip()]
+    return " | ".join(lines[-n:]) if lines else "(empty)"
+
+
+def classify_remote_failure(label: str, rc: int, out: str, err: str) -> str:
+    """Classify a failed remote (SSH) check into an operator-actionable class. Uses the
+    stderr/stdout text first (most precise), then the stage label as a fallback. Pure."""
+    text = ((err or "") + "\n" + (out or "")).lower()
+    lab = (label or "").lower()
+    # SSH auth (BatchMode can't prompt for a passphrase) — must come before connect.
+    if any(k in text for k in ("permission denied", "publickey", "passphrase",
+                               "host key verification failed",
+                               "too many authentication failures",
+                               "no such identity", "unprotected private key")):
+        return "SSH_AUTH_FAILED"
+    if rc == 124 or any(k in text for k in ("timed out", "timeout")):
+        return "SSH_CONNECT_FAILED"
+    if any(k in text for k in ("could not resolve hostname", "connection refused",
+                               "no route to host", "network is unreachable",
+                               "connection closed by", "connect to host",
+                               "broken pipe")):
+        return "SSH_CONNECT_FAILED"
+    if "not a git repository" in text or "fatal: not a git" in text:
+        return "GIT_REPO_MISSING"
+    if ("no such file or directory" in text or "cannot cd to plugin" in text) and (
+            "path" in lab or "cd " in text):
+        return "VPS_PATH_MISSING"
+    if ("command not found" in text or "docker: not found" in text
+            or "docker: command not found" in text or "is not a docker command" in text):
+        return "DOCKER_MISSING"
+    # stage-label fallbacks
+    if "compose config" in lab:
+        return "DOCKER_COMPOSE_FAILED"
+    if "repo path" in lab or "plugin path" in lab:
+        return "VPS_PATH_MISSING"
+    if "git commit" in lab or "git" in lab:
+        return "GIT_REPO_MISSING"
+    if "docker available" in lab or "docker version" in lab:
+        return "DOCKER_MISSING"
+    if "compose ps" in lab or "container" in lab or "hermes-training" in lab:
+        return "CONTAINER_NOT_RUNNING"
+    if "ssh" in lab or "connect" in lab:
+        return "SSH_CONNECT_FAILED"
+    return "UNKNOWN"
+
+
+def suggested_action(failure_class: str) -> str:
+    return {
+        "SSH_AUTH_FAILED": ("SSH KEY auth failed (BatchMode cannot prompt for a passphrase). "
+                            "The laptop agent CANNOT continue until key auth works: point "
+                            "vps_ssh_key at a PASSPHRASE-LESS private key file that is "
+                            "authorized on the VPS (ssh-copy-id), then retry."),
+        "SSH_CONNECT_FAILED": ("Could not reach the VPS over SSH. Check vps_host/vps_port, "
+                               "network/firewall, and that sshd is up; then retry."),
+        "VPS_PATH_MISSING": ("The configured vps_remote_plugin_path does not exist on the "
+                             "VPS. Fix the path in .laptop_agent.json (or clone the repo "
+                             "there)."),
+        "GIT_REPO_MISSING": ("The VPS plugin dir is not a git repo or has no commits. Clone "
+                             "the repo / fix it on the VPS, then retry."),
+        "DOCKER_MISSING": ("Docker (or the compose plugin) is not available on the VPS. "
+                           "Install/enable Docker + 'docker compose', then retry."),
+        "DOCKER_COMPOSE_FAILED": ("'docker compose config -q' failed (YAML/interpolation "
+                                  "error). Pull latest main on the VPS and fix "
+                                  "docker-compose.yml, then retry."),
+        "CONTAINER_NOT_RUNNING": ("hermes-training is not running, so a FRESH report can't be "
+                                  "generated. Start it (mission-control --approved-paper-run "
+                                  "--mode proof2h) before collecting."),
+        "API_UNHEALTHY": "The training API/health check is failing; inspect container logs on the VPS.",
+        "UNKNOWN": "Inspect the exact remote command + stdout/stderr tail above and retry.",
+    }.get(failure_class, "Inspect the exact remote command + stdout/stderr tail above.")
+
+
+def _remote_evidence(ctx: "Ctx", *, label: str, remote_cmd: str, rc: int, out: str,
+                     err: str, ok: bool) -> dict:
+    """Structured, SECRET-REDACTED evidence for one remote check."""
+    fc = "" if ok else classify_remote_failure(label, rc, out, err)
+    return {
+        "stage": label,
+        "remote_command": redact(build_ssh_cmd(ctx.cfg, remote_cmd), ctx.cfg),
+        "exit_code": rc,
+        "stdout_tail": _tail_text(out),
+        "stderr_tail": _tail_text(err),
+        "ok": bool(ok),
+        "failure_class": fc,
+        "suggested_action": (suggested_action(fc) if not ok else ""),
+    }
+
+
+def run_ssh_stage(ctx: "Ctx", label: str, remote_cmd: str, *, timeout: int = 30,
+                  expect_marker: Optional[str] = None) -> dict:
+    """Run one SSH stage and return structured + classified evidence. Never raises."""
+    rc, out, err = ctx.run(build_ssh_cmd(ctx.cfg, remote_cmd), timeout=timeout,
+                           redact_display=True)
+    ok = (rc == 0) and (expect_marker is None or expect_marker in out)
+    return _remote_evidence(ctx, label=label, remote_cmd=remote_cmd, rc=rc, out=out,
+                            err=err, ok=ok)
+
+
+def print_remote_evidence(ctx: "Ctx", ev: dict) -> None:
+    """Print the EXACT failing evidence to the console (not only the handoff file)."""
+    ctx.say(f"  [FAIL] {ev['stage']}")
+    ctx.say(f"    failure_class : {ev['failure_class']}")
+    ctx.say(f"    remote command: {ev['remote_command']}")
+    ctx.say(f"    exit_code     : {ev['exit_code']}")
+    ctx.say(f"    stdout_tail   : {ev['stdout_tail']}")
+    ctx.say(f"    stderr_tail   : {ev['stderr_tail']}")
+    ctx.say(f"    next action   : {ev['suggested_action']}")
+
+
+# --------------------------------------------------------------------------- #
 # Command builders (pure — explicit argv arrays; unit-testable)
 # --------------------------------------------------------------------------- #
 def _ssh_base(cfg: Config) -> list:
@@ -437,6 +559,7 @@ class Ctx:
     config_status: str = LOAD_OK
     config_detail: str = ""
     config_path: str = ""
+    debug: bool = False
 
     def say(self, msg: str = "") -> None:
         self.printer(msg)
@@ -445,7 +568,14 @@ class Ctx:
         shown = redact(argv, self.cfg) if redact_display else " ".join(
             shlex.quote(str(t)) for t in argv)
         self.say(f"  $ {shown}")
-        return self.runner(list(argv), cwd=str(cwd or self.repo_root), timeout=timeout)
+        rc, out, err = self.runner(list(argv), cwd=str(cwd or self.repo_root), timeout=timeout)
+        if self.debug:
+            self.say(f"    [debug] exit={rc}")
+            if out.strip():
+                self.say("    [debug] stdout: " + _tail_text(out))
+            if err.strip():
+                self.say("    [debug] stderr: " + _tail_text(err))
+        return rc, out, err
 
 
 def _check(ctx: Ctx, label: str, ok: bool, detail: str = "") -> bool:
@@ -540,25 +670,27 @@ def cmd_vps_smoke(ctx: Ctx) -> int:
     ctx.say("-" * 60)
     results = []
 
-    rc, out, err = ctx.run(build_ssh_cmd(cfg, f"echo {VPS_OK_MARKER}"),
-                           timeout=20, redact_display=True)
-    results.append(_check(ctx, "SSH connection works", rc == 0 and VPS_OK_MARKER in out,
-                          "" if rc == 0 else (err.strip().splitlines() or [""])[-1]))
+    # Each remote check classifies its failure (SSH_AUTH_FAILED / SSH_CONNECT_FAILED /
+    # VPS_PATH_MISSING / DOCKER_MISSING / …) and prints the EXACT command + exit code +
+    # stdout/stderr tail + suggested action — never a generic "failed".
+    def _smoke_stage(label, remote, *, marker=None, timeout=20) -> bool:
+        ev = run_ssh_stage(ctx, label, remote, expect_marker=marker, timeout=timeout)
+        if ev["ok"]:
+            _check(ctx, label, True)
+        else:
+            print_remote_evidence(ctx, ev)
+        return ev["ok"]
 
-    # Use the SAME `cd` that collect uses (authoritative; avoids `test -d` false
-    # negatives) and surface stderr on failure.
-    rc, out, err = ctx.run(
-        build_ssh_cmd(cfg, f"cd {shlex.quote(cfg.vps_remote_plugin_path)} "
-                           f"&& echo {VPS_OK_MARKER}"),
-        timeout=20, redact_display=True)
-    results.append(_check(ctx, "remote plugin path exists", rc == 0 and VPS_OK_MARKER in out,
-                          "" if rc == 0 else (err.strip().splitlines() or ["cd failed"])[-1]))
-
-    rc, out, _ = ctx.run(build_ssh_cmd(cfg, "docker version --format '{{.Server.Version}}' "
-                                            "|| docker --version"),
-                         timeout=25, redact_display=True)
-    results.append(_check(ctx, "Docker available on VPS", rc == 0 and bool(out.strip()),
-                          out.strip().splitlines()[0] if out.strip() else ""))
+    results.append(_smoke_stage("SSH connection works", f"echo {VPS_OK_MARKER}",
+                                marker=VPS_OK_MARKER))
+    # Use the SAME `cd` that collect uses (authoritative; avoids `test -d` false negatives).
+    results.append(_smoke_stage(
+        "remote plugin path exists",
+        f"cd {shlex.quote(cfg.vps_remote_plugin_path)} && echo {VPS_OK_MARKER}",
+        marker=VPS_OK_MARKER))
+    results.append(_smoke_stage(
+        "Docker available on VPS",
+        "docker version --format '{{.Server.Version}}' || docker --version", timeout=25))
 
     # remote Python preflight: collection needs a DEPENDENCY-CAPABLE Python (can import
     # pydantic), not merely any python3. Report which executable is selected + the dep
@@ -1005,17 +1137,30 @@ def _remote_paper_status(ctx: Ctx) -> "tuple[bool, str]":
     return (status == "running"), status
 
 
-def _write_cycle_blocker_handoff(ctx: Ctx, blockers: list) -> str:
+def _write_cycle_blocker_handoff(ctx: Ctx, blockers: list, evidence: dict = None) -> str:
     """Prepare (NEVER auto-run) a Cursor handoff FILE describing a mechanical blocker so
-    the operator can paste it into web Cursor. Only called when a blocker is detected."""
+    the operator can paste it into web Cursor. Includes the EXACT failing evidence
+    (stage, redacted remote command, exit code, stdout/stderr tails, failure class, and
+    suggested next action). Only called when a blocker is detected."""
     out_dir = ctx.repo_root / CURSOR_HANDOFF_DIR
     ts = ctx.now_fn().strftime("%Y%m%d_%H%M%S")
+    ev_md = ""
+    if evidence:
+        ev_md = (
+            "\n## Exact failing evidence\n"
+            f"- stage: `{evidence.get('stage')}`\n"
+            f"- failure_class: `{evidence.get('failure_class')}`\n"
+            f"- exit_code: `{evidence.get('exit_code')}`\n"
+            f"- remote_command (secrets redacted): `{evidence.get('remote_command')}`\n"
+            f"- stdout_tail: `{evidence.get('stdout_tail')}`\n"
+            f"- stderr_tail: `{evidence.get('stderr_tail')}`\n"
+            f"- suggested_action: {evidence.get('suggested_action')}\n")
     body = (
-        "# Cursor handoff — operator-cycle blocker\n\n"
+        "# Cursor handoff — laptop coordinator blocker\n\n"
         "The laptop coordinator hit a mechanical blocker while running the safe operator\n"
-        "cycle. Investigate + fix in web Cursor (push to GitHub `main`, report the commit\n"
-        "hash). Do NOT enable live trading or loosen any gate.\n\n"
-        "## Blockers detected\n" + "".join(f"- {b}\n" for b in blockers) + "\n"
+        "workflow. Investigate + fix in web Cursor (push to GitHub `main`, report the\n"
+        "commit hash). Do NOT enable live trading or loosen any gate.\n\n"
+        "## Blockers detected\n" + "".join(f"- {b}\n" for b in blockers) + ev_md + "\n"
         "## After the fix\n"
         "```\n"
         f"python scripts/laptop_agent_coordinator.py post-cursor-verify "
@@ -1574,6 +1719,11 @@ def build_remote_vps_sync_cmd(cfg: Config) -> str:
             f"git pull --ff-only origin main && git rev-parse HEAD")
 
 
+def build_remote_container_status_cmd(cfg: Config) -> str:
+    return (f"docker inspect -f '{{{{.State.Status}}}}' "
+            f"{shlex.quote(cfg.hermes_training_container)} 2>/dev/null || echo absent")
+
+
 def build_remote_container_env_cmd(cfg: Config) -> str:
     # works whether the container is running or merely created; never errors hard.
     return ("docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "
@@ -1662,11 +1812,20 @@ def _print_mission_summary(ctx: Ctx, *, mode: str, safe: bool, local_commit: str
                            vps_commit: str, compose_config_ok, paper_running: bool,
                            container_status: str, env100_ok, zip_path, zip_complete,
                            instr: str, cursor_needed: bool, cursor_file: str,
-                           dirty_artifacts: list, cleanup_cmd: str) -> None:
+                           dirty_artifacts: list, cleanup_cmd: str,
+                           blockers: list = None, evidence: dict = None) -> None:
     ctx.say("\n" + "=" * 64)
     ctx.say(f"MISSION-CONTROL — FINAL STATUS (mode={mode})")
     ctx.say("=" * 64)
     ctx.say(f"  RESULT              : {'SAFE TO CONTINUE' if safe else 'STOP'}")
+    # the EXACT blocker(s) are printed in the console (not only the handoff file).
+    for b in (blockers or []):
+        ctx.say(f"  BLOCKER             : {b}")
+    if evidence and not evidence.get("ok", True):
+        ctx.say(f"  failing stage       : {evidence.get('stage')} "
+                f"[{evidence.get('failure_class')}] exit={evidence.get('exit_code')}")
+        ctx.say(f"  stderr_tail         : {evidence.get('stderr_tail')}")
+        ctx.say(f"  next action         : {evidence.get('suggested_action')}")
     ctx.say(f"  local commit        : {local_commit or 'unknown'}")
     ctx.say(f"  VPS commit          : {vps_commit or 'unknown'}")
     ctx.say(f"  docker compose config: {'OK' if compose_config_ok else 'FAILED' if compose_config_ok is False else 'not checked'}")
@@ -1707,7 +1866,7 @@ def cmd_mission_control(ctx: Ctx, *, mode: str = "inspect-only",
     cursor_file = ""
     state = {"compose_config_ok": None, "env100_ok": None, "vps_commit": "",
              "paper_running": False, "container_status": "unknown",
-             "zip": None, "zip_complete": None, "instr": ""}
+             "zip": None, "zip_complete": None, "instr": "", "blocker_evidence": None}
 
     ctx.say("=" * 64)
     ctx.say(f"MISSION-CONTROL — {mode} (PAPER ONLY; live trading disabled)")
@@ -1717,7 +1876,8 @@ def cmd_mission_control(ctx: Ctx, *, mode: str = "inspect-only",
         nonlocal cursor_file
         if (blockers or not rc_safe) and not cursor_file:
             cursor_file = _write_cycle_blocker_handoff(
-                ctx, blockers or [f"mission-control stopped (mode={mode})"])
+                ctx, blockers or [f"mission-control stopped (mode={mode})"],
+                evidence=state.get("blocker_evidence"))
         dirty, cleanup = _mission_dirty_artifacts(ctx)
         _append_ledger(ctx, {
             "timestamp": _dt.datetime.now().replace(microsecond=0).isoformat(),
@@ -1735,7 +1895,8 @@ def cmd_mission_control(ctx: Ctx, *, mode: str = "inspect-only",
             env100_ok=state["env100_ok"], zip_path=state["zip"],
             zip_complete=state["zip_complete"], instr=state["instr"],
             cursor_needed=bool(cursor_file), cursor_file=cursor_file,
-            dirty_artifacts=dirty, cleanup_cmd=cleanup)
+            dirty_artifacts=dirty, cleanup_cmd=cleanup, blockers=blockers,
+            evidence=state.get("blocker_evidence"))
         return rc
 
     # --- mode + approval gating (NO run starts without explicit approval) ---
@@ -1769,30 +1930,58 @@ def cmd_mission_control(ctx: Ctx, *, mode: str = "inspect-only",
     if cmd_sync_main(ctx) != 0:
         blockers.append("could not safely sync local GitHub main")
         return _finish(False, 2)
-    ctx.say("\n[3] VPS SSH smoke check")
-    if cmd_vps_smoke(ctx) != 0:
-        blockers.append("VPS access / Docker check failed (vps-smoke)")
-        return _finish(False, 2)
-    ctx.say("\n[4] VPS git fetch/pull main")
-    sync_ok, state["vps_commit"], sync_detail = _remote_vps_git_pull(ctx)
-    ctx.say(f"  VPS commit          : {state['vps_commit'] or 'unknown'}"
-            + ("" if sync_ok else f"  (pull issue: {sync_detail})"))
-    if not sync_ok:
-        blockers.append(f"VPS git pull main failed: {sync_detail}")
-    ctx.say("\n[5] docker compose config -q on VPS")
-    state["compose_config_ok"], cc_detail = _remote_compose_config_ok(ctx)
-    ctx.say(f"  compose config      : {'OK' if state['compose_config_ok'] else 'FAILED: ' + cc_detail}")
-    if not state["compose_config_ok"]:
-        blockers.append(f"docker compose config -q failed on VPS: {cc_detail}")
-        cursor_needed = True
-        return _finish(False, 2)
-    ctx.say("\n[6] hermes-training status + 100X env proof")
+    # --- STAGED VPS verification (each stage reports EXACT evidence; the precise stage
+    # that failed is printed in the console AND written into the Cursor handoff). No more
+    # generic "vps-smoke failed". ---
+    plug = shlex.quote(cfg.vps_remote_plugin_path)
+    cont = shlex.quote(cfg.hermes_training_container)
+    hard_stages = [
+        ("SSH connectivity", f"echo {VPS_OK_MARKER}", VPS_OK_MARKER),
+        ("VPS repo path", f"cd {plug} && echo {VPS_OK_MARKER}", VPS_OK_MARKER),
+        ("VPS git commit", f"cd {plug} && git rev-parse HEAD", None),
+        ("Docker available", "docker version --format '{{.Server.Version}}' || docker --version", None),
+        ("docker compose config -q", f"cd {plug} && docker compose config -q", None),
+    ]
+    ctx.say("\n[3] staged VPS verification")
+    for i, (label, remote, marker) in enumerate(hard_stages, start=1):
+        ev = run_ssh_stage(ctx, label, remote, expect_marker=marker,
+                           timeout=180 if "compose" in label else 30)
+        if not ev["ok"]:
+            print_remote_evidence(ctx, ev)
+            state["blocker_evidence"] = ev
+            blockers.append(f"{label} failed [{ev['failure_class']}] exit={ev['exit_code']}: "
+                            f"{ev['stderr_tail'] or ev['stdout_tail']}")
+            cursor_needed = True
+            if label == "docker compose config -q":
+                state["compose_config_ok"] = False
+            return _finish(False, 2)
+        ctx.say(f"  [PASS] {label}")
+        if label == "VPS git commit":
+            state["vps_commit"] = _hex_commit(ev["stdout_tail"]) or state["vps_commit"]
+        if label == "docker compose config -q":
+            state["compose_config_ok"] = True
+
+    ctx.say("\n[4] docker compose ps + hermes-training status")
+    ps_ev = run_ssh_stage(ctx, "docker compose ps",
+                          f"cd {plug} && docker compose ps", timeout=60)
+    if not ps_ev["ok"]:
+        print_remote_evidence(ctx, ps_ev)                 # informational (not a hard stop)
     state["paper_running"], state["container_status"] = _remote_paper_status(ctx)
     ctx.say(f"  hermes-training     : {'RUNNING' if state['paper_running'] else 'NOT running'} "
             f"({state['container_status']})")
+    if not state["paper_running"]:
+        # report the exact reason, but inspect-only still tries to collect any existing report.
+        cn = _remote_evidence(ctx, label="hermes-training container",
+                              remote_cmd=build_remote_container_status_cmd(cfg), rc=0,
+                              out=state["container_status"], err="", ok=False)
+        ctx.say(f"  note: {cn['failure_class']} — {cn['suggested_action']}")
+
+    ctx.say("\n[5] 100X env proof (only if container running)")
     if state["paper_running"]:
         state["env100_ok"], _present, _missing = _remote_100x_proof(ctx)
         ctx.say(f"  100X env proof      : {'OK' if state['env100_ok'] else 'NOT proven: ' + str(_missing)}")
+    else:
+        ctx.say("  100X env proof      : skipped (container not running)")
 
     # --- APPROVED rebuild (proof2h / long only) ---
     if approved_paper_run and mode in ("proof2h", "long"):
@@ -1899,6 +2088,9 @@ def build_parser() -> argparse.ArgumentParser:
         sp = sub.add_parser(name, help=helps.get(name, ""))
         sp.add_argument("--config", default=DEFAULT_CONFIG,
                         help=f"path to coordinator config (default: {DEFAULT_CONFIG})")
+        sp.add_argument("--debug", action="store_true",
+                        help="print command traces (exit code + stdout/stderr tails), "
+                             "with secrets redacted")
         if name in ("collect-light-report", "collect-report", "operator-cycle",
                     "mission-control", "start-paper-run"):
             sp.add_argument("--dry-run", action="store_true",
@@ -1956,7 +2148,8 @@ def main(argv=None, *, runner: Optional[Runner] = None,
     root = repo_root or (Path(cfg.repo_root) if cfg.repo_root else Path.cwd())
     ctx = Ctx(cfg=cfg, config_found=load.found, repo_root=root, runner=runner,
               printer=printer, now_fn=now_fn, which_fn=which_fn,
-              config_status=load.status, config_detail=load.detail, config_path=load.path)
+              config_status=load.status, config_detail=load.detail, config_path=load.path,
+              debug=bool(getattr(args, "debug", False)))
 
     handler = COMMANDS[args.command]
     if args.command == "init-config":
