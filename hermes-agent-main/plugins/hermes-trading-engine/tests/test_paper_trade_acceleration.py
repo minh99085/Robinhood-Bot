@@ -198,8 +198,63 @@ def test_acceleration_report_proves_100x_active_under_vps_env(tmp_path, monkeypa
     assert acc["feedback_accelerator_target_multiplier"] == 100   # 100X (env-sourced proof)
     assert acc["paper_profit_discovery_profile_enabled"] is True
     assert acc["active_learning_enabled"] is True                 # config posture reached
+    assert acc["accelerated_discovery_enabled"] is True           # HERMES env resolved
     assert acc["real_execution_possible"] is False
     assert acc["live_flags_forced_off"] is True
+
+
+def test_vps_100x_profile_resolves_effective_runtime_config(monkeypatch):
+    """The 100X VPS profile must RESOLVE the effective runtime values the report checks:
+    accelerated discovery + active learning ON, multiplier 100, and the SOFT tiny-
+    exploration selection gates loosened — while the hard order-notional cap stays <= $2."""
+    for k, v in (("HERMES_ACCELERATED_DISCOVERY", "1"),
+                 ("POLYMARKET_EXPLORATION_RATE", "1.0"),
+                 ("POLYMARKET_EXPLORATION_MIN_EDGE", "-0.15"),
+                 ("POLYMARKET_ACTIVE_LEARNING_TINY_TRADES_PER_TICK", "5"),
+                 ("POLYMARKET_EXPLORATION_MAX_TRADES_PER_TICK", "5"),
+                 ("POLYMARKET_EXPLORATION_MAX_EXPECTED_LOSS_USD", "0.50"),
+                 ("POLYMARKET_EXPLORATION_NOTIONAL_USD", "1"),
+                 ("PAPER_MAX_ORDER_NOTIONAL_USD", "2")):
+        monkeypatch.setenv(k, v)
+    cfg = TrainingConfig.aggressive_paper()
+    # the six required effective flags
+    assert cfg.active_learning_enabled is True
+    assert cfg.accelerated_discovery_enabled is True
+    assert cfg.feedback_accelerator_enabled is True
+    assert cfg.exploration_enabled is True
+    # SOFT tiny-exploration selection gates (loosened, env-tunable)
+    assert cfg.exploration_rate == 1.0
+    assert cfg.exploration_min_edge == -0.15
+    assert cfg.active_learning_tiny_trades_per_tick == 5
+    assert cfg.exploration_max_trades_per_tick == 5
+    assert cfg.exploration_max_expected_loss_usd == 0.50
+    assert cfg.exploration_notional_usd == 1.0
+    # HARD tiny cap stays small (NEVER loosened)
+    assert cfg.max_order_notional_usd <= 2.0
+
+
+def test_100x_profile_does_not_loosen_hard_caps_or_bregman(monkeypatch):
+    """Loosening SOFT selection gates must not raise the hard order-notional cap above
+    the tiny ceiling, and must not touch Bregman after-cost positivity / paper-realism."""
+    monkeypatch.setenv("PAPER_MAX_ORDER_NOTIONAL_USD", "999")     # attempt to over-loosen
+    monkeypatch.setenv("POLYMARKET_EXPLORATION_NOTIONAL_USD", "999")
+    cfg = TrainingConfig.aggressive_paper()
+    assert cfg.max_order_notional_usd <= 2.0                     # clamped small, never 999
+    assert cfg.exploration_notional_usd <= cfg.max_order_notional_usd
+    # hard paper-realism invariants remain reasserted by __post_init__
+    assert cfg.exploration_can_bypass_hard_gate is False
+    assert cfg.exploration_requires_realistic_fill is True
+    assert cfg.exploration_requires_risk_gate is True
+    assert cfg.exploration_min_book_freshness_required is True
+
+
+def test_aggressive_profile_without_hermes_env_keeps_accel_off_and_scan_limit(monkeypatch):
+    # A caller that passes an explicit small scan_limit (and no HERMES env) must NOT be
+    # auto-bumped — accelerated discovery stays an env opt-in.
+    monkeypatch.delenv("HERMES_ACCELERATED_DISCOVERY", raising=False)
+    cfg = TrainingConfig.aggressive_paper(scan_limit=25)
+    assert cfg.accelerated_discovery_enabled is False
+    assert cfg.scan_limit == 25
 
 
 def test_aggressive_profile_env_fails_closed_on_live_flag():
@@ -211,3 +266,48 @@ def test_aggressive_profile_env_fails_closed_on_live_flag():
            "BTC_AUTOTRADE_ENABLED": "1"}     # a live flag is on
     with pytest.raises(AggressivePaperUnsafe):
         apply_aggressive_paper_env(env)
+
+
+def test_startup_applies_aggressive_env_before_config_build(tmp_path, monkeypatch):
+    """fix #1: with AGGRESSIVE_PAPER_TRAINING=1, the hermes-training startup runs
+    apply_aggressive_paper_env() (which sets HERMES_ACCELERATED_DISCOVERY + locks)
+    BEFORE the TrainingConfig is built."""
+    import os
+    import importlib.util
+    import pytest
+    import engine.aggressive_paper as ap
+    from engine.training import TrainingConfig
+    snap = dict(os.environ)                          # restore env (run() writes os.environ)
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "start_pp_test",
+            Path(__file__).resolve().parents[1] / "scripts" / "start_polymarket_paper_training.py")
+        starter = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(starter)
+        order: list = []
+        orig_apply = ap.apply_aggressive_paper_env
+
+        def _spy_apply(env=None):
+            order.append("apply")
+            return orig_apply(env)
+        monkeypatch.setattr(ap, "apply_aggressive_paper_env", _spy_apply)
+
+        class _StopBuild(RuntimeError):
+            pass
+
+        def _spy_cfg(cls, **ov):
+            order.append("config")
+            raise _StopBuild()
+        monkeypatch.setattr(TrainingConfig, "aggressive_paper", classmethod(_spy_cfg))
+        monkeypatch.setenv("AGGRESSIVE_PAPER_TRAINING", "1")
+        monkeypatch.setenv("HTE_MODE", "paper")
+        with pytest.raises(_StopBuild):
+            starter.run(["--catalog", "synthetic", "--max-ticks", "1",
+                         "--data-dir", str(tmp_path)])
+        assert order[0] == "apply" and "config" in order
+        assert order.index("apply") < order.index("config")
+        # apply_aggressive_paper_env set the accelerated-discovery env before config
+        assert os.environ.get("HERMES_ACCELERATED_DISCOVERY") == "1"
+    finally:
+        os.environ.clear()
+        os.environ.update(snap)

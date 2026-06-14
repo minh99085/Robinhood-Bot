@@ -371,6 +371,34 @@ def run(argv=None) -> int:
             setattr(cfg, k, v)
         cfg.__post_init__()  # re-apply freeze/clamp invariants after overrides
 
+    # PROOF (fix #4): log the final EFFECTIVE 100X runtime config values that the report
+    # must show, resolved from the built TrainingConfig (not just env). Aggressive paper
+    # mode is active iff the env flag was applied above (paper-only; never live).
+    if _want_aggressive:
+        import os as _os1
+        logging.getLogger("hte.training.start").info(
+            "100X EFFECTIVE CONFIG: aggressive_paper_training_enabled=%s "
+            "feedback_accelerator_enabled=%s feedback_accelerator_target_multiplier=%s "
+            "paper_profit_discovery_profile_enabled=%s active_learning_enabled=%s "
+            "accelerated_discovery_enabled=%s exploration_rate=%s exploration_min_edge=%s "
+            "active_learning_tiny_trades_per_tick=%s exploration_max_trades_per_tick=%s "
+            "exploration_max_expected_loss_usd=%s exploration_notional_usd=%s "
+            "max_order_notional_usd=%s (PAPER ONLY, live disabled)",
+            str(_os1.getenv("AGGRESSIVE_PAPER_TRAINING", "")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            bool(getattr(cfg, "feedback_accelerator_enabled", False)),
+            int(str(_os1.getenv("FEEDBACK_ACCELERATOR_TARGET_MULTIPLIER", "0") or 0)),
+            str(_os1.getenv("PAPER_PROFIT_DISCOVERY_PROFILE", "")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            bool(getattr(cfg, "active_learning_enabled", False)),
+            bool(getattr(cfg, "accelerated_discovery_enabled", False)),
+            getattr(cfg, "exploration_rate", None), getattr(cfg, "exploration_min_edge", None),
+            getattr(cfg, "active_learning_tiny_trades_per_tick", None),
+            getattr(cfg, "exploration_max_trades_per_tick", None),
+            getattr(cfg, "exploration_max_expected_loss_usd", None),
+            getattr(cfg, "exploration_notional_usd", None),
+            getattr(cfg, "max_order_notional_usd", None))
+
     # Campaign-safe startup safety validation (fail-closed). Runs whenever the
     # safe profile is engaged; refuses to start if any live/unsafe flag is set.
     if args.campaign_safe_profile or cfg.campaign_safe_profile:

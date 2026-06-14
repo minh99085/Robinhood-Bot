@@ -1251,26 +1251,45 @@ class TrainingConfig:
             min_evidence_score=0.30, min_liquidity=100.0, min_volume=250.0,
             max_time_to_close_days=180.0, min_time_to_close_s=1800.0,
             max_ambiguity_score=0.45,
-            # smaller exploratory size; max concurrency at the hard cap
-            fixed_notional_usd=3.0, max_open_trades=8, max_open_trades_hard_cap=8,
+            # hard order-notional cap stays SMALL (<= $2): max_order_notional_usd is the
+            # property max(fixed_notional_usd, max_kelly_size_usd), so bound BOTH. Never
+            # loosened by this profile (env-tunable but clamped to <= 2).
+            fixed_notional_usd=min(2.0, _envf("PAPER_MAX_ORDER_NOTIONAL_USD", 2.0)),
+            max_kelly_size_usd=min(2.0, _envf("PAPER_MAX_ORDER_NOTIONAL_USD", 2.0)),
+            max_open_trades=8, max_open_trades_hard_cap=8,
             # every non-live learning feature ON
             learner_enabled=True, feedback_enabled=True,
             feedback_interval_seconds=60.0, chainlink_enabled=True,
             feature_extraction_enabled=True, grouping_enabled=True,
-            exploration_enabled=True, exploration_rate=0.25,
-            exploration_notional_usd=2.0, exploration_min_edge=-0.01,
+            exploration_enabled=True,
+            # SOFT tiny-exploration SELECTION gates — loosened so paper trades happen
+            # faster (env-tunable; loosened 100X defaults). These select MORE near-miss
+            # candidates for tiny capped paper exploration; they NEVER loosen a hard
+            # paper-realism / risk / fill gate (stale book, missing ask, reference/fake
+            # fill, synthetic NO, RiskEngine, realistic fill, and the tiny size cap all
+            # still hard-reject downstream). PAPER ONLY.
+            exploration_rate=_envf("POLYMARKET_EXPLORATION_RATE", 1.0),
+            exploration_notional_usd=_envf("POLYMARKET_EXPLORATION_NOTIONAL_USD", 1.0),
+            exploration_min_edge=_envf("POLYMARKET_EXPLORATION_MIN_EDGE", -0.15),
+            exploration_max_trades_per_tick=_envi(
+                "POLYMARKET_EXPLORATION_MAX_TRADES_PER_TICK", 5),
+            exploration_max_expected_loss_usd=_envf(
+                "POLYMARKET_EXPLORATION_MAX_EXPECTED_LOSS_USD", 0.50),
+            active_learning_tiny_trades_per_tick=_envi(
+                "POLYMARKET_ACTIVE_LEARNING_TINY_TRADES_PER_TICK", 5),
             # active learning ON: fill idle paper budget with highest-feedback-value
             # near-misses, balanced exploration/exploitation, diversified coverage.
             active_learning_enabled=True, exploration_split=0.5,
             category_sample_target=100, max_explore_per_category=4, max_explore_per_event=2,
-            # 100X paper profit-discovery profile: feedback accelerator + tiny capped
-            # exploration ON (PAPER ONLY; speeds LEARNING, never loosens an execution/
-            # realism/safety gate — those are unchanged). NOTE: this profile already sets
-            # explicit high scan/shortlist/candidate limits above, so it does NOT also
-            # flip accelerated_discovery_enabled (which would override an explicit
-            # scan_limit); HERMES_ACCELERATED_DISCOVERY stays an env-level opt-in.
+            # 100X paper profit-discovery profile: feedback accelerator + accelerated
+            # discovery + tiny capped exploration (PAPER ONLY; speeds LEARNING, never
+            # loosens an execution/realism/safety gate). accelerated_discovery is read
+            # from HERMES_ACCELERATED_DISCOVERY so the VPS 100X profile resolves it true,
+            # while a caller that passes an explicit small scan_limit (and no env) keeps
+            # it off and is not auto-bumped.
             feedback_accelerator_enabled=True, feedback_accelerator_target_multiplier=100,
             exploration_tiny_size_enabled=True,
+            accelerated_discovery_enabled=_envb("HERMES_ACCELERATED_DISCOVERY", False),
             # higher paper decision budget + feedback target -> more trades/feedback
             paper_decision_budget=120, feedback_sample_target=500,
             tiny_trade_min_liquidity=50.0,
