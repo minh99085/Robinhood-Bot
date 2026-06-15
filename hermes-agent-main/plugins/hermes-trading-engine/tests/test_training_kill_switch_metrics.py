@@ -54,9 +54,19 @@ def test_each_degraded_condition_triggers_its_alert(field, value, alert):
     ks = evaluate_kill_switch(_healthy(**{field: value}), KillSwitchThresholds(),
                              aggressive=True)
     assert alert in ks["triggered"]
-    assert ks["should_downgrade"] is True
     assert ks["severity"] == "CRITICAL"
     assert alert in KILL_SWITCH_ALERTS
+    # MARKET-DATA-quality alerts (stale_data / spread_blowout) surface + alert but do NOT
+    # auto-downgrade paper learning (the realism gates already reject those books, no risk).
+    # Bot-RISK alerts still force the downgrade in aggressive mode.
+    from engine.training.monitoring import MARKET_QUALITY_ALERTS
+    if alert in MARKET_QUALITY_ALERTS:
+        assert ks["should_downgrade"] is False                         # paper-only default
+        ks_live = evaluate_kill_switch(_healthy(**{field: value}), KillSwitchThresholds(),
+                                       aggressive=True, paper_only=False)
+        assert ks_live["should_downgrade"] is True                     # would downgrade if not paper
+    else:
+        assert ks["should_downgrade"] is True
 
 
 def test_alerts_reported_but_no_downgrade_when_not_aggressive():

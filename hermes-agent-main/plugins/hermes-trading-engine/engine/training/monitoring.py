@@ -160,8 +160,18 @@ class KillSwitchThresholds:
             min_samples=int(g("ks_min_samples", 10)))
 
 
+# Market-DATA-quality alerts (external book conditions, not bot risk). In PAPER-only
+# training these must NOT auto-downgrade the aggressive profile: the hard paper-realism
+# gates already REJECT stale/wide books from fills (a high stale-REJECTION rate is the
+# gate WORKING, not a runaway), and no real money is at risk. Auto-downgrading on them
+# would silently disable active-learning/exploration and kill multi-day paper learning.
+# Bot-RISK alerts (drawdown, loss streak, calibration, labels, partial-fill, Bregman FP,
+# feedback corruption) still force the downgrade.
+MARKET_QUALITY_ALERTS = frozenset({"stale_data", "spread_blowout"})
+
+
 def evaluate_kill_switch(dashboard: dict, thresholds: Optional[KillSwitchThresholds] = None,
-                        *, aggressive: bool = True) -> dict:
+                        *, aggressive: bool = True, paper_only: bool = True) -> dict:
     """Evaluate kill-switch conditions against a dashboard.
 
     Returns ``{alerts, triggered, should_downgrade, severity}``. ``should_downgrade``
@@ -169,7 +179,13 @@ def evaluate_kill_switch(dashboard: dict, thresholds: Optional[KillSwitchThresho
     downgrade). Statistical alerts (calibration / labels / Bregman FP /
     partial-fill) only fire once ``min_samples`` feedback samples exist; the hard
     safety alerts (drawdown, loss streak, stale data, spread blowout, feedback
-    corruption) always fire so a runaway is caught immediately."""
+    corruption) always fire so a runaway is caught immediately.
+
+    In ``paper_only`` mode, MARKET-DATA-QUALITY alerts (``stale_data`` / ``spread_blowout``)
+    still surface in ``alerts``/``triggered``/``severity`` for visibility but do NOT by
+    themselves force a downgrade — they reflect external market data the realism gates
+    already reject, not bot risk, so they must not disable paper active-learning. Bot-RISK
+    alerts always downgrade (in aggressive mode)."""
     thr = thresholds or KillSwitchThresholds()
     d = dashboard or {}
     samples = int(d.get("samples", d.get("useful_feedback", 0)) or 0)
@@ -211,9 +227,13 @@ def evaluate_kill_switch(dashboard: dict, thresholds: Optional[KillSwitchThresho
         add("feedback_corruption", f"learner_rollbacks={d.get('learner_rollbacks')}")
 
     triggered = [a["type"] for a in alerts]
-    should_downgrade = bool(aggressive and alerts)
+    # market-quality-only alerts never force a paper downgrade (see MARKET_QUALITY_ALERTS).
+    downgrade_triggers = ([t for t in triggered if t not in MARKET_QUALITY_ALERTS]
+                          if paper_only else triggered)
+    should_downgrade = bool(aggressive and downgrade_triggers)
     return {"alerts": alerts, "triggered": triggered,
             "should_downgrade": should_downgrade,
+            "downgrade_triggers": downgrade_triggers,
             "severity": "CRITICAL" if alerts else "OK"}
 
 
