@@ -97,11 +97,26 @@ def test_exploration_requires_executable_ask(tmp_path, monkeypatch):
 
 
 def test_exploration_rejects_thin_depth_as_near_miss(tmp_path, monkeypatch):
+    # genuinely thin: depth below the probe-sized floor (a <=$1 fill can't be supported)
     t = _trainer(tmp_path, monkeypatch)
-    d = t._active_learning_admit(_rec(depth=10), _est(), _edge(), "edge_too_low")
+    floor = t._exploration_micro_min_depth()
+    thin = round(floor / 2.0, 2)
+    d = t._active_learning_admit(_rec(depth=thin), _est(), _edge(), "edge_too_low")
     assert d["decision"] == "near_miss"
     assert t.near_miss_log and t.near_miss_log[-1]["failed_gate"] == "thin_depth"
-    assert t.near_miss_log[-1]["distance_to_threshold"] == 15.0   # 25 - 10
+
+
+def test_exploration_allows_fresh_book_thin_for_full_size(tmp_path, monkeypatch):
+    # GATE-PRESERVING FIX: a FRESH book with depth >= the <=$1 probe floor but below the
+    # full-size $25 gate is now EXPLORABLE at the tiny size (it was wrongly rejected as
+    # thin before). EdgeEngine emits depth_too_thin only after the fresh-book check, so a
+    # depth_too_thin reason routes the fresh candidate into the tiny evaluator.
+    t = _trainer(tmp_path, monkeypatch)
+    floor = t._exploration_micro_min_depth()
+    assert floor < 25.0                                   # probe floor is sized, not full
+    d = t._active_learning_admit(_rec(depth=10), _est(), _edge(), "depth_too_thin")
+    assert d["decision"] == "explore"
+    assert d.get("exploration_size", 0) > 0
 
 
 def test_exploration_rejects_wide_spread_as_near_miss(tmp_path, monkeypatch):

@@ -415,6 +415,14 @@ class PolymarketPaperTrainer:
             _micro_depth_cfg(self.cfg,
                              float(getattr(self.cfg, "paper_micro_exploration_min_depth_usd", 1.0))),
             bregman=True)
+        # Directional tiny-exploration execution policy: same principle as the Bregman
+        # micro policy — a <=$1 probe only needs depth to fill <=$1, so the depth floor is
+        # SIZED to the tiny notional (not the full-size $25 gate). Every OTHER hard gate
+        # (stale book, missing ask, reference/offline/synthetic fill, ambiguity, spread,
+        # closed market, RiskEngine, notional cap) is unchanged — this is realism sized to
+        # the order, not a loosening of the full-size directional gate.
+        self.exploration_exec_policy = PaperExecutionPolicy(
+            _micro_depth_cfg(self.cfg, self._exploration_micro_min_depth()), bregman=False)
 
         # idempotent SQLite training store (own DB file; never wipes engine tables)
         self.tstore = None
@@ -2666,6 +2674,17 @@ class PolymarketPaperTrainer:
         am["random_exploration_enabled"] = bool(
             getattr(self.cfg, "random_exploration_enabled", False))
 
+    def _exploration_micro_min_depth(self) -> float:
+        """Depth floor for the tiny (<=$1) directional exploration lane, SIZED to the probe
+        notional: a <=$1 fill only needs ~$1 of depth (with a 2x realism safety), never
+        below $1 and never above the full-size gate. The full-size directional depth gate
+        (min_depth_at_price, default $25) is UNCHANGED — this only sizes realism to the
+        actual tiny order, mirroring the existing Bregman micro-exploration policy."""
+        size = min(float(getattr(self.cfg, "exploration_notional_usd", 1.0) or 1.0),
+                   float(getattr(self.cfg, "max_order_notional_usd", 2.0) or 2.0))
+        full = float(getattr(self.cfg, "min_depth_at_price", 25.0) or 25.0)
+        return max(1.0, min(2.0 * max(size, 0.5), full))
+
     def _exploration_eligibility(self, rec, est, edge) -> "tuple[bool, dict]":
         """Strict PASS-3 realism + bounded-loss eligibility for an exploration
         candidate. Returns (eligible, near_miss) where near_miss describes the
@@ -2678,7 +2697,8 @@ class PolymarketPaperTrainer:
         book_age = getattr(rec, "book_age_s", None)
         exec_price = float(getattr(edge, "executable_price", 0.0) or 0.0)
         max_spread = float(getattr(cfg, "exploration_max_spread", 0.08))
-        min_depth = float(getattr(cfg, "exploration_min_depth_at_price", 25.0))
+        # depth requirement SIZED to the <=$1 probe (not the full-size $25 gate)
+        min_depth = self._exploration_micro_min_depth()
         max_amb = float(getattr(cfg, "exploration_max_ambiguity_score", 0.45))
         max_age = float(getattr(cfg, "exploration_max_book_age_sec", 20.0))
         size = min(float(getattr(cfg, "exploration_notional_usd", 2.0)),
@@ -2726,7 +2746,15 @@ class PolymarketPaperTrainer:
         am["active_learning_candidates_considered"] += 1
         al_on = bool(getattr(cfg, "active_learning_enabled", True))
         rand_on = bool(getattr(cfg, "random_exploration_enabled", False))
-        near_threshold = reason in ("edge_too_low", "uncertainty_too_high")
+        # A tiny (<=$1) directional probe is explorable for near-threshold edge/uncertainty
+        # AND for a FRESH book that is merely "thin for full size" (depth_too_thin): the
+        # EdgeEngine emits depth_too_thin ONLY after the fresh-book check passes, so it
+        # implies a live, fresh, executable book that simply can't support a full-size order
+        # — but it CAN support a <=$1 probe. Stale/missing-ask/synthetic/reference books are
+        # NOT here (they fail earlier) and remain hard-rejected. No hard gate is loosened;
+        # the <=$1 fill is re-validated at the probe size by _exploration_eligibility +
+        # _directional_realism(exploratory=True) (sized depth) + RiskEngine + notional cap.
+        near_threshold = reason in ("edge_too_low", "uncertainty_too_high", "depth_too_thin")
         edge_ok = float(getattr(edge, "net_edge", 0.0) or 0.0) >= float(
             getattr(cfg, "exploration_min_edge", -0.01))
 
@@ -2964,14 +2992,20 @@ class PolymarketPaperTrainer:
             - len(self.open_positions()))
         pm["bregman_open_bundles"] = self._open_bregman_bundle_count()
 
-    def _directional_realism(self, rec, est, edge, proposal):
+    def _directional_realism(self, rec, est, edge, proposal, *, exploratory: bool = False):
         """Classify a directional candidate's fill realism (PAPER ONLY).
 
         Determines the fill source from book freshness + offline-stub config and
         runs the centralized PaperExecutionPolicy. EdgeEngine already enforces the
         hard quality gates upstream, so this is the realism *provenance* stamp +
         the reference/offline-stub/missing-ask catch. ``gross_edge`` is left None
-        so the policy never second-guesses EdgeEngine's after-cost decision."""
+        so the policy never second-guesses EdgeEngine's after-cost decision.
+
+        When ``exploratory`` is set, the realism is evaluated AT THE TINY (<=$1) probe
+        size: the exploration exec policy uses a depth floor sized to the probe (not the
+        full-size $25 gate), and the context notional is the bounded exploration notional.
+        Every other hard gate (stale/missing-ask/reference/offline/synthetic/ambiguity/
+        spread/closed) is unchanged — a fresh book that can fill <=$1 is realistic."""
         from .paper_execution import (PaperExecutionContext, SRC_LIVE_CLOB,
                                        SRC_OFFLINE_STUB, SRC_REFERENCE)
         self.realism_counts["candidates_considered"] += 1
@@ -2982,6 +3016,8 @@ class PolymarketPaperTrainer:
             src = SRC_OFFLINE_STUB
         else:
             src = SRC_REFERENCE
+        probe_notional = min(float(getattr(self.cfg, "exploration_notional_usd", 1.0) or 1.0),
+                             float(getattr(self.cfg, "max_order_notional_usd", 2.0) or 2.0))
         ctx = PaperExecutionContext(
             fill_source=src,
             ask=(edge.executable_price if fresh else None),
@@ -2993,10 +3029,12 @@ class PolymarketPaperTrainer:
             ambiguity_score=float(getattr(est, "ambiguity_score", 0.0) or 0.0),
             resolved=bool(getattr(rec, "resolved", False)),
             accepting_orders=bool(getattr(rec, "accepting_orders", True)),
-            notional_usd=float(getattr(proposal, "notional_usd", 0.0) or 0.0),
+            notional_usd=(probe_notional if exploratory
+                          else float(getattr(proposal, "notional_usd", 0.0) or 0.0)),
             tick_size=float(getattr(rec, "tick_size", 0.0) or 0.0),
             gross_edge=None)
-        decision = self.paper_exec_policy.evaluate(ctx)
+        policy = self.exploration_exec_policy if exploratory else self.paper_exec_policy
+        decision = policy.evaluate(ctx)
         self._tally_realism(decision)
         return decision
 
@@ -3172,7 +3210,7 @@ class PolymarketPaperTrainer:
         # stale fills are downgraded to shadow-only (logged, never counted as PnL)
         # or hard-rejected. Exploration trades still pass the gate (they must be
         # realistically fillable too) but are bucketed separately downstream.
-        realism = self._directional_realism(rec, est, edge, proposal)
+        realism = self._directional_realism(rec, est, edge, proposal, exploratory=exploratory)
         if realism.reject:
             self.rejection_count += 1
             self.realism_counts["hard_reject_count"] += 1
