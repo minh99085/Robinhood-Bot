@@ -1,9 +1,9 @@
 {
   "run_id": "pmtrain-1781531098",
-  "updated_at": 1781542467.967,
-  "total_decisions": 122657286,
-  "total_no_trade_labels": 122588947,
-  "total_shadow_labels": 610284,
+  "updated_at": 1781566449.566,
+  "total_decisions": 126369854,
+  "total_no_trade_labels": 126132910,
+  "total_shadow_labels": 813474,
   "total_pending_labels": 5000,
   "total_completed_labels": 0,
   "feedback_per_hour": 0.0,
