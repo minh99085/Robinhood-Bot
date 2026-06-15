@@ -9,6 +9,10 @@ Instructions for AI coding assistants and developers working on the hermes-agent
 
 ## Deployment invariant: keep GitHub `main` and the VPS codebase matching
 
+- ALWAYS push to BOTH GitHub `main` AND the VPS so they are ALWAYS in sync. Every change
+  must land in both places in the same turn — never push to `main` without also deploying
+  to the VPS, and never patch the VPS without also pushing to `main`. After any change,
+  `git rev-parse HEAD` on the VPS MUST equal `origin/main`.
 - ALWAYS keep the GitHub `main` branch and the VPS codebase
   (`/opt/hermes-agent-main`, plugin at
   `/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine`) in sync.
