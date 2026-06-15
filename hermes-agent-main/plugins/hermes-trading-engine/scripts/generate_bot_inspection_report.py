@@ -642,6 +642,24 @@ def build_report_run_ready(manifest: dict, status: dict, algo_audit: dict,
     inspection_complete = _ok("metrics/inspection_summary.json")
     if not inspection_complete:
         blocking.append("inspection_summary.json missing/synthesized/empty")
+    # TRUTH-CHAIN: active learning declared (aggressive_paper profile) but effectively
+    # OFF in the running container's durable metrics => config_mismatch. The aggressive
+    # profile ALWAYS enables active learning, so this means the container is STALE vs the
+    # repo (no tiny-exploration lane). Fail run-readiness with an exact, actionable reason
+    # so a degraded bot can never falsely pass inspection for a multi-day run.
+    al_block = status.get("active_learning", {}) or {}
+    al_src = str(al_block.get("active_learning_config_source", "")).strip()
+    al_effective = bool(al_block.get("active_learning_runtime_enabled",
+                                     al_block.get("active_learning_enabled", True)))
+    al_mismatch = bool(al_block) and (al_src == "aggressive_paper_profile") and not al_effective
+    if al_mismatch or bool(al_block.get("active_learning_config_mismatch")):
+        blocking.append(
+            "config_mismatch: active-learning DECLARED (config_source="
+            f"{al_src or '?'}) but effective active_learning_enabled=false. The aggressive_"
+            "paper profile always enables active learning, so the running container is STALE "
+            "relative to the repo. Rebuild it (mission-control --mode proof2h "
+            "--approved-paper-run) so the tiny-exploration lane is active before a long run.")
+    config_consistent = not al_mismatch
     closed_loop_durable = event_files_non_empty and artifact_files_real
 
     proof = {
@@ -657,6 +675,7 @@ def build_report_run_ready(manifest: dict, status: dict, algo_audit: dict,
         "tail_samples_fresh_same_run": not bool(
             manifest.get("stale_or_mixed_training_tail_samples")),
         "single_source_data_dir": not bool(manifest.get("mixed_source_roots")),
+        "active_learning_config_consistent": bool(config_consistent),
         "live_trading_disabled": True,
     }
     run_ready = (not blocking) and all(proof.values())
@@ -2288,6 +2307,19 @@ def _build_report_md(rj, feats, status, docker, api, tests, comparison,
         L.append("### 14d. Active Learning (Pass 6)")
         L.append("")
         L.append(f"- Active learning enabled: {_yn(al.get('active_learning_enabled'))}")
+        L.append(f"- Active learning runtime enabled: {_yn(al.get('active_learning_runtime_enabled'))}")
+        L.append(f"- Active learning config source: {al.get('active_learning_config_source')}")
+        _mm = bool(al.get('active_learning_config_mismatch'))
+        L.append(f"- Config mismatch (declared vs effective): {_yn(_mm)} (should be false)")
+        if _mm:
+            L.append(f"  - **CONFIG MISMATCH**: {al.get('active_learning_config_mismatch_reason')}")
+        L.append(f"- Tiny evaluator called: {_yn(al.get('active_learning_tiny_evaluator_called'))}")
+        L.append(f"- Tiny candidates evaluated: {_yn(al.get('active_learning_tiny_candidates_evaluated'))}")
+        L.append(f"- Tiny trades selected: {_yn(al.get('active_learning_tiny_trades_selected'))}")
+        L.append(f"- Tiny trades opened: {_yn(al.get('active_learning_tiny_trades_opened'))}")
+        L.append(f"- Selected-but-not-evaluated (must be 0): "
+                 f"{_yn(al.get('active_learning_selected_but_not_evaluated_count'))}")
+        L.append(f"- Tiny blocked by reason: {al.get('active_learning_tiny_blocked_by_reason')}")
         L.append(f"- Random exploration enabled: {_yn(al.get('random_exploration_enabled'))} "
                  f"(should be false)")
         L.append(f"- Random/hash exploration opened trades: "

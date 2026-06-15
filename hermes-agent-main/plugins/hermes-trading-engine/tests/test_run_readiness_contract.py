@@ -226,6 +226,39 @@ def test_report_with_synthesized_artifacts_is_fail_not_run_ready(tmp_path):
     assert man["hard_required_satisfied"] is False
 
 
+# --- active-learning config_mismatch truth-chain gate -----------------------
+
+def test_run_ready_blocks_on_active_learning_config_mismatch():
+    """Aggressive profile declared but active learning effectively OFF (stale container)
+    => run-ready FAILS with an exact config_mismatch blocker (no silent degraded run)."""
+    import scripts.generate_bot_inspection_report as gen
+    manifest = {"artifacts": [], "synthesized_empty": [], "empty_real_files": [],
+                "hard_required_invalid": []}
+    status = {"active_learning": {
+        "active_learning_config_source": "aggressive_paper_profile",
+        "active_learning_runtime_enabled": False,
+        "active_learning_enabled": False,
+        "active_learning_config_mismatch": True}}
+    rr = gen.build_report_run_ready(manifest, status, {"ok": True}, {})
+    assert rr["run_ready_for_hours"] is False
+    assert any("config_mismatch" in b for b in rr["blocking_reasons"])
+    assert rr["proof"]["active_learning_config_consistent"] is False
+
+
+def test_run_ready_no_mismatch_when_active_learning_on():
+    """Aggressive profile declared AND active learning effectively ON => consistent."""
+    import scripts.generate_bot_inspection_report as gen
+    manifest = {"artifacts": [], "synthesized_empty": [], "empty_real_files": [],
+                "hard_required_invalid": []}
+    status = {"active_learning": {
+        "active_learning_config_source": "aggressive_paper_profile",
+        "active_learning_runtime_enabled": True,
+        "active_learning_enabled": True}}
+    rr = gen.build_report_run_ready(manifest, status, {"ok": True}, {})
+    assert rr["proof"]["active_learning_config_consistent"] is True
+    assert not any("config_mismatch" in b for b in rr["blocking_reasons"])
+
+
 # --- 8. run_ready false when reconciliation missing -------------------------
 
 def test_run_ready_false_when_reconciliation_missing():

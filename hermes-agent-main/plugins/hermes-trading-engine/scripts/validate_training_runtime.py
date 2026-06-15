@@ -174,6 +174,21 @@ def validate_runtime(status: dict, *, data_dir: Optional[str] = None,
         _chk(checks, "run_ready_for_hours", bool(rr.get("run_ready_for_hours", False)),
              f"blocking={rr.get('blocking_reasons')}")
 
+    # --- active-learning truth-chain: declared (aggressive_paper) but effectively OFF
+    # means the running container is STALE vs the repo (no tiny-exploration lane). The
+    # aggressive_paper profile ALWAYS enables active learning, so this is a real mismatch. ---
+    al = status.get("active_learning", {}) or {}
+    if al:
+        al_src = str(al.get("active_learning_config_source", "")).strip()
+        al_eff = bool(al.get("active_learning_runtime_enabled",
+                             al.get("active_learning_enabled", True)))
+        al_ok = not (al_src == "aggressive_paper_profile" and not al_eff) \
+            and not bool(al.get("active_learning_config_mismatch"))
+        _chk(checks, "active_learning_config_consistent", al_ok,
+             f"config_source={al_src} runtime_enabled={al_eff} — aggressive_paper profile "
+             f"ALWAYS enables active learning; mismatch => container STALE, rebuild "
+             f"(mission-control --mode proof2h --approved-paper-run)")
+
     # --- inspection collector bundles required artifacts ---
     try:
         from scripts import inspection_collectors as ic

@@ -313,6 +313,31 @@ def test_active_learning_enabled_true_under_env(tmp_path, monkeypatch):
     acc = t.paper_trade_acceleration_report()
     assert acc["active_learning_runtime_enabled"] is True
     assert "active_learning_tiny_evaluator_called" in acc
+    # truth-chain: aggressive profile is self-consistent (no mismatch) + reconciliation
+    assert al["active_learning_config_mismatch"] is False
+    assert al["active_learning_config_mismatch_reason"] == ""
+    assert al["active_learning_tiny_candidates_evaluated"] == \
+        al["active_learning_tiny_evaluator_called"]
+    assert al["active_learning_selected_but_not_evaluated_count"] == 0
+
+
+def test_active_learning_config_mismatch_when_declared_but_disabled(tmp_path, monkeypatch):
+    """STALE-container truth-chain guard: the aggressive_paper profile ALWAYS enables
+    active learning, so config_source=aggressive_paper_profile with an effective
+    active_learning_enabled=False is a config_mismatch (the running container is stale)."""
+    monkeypatch.setenv("AGGRESSIVE_PAPER_TRAINING", "1")
+    clean_live_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("AGGRESSIVE_PAPER_TRAINING", "1")          # declared aggressive...
+    # ...but the effective config has active learning OFF (the stale-image symptom)
+    t = PolymarketPaperTrainer(
+        TrainingConfig(mode="paper_train", active_learning_enabled=False), data_dir=tmp_path)
+    al = t.active_learning_report()
+    assert al["active_learning_config_source"] == "aggressive_paper_profile"
+    assert al["active_learning_enabled"] is False
+    assert al["active_learning_config_mismatch"] is True
+    assert "STALE" in al["active_learning_config_mismatch_reason"]
+    acc = t.paper_trade_acceleration_report()
+    assert acc["active_learning_config_mismatch"] is True
 
 
 def test_selected_tiny_candidate_reaches_evaluator_and_blocks_exactly(tmp_path, monkeypatch):

@@ -3609,6 +3609,7 @@ class PolymarketPaperTrainer:
                 getattr(self.cfg, "active_learning_enabled", False)),
             "active_learning_config_source": _active_learning_config_source(),
             "active_learning_tiny_evaluator_called": int(self._tiny_directional_evaluator_called),
+            **self._active_learning_config_mismatch(),
             # lane trade accounting
             "active_learning_tiny_trades_selected": int(self._tiny_directional_selected),
             "active_learning_tiny_trades_opened": tiny_opened,
@@ -3724,6 +3725,25 @@ class PolymarketPaperTrainer:
             },
         }
 
+    def _active_learning_config_mismatch(self) -> dict:
+        """Truth-chain guard. The aggressive_paper profile ALWAYS enables active learning
+        (TrainingConfig.aggressive_paper sets active_learning_enabled=True unconditionally),
+        so a durable ``config_source == 'aggressive_paper_profile'`` with an effective
+        ``active_learning_enabled == False`` is a real config_mismatch — almost always a
+        STALE running container vs the on-disk repo. Surfacing it lets the report FAIL
+        run-readiness instead of silently running a degraded (no-exploration) bot."""
+        src = _active_learning_config_source()
+        effective = bool(getattr(self.cfg, "active_learning_enabled", False))
+        mismatch = (src == "aggressive_paper_profile") and not effective
+        reason = ("" if not mismatch else
+                  f"active-learning DECLARED (config_source={src}) but effective "
+                  f"active_learning_enabled=false; the aggressive_paper profile always "
+                  f"enables active learning, so the running container is STALE relative to "
+                  f"the repo — rebuild it (docker compose build --no-cache && up -d, e.g. "
+                  f"mission-control --mode proof2h --approved-paper-run).")
+        return {"active_learning_config_mismatch": bool(mismatch),
+                "active_learning_config_mismatch_reason": reason}
+
     def active_learning_report(self) -> dict:
         """Pass-6 Active Learning: proves exploration is selected by the
         ActiveLearningSelector (not random/hash), is realism + bounded-loss gated,
@@ -3787,9 +3807,17 @@ class PolymarketPaperTrainer:
                 getattr(self.cfg, "active_learning_enabled", False)),
             "active_learning_config_source": _active_learning_config_source(),
             "active_learning_tiny_evaluator_called": int(self._tiny_directional_evaluator_called),
+            "active_learning_tiny_candidates_evaluated": int(self._tiny_directional_evaluator_called),
             "active_learning_tiny_trades_selected": int(self._tiny_directional_selected),
             "active_learning_tiny_trades_opened": int(self._tiny_directional_opened),
             "active_learning_tiny_blocked_by_reason": dict(self._tiny_directional_blocked),
+            "active_learning_selected_but_not_evaluated_count": max(
+                0, int(am.get("active_learning_candidates_selected", 0))
+                - int(self._tiny_directional_evaluator_called)),
+            # truth-chain guard: the aggressive_paper profile ALWAYS enables active
+            # learning, so config_source=aggressive_paper_profile with runtime_enabled=False
+            # is a config_mismatch (almost always a STALE container vs the repo).
+            **self._active_learning_config_mismatch(),
         }
 
     def correlation_risk_report(self) -> dict:
