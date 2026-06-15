@@ -47,3 +47,5 @@ vps_full_issue_report_*.zip
 vps_full_issue_report_*/
 vps_issue_report_*.zip
 vps_issue_report_*/
+# generated read-only dashboard snapshot (scripts/vps_dashboard.py --once)
+vps_dashboard.html
