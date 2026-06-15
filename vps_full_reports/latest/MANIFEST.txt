@@ -1,0 +1,40 @@
+# VPS full report — extracted for ChatGPT inspection
+generated_utc: 2026-06-15 15:29:54 UTC
+source_zip: vps_full_report_latest.zip
+source_commit: 61ecce1f645e0860ba542bc69978baa64c10cfa5
+files_captured: 30
+
+## captured
+- algorithmic_edge_audit.json
+- docker_compose_config_check.txt
+- docker_compose_ps.txt
+- final_validation.json
+- generate_full_report.txt
+- git_commit.txt
+- git_status.txt
+- hermes_training_env_proof.txt
+- latest_zip_listing.txt
+- latest_zip_size.txt
+- report.json
+- report.md
+- runtime_metrics/active_learning.json
+- runtime_metrics/bregman.json
+- runtime_metrics/bregman_execution.json
+- runtime_metrics/bregman_funnel.json
+- runtime_metrics/bregman_source_reconciliation.json
+- runtime_metrics/closed_loop_learning.json
+- runtime_metrics/correlation_risk.json
+- runtime_metrics/grok_news_evidence.json
+- runtime_metrics/inspection_summary.json
+- runtime_metrics/learning_feedback.json
+- runtime_metrics/paper_realism.json
+- runtime_metrics/profitability_ranking.json
+- runtime_metrics/run_ready.json
+- runtime_metrics/strategy_priority.json
+- runtime_metrics/training_reconciliation.json
+- validation_contract.json
+- validation_full.txt
+- validation_light.txt
+
+## skipped (too large / raw stream)
+- runtime_metrics/paper_relaxed_candidates.jsonl (39675287B)

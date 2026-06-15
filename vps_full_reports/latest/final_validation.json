@@ -1,0 +1,19 @@
+{
+  "checks": {
+    "after_cost_pnl": 0.0,
+    "bregman_opportunity_decay": null,
+    "bregman_certified_profit": 0.0,
+    "bregman_executable_depth_ok": null,
+    "rejected_bad_fills": 0.0,
+    "fill_realism_rejection_rate": 0.0,
+    "calibration_rollbacks": null,
+    "walkforward_passed": null,
+    "significance_passed": null,
+    "production_ready": null,
+    "live_detected": false
+  },
+  "blocking_reasons": [],
+  "validation_ready": false,
+  "exploration_excluded": true,
+  "note": "PAPER-only; exploration excluded from the readiness verdict."
+}

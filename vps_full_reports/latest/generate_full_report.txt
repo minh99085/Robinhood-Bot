@@ -1,0 +1,170 @@
+==> Hermes VPS light-report runner
+    plugin   : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine
+    container: hermes-training
+    venv     : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/.report_venv
+==> installing report/test dependencies into .report_venv (no system pip)
+Requirement already satisfied: fastapi<1,>=0.110 in ./.report_venv/lib/python3.12/site-packages (from -r requirements.txt (line 1)) (0.137.0)
+Requirement already satisfied: uvicorn<1,>=0.27 in ./.report_venv/lib/python3.12/site-packages (from uvicorn[standard]<1,>=0.27->-r requirements.txt (line 2)) (0.49.0)
+Requirement already satisfied: httpx<1,>=0.27 in ./.report_venv/lib/python3.12/site-packages (from -r requirements.txt (line 3)) (0.28.1)
+Requirement already satisfied: numpy<3,>=1.26 in ./.report_venv/lib/python3.12/site-packages (from -r requirements.txt (line 4)) (2.4.6)
+Requirement already satisfied: pydantic<3,>=2.6 in ./.report_venv/lib/python3.12/site-packages (from -r requirements.txt (line 5)) (2.13.4)
+Requirement already satisfied: websockets<17,>=12 in ./.report_venv/lib/python3.12/site-packages (from -r requirements.txt (line 6)) (16.0)
+Requirement already satisfied: starlette>=0.46.0 in ./.report_venv/lib/python3.12/site-packages (from fastapi<1,>=0.110->-r requirements.txt (line 1)) (1.3.1)
+Requirement already satisfied: typing-extensions>=4.8.0 in ./.report_venv/lib/python3.12/site-packages (from fastapi<1,>=0.110->-r requirements.txt (line 1)) (4.15.0)
+Requirement already satisfied: typing-inspection>=0.4.2 in ./.report_venv/lib/python3.12/site-packages (from fastapi<1,>=0.110->-r requirements.txt (line 1)) (0.4.2)
+Requirement already satisfied: annotated-doc>=0.0.2 in ./.report_venv/lib/python3.12/site-packages (from fastapi<1,>=0.110->-r requirements.txt (line 1)) (0.0.4)
+Requirement already satisfied: click>=7.0 in ./.report_venv/lib/python3.12/site-packages (from uvicorn<1,>=0.27->uvicorn[standard]<1,>=0.27->-r requirements.txt (line 2)) (8.4.1)
+Requirement already satisfied: h11>=0.8 in ./.report_venv/lib/python3.12/site-packages (from uvicorn<1,>=0.27->uvicorn[standard]<1,>=0.27->-r requirements.txt (line 2)) (0.16.0)
+Requirement already satisfied: anyio in ./.report_venv/lib/python3.12/site-packages (from httpx<1,>=0.27->-r requirements.txt (line 3)) (4.13.0)
+Requirement already satisfied: certifi in ./.report_venv/lib/python3.12/site-packages (from httpx<1,>=0.27->-r requirements.txt (line 3)) (2026.5.20)
+Requirement already satisfied: httpcore==1.* in ./.report_venv/lib/python3.12/site-packages (from httpx<1,>=0.27->-r requirements.txt (line 3)) (1.0.9)
+Requirement already satisfied: idna in ./.report_venv/lib/python3.12/site-packages (from httpx<1,>=0.27->-r requirements.txt (line 3)) (3.18)
+Requirement already satisfied: annotated-types>=0.6.0 in ./.report_venv/lib/python3.12/site-packages (from pydantic<3,>=2.6->-r requirements.txt (line 5)) (0.7.0)
+Requirement already satisfied: pydantic-core==2.46.4 in ./.report_venv/lib/python3.12/site-packages (from pydantic<3,>=2.6->-r requirements.txt (line 5)) (2.46.4)
+Requirement already satisfied: httptools>=0.8.0 in ./.report_venv/lib/python3.12/site-packages (from uvicorn[standard]<1,>=0.27->-r requirements.txt (line 2)) (0.8.0)
+Requirement already satisfied: python-dotenv>=0.13 in ./.report_venv/lib/python3.12/site-packages (from uvicorn[standard]<1,>=0.27->-r requirements.txt (line 2)) (1.2.2)
+Requirement already satisfied: pyyaml>=5.1 in ./.report_venv/lib/python3.12/site-packages (from uvicorn[standard]<1,>=0.27->-r requirements.txt (line 2)) (6.0.3)
+Requirement already satisfied: uvloop>=0.15.1 in ./.report_venv/lib/python3.12/site-packages (from uvicorn[standard]<1,>=0.27->-r requirements.txt (line 2)) (0.22.1)
+Requirement already satisfied: watchfiles>=0.20 in ./.report_venv/lib/python3.12/site-packages (from uvicorn[standard]<1,>=0.27->-r requirements.txt (line 2)) (1.2.0)
+Requirement already satisfied: pytest<10,>=8 in ./.report_venv/lib/python3.12/site-packages (from -r requirements-dev.txt (line 10)) (9.1.0)
+Requirement already satisfied: iniconfig>=1.0.1 in ./.report_venv/lib/python3.12/site-packages (from pytest<10,>=8->-r requirements-dev.txt (line 10)) (2.3.0)
+Requirement already satisfied: packaging>=22 in ./.report_venv/lib/python3.12/site-packages (from pytest<10,>=8->-r requirements-dev.txt (line 10)) (26.2)
+Requirement already satisfied: pluggy<2,>=1.5 in ./.report_venv/lib/python3.12/site-packages (from pytest<10,>=8->-r requirements-dev.txt (line 10)) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in ./.report_venv/lib/python3.12/site-packages (from pytest<10,>=8->-r requirements-dev.txt (line 10)) (2.20.0)
+Requirement already satisfied: pytest<10,>=8 in ./.report_venv/lib/python3.12/site-packages (9.1.0)
+Requirement already satisfied: pydantic<3,>=2.6 in ./.report_venv/lib/python3.12/site-packages (2.13.4)
+Requirement already satisfied: numpy<3,>=1.26 in ./.report_venv/lib/python3.12/site-packages (2.4.6)
+Requirement already satisfied: fastapi<1,>=0.110 in ./.report_venv/lib/python3.12/site-packages (0.137.0)
+Requirement already satisfied: httpx<1,>=0.27 in ./.report_venv/lib/python3.12/site-packages (0.28.1)
+Requirement already satisfied: iniconfig>=1.0.1 in ./.report_venv/lib/python3.12/site-packages (from pytest<10,>=8) (2.3.0)
+Requirement already satisfied: packaging>=22 in ./.report_venv/lib/python3.12/site-packages (from pytest<10,>=8) (26.2)
+Requirement already satisfied: pluggy<2,>=1.5 in ./.report_venv/lib/python3.12/site-packages (from pytest<10,>=8) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in ./.report_venv/lib/python3.12/site-packages (from pytest<10,>=8) (2.20.0)
+Requirement already satisfied: annotated-types>=0.6.0 in ./.report_venv/lib/python3.12/site-packages (from pydantic<3,>=2.6) (0.7.0)
+Requirement already satisfied: pydantic-core==2.46.4 in ./.report_venv/lib/python3.12/site-packages (from pydantic<3,>=2.6) (2.46.4)
+Requirement already satisfied: typing-extensions>=4.14.1 in ./.report_venv/lib/python3.12/site-packages (from pydantic<3,>=2.6) (4.15.0)
+Requirement already satisfied: typing-inspection>=0.4.2 in ./.report_venv/lib/python3.12/site-packages (from pydantic<3,>=2.6) (0.4.2)
+Requirement already satisfied: starlette>=0.46.0 in ./.report_venv/lib/python3.12/site-packages (from fastapi<1,>=0.110) (1.3.1)
+Requirement already satisfied: annotated-doc>=0.0.2 in ./.report_venv/lib/python3.12/site-packages (from fastapi<1,>=0.110) (0.0.4)
+Requirement already satisfied: anyio in ./.report_venv/lib/python3.12/site-packages (from httpx<1,>=0.27) (4.13.0)
+Requirement already satisfied: certifi in ./.report_venv/lib/python3.12/site-packages (from httpx<1,>=0.27) (2026.5.20)
+Requirement already satisfied: httpcore==1.* in ./.report_venv/lib/python3.12/site-packages (from httpx<1,>=0.27) (1.0.9)
+Requirement already satisfied: idna in ./.report_venv/lib/python3.12/site-packages (from httpx<1,>=0.27) (3.18)
+Requirement already satisfied: h11>=0.16 in ./.report_venv/lib/python3.12/site-packages (from httpcore==1.*->httpx<1,>=0.27) (0.16.0)
+==> verifying report dependencies are importable in .report_venv
+report dependencies OK: pydantic, numpy, pytest, fastapi, httpx
+==> docker compose ps
+NAME                    IMAGE                                         COMMAND                  SERVICE                 CREATED          STATUS                    PORTS
+hermes-trading-engine   hermes-trading-engine-hermes-trading-engine   "uvicorn engine.app:…"   hermes-trading-engine   10 minutes ago   Up 10 minutes (healthy)   0.0.0.0:8800->8800/tcp, [::]:8800->8800/tcp
+hermes-training         hermes-trading-engine-hermes-training         "python scripts/star…"   hermes-training         10 minutes ago   Up 10 minutes (healthy)   8800/tcp
+==> hermes-training recent logs (tail)
+2026-06-15 13:54:58,777 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=38799534204280565639737430558579398146527376734359819453163033093946452013669 "HTTP/1.1 200 OK"
+2026-06-15 13:54:58,922 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=59396014725011176267922561697686686869554153525311871079823995594025061925869 "HTTP/1.1 200 OK"
+2026-06-15 13:54:59,065 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=96461006080436544207234347263886054722362337021039952181845727648717430356022 "HTTP/1.1 200 OK"
+2026-06-15 13:54:59,210 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=65493672062200594856647700994985021640021489907402537675570693655158862837753 "HTTP/1.1 200 OK"
+2026-06-15 13:54:59,354 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=14366171515510956935243179964383507797906347106789923554788206207111317910322 "HTTP/1.1 200 OK"
+2026-06-15 13:54:59,499 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=73750806898846511435427985586715707010049204992469696083485610340628946790851 "HTTP/1.1 200 OK"
+2026-06-15 13:54:59,643 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=53206852571696647606149015714977444870775066159769404702883892048269394684100 "HTTP/1.1 200 OK"
+2026-06-15 13:54:59,783 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=20308014967766940137865435321157021223285663321775683244924801079982002954834 "HTTP/1.1 200 OK"
+2026-06-15 13:54:59,927 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=69152380468979727412219604509557657244111400227852827681465701428939185137261 "HTTP/1.1 200 OK"
+2026-06-15 13:55:00,075 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=71338886078132794561606040245522732654223397726318877516126885558857760131397 "HTTP/1.1 200 OK"
+2026-06-15 13:55:00,221 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=12937069564920440485423856944961863118985999089649348190709599100219960110712 "HTTP/1.1 200 OK"
+2026-06-15 13:55:00,364 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=85005587921379857186927978596025087650861476474225924017408367510047231752729 "HTTP/1.1 200 OK"
+2026-06-15 13:55:00,509 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=41601124693144019309466558280192009130660398366463128597365209142801964584453 "HTTP/1.1 200 OK"
+2026-06-15 13:55:00,660 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=21277280802345479969856467361586319049341059779313378589116124644152071082854 "HTTP/1.1 200 OK"
+2026-06-15 13:55:00,805 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=66038788423827925294033187556143889467316018306404325654996271146505689723570 "HTTP/1.1 200 OK"
+2026-06-15 13:55:00,954 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=80671065454402118534970441822834492766941556283670671337094578358747393423487 "HTTP/1.1 200 OK"
+2026-06-15 13:55:01,101 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=97725463464398783289601242767642888481974268800885687422778902740478294103024 "HTTP/1.1 200 OK"
+2026-06-15 13:55:01,249 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=88638552021968444895205704913723138606257853801218446803211794306530714120825 "HTTP/1.1 200 OK"
+2026-06-15 13:55:01,408 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=31912896505073656694700605974239774175455033014291239496233467728205986760811 "HTTP/1.1 200 OK"
+2026-06-15 13:55:01,561 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=108022836882070634894978103447460059415631393810246745281341648986501895644031 "HTTP/1.1 200 OK"
+2026-06-15 13:55:01,707 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=50035578024412312502715156279765769139689669299163153792052060268176088979005 "HTTP/1.1 200 OK"
+2026-06-15 13:55:01,852 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=5500958648222024490080262026563017618333773328581609432182941377205770769101 "HTTP/1.1 200 OK"
+2026-06-15 13:55:02,014 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=96591255635253447513110478554912401032108924846987730492523639752571136117102 "HTTP/1.1 200 OK"
+2026-06-15 13:55:02,158 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=59282412457122351477543636097251486632974291842840763234061205236246436940782 "HTTP/1.1 200 OK"
+2026-06-15 13:55:02,303 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=108988050492044580303432338366330640532684219483303433328497659922956573098912 "HTTP/1.1 200 OK"
+2026-06-15 13:55:02,447 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=6409824763135588740336457594477426956874240477346766975440384259263123485883 "HTTP/1.1 200 OK"
+2026-06-15 13:55:02,590 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=88201952821407604414923741244723588058115889400786199789561855538200420711229 "HTTP/1.1 200 OK"
+2026-06-15 13:55:02,740 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=68763454369664034203897521133369737066339865364758496691759952970269113439308 "HTTP/1.1 200 OK"
+2026-06-15 13:55:02,886 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=31001933552562954749455748580733169249429181424985609621892082564365952627787 "HTTP/1.1 200 OK"
+2026-06-15 13:55:03,032 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=55286388348849103901353074592770448300502600156829051791010301632592140561835 "HTTP/1.1 200 OK"
+2026-06-15 13:55:03,175 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=72937725479271466204682382353101614903613729246978077200794312594964913403480 "HTTP/1.1 200 OK"
+2026-06-15 13:55:03,321 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=38128511596403434222386202458504278258625623256499750470273070085524381046404 "HTTP/1.1 200 OK"
+2026-06-15 13:55:03,496 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=24577050821151051861547812662638038823592999164572144261362316653913625511325 "HTTP/1.1 200 OK"
+2026-06-15 13:55:03,666 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=45514514496279148367804044376354917102751302961107546163732219862909367042143 "HTTP/1.1 200 OK"
+2026-06-15 13:55:03,811 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=71177806450920989974433651072996855049122219874311136137375181225248655839953 "HTTP/1.1 200 OK"
+2026-06-15 13:55:03,957 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=50391126821517543333311026095241741950727795373502837274370233796446294438345 "HTTP/1.1 200 OK"
+2026-06-15 13:55:04,121 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=78255660467937483826927137579147261714965942691475491407322308872779115123569 "HTTP/1.1 200 OK"
+2026-06-15 13:55:04,267 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=62360032751984054990648878106950345597541546963661458892817909122584622092681 "HTTP/1.1 200 OK"
+2026-06-15 13:55:04,415 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=57890389819377966977163639444458170124503629132494401038529767898115115844074 "HTTP/1.1 200 OK"
+2026-06-15 13:55:04,564 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=2885834379946477916106995246181246829284778211795950219765709161030102551450 "HTTP/1.1 200 OK"
+==> hermes-training: state=running health=healthy
+==> refreshing runtime_data from hermes-training:/data
+==> deleting old inspection_reports
+==> removing stale vps_light_report_latest.zip (rewritten only after a complete bundle)
+==> generating light-mode inspection report (.report_venv python)
+Classification : PASS_RUN_READY
+Health score   : 76.5/100
+Bundle folder  : inspection_reports/bot_inspection_20260615_135509
+Zip bundle     : inspection_reports/bot_inspection_20260615_135509.zip
+Bundle mode    : light
+Full JSONL     : omitted intentionally
+Samples        : tail 500 rows each
+Source events  : verified from runtime_data
+Zip size       : 1.64 MB
+Edge audit     : PASS
+Run-ready      : run_ready_for_hours=True (max_safe_runtime_minutes=None)
+Grok brain     : grok_brain_ready=True
+Grok advisory  : calls=1 with_news=1 near_misses_analyzed=0 news_linked=1 advisory_only=1
+Bregman near   : total=555 one_fix_away=95 depth_only=93 not_exhaustive=216 | no-bundle blocker=incomplete_event_families
+Artifact paths :
+   runtime_training_data_dir=runtime_data/training exists=True
+   runtime_metrics_dir=runtime_data/metrics exists=True
+   runtime_reports_dir=runtime_data/reports exists=True
+   inspection_bundle_dir=inspection_reports/bot_inspection_20260615_135509
+Warnings       : safety audit raised warnings; 2 missing/weak feature(s); No certified Bregman opportunities found yet; continue paper training.
+==> running training-runtime validation (.report_venv python)
+  [PASS] paper_training_running: mode=paper_train
+  [PASS] status_fresh: age=246.4s
+  [PASS] live_trading_disabled: paper-only build
+  [PASS] strict_paper_realism: reference fills off
+  [PASS] core_metrics_non_null: {"after_cost_pnl": 0, "fill_realism_enabled": true, "fantasy_fill_rejections": 0}
+  [PASS] closed_loop_metrics_present: status=collecting
+  [PASS] closed_loop_records_positive: records=240 considered=240
+  [PASS] decision_count_reconciles_with_events: events=240
+  [PASS] rejection_becomes_learning_object: no_trade+shadow=335 diagnostic=0
+  [PASS] pending_labels_or_diagnostic_without_target: pending=240 diag_no_label=0
+  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=335 diagnostic=0
+  [PASS] active_learning_selection_or_reason_present: selected=240 zero_reason=None
+  [PASS] pending_label_store_present: 
+  [PASS] learning_state_saved: 
+  [PASS] bregman_metrics_consistent: discovered=533 certified=0 opened=0
+  [PASS] bregman_funnel_non_silent: detected=533 scanned=533 adapter_failed=0
+  [PASS] ledger_records_decisions: ledger.decisions=414527 decision_count=240
+  [PASS] audit_win_rate_known: 
+  [PASS] audit_clob_v2_executable_known: 
+  [PASS] audit_production_readiness_score_known: 
+  [PASS] run_ready_for_hours: blocking=[]
+  [PASS] active_learning_config_consistent: config_source=aggressive_paper_profile runtime_enabled=True — aggressive_paper profile ALWAYS enables active learning; mismatch => container STALE, rebuild (mission-control --mode proof2h --approved-paper-run)
+  [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=0 blocked_by_reason={} — a selected candidate must open a <=$1 paper trade or record an exact blocker
+  [PASS] inspection_collector_includes_artifacts: 
+  [PASS] inspection_artifacts_present: all present
+  [PASS] decision_count_has_event_file_rows: decision_count=240 events.jsonl_rows=2879859
+  [PASS] decision_records_counter_matches_file: counter=240 decision_records.jsonl_rows=414527
+  [PASS] pending_labels_counter_matches_file: counter=240 pending_labels.jsonl_rows=414420
+  [PASS] training_tail_streams_same_run: same run
+  [PASS] training_tail_streams_fresh_window: within freshness window
+  [PASS] artifact_present:training_reconciliation.json: metrics/training_reconciliation.json
+  [PASS] artifact_present:inspection_summary.json: metrics/inspection_summary.json
+  [PASS] artifact_present:run_ready.json: metrics/run_ready.json
+
+SAFE TO RUN: True
+report_rc=0 validate_rc=0
+==> packaging vps_light_report_20260615_135503.zip (complete light bundle + git proof)
+report bundle OK: 2088 files, 8663669 bytes -> vps_light_report_20260615_135503.zip
+==> DONE
+    report_rc=0 validate_rc=0
+    unique zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_20260615_135503.zip (8663669 bytes)
+    latest zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_latest.zip
+    upload vps_light_report_latest.zip to ChatGPT for inspection.
+light_report_rc=0

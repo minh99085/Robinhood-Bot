@@ -27,6 +27,17 @@ Instructions for AI coding assistants and developers working on the hermes-agent
   now-redundant local edits and fast-forward) so `git status` is clean and future pulls
   work. After any deploy, verify `git rev-parse HEAD` on the VPS equals `origin/main`.
 
+## Full reports: always commit them for ChatGPT inspection
+
+- EVERY time you pull a full report from the VPS (`scripts/vps_generate_full_report.sh`),
+  extract it into the repo's tracked `vps_full_reports/latest/` folder and push it, because
+  ChatGPT inspects the report from the GitHub repo (it reads text/JSON, not binary zips).
+- Use the helper: `python scripts/save_full_report_to_repo.py --zip <pulled_zip>` (it
+  captures report.json/report.md, validations, git + env proof, and runtime_metrics/*.json;
+  it overwrites `latest/` and skips multi-MB raw `*.jsonl` streams + embedded zips).
+- Then commit + push to `main` AND keep the VPS in sync (per the deployment invariant).
+  `vps_full_reports/` is force-tracked in `.gitignore` (overrides the report ignore rules).
+
 ## Development Environment
 
 ```bash

@@ -21,3 +21,8 @@ vps_full_issue_report_*.zip
 vps_issue_report_*.zip
 validation_light_latest.txt
 .report_venv/
+
+# Committed full reports for ChatGPT inspection live here and OVERRIDE the ignore
+# patterns above (extracted text/JSON, not binary zips). See vps_full_reports/README.md.
+!vps_full_reports/
+!vps_full_reports/**
