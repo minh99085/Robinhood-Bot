@@ -1,8 +1,8 @@
 # VPS full report — extracted for ChatGPT inspection
-generated_utc: 2026-06-16 15:51:22 UTC
+generated_utc: 2026-06-16 16:18:02 UTC
 source_zip: vps_full_report_latest.zip
-source_commit: 30d34328c04020dceee20d6866dffb454297319e
-files_captured: 30
+source_commit: 4b04bedd3fd6175d35dc44ba1d34b8eec60ef40f
+files_captured: 31
 
 ## captured
 - algorithmic_edge_audit.json
@@ -24,6 +24,7 @@ files_captured: 30
 - runtime_metrics/bregman_source_reconciliation.json
 - runtime_metrics/closed_loop_learning.json
 - runtime_metrics/correlation_risk.json
+- runtime_metrics/feeds_health.json
 - runtime_metrics/grok_news_evidence.json
 - runtime_metrics/inspection_summary.json
 - runtime_metrics/learning_feedback.json
@@ -37,4 +38,4 @@ files_captured: 30
 - validation_light.txt
 
 ## skipped (too large / raw stream)
-- runtime_metrics/paper_relaxed_candidates.jsonl (49546739B)
+- runtime_metrics/paper_relaxed_candidates.jsonl (49943604B)
