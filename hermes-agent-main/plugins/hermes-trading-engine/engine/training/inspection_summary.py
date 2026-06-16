@@ -14,6 +14,23 @@ from typing import Optional
 
 SCHEMA_VERSION = "inspection_summary/1.0"
 
+
+def _breg_nm_filter(telemetry: dict, predicate, *, key, top_n: int = 5) -> list:
+    """Filter the ranked Bregman near-miss records by a predicate and return the
+    top ``top_n`` by ``key`` (a field name or a callable). Read-only diagnostics —
+    these records are NEVER tradeable and certification is never loosened."""
+    items = [r for r in (telemetry.get("bregman_top_near_misses", []) or [])
+             if isinstance(r, dict)]
+    try:
+        sel = [r for r in items if predicate(r)]
+    except Exception:  # noqa: BLE001 — diagnostics must never raise
+        sel = []
+    if isinstance(key, str):
+        keyfn = lambda r: (r.get(key) if r.get(key) is not None else -1e9)  # noqa: E731
+    else:
+        keyfn = key
+    return sorted(sel, key=keyfn, reverse=True)[:max(0, int(top_n))]
+
 REQUIRED_SECTIONS = [
     "Executive Summary", "Feature Activation", "Bregman / ABCAS Funnel",
     "Strategy Priority", "Paper Execution Realism", "Profitability Ranking",
@@ -356,6 +373,31 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
                 key=lambda r: (r.get("after_cost_lower_bound")
                                if isinstance(r, dict) and r.get("after_cost_lower_bound")
                                is not None else -1e9), reverse=True)[:10],
+            # SCANNING-PRIORITY views (read-only; certification UNCHANGED). Each lists
+            # the closest complete/depth-sufficient/stale/thin groups so the scanner +
+            # operator can prioritize what is most likely to certify next — without
+            # ever trading an incomplete family or loosening a gate.
+            "top_complete_depth_sufficient_near_misses": _breg_nm_filter(
+                t, lambda r: (((r.get("completeness", {}) or {}).get("completeness_proven"))
+                              and ((r.get("depth_quality", {}) or {}).get("thin_legs", 1) == 0)),
+                key="after_cost_lower_bound"),
+            "top_groups_rejected_by_stale_book": _breg_nm_filter(
+                t, lambda r: (r.get("reject_reason") == "stale_book"
+                              or ((r.get("freshness", {}) or {}).get("stale_legs", 0) > 0)),
+                key="after_cost_lower_bound"),
+            "top_groups_rejected_by_thin_depth": _breg_nm_filter(
+                t, lambda r: (r.get("reject_reason") in ("thin_depth", "depth_too_thin")
+                              or ((r.get("depth_quality", {}) or {}).get("thin_legs", 0) > 0)),
+                key=lambda r: (r.get("depth_quality", {}) or {}).get("min_leg_depth_usd", 0.0)),
+            # is there a CERTIFIED, depth-sufficient executable bundle right now?
+            "certified_executable_bundle_exists": bool(
+                certified > 0 and _i("executable_depth_certified", "realistic_executable") > 0),
+            "certified_executable_bundle_reason": (
+                "certified depth-sufficient bundle available" if (
+                    certified > 0 and _i("executable_depth_certified", "realistic_executable") > 0)
+                else (t.get("bregman_zero_certified_explanation")
+                      or ("no_complete_family_passed_certification" if certified == 0
+                          else "certified_but_no_depth_sufficient_executable_bundle"))),
             "zero_certified_explanation": t.get("bregman_zero_certified_explanation"),
             "certification_strictness_preserved": True,
         },
