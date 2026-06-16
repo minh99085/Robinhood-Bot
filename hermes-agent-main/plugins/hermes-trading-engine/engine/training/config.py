@@ -184,6 +184,11 @@ class TrainingConfig:
     exploration_min_depth_at_price: float = 25.0
     exploration_max_spread: float = 0.08
     exploration_max_book_age_sec: float = 20.0
+    # learning-probe QUALITY floor (0..1): a strict-realism-eligible probe must also clear
+    # this quality score to OPEN (selection-only; never loosens a hard realism/risk gate).
+    # 0.0 = open every eligible probe (legacy). Production (aggressive_paper) sets a modest
+    # floor so the lowest-quality probes are not opened blindly.
+    exploration_min_probe_quality: float = 0.0
     exploration_max_ambiguity_score: float = 0.45
     exploration_require_profitability_annotation: bool = True
     exploration_require_realistic_fill: bool = True
@@ -1296,6 +1301,10 @@ class TrainingConfig:
                 "POLYMARKET_EXPLORATION_MAX_EXPECTED_LOSS_USD", 0.50),
             active_learning_tiny_trades_per_tick=_envi(
                 "POLYMARKET_ACTIVE_LEARNING_TINY_TRADES_PER_TICK", 5),
+            # modest quality floor so the lowest-quality learning probes are not opened
+            # blindly (selection-only; hard realism/risk gates unchanged). env-tunable.
+            exploration_min_probe_quality=_envf(
+                "POLYMARKET_EXPLORATION_MIN_PROBE_QUALITY", 0.25),
             # active learning ON: fill idle paper budget with highest-feedback-value
             # near-misses, balanced exploration/exploitation, diversified coverage.
             active_learning_enabled=True, exploration_split=0.5,

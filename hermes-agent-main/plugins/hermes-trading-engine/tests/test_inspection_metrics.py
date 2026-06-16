@@ -237,3 +237,42 @@ def test_quant_responsibilities_coverage_gap_on_empty():
     qr = m.build_quant_responsibilities({})
     # With no features, every domain is a coverage gap.
     assert all(v["coverage"] == "gap" for v in qr.values())
+
+
+# --- after-cost accounting bucket consistency (Fix 2) -----------------------
+def test_after_cost_bucket_consistency_no_false_warning():
+    """Readiness-only after-cost (0) vs total PnL incl. exploration (-0.8963) must NOT be
+    flagged as inconsistent when the exploration bucket explains it."""
+    feats = {"after_cost_pnl": 0.0, "total_pnl": -0.8963,
+             "readiness_after_cost_pnl": 0.0, "exploration_after_cost_pnl": -0.8963,
+             "total_after_cost_pnl_all_paper": -0.8963,
+             "after_cost_accounting_bucket_consistent": True}
+    issues = m.detect_inconsistencies(feats)
+    assert not any(i.get("check") == "after_cost_exceeds_gross" for i in issues)
+
+
+def test_after_cost_genuine_inconsistency_still_flagged():
+    feats = {"total_pnl": -1.0, "total_after_cost_pnl_all_paper": 0.5,
+             "after_cost_accounting_bucket_consistent": False}
+    issues = m.detect_inconsistencies(feats)
+    assert any(i.get("check") == "after_cost_exceeds_gross" for i in issues)
+
+
+# --- Bregman next-step diagnostics (Fix 5) ----------------------------------
+def test_bregman_next_steps_block_present():
+    from engine.training.inspection_summary import build_bregman_funnel
+    tel = {"raw_groups_discovered": 553, "certified_opportunities": 0,
+           "best_complete_group_lower_bound": -0.01,
+           "bregman_positive_projected_but_rejected_count": 4,
+           "bregman_positive_projected_rejected_by_stage": {"realism_depth": 3, "simplex": 1},
+           "near_miss_not_exhaustive_count": 2,
+           "adapter_missing_fields": {"negRiskComplete": 5},
+           "bregman_zero_certified_explanation": "no complete depth-sufficient positive set"}
+    f = build_bregman_funnel(tel, market_groups_detected=553)
+    ns = f["bregman_next_steps"]
+    assert ns["certification_strictness_preserved"] is True
+    assert ns["positive_projected_but_rejected_count"] == 4
+    assert ns["rejected_by_realism_count"] >= 3
+    assert ns["rejected_by_simplex_or_not_exhaustive_count"] >= 1
+    assert ns["missing_fields_for_complete_family_proof"] == {"negRiskComplete": 5}
+    assert ns["missing_negrisk_or_outcomecount_blocking_completeness"] is True

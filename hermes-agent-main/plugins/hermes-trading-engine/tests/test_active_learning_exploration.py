@@ -204,6 +204,67 @@ def test_active_learning_metrics_emitted(tmp_path, monkeypatch):
     assert rep["random_exploration_enabled"] is False
 
 
+# --- learning-probe QUALITY gate (Fix 1) ------------------------------------
+def test_learning_probe_quality_scores_high_vs_low(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    hi = t._learning_probe_quality(_rec(depth=2000, spread=0.01), _est(spread=0.01),
+                                   _edge(net_edge=0.01),
+                                   {"active_learning_score": 0.8, "execution_quality_score": 0.9}, 1.0)
+    lo = t._learning_probe_quality(_rec(depth=2000, spread=0.07), _est(spread=0.07),
+                                   _edge(net_edge=-0.05),
+                                   {"active_learning_score": 0.1, "execution_quality_score": 0.1}, 1.0)
+    assert hi["probe_quality_score"] > lo["probe_quality_score"]
+    assert hi["ev_class"] == "expected_value_positive"
+    assert lo["ev_class"] == "controlled_negative_ev_learning"
+
+
+def test_quality_gate_rejects_low_quality_probe_records_reason(tmp_path, monkeypatch):
+    # an impossibly-high floor rejects even an eligible probe -> recorded, never lost
+    t = _trainer(tmp_path, monkeypatch, exploration_min_probe_quality=0.99)
+    d = t._active_learning_admit(_rec(), _est(), _edge(), "edge_too_low")
+    assert d["decision"] == "near_miss" and d["reason"] == "low_probe_quality"
+    assert "probe_quality_score" in d
+    assert t._probe_quality_rejected and t._probe_quality_rejected[-1]["reason"] == "below_quality_floor"
+
+
+def test_quality_floor_zero_opens_and_records(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch, exploration_min_probe_quality=0.0)
+    d = t._active_learning_admit(_rec(), _est(), _edge(), "edge_too_low")
+    assert d["decision"] == "explore" and "probe_quality_score" in d
+    assert t._probe_quality_opened and t._probe_quality_opened[-1]["reason"] == "passed_quality_floor"
+    # profitability ranking surfaces the opened probe + reject lists (Fix 4)
+    pr = t.profitability_ranking_report()
+    assert pr["opened_learning_probes_count"] >= 1
+    assert isinstance(pr["top_opened_learning_probes"], list)
+    assert "top_rejected_near_misses" in pr
+
+
+def test_after_cost_buckets_separated(tmp_path, monkeypatch):
+    # paper realism report exposes separated after-cost buckets (Fix 2)
+    t = _trainer(tmp_path, monkeypatch)
+    pr = t.paper_realism_report()
+    for k in ("readiness_after_cost_pnl", "exploration_after_cost_pnl",
+              "total_after_cost_pnl_all_paper", "after_cost_accounting_bucket_consistent"):
+        assert k in pr
+    assert pr["after_cost_accounting_bucket_consistent"] is True
+    assert pr["readiness_after_cost_pnl"] == pr["readiness_pnl"]
+
+
+def test_feeds_health_explicit_reasons(tmp_path, monkeypatch):
+    # Fix 3: chainlink/btc fast-price feed health with explicit enabled/valid/reason
+    t = _trainer(tmp_path, monkeypatch)
+    fh = t.status().get("feeds_health", {})
+    for k in ("chainlink_enabled", "chainlink_valid", "chainlink_stale_reason",
+              "btc_fast_price_enabled", "btc_fast_price_valid", "btc_fast_price_disabled_reason"):
+        assert k in fh
+    assert fh["read_only"] is True and fh["affects_live_trading"] is False
+    # feeds disabled by default -> explicit disabled reasons, not silent
+    if not fh["chainlink_valid"]:
+        assert fh["chainlink_stale_reason"]
+    if not fh["btc_fast_price_valid"]:
+        assert fh["btc_fast_price_disabled_reason"]
+
+
 def test_kill_switch_risk_signals_exclude_exploration(tmp_path, monkeypatch):
     """Bounded-loss exploration probes must NOT count toward the kill-switch's
     drawdown / loss-streak / calibration samples (they are intentional, budget-capped

@@ -143,6 +143,20 @@ def extract_features(status: dict | None, api: dict | None = None,
             pnl.get("after_cost_pnl"), pnl.get("after_cost"),
             (0.0 if status else None)),
         "after_cost_pnl_sample_count": n_closed,
+        # after-cost accounting BUCKETS (readiness vs exploration vs total-all-paper) so a
+        # report never flags a false inconsistency by comparing the readiness-only after-cost
+        # bucket against a total PnL that includes excluded exploration probes.
+        "readiness_after_cost_pnl": _first(paper_realism.get("readiness_after_cost_pnl"),
+                                           paper_realism.get("readiness_pnl"),
+                                           (0.0 if status else None)),
+        "exploration_after_cost_pnl": _first(paper_realism.get("exploration_after_cost_pnl"),
+                                             paper_realism.get("exploration_pnl"),
+                                             (0.0 if status else None)),
+        "total_after_cost_pnl_all_paper": _first(
+            paper_realism.get("total_after_cost_pnl_all_paper"), pnl.get("total_pnl"),
+            (0.0 if status else None)),
+        "after_cost_accounting_bucket_consistent": paper_realism.get(
+            "after_cost_accounting_bucket_consistent"),
         "win_rate_traded_only": (pnl.get("win_rate") if n_closed > 0 else None),
         "win_rate_sample_count": n_closed,
         "expectancy_sample_count": n_closed,
@@ -785,15 +799,25 @@ def detect_inconsistencies(feats: dict, status: dict | None = None,
                        "api_live_detected": bool(api_live)},
         })
 
-    # --- after-cost PnL exceeding gross PnL (cost accounting sanity) ---
-    after = _num(feats.get("after_cost_pnl"))
+    # --- after-cost PnL vs gross PnL (cost accounting sanity, BUCKET-AWARE) ---
+    # The readiness-only after-cost bucket EXCLUDES exploration probes, while total_pnl
+    # INCLUDES them, so comparing them directly produced a false "after-cost exceeds gross"
+    # warning. Compare LIKE buckets: total after-cost across ALL paper trades (readiness +
+    # exploration) vs total gross PnL. Only warn on a genuine same-bucket discrepancy.
     total = _num(feats.get("total_pnl"))
-    if after is not None and total is not None and after > total + 1e-9:
+    total_ac = _num(feats.get("total_after_cost_pnl_all_paper"))
+    bucket_consistent = feats.get("after_cost_accounting_bucket_consistent")
+    cmp_ac = total_ac if total_ac is not None else _num(feats.get("after_cost_pnl"))
+    if (cmp_ac is not None and total is not None and cmp_ac > total + 0.01
+            and bucket_consistent is not True):
         out.append({
             "check": "after_cost_exceeds_gross", "severity": "WARN",
-            "detail": (f"after-cost PnL {after} exceeds gross/total PnL {total} — "
-                       "cost accounting may be off."),
-            "values": {"after_cost_pnl": after, "total_pnl": total},
+            "detail": (f"total after-cost PnL (all paper) {cmp_ac} exceeds gross/total PnL "
+                       f"{total} in the SAME bucket — cost accounting may be off."),
+            "values": {"total_after_cost_pnl_all_paper": cmp_ac, "total_pnl": total,
+                       "readiness_after_cost_pnl": _num(feats.get("readiness_after_cost_pnl")),
+                       "exploration_after_cost_pnl": _num(feats.get("exploration_after_cost_pnl")),
+                       "after_cost_accounting_bucket_consistent": bucket_consistent},
         })
 
     # --- BTC Pulse trade-count reconciliation (opened vs resolved vs dashboard) ---

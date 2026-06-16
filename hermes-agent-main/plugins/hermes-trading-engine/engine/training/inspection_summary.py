@@ -319,6 +319,46 @@ def build_bregman_funnel(bregman_telemetry: dict, *, market_groups_detected: int
         "skip_reasons": skip_reasons,
         "adapter_missing_fields": dict(t.get("adapter_missing_fields", {}) or {}),
         "diagnostic_events_written": int(diagnostic_events_written),
+        # CONSOLIDATED next-action diagnostics (read-only; certification is NOT loosened).
+        # Surfaces, under one block, exactly why 0 were certified and what is closest.
+        "bregman_next_steps": {
+            "best_complete_group_lower_bound": t.get("best_complete_group_lower_bound"),
+            "best_depth_sufficient_lower_bound": (
+                t.get("best_depth_sufficient_lower_bound",
+                      t.get("bregman_best_depth_sufficient_group_lower_bound"))),
+            "best_depth_sufficient_reject_reason": t.get(
+                "bregman_best_depth_sufficient_group_reject_reason"),
+            "groups_positive_lower_bound": _i("bregman_groups_positive_lower_bound"),
+            "positive_projected_but_rejected_count": _i(
+                "bregman_positive_projected_but_rejected_count"),
+            "positive_projected_rejected_by_stage": dict(
+                t.get("bregman_positive_projected_rejected_by_stage", {}) or {}),
+            "rejected_by_realism_count": int(sum(
+                v for k, v in (t.get("bregman_positive_projected_rejected_by_stage", {})
+                               or {}).items()
+                if any(s in str(k).lower() for s in
+                       ("realism", "depth", "stale", "missing_ask", "spread", "fill")))),
+            "rejected_by_simplex_or_not_exhaustive_count": (
+                _i("near_miss_not_exhaustive_count")
+                + int(sum(v for k, v in (
+                    t.get("bregman_positive_projected_rejected_by_stage", {}) or {}).items()
+                    if any(s in str(k).lower()
+                           for s in ("simplex", "exhaustive", "exclusive"))))),
+            "missing_fields_for_complete_family_proof": dict(
+                t.get("adapter_missing_fields", {}) or {}),
+            "missing_outcome_examples": list(
+                t.get("bregman_missing_outcome_examples", []) or [])[:10],
+            "missing_negrisk_or_outcomecount_blocking_completeness": bool(
+                _i("near_miss_not_exhaustive_count") > 0
+                and not _i("not_exhaustive_completed_by_metadata")),
+            "top_near_misses_closest_to_positive": sorted(
+                list(t.get("bregman_top_near_misses", []) or []),
+                key=lambda r: (r.get("after_cost_lower_bound")
+                               if isinstance(r, dict) and r.get("after_cost_lower_bound")
+                               is not None else -1e9), reverse=True)[:10],
+            "zero_certified_explanation": t.get("bregman_zero_certified_explanation"),
+            "certification_strictness_preserved": True,
+        },
         # near-miss diagnostics (read-only; explain how close rejected groups were)
         "bregman_near_misses_total": _i("bregman_near_misses_total"),
         "bregman_top_near_misses": list(t.get("bregman_top_near_misses", []) or []),

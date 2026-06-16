@@ -582,6 +582,9 @@ class PolymarketPaperTrainer:
         self._tiny_directional_opened = 0
         self._tiny_directional_evaluator_called = 0
         self._tiny_directional_blocked: dict = {}
+        # learning-probe QUALITY logs (for profitability ranking: opened probes + rejects)
+        self._probe_quality_opened: list = []
+        self._probe_quality_rejected: list = []
         # durable per-candidate audit log (git-ignored metrics dir)
         self._relaxed_candidates_path = self.data_dir / "metrics" / "paper_relaxed_candidates.jsonl"
         self._relaxed_records_written = 0
@@ -2735,6 +2738,66 @@ class PolymarketPaperTrainer:
                       "max_allowed_exploration_loss": max_loss,
                       "expected_loss_usd": expected_loss}
 
+    def _learning_probe_quality(self, rec, est, edge, al: dict, size: float) -> dict:
+        """Score a strict-realism-eligible learning probe 0..1 on QUALITY (does NOT loosen
+        any hard gate — stale/missing-ask/reference/synthetic/RiskEngine/realistic-fill all
+        already passed). Prioritizes: fresh book, tight spread, sufficient depth, non-
+        negative / near-zero after-cost edge, higher execution quality, better active-
+        learning score, and Grok/news support. Used to stop opening the lowest-quality
+        probes blindly while still allowing controlled learning."""
+        cfg = self.cfg
+        clamp = lambda x: max(0.0, min(1.0, float(x)))   # noqa: E731
+        edge_v = float(getattr(edge, "net_edge", 0.0) or 0.0)
+        spread = float(getattr(est, "spread", 0.0) or 0.0)
+        depth = float(getattr(rec, "top_depth_usd", 0.0) or 0.0)
+        age = float(getattr(rec, "book_age_s", 0.0) or 0.0)
+        exec_q = float(al.get("execution_quality_score", 0.0) or 0.0)
+        al_score = float(al.get("active_learning_score", 0.0) or 0.0)
+        rsrc = str(getattr(est, "research_source", "") or "").lower()
+        grok = (getattr(est, "p_research", None) is not None
+                and rsrc not in ("", "none", "market_only", "market"))
+        max_spread = float(getattr(cfg, "exploration_max_spread", 0.08)) or 0.08
+        max_age = float(getattr(cfg, "exploration_max_book_age_sec", 20.0)) or 20.0
+        edge_q = clamp(1.0 - (max(0.0, -edge_v) / 0.05))     # >=0 -> 1.0 ; -0.05 -> 0
+        spread_q = clamp(1.0 - (spread / max_spread))
+        depth_q = clamp(depth / max(1e-9, 4.0 * max(size, 0.5)))
+        fresh_q = clamp(1.0 - (age / max_age))
+        exec_qn = clamp(exec_q)
+        al_qn = clamp(al_score)
+        grok_q = 1.0 if grok else 0.5
+        w = {"edge": 0.25, "spread": 0.15, "depth": 0.15, "fresh": 0.15,
+             "exec": 0.10, "al": 0.15, "grok": 0.05}
+        score = (w["edge"] * edge_q + w["spread"] * spread_q + w["depth"] * depth_q
+                 + w["fresh"] * fresh_q + w["exec"] * exec_qn + w["al"] * al_qn
+                 + w["grok"] * grok_q)
+        ev_class = ("expected_value_positive" if edge_v > 1e-6
+                    else ("near_zero_learning" if edge_v >= -0.005
+                          else "controlled_negative_ev_learning"))
+        return {
+            "probe_quality_score": round(score, 4),
+            "quality_components": {"edge_q": round(edge_q, 3), "spread_q": round(spread_q, 3),
+                                   "depth_q": round(depth_q, 3), "fresh_q": round(fresh_q, 3),
+                                   "exec_q": round(exec_qn, 3), "al_q": round(al_qn, 3),
+                                   "grok_q": grok_q},
+            "after_cost_edge": round(edge_v, 6), "spread": round(spread, 5),
+            "depth": round(depth, 2), "book_age_sec": round(age, 2),
+            "execution_quality": round(exec_q, 4), "active_learning_score": round(al_score, 4),
+            "grok_supported": bool(grok), "ev_class": ev_class,
+        }
+
+    def _record_probe_quality(self, rec, *, opened: bool, pq: dict, reason: str) -> None:
+        """Capped audit of learning-probe quality (opened vs rejected) for the
+        profitability ranking — proves WHY each probe opened or was rejected."""
+        row = {"market_id": getattr(rec, "market_id", ""),
+               "event_id": self._rec_event_key(rec),
+               "category": getattr(rec, "category", None),
+               "question": (getattr(rec, "question", "") or "")[:120],
+               "reason": reason, **pq}
+        log = self._probe_quality_opened if opened else self._probe_quality_rejected
+        log.append(row)
+        if len(log) > 200:
+            del log[:-200]
+
     def _active_learning_admit(self, rec, est, edge, reason: str) -> dict:
         """PASS-6 exploration authority. Returns a decision dict:
         ``{decision: 'explore'|'near_miss'|'skip', ...}``. When active learning is
@@ -2845,7 +2908,22 @@ class PolymarketPaperTrainer:
                 > float(getattr(cfg, "exploration_max_capital_per_tick_usd", 20.0)) + 1e-9):
             am["exploration_rejected_by_budget"] += 1
             return {"decision": "skip", "reason": "exploration_capital_cap", **al}
+        # QUALITY gate (selection only; hard realism/risk gates already passed and are
+        # UNCHANGED). Stops opening the lowest-quality probes blindly: a strict-realism-
+        # eligible probe must also clear the configured quality floor to open. Rejected
+        # probes are recorded (near-miss) with their quality components — never lost.
+        pq = self._learning_probe_quality(rec, est, edge, al, size)
+        floor = float(getattr(cfg, "exploration_min_probe_quality", 0.0) or 0.0)
+        if pq["probe_quality_score"] < floor:
+            am["exploration_rejected_by_quality"] = am.get("exploration_rejected_by_quality", 0) + 1
+            self._record_probe_quality(rec, opened=False, pq=pq, reason="below_quality_floor")
+            self._record_near_miss(rec, est, edge, {
+                "failed_gate": "low_probe_quality", "near_miss_reason": "low_probe_quality",
+                "distance_to_threshold": round(floor - pq["probe_quality_score"], 4),
+                "condition_needed_to_trade": f"probe quality >= {floor:g}"}, al)
+            return {"decision": "near_miss", "reason": "low_probe_quality", **al, **pq}
         # SELECTED for exploration
+        self._record_probe_quality(rec, opened=True, pq=pq, reason="passed_quality_floor")
         am["active_learning_candidates_selected"] += 1
         st["opened"] = st.get("opened", 0) + 1
         st["capital"] = st.get("capital", 0.0) + size
@@ -2856,7 +2934,7 @@ class PolymarketPaperTrainer:
         am["cluster_diversity"][str(clu)] = am["cluster_diversity"].get(str(clu), 0) + 1
         return {"decision": "explore", "why_not_exploit": reason,
                 "why_not_shadow_only": "passed exploration realism + information value",
-                **al, **info}
+                **al, **info, **pq}
 
     def _record_near_miss(self, rec, est, edge, info: dict, al: dict) -> None:
         """Log a close-but-ineligible exploration candidate for learning (never
@@ -3551,6 +3629,15 @@ class PolymarketPaperTrainer:
             "reference_fill_theoretical_pnl": reference_fill_theoretical_pnl,
             "realistic_pnl": readiness_pnl,
             "readiness_pnl": readiness_pnl,
+            # --- after-cost accounting BUCKETS (exploration is realistic-fill, so its
+            # realized PnL is already after-cost; it is SEPARATED from readiness so the
+            # report never compares the readiness bucket against a total that includes
+            # exploration). total_after_cost_pnl_all_paper = readiness + exploration. ---
+            "readiness_after_cost_pnl": readiness_pnl,
+            "exploration_after_cost_pnl": exploration_pnl,
+            "total_after_cost_pnl_all_paper": round(readiness_pnl + exploration_pnl, 6),
+            "after_cost_accounting_bucket_consistent": bool(
+                abs(_pnl(lambda p: p.is_realistic) - (readiness_pnl + exploration_pnl)) < 1e-6),
             # realism posture (matches the strict defaults)
             "reference_price_fills_allowed_for_exploit": bool(
                 getattr(self.cfg, "allow_pm_reference_price_fills", False)),
@@ -3772,6 +3859,19 @@ class PolymarketPaperTrainer:
             "profitability_buckets": buckets,
             "top_ranked_candidate_reason": top_reason,
             "bregman_first_priority_preserved": True,
+            # WHY did learning probes open despite no after-cost-positive executable
+            # candidate? Top opened probes + top rejected near-misses, ranked by quality,
+            # each with the exact allow/reject reason + quality fields + EV class + Grok flag.
+            "learning_probe_quality_floor": float(
+                getattr(self.cfg, "exploration_min_probe_quality", 0.0) or 0.0),
+            "top_opened_learning_probes": sorted(
+                self._probe_quality_opened, key=lambda r: r.get("probe_quality_score", 0.0),
+                reverse=True)[:25],
+            "top_rejected_near_misses": sorted(
+                self._probe_quality_rejected, key=lambda r: r.get("probe_quality_score", 0.0),
+                reverse=True)[:25],
+            "opened_learning_probes_count": len(self._probe_quality_opened),
+            "rejected_learning_probes_count": len(self._probe_quality_rejected),
             "thresholds": {
                 "min_after_cost_edge": float(getattr(self.cfg, "min_after_cost_edge", 0.01)),
                 "min_after_cost_roi": float(getattr(self.cfg, "min_after_cost_roi", 0.002)),
@@ -4584,6 +4684,35 @@ class PolymarketPaperTrainer:
             out["research"] = self.research_status()
         except Exception as exc:  # noqa: BLE001 — status must never crash
             out["research"] = {"available": False, "error": str(exc)}
+        # consolidated READ-ONLY feed health: explicit valid/enabled + the EXACT
+        # stale/disabled reason. No live-trading or order-execution dependency; no secrets.
+        try:
+            _cl = out.get("chainlink_oracle", {}) or {}
+            _bf = out.get("btc_fast_price", {}) or {}
+            cl_enabled = bool(_cl.get("enabled"))
+            cl_valid = (bool(_cl.get("valid")) if "valid" in _cl
+                        else (cl_enabled and not bool(_cl.get("stale", True))))
+            cl_reason = ("" if cl_valid else
+                         ("chainlink_disabled" if not cl_enabled
+                          else (_cl.get("stale_reason") or _cl.get("error")
+                                or ("stale_round_or_heartbeat_exceeded" if _cl.get("stale")
+                                    else "no_valid_round"))))
+            bf_enabled = bool(_bf.get("enabled"))
+            bf_valid = bool(_bf.get("valid"))
+            bf_reason = ("" if bf_valid else
+                         ("btc_fast_price_disabled" if not bf_enabled
+                          else ("stale_quote" if _bf.get("stale")
+                                else (_bf.get("error") or "no_valid_quote"))))
+            out["feeds_health"] = {
+                "chainlink_enabled": cl_enabled, "chainlink_valid": cl_valid,
+                "chainlink_stale_reason": cl_reason,
+                "btc_fast_price_enabled": bf_enabled, "btc_fast_price_valid": bf_valid,
+                "btc_fast_price_disabled_reason": bf_reason,
+                "read_only": True, "affects_live_trading": False,
+                "affects_order_execution": False, "secrets_leaked": False,
+            }
+        except Exception as exc:  # noqa: BLE001
+            out["feeds_health"] = {"error": str(exc)}
         # canonical Bregman funnel + grok evidence + readiness + multi-hour run-ready
         # gate, derived from the cheap status pieces already computed above (no
         # recursion into the heavy inspection_summary). Keeps status() self-consistent
