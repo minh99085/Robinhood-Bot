@@ -585,6 +585,13 @@ class PolymarketPaperTrainer:
         # learning-probe QUALITY logs (for profitability ranking: opened probes + rejects)
         self._probe_quality_opened: list = []
         self._probe_quality_rejected: list = []
+        # loss-aware throttle: rolling realized (after-cost) PnL of recently CLOSED
+        # exploration probes, newest last. Drives the dynamic quality threshold +
+        # frequency reduction + shadow-only sampling when recent probes lose money.
+        from collections import deque as _deque
+        self._exploration_outcomes: "_deque" = _deque(maxlen=500)
+        self._probes_shadowed_due_to_quality = 0
+        self._probes_opened_due_to_quality = 0
         # durable per-candidate audit log (git-ignored metrics dir)
         self._relaxed_candidates_path = self.data_dir / "metrics" / "paper_relaxed_candidates.jsonl"
         self._relaxed_records_written = 0
@@ -2798,6 +2805,48 @@ class PolymarketPaperTrainer:
         if len(log) > 200:
             del log[:-200]
 
+    def _learning_probe_throttle(self) -> dict:
+        """LOSS-AWARE learning throttle (PAPER ONLY, selection-only governor).
+
+        Looks at recently CLOSED exploration probes (rolling window of realized,
+        after-cost PnL). When recent win rate is poor OR recent after-cost PnL is
+        negative below a floor, it RAISES the effective learning-probe quality
+        threshold (so only the best probes open), and signals the admit path to
+        REDUCE probe frequency + SHADOW marginal/negative-EV probes. It NEVER
+        loosens a hard realism/risk gate, never stops scanning, and never touches
+        readiness PnL. Returns the 7 required throttle metrics."""
+        cfg = self.cfg
+        outcomes = list(getattr(self, "_exploration_outcomes", []) or [])
+        window = max(1, int(getattr(cfg, "learning_throttle_window", 30) or 30))
+        recent = outcomes[-window:]
+        n = len(recent)
+        wins = sum(1 for x in recent if float(x) > 0.0)
+        win_rate = round(wins / n, 4) if n else None
+        after_cost_pnl = round(sum(float(x) for x in recent), 6)
+        base_floor = float(getattr(cfg, "exploration_min_probe_quality", 0.0) or 0.0)
+        enabled = bool(getattr(cfg, "learning_throttle_enabled", True))
+        min_samples = max(1, int(getattr(cfg, "learning_throttle_min_samples", 10) or 10))
+        wr_floor = float(getattr(cfg, "learning_throttle_winrate_floor", 0.35))
+        pnl_floor = float(getattr(cfg, "learning_throttle_pnl_floor", -0.5))
+        bump = float(getattr(cfg, "learning_throttle_quality_bump", 0.25) or 0.0)
+        reasons = []
+        if enabled and n >= min_samples:
+            if win_rate is not None and win_rate < wr_floor:
+                reasons.append(f"recent_win_rate {win_rate:.3f} < {wr_floor:g}")
+            if after_cost_pnl < pnl_floor:
+                reasons.append(f"recent_after_cost_pnl {after_cost_pnl:.4f} < {pnl_floor:g}")
+        active = bool(reasons)
+        effective = round(max(0.0, min(1.0, base_floor + (bump if active else 0.0))), 4)
+        return {
+            "learning_probe_recent_win_rate": win_rate,
+            "learning_probe_recent_after_cost_pnl": after_cost_pnl,
+            "learning_probe_recent_sample_count": int(n),
+            "learning_probe_quality_base_floor": round(base_floor, 4),
+            "learning_probe_quality_threshold": effective,
+            "learning_probe_throttle_active": active,
+            "learning_probe_throttle_reason": ("; ".join(reasons) if active else ""),
+        }
+
     def _active_learning_admit(self, rec, est, edge, reason: str) -> dict:
         """PASS-6 exploration authority. Returns a decision dict:
         ``{decision: 'explore'|'near_miss'|'skip', ...}``. When active learning is
@@ -2890,7 +2939,16 @@ class PolymarketPaperTrainer:
         cat = getattr(rec, "category", None)
         evt = self._rec_event_key(rec)
         clu = getattr(rec, "cluster_id", None) or evt
-        if st.get("opened", 0) >= int(getattr(cfg, "exploration_max_trades_per_tick", 2)):
+        # LOSS-AWARE THROTTLE (selection-only; computed once per tick, cached). When
+        # active it REDUCES probe frequency (per-tick cap) and RAISES the quality bar.
+        thr = st.get("_throttle")
+        if thr is None:
+            thr = self._learning_probe_throttle()
+            st["_throttle"] = thr
+        base_tick_cap = int(getattr(cfg, "exploration_max_trades_per_tick", 2))
+        tick_cap = (max(1, base_tick_cap // 2)
+                    if thr["learning_probe_throttle_active"] else base_tick_cap)
+        if st.get("opened", 0) >= tick_cap:
             am["exploration_rejected_by_budget"] += 1
             return {"decision": "skip", "reason": "max_trades_per_tick", **al}
         if st.get("per_event", {}).get(evt, 0) >= int(getattr(cfg, "exploration_max_per_event", 1)):
@@ -2908,22 +2966,42 @@ class PolymarketPaperTrainer:
                 > float(getattr(cfg, "exploration_max_capital_per_tick_usd", 20.0)) + 1e-9):
             am["exploration_rejected_by_budget"] += 1
             return {"decision": "skip", "reason": "exploration_capital_cap", **al}
-        # QUALITY gate (selection only; hard realism/risk gates already passed and are
-        # UNCHANGED). Stops opening the lowest-quality probes blindly: a strict-realism-
-        # eligible probe must also clear the configured quality floor to open. Rejected
-        # probes are recorded (near-miss) with their quality components — never lost.
+        # QUALITY GOVERNOR (selection only; hard realism/risk gates already passed and
+        # are UNCHANGED). Ranks/gates a strict-realism-eligible probe by its quality
+        # score against the EFFECTIVE threshold (base floor raised by the loss-aware
+        # throttle). Marginal probes are SHADOWED (recorded as near-miss learning
+        # examples — labels still collected) instead of opened. Controlled negative-EV
+        # probes are capped per tick (and forced to 0 while the throttle is active) so
+        # we stop chasing losing fills. Nothing here loosens a hard gate.
         pq = self._learning_probe_quality(rec, est, edge, al, size)
-        floor = float(getattr(cfg, "exploration_min_probe_quality", 0.0) or 0.0)
-        if pq["probe_quality_score"] < floor:
+        floor = float(thr["learning_probe_quality_threshold"])
+
+        def _shadow(reason: str, dist) -> dict:
             am["exploration_rejected_by_quality"] = am.get("exploration_rejected_by_quality", 0) + 1
-            self._record_probe_quality(rec, opened=False, pq=pq, reason="below_quality_floor")
+            self._probes_shadowed_due_to_quality += 1
+            self._record_probe_quality(rec, opened=False, pq=pq, reason=reason)
             self._record_near_miss(rec, est, edge, {
-                "failed_gate": "low_probe_quality", "near_miss_reason": "low_probe_quality",
-                "distance_to_threshold": round(floor - pq["probe_quality_score"], 4),
+                "failed_gate": reason, "near_miss_reason": reason,
+                "distance_to_threshold": dist,
                 "condition_needed_to_trade": f"probe quality >= {floor:g}"}, al)
-            return {"decision": "near_miss", "reason": "low_probe_quality", **al, **pq}
+            return {"decision": "near_miss", "reason": reason,
+                    "shadowed_due_to_quality": True,
+                    "throttle_active": thr["learning_probe_throttle_active"],
+                    **al, **pq}
+
+        if pq["probe_quality_score"] < floor:
+            return _shadow("below_quality_threshold",
+                           round(floor - pq["probe_quality_score"], 4))
+        # controlled negative-EV diversity budget (per tick); 0 while throttled.
+        if pq["ev_class"] == "controlled_negative_ev_learning":
+            neg_cap = (0 if thr["learning_probe_throttle_active"]
+                       else int(getattr(cfg, "exploration_max_negative_ev_probes_per_tick", 1)))
+            if st.get("neg_ev_opened", 0) >= neg_cap:
+                return _shadow("negative_ev_probe_budget_exhausted", None)
+            st["neg_ev_opened"] = st.get("neg_ev_opened", 0) + 1
         # SELECTED for exploration
-        self._record_probe_quality(rec, opened=True, pq=pq, reason="passed_quality_floor")
+        self._probes_opened_due_to_quality += 1
+        self._record_probe_quality(rec, opened=True, pq=pq, reason="passed_quality_threshold")
         am["active_learning_candidates_selected"] += 1
         st["opened"] = st.get("opened", 0) + 1
         st["capital"] = st.get("capital", 0.0) + size
@@ -3502,6 +3580,13 @@ class PolymarketPaperTrainer:
         self.cash += pos.qty * pos.exit_price
         # PASS-6: complete the active-learning feedback record at settlement.
         if getattr(pos, "exploration", False):
+            # loss-aware throttle: record this probe's realized (after-cost) PnL so
+            # the next selection cycle can raise the quality bar / shadow more when
+            # recent probes are losing. READINESS PnL is untouched (exploration only).
+            try:
+                self._exploration_outcomes.append(float(pos.realized_pnl))
+            except Exception:  # noqa: BLE001 — telemetry must never break a close
+                pass
             for fb in self.exploration_feedback_log:
                 if fb.get("candidate_id") == pos.fill_id and fb.get("feedback_status") == "pending":
                     fb["actual_outcome"] = "win" if pos.realized_pnl > 0 else "loss"
@@ -3872,6 +3957,10 @@ class PolymarketPaperTrainer:
                 reverse=True)[:25],
             "opened_learning_probes_count": len(self._probe_quality_opened),
             "rejected_learning_probes_count": len(self._probe_quality_rejected),
+            # loss-aware throttle posture (effective threshold the governor used).
+            "learning_probe_throttle": self._learning_probe_throttle(),
+            "probes_shadowed_due_to_quality": int(self._probes_shadowed_due_to_quality),
+            "probes_opened_due_to_quality": int(self._probes_opened_due_to_quality),
             "thresholds": {
                 "min_after_cost_edge": float(getattr(self.cfg, "min_after_cost_edge", 0.01)),
                 "min_after_cost_roi": float(getattr(self.cfg, "min_after_cost_roi", 0.002)),
@@ -3943,6 +4032,14 @@ class PolymarketPaperTrainer:
             "exploration_rejected_by_budget": am.get("exploration_rejected_by_budget", 0),
             "exploration_rejected_by_collision": am.get("exploration_rejected_by_collision", 0),
             "exploration_rejected_by_diversity": am.get("exploration_rejected_by_diversity", 0),
+            "exploration_rejected_by_quality": am.get("exploration_rejected_by_quality", 0),
+            # --- LOSS-AWARE LEARNING THROTTLE (selection-only governor; PAPER ONLY) ---
+            # When recent probe outcomes are poor the quality bar is raised, probe
+            # frequency is reduced, and marginal/negative-EV probes are shadowed
+            # (labels still collected). NEVER loosens a hard gate; readiness excluded.
+            **self._learning_probe_throttle(),
+            "probes_shadowed_due_to_quality": int(self._probes_shadowed_due_to_quality),
+            "probes_opened_due_to_quality": int(self._probes_opened_due_to_quality),
             "exploration_budget_used_usd": am.get("exploration_budget_used_usd", 0.0),
             "exploration_expected_loss_usd": am.get("exploration_expected_loss_usd", 0.0),
             "exploration_pnl": explore_pnl,
@@ -4690,23 +4787,54 @@ class PolymarketPaperTrainer:
             _cl = out.get("chainlink_oracle", {}) or {}
             _bf = out.get("btc_fast_price", {}) or {}
             cl_enabled = bool(_cl.get("enabled"))
+            cl_init = bool(_cl.get("initialized"))
             cl_valid = (bool(_cl.get("valid")) if "valid" in _cl
                         else (cl_enabled and not bool(_cl.get("stale", True))))
-            cl_reason = ("" if cl_valid else
-                         ("chainlink_disabled" if not cl_enabled
-                          else (_cl.get("stale_reason") or _cl.get("error")
-                                or ("stale_round_or_heartbeat_exceeded" if _cl.get("stale")
-                                    else "no_valid_round"))))
+            cl_age = _cl.get("age_seconds")
+            cl_max_age = _cl.get("max_age_seconds")
+            # EXACT chainlink stale/invalid reason (read-only diagnostics; no secrets).
+            if cl_valid:
+                cl_reason = ""
+            elif not cl_enabled:
+                cl_reason = "chainlink_disabled (CHAINLINK feed not enabled)"
+            elif not cl_init:
+                cl_reason = "chainlink_not_initialized (no on-chain source/provider)"
+            elif _cl.get("error") in ("invalid_price", "missing_price", "missing_timestamp"):
+                cl_reason = f"chainlink_{_cl.get('error')}"
+            elif _cl.get("error") and str(_cl.get("error")).startswith("provider_error"):
+                cl_reason = str(_cl.get("error"))
+            elif cl_age is not None and cl_max_age is not None and float(cl_age) > float(cl_max_age):
+                cl_reason = (f"stale: age {float(cl_age):.1f}s > max_age "
+                             f"{float(cl_max_age):g}s (anchor not refreshed)")
+            else:
+                cl_reason = _cl.get("stale_reason") or _cl.get("error") or "no_valid_round"
             bf_enabled = bool(_bf.get("enabled"))
             bf_valid = bool(_bf.get("valid"))
-            bf_reason = ("" if bf_valid else
-                         ("btc_fast_price_disabled" if not bf_enabled
-                          else ("stale_quote" if _bf.get("stale")
-                                else (_bf.get("error") or "no_valid_quote"))))
+            bf_age = _bf.get("age_seconds")
+            bf_max_age = int(getattr(self.cfg, "btc_fast_price_max_age_seconds", 10) or 10)
+            # EXACT btc-fast-price disabled/invalid reason.
+            if bf_valid:
+                bf_reason = ""
+            elif not bf_enabled:
+                bf_reason = ("btc_fast_price_disabled (BTC_FAST_PRICE_ENABLED not set; "
+                             "read-only spot feed off — no live-trading impact)")
+            elif _bf.get("error") and str(_bf.get("error")).startswith("provider_error"):
+                bf_reason = str(_bf.get("error"))
+            elif bf_age is not None and float(bf_age) > float(bf_max_age):
+                bf_reason = (f"stale_quote: age {float(bf_age):.1f}s > max_age "
+                             f"{bf_max_age:g}s")
+            else:
+                bf_reason = _bf.get("error") or "no_valid_quote"
             out["feeds_health"] = {
                 "chainlink_enabled": cl_enabled, "chainlink_valid": cl_valid,
+                "chainlink_age_seconds": (round(float(cl_age), 3)
+                                          if cl_age is not None else None),
+                "chainlink_max_age_seconds": cl_max_age,
+                "chainlink_stale": bool(_cl.get("stale", not cl_valid)),
                 "chainlink_stale_reason": cl_reason,
                 "btc_fast_price_enabled": bf_enabled, "btc_fast_price_valid": bf_valid,
+                "btc_fast_price_age_seconds": (round(float(bf_age), 3)
+                                               if bf_age is not None else None),
                 "btc_fast_price_disabled_reason": bf_reason,
                 "read_only": True, "affects_live_trading": False,
                 "affects_order_execution": False, "secrets_leaked": False,

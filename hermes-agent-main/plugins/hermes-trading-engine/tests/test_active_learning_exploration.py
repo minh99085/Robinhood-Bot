@@ -222,16 +222,19 @@ def test_quality_gate_rejects_low_quality_probe_records_reason(tmp_path, monkeyp
     # an impossibly-high floor rejects even an eligible probe -> recorded, never lost
     t = _trainer(tmp_path, monkeypatch, exploration_min_probe_quality=0.99)
     d = t._active_learning_admit(_rec(), _est(), _edge(), "edge_too_low")
-    assert d["decision"] == "near_miss" and d["reason"] == "low_probe_quality"
+    assert d["decision"] == "near_miss" and d["reason"] == "below_quality_threshold"
     assert "probe_quality_score" in d
-    assert t._probe_quality_rejected and t._probe_quality_rejected[-1]["reason"] == "below_quality_floor"
+    assert d["shadowed_due_to_quality"] is True
+    assert (t._probe_quality_rejected
+            and t._probe_quality_rejected[-1]["reason"] == "below_quality_threshold")
 
 
 def test_quality_floor_zero_opens_and_records(tmp_path, monkeypatch):
     t = _trainer(tmp_path, monkeypatch, exploration_min_probe_quality=0.0)
     d = t._active_learning_admit(_rec(), _est(), _edge(), "edge_too_low")
     assert d["decision"] == "explore" and "probe_quality_score" in d
-    assert t._probe_quality_opened and t._probe_quality_opened[-1]["reason"] == "passed_quality_floor"
+    assert (t._probe_quality_opened
+            and t._probe_quality_opened[-1]["reason"] == "passed_quality_threshold")
     # profitability ranking surfaces the opened probe + reject lists (Fix 4)
     pr = t.profitability_ranking_report()
     assert pr["opened_learning_probes_count"] >= 1
@@ -286,3 +289,128 @@ def test_kill_switch_risk_signals_exclude_exploration(tmp_path, monkeypatch):
     assert raw2["loss_streak"] == 1
     assert raw2["samples"] == 1
     assert raw2["drawdown"] < 0.0
+
+
+# --- loss-aware learning throttle (Fix 2) -----------------------------------
+
+def test_throttle_inactive_without_enough_samples(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    # fewer than min_samples losing probes -> throttle stays OFF (no over-reaction)
+    t._exploration_outcomes.extend([-0.1] * 3)
+    thr = t._learning_probe_throttle()
+    assert thr["learning_probe_throttle_active"] is False
+    assert thr["learning_probe_quality_threshold"] == thr["learning_probe_quality_base_floor"]
+    assert thr["learning_probe_throttle_reason"] == ""
+
+
+def test_poor_recent_pnl_activates_throttle_and_raises_threshold(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch, exploration_min_probe_quality=0.2,
+                 learning_throttle_quality_bump=0.3)
+    # 12 losing probes: win_rate 0.0 < 0.35 AND after-cost PnL -1.2 < -0.5 -> throttle ON
+    t._exploration_outcomes.extend([-0.1] * 12)
+    thr = t._learning_probe_throttle()
+    assert thr["learning_probe_throttle_active"] is True
+    assert thr["learning_probe_recent_win_rate"] == 0.0
+    assert thr["learning_probe_recent_after_cost_pnl"] == -1.2
+    assert thr["learning_probe_quality_threshold"] == 0.5     # 0.2 base + 0.3 bump
+    assert "recent_win_rate" in thr["learning_probe_throttle_reason"]
+
+
+def test_throttle_shadows_probe_that_would_open_when_healthy(tmp_path, monkeypatch):
+    # huge bump makes the effective threshold unreachable while throttled -> SHADOW
+    t = _trainer(tmp_path, monkeypatch, learning_throttle_quality_bump=1.0)
+    # healthy (no outcomes): the probe OPENS
+    d_open = t._active_learning_admit(_rec(), _est(unc=0.9), _edge(net_edge=0.005),
+                                      "edge_too_low")
+    assert d_open["decision"] == "explore"
+    opened_before = t._probes_opened_due_to_quality
+    # now poison recent outcomes -> throttle ON -> same probe is SHADOWED, not opened
+    t._begin_exploration_phase()
+    t._exploration_outcomes.extend([-0.1] * 12)
+    d_shadow = t._active_learning_admit(_rec("m1"), _est(unc=0.9), _edge(net_edge=0.005),
+                                        "edge_too_low")
+    assert d_shadow["decision"] == "near_miss"
+    assert d_shadow["reason"] == "below_quality_threshold"
+    assert d_shadow["shadowed_due_to_quality"] is True
+    assert d_shadow["throttle_active"] is True
+    assert t._probes_shadowed_due_to_quality >= 1
+    assert t._probes_opened_due_to_quality == opened_before   # no new open
+    # labels are still collected (shadow sampling keeps learning)
+    assert t.near_miss_log
+
+
+def test_throttle_reduces_per_tick_frequency(tmp_path, monkeypatch):
+    # base cap 2 -> halved to 1 while throttled (bump 0 so quality never interferes)
+    t = _trainer(tmp_path, monkeypatch, exploration_max_trades_per_tick=2,
+                 exploration_max_per_event=9, exploration_max_per_cluster=9,
+                 exploration_max_per_category_per_tick=9,
+                 learning_throttle_quality_bump=0.0)
+    t._exploration_outcomes.extend([-0.1] * 12)        # throttle ON
+    a = t._active_learning_admit(_rec("a", group="event:a", cluster="ca"),
+                                 _est(unc=0.9), _edge(net_edge=0.008), "edge_too_low")
+    b = t._active_learning_admit(_rec("b", group="event:b", cluster="cb"),
+                                 _est(unc=0.9), _edge(net_edge=0.008), "edge_too_low")
+    assert a["decision"] == "explore"
+    assert b["decision"] == "skip" and b["reason"] == "max_trades_per_tick"
+
+
+def test_negative_ev_probe_budget_shadows_when_exhausted(tmp_path, monkeypatch):
+    # negative-EV probe budget 0 -> a controlled-negative-EV probe is shadowed
+    t = _trainer(tmp_path, monkeypatch, exploration_max_negative_ev_probes_per_tick=0,
+                 exploration_min_edge=-0.2)
+    d = t._active_learning_admit(_rec(), _est(unc=0.9), _edge(net_edge=-0.02),
+                                 "edge_too_low")
+    assert d["decision"] == "near_miss"
+    assert d["reason"] == "negative_ev_probe_budget_exhausted"
+    assert d["ev_class"] == "controlled_negative_ev_learning"
+
+
+def test_active_learning_report_exposes_throttle_metrics(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    rep = t.active_learning_report()
+    for key in ("learning_probe_recent_win_rate", "learning_probe_recent_after_cost_pnl",
+                "learning_probe_quality_threshold", "learning_probe_throttle_active",
+                "learning_probe_throttle_reason", "probes_shadowed_due_to_quality",
+                "probes_opened_due_to_quality"):
+        assert key in rep
+
+
+def test_governor_opens_high_quality_shadows_low_quality(tmp_path, monkeypatch):
+    # at a modest floor, a high-quality probe OPENS while a low-quality one is SHADOWED
+    t = _trainer(tmp_path, monkeypatch, exploration_min_probe_quality=0.7,
+                 exploration_max_per_event=9, exploration_max_per_cluster=9,
+                 exploration_max_per_category_per_tick=9,
+                 exploration_max_trades_per_tick=9)
+    hi = t._active_learning_admit(_rec("hi", depth=2000, spread=0.01),
+                                  _est(unc=0.9, spread=0.01), _edge(net_edge=0.01),
+                                  "edge_too_low")
+    lo = t._active_learning_admit(_rec("lo", depth=12, spread=0.075),
+                                  _est(unc=0.05, spread=0.075), _edge(net_edge=-0.04),
+                                  "edge_too_low")
+    assert hi["decision"] == "explore"
+    assert lo["decision"] == "near_miss" and lo["shadowed_due_to_quality"] is True
+    assert hi["probe_quality_score"] > lo["probe_quality_score"]
+
+
+def test_exploration_outcomes_recorded_only_for_probes(tmp_path, monkeypatch):
+    from engine.training.polymarket_trainer import PaperPosition
+    t = _trainer(tmp_path, monkeypatch)
+    # a readiness (non-exploration) close must NOT feed the throttle window
+    rp = PaperPosition(proposal_id="p", risk_decision_id="rd", order_id="o", fill_id="fr",
+                       market_id="r", asset_id="r", group_key="g", category="c",
+                       outcome="YES", entry_price=0.4, qty=1.0, p_final=0.5,
+                       net_edge=0.0, ambiguity=0.0, evidence=0.0, spread=0.0,
+                       liquidity=0.0, open_tick=0, yes_price_entry=0.4,
+                       executable_price_entry=0.4, p_market_entry=0.4,
+                       exploration=False, mark=0.3)
+    t._close(rp, "settled")
+    assert len(t._exploration_outcomes) == 0
+    ep = PaperPosition(proposal_id="p", risk_decision_id="rd", order_id="o", fill_id="fe",
+                       market_id="e", asset_id="e", group_key="g", category="c",
+                       outcome="YES", entry_price=0.4, qty=1.0, p_final=0.5,
+                       net_edge=0.0, ambiguity=0.0, evidence=0.0, spread=0.0,
+                       liquidity=0.0, open_tick=0, yes_price_entry=0.4,
+                       executable_price_entry=0.4, p_market_entry=0.4,
+                       exploration=True, mark=0.3)
+    t._close(ep, "settled")
+    assert len(t._exploration_outcomes) == 1

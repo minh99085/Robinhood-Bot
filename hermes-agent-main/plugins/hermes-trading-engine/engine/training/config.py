@@ -189,6 +189,22 @@ class TrainingConfig:
     # 0.0 = open every eligible probe (legacy). Production (aggressive_paper) sets a modest
     # floor so the lowest-quality probes are not opened blindly.
     exploration_min_probe_quality: float = 0.0
+    # ---- Loss-aware learning throttle (PAPER ONLY; selection-only governor) ----
+    # When recent learning-probe outcomes are poor (low win rate OR negative recent
+    # after-cost PnL over the window), RAISE the effective quality threshold, REDUCE
+    # probe frequency (per-tick cap), and SHADOW lower-quality / negative-EV probes
+    # instead of opening them. It NEVER loosens a hard realism/risk gate; it only
+    # makes selection stricter and shifts marginal probes to shadow-only sampling
+    # (labels are still collected). Disable with learning_throttle_enabled=False.
+    learning_throttle_enabled: bool = True
+    learning_throttle_window: int = 30           # recent closed probes considered
+    learning_throttle_min_samples: int = 10      # need this many before throttling
+    learning_throttle_winrate_floor: float = 0.35
+    learning_throttle_pnl_floor: float = -0.5    # recent after-cost PnL over window
+    learning_throttle_quality_bump: float = 0.25 # added to the quality threshold
+    # negative-EV (controlled) learning probes per tick allowed (0 disables them).
+    # The throttle forces this to 0 while active so we stop chasing negative-EV fills.
+    exploration_max_negative_ev_probes_per_tick: int = 1
     exploration_max_ambiguity_score: float = 0.45
     exploration_require_profitability_annotation: bool = True
     exploration_require_realistic_fill: bool = True
@@ -1305,6 +1321,21 @@ class TrainingConfig:
             # blindly (selection-only; hard realism/risk gates unchanged). env-tunable.
             exploration_min_probe_quality=_envf(
                 "POLYMARKET_EXPLORATION_MIN_PROBE_QUALITY", 0.25),
+            # loss-aware learning throttle: when recent probe outcomes are poor, raise
+            # the quality bar, reduce probe frequency, and shadow marginal/negative-EV
+            # probes (labels still collected). Selection-only; env-tunable. PAPER ONLY.
+            learning_throttle_enabled=_envb("POLYMARKET_LEARNING_THROTTLE_ENABLED", True),
+            learning_throttle_window=_envi("POLYMARKET_LEARNING_THROTTLE_WINDOW", 30),
+            learning_throttle_min_samples=_envi(
+                "POLYMARKET_LEARNING_THROTTLE_MIN_SAMPLES", 10),
+            learning_throttle_winrate_floor=_envf(
+                "POLYMARKET_LEARNING_THROTTLE_WINRATE_FLOOR", 0.35),
+            learning_throttle_pnl_floor=_envf(
+                "POLYMARKET_LEARNING_THROTTLE_PNL_FLOOR", -0.5),
+            learning_throttle_quality_bump=_envf(
+                "POLYMARKET_LEARNING_THROTTLE_QUALITY_BUMP", 0.25),
+            exploration_max_negative_ev_probes_per_tick=_envi(
+                "POLYMARKET_EXPLORATION_MAX_NEGATIVE_EV_PROBES_PER_TICK", 1),
             # active learning ON: fill idle paper budget with highest-feedback-value
             # near-misses, balanced exploration/exploitation, diversified coverage.
             active_learning_enabled=True, exploration_split=0.5,
