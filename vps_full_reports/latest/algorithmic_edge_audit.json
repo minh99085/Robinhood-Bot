@@ -6,7 +6,7 @@
   "max_status_age_s": 3600.0,
   "bregman_enabled": true,
   "tests_passing": true,
-  "equity_mismatch_pct": 0.0452,
+  "equity_mismatch_pct": 0.0,
   "hard_failures": [],
   "required_field_violations": [],
   "missing_core_fields": [],
@@ -16,25 +16,25 @@
   "sections": {
     "strategy_attribution": {
       "trades_by_strategy": null,
-      "gross_pnl": -0.2267,
+      "gross_pnl": 0.0,
       "after_cost_pnl": 0.0,
       "win_rate": 0.0,
-      "win_rate_sample_count": 1,
+      "win_rate_sample_count": 0,
       "avg_edge_at_entry": null,
       "avg_realized_edge": null,
       "rejected_trades": null,
-      "open_exposure": 8.0,
-      "realized_pnl": -0.1584,
-      "unrealized_pnl": -0.0683
+      "open_exposure": 0.0,
+      "realized_pnl": 0.0,
+      "unrealized_pnl": 0.0
     },
     "bregman": {
-      "constraint_groups_scanned": 502.0,
-      "raw_groups_discovered": 502.0,
+      "constraint_groups_scanned": 500.0,
+      "raw_groups_discovered": 500.0,
       "incoherent_groups": 0.0,
       "candidate_arbitrages": 0.0,
       "certified_arbitrages": 0.0,
       "executable_depth_certified": 0.0,
-      "rejected_fees_spread_depth_slippage": 8162,
+      "rejected_fees_spread_depth_slippage": 1537,
       "expected_min_profit": 0.0,
       "worst_case_payoff": 0.0,
       "execution_atomicity_risk": false,
@@ -42,10 +42,10 @@
       "canonical_source": "metrics/bregman_funnel.json"
     },
     "btc_pulse": {
-      "chainlink_anchor_price": 64236.63934,
-      "fast_btc_price": 64366.565,
+      "chainlink_anchor_price": 64449.38,
+      "fast_btc_price": 64359.775,
       "feed_disagreement_bps": null,
-      "market_stale_time_s": 3488.678,
+      "market_stale_time_s": 915.917,
       "volatility_regime": null,
       "trend_persistence": null,
       "trade_trigger_reason": null,
@@ -68,14 +68,14 @@
       "partial_fill_assumptions": null,
       "available_depth_at_decision": null,
       "fee_adjusted_ev": null,
-      "clob_v2_executable": true,
+      "clob_v2_executable": false,
       "fill_realism_rejection_rate": 0.0
     },
     "risk": {
       "sharpe": null,
       "sortino": null,
       "calmar": null,
-      "max_drawdown": -0.1584,
+      "max_drawdown": 0.0,
       "exposure_by_market": null,
       "exposure_by_event": null,
       "exposure_by_strategy": null,
@@ -85,7 +85,7 @@
       "kill_switch_triggers": null
     },
     "execution": {
-      "clob_v2_executable": true,
+      "clob_v2_executable": false,
       "execution_atomicity_risk": false,
       "latency_ms": null,
       "stale_data_events": null,
@@ -101,11 +101,7 @@
       "readiness_cap": 100
     }
   },
-  "top_5_blockers": [
-    "benchmark failing: win_rate_traded_only"
-  ],
-  "top_5_recommendations": [
-    "Traded-only win rate below target \u2014 recalibrate entry edge."
-  ],
+  "top_5_blockers": [],
+  "top_5_recommendations": [],
   "note": "PAPER-only audit; fails loudly + caps readiness when the edge engine is inactive (Bregman off / 0 scans), pytest is red, fill realism or after-cost PnL is missing, or equity mismatches > 1%."
 }
