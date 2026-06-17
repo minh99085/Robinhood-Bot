@@ -210,6 +210,13 @@ class TrainingConfig:
     grok_calibration_min_samples: int = 20
     grok_calibration_trust_min: float = 0.2
     grok_calibration_trust_default: float = 1.0
+    # ---- Structured research signal: per-call conviction + news freshness decay ----
+    # Scales HOW MUCH / HOW LONG a research probability moves p_raw (advisory-only).
+    # A low-conviction call moves the edge less; a news-driven probability decays toward
+    # the market as it ages (0.5 ** age/half_life), floored so it never fully vanishes.
+    research_structured_enabled: bool = True
+    grok_news_half_life_s: float = 1800.0     # default half-life for grok news signals
+    research_freshness_floor: float = 0.1     # min freshness multiplier (never below)
     # firm soft-quality floors the QUALITY GOVERNOR enforces BEFORE opening a probe
     # (selection-only; never loosen a hard gate). Grok/news support can NEVER bypass a
     # low execution-quality book. A near-zero/negative-EV probe must also clear a
@@ -1384,6 +1391,11 @@ class TrainingConfig:
             grok_calibration_trust_min=_envf("POLYMARKET_GROK_CALIBRATION_TRUST_MIN", 0.2),
             grok_calibration_trust_default=_envf(
                 "POLYMARKET_GROK_CALIBRATION_TRUST_DEFAULT", 1.0),
+            # structured research signal (conviction + news freshness decay); env-tunable.
+            research_structured_enabled=_envb(
+                "POLYMARKET_RESEARCH_STRUCTURED_ENABLED", True),
+            grok_news_half_life_s=_envf("POLYMARKET_GROK_NEWS_HALF_LIFE_S", 1800.0),
+            research_freshness_floor=_envf("POLYMARKET_RESEARCH_FRESHNESS_FLOOR", 0.1),
             exploration_min_execution_quality=_envf(
                 "POLYMARKET_EXPLORATION_MIN_EXECUTION_QUALITY", 0.18),
             exploration_min_information_value=_envf(

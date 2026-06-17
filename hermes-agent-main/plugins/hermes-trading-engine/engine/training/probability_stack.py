@@ -187,14 +187,32 @@ class ProbabilityStack:
         # Grok sources, SCALE the blend weight by Grok's MEASURED calibration trust
         # (advisory-only: a poorly-calibrated Grok moves p_raw less; it never gates).
         research_trust = 1.0
+        research_quality = 1.0
         if research_usable:
             w_res = max(0.0, min(1.0, confidence))
+            # #1 long-run calibration trust (advisory-only)
             gc = getattr(self, "grok_calibration", None)
             if (gc is not None and gc.is_grok(source)
                     and bool(getattr(self.cfg, "grok_calibration_enabled", True))):
                 research_trust = float(gc.trust_weight(
                     source=source, category=getattr(rec, "category", None)))
                 w_res = max(0.0, min(1.0, w_res * research_trust))
+            # #2 per-call STRUCTURED signal quality: conviction * news-freshness decay
+            # (advisory-only). Uses the signal's own conviction/uncertainty/as-of/half-
+            # life when present; falls back to the configured grok news half-life.
+            if bool(getattr(self.cfg, "research_structured_enabled", True)):
+                from engine.research.signal_quality import research_quality_multiplier
+                hl = (getattr(sig, "news_half_life_s", None)
+                      if getattr(sig, "news_half_life_s", None)
+                      else (float(getattr(self.cfg, "grok_news_half_life_s", 0.0) or 0.0)
+                            if str(source) in _REAL_RESEARCH_SOURCES else None))
+                rq = research_quality_multiplier(
+                    conviction=getattr(sig, "conviction", None),
+                    uncertainty=getattr(sig, "research_uncertainty", None),
+                    asof_ts=getattr(sig, "asof_ts", None), half_life_s=hl, now=now,
+                    freshness_floor=float(getattr(self.cfg, "research_freshness_floor", 0.0)))
+                research_quality = rq["multiplier"]
+                w_res = max(0.0, min(1.0, w_res * research_quality))
             p_raw = (1 - w_res) * p_model + w_res * p_research
         else:
             p_raw = p_model  # == mid unless a learned bias exists

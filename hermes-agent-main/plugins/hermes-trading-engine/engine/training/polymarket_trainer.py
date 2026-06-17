@@ -5357,6 +5357,14 @@ class PolymarketPaperTrainer:
             "grok_calibration": (self.grok_calibration.metrics()
                                  if getattr(self, "grok_calibration", None) is not None
                                  else {"grok_calibration_enabled": False}),
+            # structured research signal (per-call conviction + news freshness decay).
+            # Advisory-only: scales how much / how long a research signal moves p_raw.
+            "research_structured": {
+                "enabled": bool(getattr(cfg, "research_structured_enabled", True)),
+                "grok_news_half_life_s": float(getattr(cfg, "grok_news_half_life_s", 1800.0)),
+                "freshness_floor": float(getattr(cfg, "research_freshness_floor", 0.1)),
+                "advisory_only": True,
+            },
             # bounded advisory scheduler telemetry (research only; never execution)
             "grok_advisory_enabled": bool(getattr(cfg, "grok_advisory_enabled", True)),
             "grok_advisory_max_calls_per_hour": int(proof.get(

@@ -52,12 +52,31 @@ def _market_mid(rec: um.MarketRecord) -> float:
     return rec.yes_price if rec.yes_price is not None else 0.5
 
 
+def _opt_float(v):
+    """Best-effort float or None (never raises) — for optional structured fields."""
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 @dataclass
 class SignalResult:
     fair_value: float
     confidence: float
     source: str            # grok_online | grok_cache | offline_research_stub | simulated
     estimate_id: Optional[str] = None
+    # ---- structured research signal (advisory-only; optional) ----
+    # Used by the probability stack to scale HOW MUCH / HOW LONG this signal moves
+    # p_raw: per-call conviction (0..1), the news as-of timestamp + half-life for
+    # time-decay, and the evidence trail for audit. None -> today's behavior.
+    conviction: Optional[float] = None
+    research_uncertainty: Optional[float] = None
+    asof_ts: Optional[float] = None
+    news_half_life_s: Optional[float] = None
+    key_evidence: Optional[list] = None
 
 
 class SimulatedSignalModel:
@@ -155,8 +174,17 @@ class ResearchSignalModel:
         p = getattr(res, "p_ensemble", None) or getattr(res, "p_calibrated", None)
         if p is None:
             return None  # ResearchFailure (e.g. not online / budget) -> caller falls back
-        return SignalResult(round(float(p), 4), float(getattr(res, "confidence", 0.5) or 0.5),
-                            "grok_online", getattr(res, "estimate_id", None))
+        # structured (advisory-only) fields when the Grok result carries them; else None
+        ev = getattr(res, "key_evidence", None) or getattr(res, "evidence", None)
+        return SignalResult(
+            round(float(p), 4), float(getattr(res, "confidence", 0.5) or 0.5),
+            "grok_online", getattr(res, "estimate_id", None),
+            conviction=_opt_float(getattr(res, "conviction", None)),
+            research_uncertainty=_opt_float(getattr(res, "uncertainty", None)),
+            asof_ts=_opt_float(getattr(res, "asof_ts", getattr(res, "asof", None)))
+            or time.time(),
+            news_half_life_s=_opt_float(getattr(res, "news_half_life_s", None)),
+            key_evidence=(list(ev)[:10] if isinstance(ev, (list, tuple)) else None))
 
     def evaluate(self, rec: um.MarketRecord) -> SignalResult:
         now = time.time()
