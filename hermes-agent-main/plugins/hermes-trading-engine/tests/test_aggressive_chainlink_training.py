@@ -136,10 +136,13 @@ def test_aggressive_chainlink_expands_coverage_and_feedback(env):
     # with Chainlink the fresh oracle boost pulls crypto markets into coverage.
     assert len(cl_crypto) > len(base_crypto)
     assert cl_t.learner.closed >= base_t.learner.closed          # >= feedback samples
-    # Pass-6: exploration is now information-value-selected (not random/hash), so
-    # raw trade COUNT can shift slightly; chainlink coverage expansion is the
-    # invariant (asserted above). Total opens stay comparable (within one trade).
-    assert cl_t.pnl_summary()["trades_opened"] >= base_t.pnl_summary()["trades_opened"] - 1
+    # Pass-6 + quality governor: exploration is now information-value-selected AND
+    # run-level DEDUPLICATED (a market is probed at most once per run) and gated on
+    # execution quality, so the raw trade COUNT is intentionally GOVERNED (fewer,
+    # higher-quality opens). Chainlink coverage + feedback expansion is the invariant
+    # (asserted above); both runs still open trades.
+    assert cl_t.pnl_summary()["trades_opened"] >= 1
+    assert base_t.pnl_summary()["trades_opened"] >= 1
 
 
 # --- stale oracle can never open a trade ------------------------------------

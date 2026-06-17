@@ -195,6 +195,17 @@ class TrainingConfig:
     # ``missing_learning_probe_reason`` instead of opened blindly. Positive-EV probes
     # are exempt. Selection-only; never loosens a hard realism/risk gate.
     exploration_require_probe_reason: bool = True
+    # firm soft-quality floors the QUALITY GOVERNOR enforces BEFORE opening a probe
+    # (selection-only; never loosen a hard gate). Grok/news support can NEVER bypass a
+    # low execution-quality book. A near-zero/negative-EV probe must also clear a
+    # minimum information value (else it is shadowed, not opened).
+    exploration_min_execution_quality: float = 0.25
+    exploration_min_information_value: float = 0.12
+    # RUN-LEVEL duplicate caps (across ALL ticks, not just per-tick): stop re-probing
+    # the same market/event/cluster repeatedly. Exceeding these SHADOWS the probe.
+    exploration_max_probes_per_market_run: int = 1
+    exploration_max_probes_per_event_run: int = 2
+    exploration_max_probes_per_cluster_run: int = 3
     # ---- Loss-aware learning throttle (PAPER ONLY; selection-only governor) ----
     # When recent learning-probe outcomes are poor (low win rate OR negative recent
     # after-cost PnL over the window), RAISE the effective quality threshold, REDUCE
@@ -204,9 +215,9 @@ class TrainingConfig:
     # (labels are still collected). Disable with learning_throttle_enabled=False.
     learning_throttle_enabled: bool = True
     learning_throttle_window: int = 30           # recent closed probes considered
-    learning_throttle_min_samples: int = 10      # need this many before throttling
+    learning_throttle_min_samples: int = 5       # need this many before throttling
     learning_throttle_winrate_floor: float = 0.35
-    learning_throttle_pnl_floor: float = -0.5    # recent after-cost PnL over window
+    learning_throttle_pnl_floor: float = 0.0     # recent after-cost PnL < 0 -> throttle
     learning_throttle_quality_bump: float = 0.25 # added to the quality threshold
     # negative-EV (controlled) learning probes per tick allowed (0 disables them).
     # The throttle forces this to 0 while active so we stop chasing negative-EV fills.
@@ -1341,17 +1352,27 @@ class TrainingConfig:
                 "POLYMARKET_EXPLORATION_MIN_PROBE_QUALITY", 0.25),
             exploration_require_probe_reason=_envb(
                 "POLYMARKET_EXPLORATION_REQUIRE_PROBE_REASON", True),
+            exploration_min_execution_quality=_envf(
+                "POLYMARKET_EXPLORATION_MIN_EXECUTION_QUALITY", 0.25),
+            exploration_min_information_value=_envf(
+                "POLYMARKET_EXPLORATION_MIN_INFORMATION_VALUE", 0.12),
+            exploration_max_probes_per_market_run=_envi(
+                "POLYMARKET_EXPLORATION_MAX_PROBES_PER_MARKET_RUN", 1),
+            exploration_max_probes_per_event_run=_envi(
+                "POLYMARKET_EXPLORATION_MAX_PROBES_PER_EVENT_RUN", 2),
+            exploration_max_probes_per_cluster_run=_envi(
+                "POLYMARKET_EXPLORATION_MAX_PROBES_PER_CLUSTER_RUN", 3),
             # loss-aware learning throttle: when recent probe outcomes are poor, raise
             # the quality bar, reduce probe frequency, and shadow marginal/negative-EV
             # probes (labels still collected). Selection-only; env-tunable. PAPER ONLY.
             learning_throttle_enabled=_envb("POLYMARKET_LEARNING_THROTTLE_ENABLED", True),
             learning_throttle_window=_envi("POLYMARKET_LEARNING_THROTTLE_WINDOW", 30),
             learning_throttle_min_samples=_envi(
-                "POLYMARKET_LEARNING_THROTTLE_MIN_SAMPLES", 10),
+                "POLYMARKET_LEARNING_THROTTLE_MIN_SAMPLES", 5),
             learning_throttle_winrate_floor=_envf(
                 "POLYMARKET_LEARNING_THROTTLE_WINRATE_FLOOR", 0.35),
             learning_throttle_pnl_floor=_envf(
-                "POLYMARKET_LEARNING_THROTTLE_PNL_FLOOR", -0.5),
+                "POLYMARKET_LEARNING_THROTTLE_PNL_FLOOR", 0.0),
             learning_throttle_quality_bump=_envf(
                 "POLYMARKET_LEARNING_THROTTLE_QUALITY_BUMP", 0.25),
             exploration_max_negative_ev_probes_per_tick=_envi(

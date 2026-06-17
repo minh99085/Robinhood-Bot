@@ -146,7 +146,10 @@ def test_diversity_cap_blocks_second_same_category(tmp_path, monkeypatch):
     b = t._active_learning_admit(_rec("b", category="crypto", group="event:b", cluster="cb"),
                                  _est(unc=0.9), _edge(net_edge=0.008), "edge_too_low")
     assert a["decision"] == "explore"
-    assert b["decision"] == "skip" and b["reason"] == "max_per_category_per_tick"
+    # duplicate category in the same tick is now SHADOWED (not silently skipped) so it
+    # populates the rejected near-miss list.
+    assert b["decision"] == "near_miss" and b["reason"] == "duplicate_category_this_tick"
+    assert b["shadowed_due_to_quality"] is True
 
 
 def test_max_trades_per_tick_cap(tmp_path, monkeypatch):
@@ -507,7 +510,9 @@ def test_throttle_tightens_per_event_cap_when_losing(tmp_path, monkeypatch):
     b = t._active_learning_admit(_rec("b", group="event:E", cluster="cb"),
                                  _est(unc=0.9), _edge(net_edge=0.008), "edge_too_low")
     assert a["decision"] == "explore"
-    assert b["decision"] == "skip" and b["reason"] == "max_per_event"   # clamped to 1
+    # run-level event cap clamps to 1 under throttle -> 2nd same-event probe SHADOWED.
+    assert b["decision"] == "near_miss" and b["reason"] == "duplicate_event"
+    assert t.active_learning_metrics["duplicate_event_blocked"] >= 1
 
 
 def test_profitability_ranking_explains_probes_and_reasons(tmp_path, monkeypatch):
@@ -519,6 +524,77 @@ def test_profitability_ranking_explains_probes_and_reasons(tmp_path, monkeypatch
     assert isinstance(pr["opened_probe_reason_counts"], dict)
     assert pr["top_opened_learning_probes"]
     assert "probe_reason" in pr["top_opened_learning_probes"][0]
+
+
+# --- canonical quality governor (Fix: governor must actually govern) --------
+
+def _est_grok(*, spread=0.02, unc=0.6, mid=0.40):
+    return SimpleNamespace(market_id="m0", fresh_book=True, spread=spread,
+                           ambiguity_score=0.05, p_market_mid=mid, confidence=0.5,
+                           total_uncertainty=unc, p_research=0.55, research_source="grok")
+
+
+def test_grok_cannot_bypass_low_execution_quality(tmp_path, monkeypatch):
+    # a Grok/news-supported probe on a wide-spread / thin book is SHADOWED on execution
+    # quality — Grok can never buy its way past a poor book.
+    t = _trainer(tmp_path, monkeypatch)
+    d = t._active_learning_admit(_rec(depth=12, spread=0.075),
+                                 _est_grok(spread=0.075, unc=0.9),
+                                 _edge(net_edge=0.0, exec_price=0.40), "edge_too_low")
+    assert d["decision"] == "near_miss" and d["reason"] == "low_execution_quality"
+    assert d["grok_supported"] is True       # Grok was present but did NOT open it
+
+
+def test_run_level_duplicate_market_is_shadowed(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch, exploration_max_probes_per_market_run=1)
+    d1 = t._active_learning_admit(_rec("m1"), _est(unc=0.9), _edge(net_edge=0.008),
+                                  "edge_too_low")
+    assert d1["decision"] == "explore"
+    t._begin_exploration_phase()              # next tick (per-tick caps reset)
+    d2 = t._active_learning_admit(_rec("m1"), _est(unc=0.9), _edge(net_edge=0.008),
+                                  "edge_too_low")
+    assert d2["decision"] == "near_miss" and d2["reason"] == "duplicate_market"
+    assert t.active_learning_metrics["duplicate_market_blocked"] >= 1
+
+
+def test_low_information_near_zero_probe_is_shadowed(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch, exploration_min_information_value=0.99)
+    d = t._active_learning_admit(_rec(), _est(unc=0.5), _edge(net_edge=0.0), "edge_too_low")
+    assert d["decision"] == "near_miss" and d["reason"] == "low_information_value"
+
+
+def test_shadowed_probes_populate_rejected_near_misses(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch, exploration_min_information_value=0.99)
+    t._active_learning_admit(_rec(), _est(unc=0.5), _edge(net_edge=0.0), "edge_too_low")
+    rep = t.active_learning_report()
+    assert rep["rejected_learning_probes_count"] >= 1
+    assert rep["top_rejected_near_misses"]
+    assert rep["probes_shadowed_due_to_quality"] >= 1
+    prk = t.profitability_ranking_report()
+    assert prk["top_rejected_near_misses"]
+
+
+def test_active_learning_report_has_governor_metrics(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    rep = t.active_learning_report()
+    for k in ("learning_probe_throttle_active", "learning_probe_quality_threshold_effective",
+              "probes_opened_due_to_quality", "probes_shadowed_due_to_quality",
+              "rejected_learning_probes_count", "duplicate_market_blocked",
+              "duplicate_event_blocked", "duplicate_cluster_blocked", "weak_probe_throttled",
+              "recent_win_rate_throttle", "recent_pnl_throttle", "top_rejected_near_misses",
+              "opened_probe_explanations"):
+        assert k in rep
+
+
+def test_throttle_activates_on_poor_recent_win_rate(tmp_path, monkeypatch):
+    # mixed outcomes: win rate below 0.35 over >= min_samples -> throttle ON
+    t = _trainer(tmp_path, monkeypatch, learning_throttle_quality_bump=0.3,
+                 exploration_min_probe_quality=0.2)
+    t._exploration_outcomes.extend([0.2, 0.2] + [-0.05] * 8)   # 2/10 wins = 0.2
+    thr = t._learning_probe_throttle()
+    assert thr["learning_probe_throttle_active"] is True
+    assert thr["recent_win_rate_throttle"] is True
+    assert thr["learning_probe_quality_threshold_effective"] == 0.5
 
 
 def test_exploration_outcomes_recorded_only_for_probes(tmp_path, monkeypatch):

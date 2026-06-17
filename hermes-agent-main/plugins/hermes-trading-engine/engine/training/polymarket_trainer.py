@@ -592,6 +592,12 @@ class PolymarketPaperTrainer:
         self._exploration_outcomes: "_deque" = _deque(maxlen=500)
         self._probes_shadowed_due_to_quality = 0
         self._probes_opened_due_to_quality = 0
+        # RUN-LEVEL duplicate tracking (across all ticks) so the duplicate gate can stop
+        # re-probing the same market/event/cluster repeatedly (per-tick caps reset each
+        # tick and cannot catch cross-tick repetition).
+        self._probed_markets_run: dict = {}
+        self._probed_events_run: dict = {}
+        self._probed_clusters_run: dict = {}
         # durable per-candidate audit log (git-ignored metrics dir)
         self._relaxed_candidates_path = self.data_dir / "metrics" / "paper_relaxed_candidates.jsonl"
         self._relaxed_records_written = 0
@@ -2914,10 +2920,13 @@ class PolymarketPaperTrainer:
         pnl_floor = float(getattr(cfg, "learning_throttle_pnl_floor", -0.5))
         bump = float(getattr(cfg, "learning_throttle_quality_bump", 0.25) or 0.0)
         reasons = []
+        win_trigger = pnl_trigger = False
         if enabled and n >= min_samples:
             if win_rate is not None and win_rate < wr_floor:
+                win_trigger = True
                 reasons.append(f"recent_win_rate {win_rate:.3f} < {wr_floor:g}")
             if after_cost_pnl < pnl_floor:
+                pnl_trigger = True
                 reasons.append(f"recent_after_cost_pnl {after_cost_pnl:.4f} < {pnl_floor:g}")
         active = bool(reasons)
         effective = round(max(0.0, min(1.0, base_floor + (bump if active else 0.0))), 4)
@@ -2927,8 +2936,11 @@ class PolymarketPaperTrainer:
             "learning_probe_recent_sample_count": int(n),
             "learning_probe_quality_base_floor": round(base_floor, 4),
             "learning_probe_quality_threshold": effective,
+            "learning_probe_quality_threshold_effective": effective,
             "learning_probe_throttle_active": active,
             "learning_probe_throttle_reason": ("; ".join(reasons) if active else ""),
+            "recent_win_rate_throttle": bool(win_trigger),
+            "recent_pnl_throttle": bool(pnl_trigger),
         }
 
     def _active_learning_admit(self, rec, est, edge, reason: str) -> dict:
@@ -3011,102 +3023,132 @@ class PolymarketPaperTrainer:
                     "condition_needed_to_trade": "edge/confidence/EV above the soft tiny floor"},
                     al)
                 return {"decision": "near_miss", "reason": _gate["reason"], **al}
+        # ============================ CANONICAL GOVERNOR ============================
+        # Every tiny learning candidate flows through ONE pipeline before opening:
+        #   score -> hard_gate -> soft_quality_gate -> duplicate_gate -> budget_gate ->
+        #   open_or_shadow.
+        # HARD gates (strict realism + bounded loss + soft tiny floor) already passed
+        # ABOVE and are UNCHANGED. The stages below are SELECTION-ONLY: they SHADOW
+        # (record + collect labels, never open) weak/duplicate probes, or SKIP on
+        # budget. Nothing here loosens a hard realism/risk/fill/Bregman gate.
+        # ---------------------------------------------------------------------------
+        # SCORE: zero-information candidates carry no learning value -> skip.
         if al["active_learning_score"] <= 0.0 or al["learning_bucket"] == "not_eligible_for_learning":
             return {"decision": "skip", "reason": "no_information_value", **al}
-        # collision with open Bregman markets/events (structured exposure)
+        # HARD structural exposure rule: never probe an open Bregman market/event.
         if (getattr(rec, "market_id", None) in getattr(self, "_bregman_open_markets", set())
                 or self._rec_event_key(rec) in getattr(self, "_bregman_open_events", set())):
             am["exploration_rejected_by_collision"] += 1
             return {"decision": "skip", "reason": "bregman_collision", **al}
-        # diversity + per-tick caps
         st = self._explore_tick_state or {}
         cat = getattr(rec, "category", None)
         evt = self._rec_event_key(rec)
         clu = getattr(rec, "cluster_id", None) or evt
-        # LOSS-AWARE THROTTLE (selection-only; computed once per tick, cached). When
-        # active it REDUCES probe frequency (per-tick cap) and RAISES the quality bar.
+        mkt = getattr(rec, "market_id", "")
+        # LOSS-AWARE THROTTLE (computed once per tick, cached): raises the quality bar
+        # and reduces frequency when recent win rate / after-cost PnL is poor.
         thr = st.get("_throttle")
         if thr is None:
             thr = self._learning_probe_throttle()
             st["_throttle"] = thr
-        base_tick_cap = int(getattr(cfg, "exploration_max_trades_per_tick", 2))
-        tick_cap = (max(1, base_tick_cap // 2)
-                    if thr["learning_probe_throttle_active"] else base_tick_cap)
-        if st.get("opened", 0) >= tick_cap:
-            am["exploration_rejected_by_budget"] += 1
-            return {"decision": "skip", "reason": "max_trades_per_tick", **al}
-        # When the loss-aware throttle is active AND recent after-cost PnL is negative,
-        # CLAMP the per-event / per-cluster caps to 1 so we stop concentrating losing
-        # probes in one event/cluster (a small high-information trickle still opens).
-        _throttle_tight = bool(thr["learning_probe_throttle_active"]
-                               and (thr.get("learning_probe_recent_after_cost_pnl") or 0.0) < 0.0)
-        evt_cap = (min(1, int(getattr(cfg, "exploration_max_per_event", 1))) if _throttle_tight
-                   else int(getattr(cfg, "exploration_max_per_event", 1)))
-        clu_cap = (min(1, int(getattr(cfg, "exploration_max_per_cluster", 1))) if _throttle_tight
-                   else int(getattr(cfg, "exploration_max_per_cluster", 1)))
-        if st.get("per_event", {}).get(evt, 0) >= evt_cap:
-            am["exploration_rejected_by_diversity"] += 1
-            return {"decision": "skip", "reason": "max_per_event", **al}
-        if st.get("per_cluster", {}).get(clu, 0) >= clu_cap:
-            am["exploration_rejected_by_diversity"] += 1
-            return {"decision": "skip", "reason": "max_per_cluster", **al}
-        if st.get("per_category", {}).get(cat, 0) >= int(
-                getattr(cfg, "exploration_max_per_category_per_tick", 2)):
-            am["exploration_rejected_by_diversity"] += 1
-            return {"decision": "skip", "reason": "max_per_category_per_tick", **al}
+        throttled = bool(thr["learning_probe_throttle_active"])
         size = float(info["exploration_size"])
-        if (st.get("capital", 0.0) + size
-                > float(getattr(cfg, "exploration_max_capital_per_tick_usd", 20.0)) + 1e-9):
-            am["exploration_rejected_by_budget"] += 1
-            return {"decision": "skip", "reason": "exploration_capital_cap", **al}
-        # QUALITY GOVERNOR (selection only; hard realism/risk gates already passed and
-        # are UNCHANGED). Ranks/gates a strict-realism-eligible probe by its quality
-        # score against the EFFECTIVE threshold (base floor raised by the loss-aware
-        # throttle). Marginal probes are SHADOWED (recorded as near-miss learning
-        # examples — labels still collected) instead of opened. Controlled negative-EV
-        # probes are capped per tick (and forced to 0 while the throttle is active) so
-        # we stop chasing losing fills. Nothing here loosens a hard gate.
         pq = self._learning_probe_quality(rec, est, edge, al, size)
+        info_value = float(al.get("expected_information_value", 0.0) or 0.0)
+        exec_q = float(al.get("execution_quality_score", 0.0) or 0.0)
+        pq["information_value_score"] = round(info_value, 6)
         floor = float(thr["learning_probe_quality_threshold"])
-        # derive the explicit learning rationale up-front so EVERY record (opened or
-        # shadowed) can carry it (positive-EV probes get a sentinel reason).
         probe_reason = self._learning_probe_reason(rec, est, edge, al, reason, pq)
         pq["probe_reason"] = probe_reason
 
-        def _shadow(shadow_reason: str, dist) -> dict:
+        def _shadow(shadow_reason: str, dist, counter: Optional[str] = None,
+                    condition: str = "") -> dict:
             am["exploration_rejected_by_quality"] = am.get("exploration_rejected_by_quality", 0) + 1
             self._probes_shadowed_due_to_quality += 1
+            if throttled:
+                am["weak_probe_throttled"] = am.get("weak_probe_throttled", 0) + 1
+            if counter:
+                am[counter] = am.get(counter, 0) + 1
             self._record_probe_quality(rec, opened=False, pq=pq, reason=shadow_reason,
                                        est=est, edge=edge, size=size, al=al, throttle=thr)
             self._record_near_miss(rec, est, edge, {
                 "failed_gate": shadow_reason, "near_miss_reason": shadow_reason,
                 "distance_to_threshold": dist,
-                "condition_needed_to_trade": f"probe quality >= {floor:g}"}, al)
+                "condition_needed_to_trade": condition or f"probe quality >= {floor:g}"}, al)
             return {"decision": "near_miss", "reason": shadow_reason,
-                    "shadowed_due_to_quality": True,
-                    "throttle_active": thr["learning_probe_throttle_active"],
+                    "shadowed_due_to_quality": True, "throttle_active": throttled,
                     **al, **pq}
 
+        # -------------------------- SOFT QUALITY GATE (shadow) ----------------------
+        # 1) overall quality vs the throttled effective threshold.
         if pq["probe_quality_score"] < floor:
             return _shadow("below_quality_threshold",
-                           round(floor - pq["probe_quality_score"], 4))
-        # controlled negative-EV diversity budget (per tick); 0 while throttled.
+                           round(floor - pq["probe_quality_score"], 4),
+                           condition=f"probe quality >= {floor:g}")
+        # 2) MINIMUM execution quality — a thin/wide/low-exec book is shadowed even when
+        #    Grok/news supports it (Grok can NEVER bypass execution quality).
+        min_exec = float(getattr(cfg, "exploration_min_execution_quality", 0.25) or 0.0)
+        if exec_q < min_exec:
+            return _shadow("low_execution_quality", round(min_exec - exec_q, 4),
+                           condition=f"execution_quality_score >= {min_exec:g}")
+        # 3) near-zero / negative-EV probes need an explicit reason AND high info value.
+        if pq["ev_class"] != "expected_value_positive":
+            if bool(getattr(cfg, "exploration_require_probe_reason", True)) and not probe_reason:
+                return _shadow("missing_learning_probe_reason", None,
+                               condition="explicit weak-probe reason required")
+            min_info = float(getattr(cfg, "exploration_min_information_value", 0.0) or 0.0)
+            if info_value < min_info:
+                return _shadow("low_information_value", round(min_info - info_value, 4),
+                               condition=f"information_value_score >= {min_info:g}")
+        # 4) controlled negative-EV per-tick budget (0 while throttled).
         if pq["ev_class"] == "controlled_negative_ev_learning":
-            neg_cap = (0 if thr["learning_probe_throttle_active"]
+            neg_cap = (0 if throttled
                        else int(getattr(cfg, "exploration_max_negative_ev_probes_per_tick", 1)))
             if st.get("neg_ev_opened", 0) >= neg_cap:
                 return _shadow("negative_ev_probe_budget_exhausted", None)
+        # -------------------------- DUPLICATE GATE (shadow) -------------------------
+        # RUN-LEVEL dedup (across all ticks) + per-tick diversity. Caps tighten to 1
+        # under throttle. Exceeding a cap SHADOWS the probe (populates rejected list).
+        mkt_cap = int(getattr(cfg, "exploration_max_probes_per_market_run", 1))
+        evt_run_cap = (1 if throttled
+                       else int(getattr(cfg, "exploration_max_probes_per_event_run", 2)))
+        clu_run_cap = (1 if throttled
+                       else int(getattr(cfg, "exploration_max_probes_per_cluster_run", 3)))
+        if self._probed_markets_run.get(mkt, 0) >= mkt_cap:
+            return _shadow("duplicate_market", None, counter="duplicate_market_blocked",
+                           condition=f"<= {mkt_cap} probe(s) per market per run")
+        if self._probed_events_run.get(evt, 0) >= evt_run_cap:
+            return _shadow("duplicate_event", None, counter="duplicate_event_blocked",
+                           condition=f"<= {evt_run_cap} probe(s) per event per run")
+        if self._probed_clusters_run.get(clu, 0) >= clu_run_cap:
+            return _shadow("duplicate_cluster", None, counter="duplicate_cluster_blocked",
+                           condition=f"<= {clu_run_cap} probe(s) per cluster per run")
+        # per-tick diversity caps (also shadowed so they populate the rejected list).
+        evt_cap = (1 if throttled else int(getattr(cfg, "exploration_max_per_event", 1)))
+        clu_cap = (1 if throttled else int(getattr(cfg, "exploration_max_per_cluster", 1)))
+        if st.get("per_event", {}).get(evt, 0) >= evt_cap:
+            am["exploration_rejected_by_diversity"] += 1
+            return _shadow("duplicate_event_this_tick", None, counter="duplicate_event_blocked")
+        if st.get("per_cluster", {}).get(clu, 0) >= clu_cap:
+            am["exploration_rejected_by_diversity"] += 1
+            return _shadow("duplicate_cluster_this_tick", None, counter="duplicate_cluster_blocked")
+        if st.get("per_category", {}).get(cat, 0) >= int(
+                getattr(cfg, "exploration_max_per_category_per_tick", 2)):
+            am["exploration_rejected_by_diversity"] += 1
+            return _shadow("duplicate_category_this_tick", None)
+        # ----------------------------- BUDGET GATE (skip) ---------------------------
+        base_tick_cap = int(getattr(cfg, "exploration_max_trades_per_tick", 2))
+        tick_cap = max(1, base_tick_cap // 2) if throttled else base_tick_cap
+        if st.get("opened", 0) >= tick_cap:
+            am["exploration_rejected_by_budget"] += 1
+            return {"decision": "skip", "reason": "max_trades_per_tick", **al}
+        if (st.get("capital", 0.0) + size
+                > float(getattr(cfg, "exploration_max_capital_per_tick_usd", 20.0)) + 1e-9):
+            am["exploration_rejected_by_budget"] += 1
+            return {"decision": "skip", "reason": "exploration_capital_cap", **al}
+        # -------------------------------- OPEN --------------------------------------
+        if pq["ev_class"] == "controlled_negative_ev_learning":
             st["neg_ev_opened"] = st.get("neg_ev_opened", 0) + 1
-        # EXPLICIT PROBE-REASON gate: a positive-EV probe needs no extra rationale, but
-        # every opened NEAR-ZERO or controlled-negative-EV probe must carry one explicit
-        # learning reason (calibration / uncertainty / liquidity / chainlink-disagreement
-        # / news-relevance / model-boundary). Without one it is rejected (no blind weak
-        # opens). Reason is derived from the AL signals — never loosens a hard gate.
-        if (pq["ev_class"] != "expected_value_positive"
-                and bool(getattr(cfg, "exploration_require_probe_reason", True))
-                and not probe_reason):
-            return _shadow("missing_learning_probe_reason", None)
-        # SELECTED for exploration
         self._probes_opened_due_to_quality += 1
         self._record_probe_quality(rec, opened=True, pq=pq,
                                    reason="passed_quality_threshold", est=est, edge=edge,
@@ -3117,10 +3159,14 @@ class PolymarketPaperTrainer:
         st.setdefault("per_event", {})[evt] = st.get("per_event", {}).get(evt, 0) + 1
         st.setdefault("per_cluster", {})[clu] = st.get("per_cluster", {}).get(clu, 0) + 1
         st.setdefault("per_category", {})[cat] = st.get("per_category", {}).get(cat, 0) + 1
+        # RUN-LEVEL dedup counters (persist across ticks).
+        self._probed_markets_run[mkt] = self._probed_markets_run.get(mkt, 0) + 1
+        self._probed_events_run[evt] = self._probed_events_run.get(evt, 0) + 1
+        self._probed_clusters_run[clu] = self._probed_clusters_run.get(clu, 0) + 1
         am["category_coverage"][cat] = am["category_coverage"].get(cat, 0) + 1
         am["cluster_diversity"][str(clu)] = am["cluster_diversity"].get(str(clu), 0) + 1
         return {"decision": "explore", "why_not_exploit": reason,
-                "why_not_shadow_only": "passed exploration realism + information value",
+                "why_not_shadow_only": "passed quality governor (score+exec+info+dup+budget)",
                 **al, **info, **pq}
 
     def _record_near_miss(self, rec, est, edge, info: dict, al: dict) -> None:
@@ -4201,6 +4247,17 @@ class PolymarketPaperTrainer:
             **self._learning_probe_throttle(),
             "probes_shadowed_due_to_quality": int(self._probes_shadowed_due_to_quality),
             "probes_opened_due_to_quality": int(self._probes_opened_due_to_quality),
+            "rejected_learning_probes_count": len(self._probe_quality_rejected),
+            "duplicate_market_blocked": am.get("duplicate_market_blocked", 0),
+            "duplicate_event_blocked": am.get("duplicate_event_blocked", 0),
+            "duplicate_cluster_blocked": am.get("duplicate_cluster_blocked", 0),
+            "weak_probe_throttled": am.get("weak_probe_throttled", 0),
+            "top_rejected_near_misses": sorted(
+                self._probe_quality_rejected,
+                key=lambda r: r.get("probe_quality_score", 0.0), reverse=True)[:25],
+            "opened_probe_explanations": sorted(
+                self._opened_probes_with_pnl(),
+                key=lambda r: r.get("probe_quality_score", 0.0), reverse=True)[:25],
             "exploration_budget_used_usd": am.get("exploration_budget_used_usd", 0.0),
             "exploration_expected_loss_usd": am.get("exploration_expected_loss_usd", 0.0),
             "exploration_pnl": explore_pnl,
