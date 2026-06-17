@@ -752,6 +752,13 @@ class PolymarketPaperTrainer:
             "mid": round(market_mid(r), 4),
             "spread": round(getattr(r, "spread", 0.0) or 0.0, 4),
             "liquidity_usd": round(getattr(r, "liquidity_usd", 0.0) or 0.0),
+            # YES/NO asks (binary legs) for Grok-driven Bregman candidate generation.
+            # NO ask ~= 1 - YES bid; used only to FLAG candidates, never to trade.
+            "yes_ask": (round(float(getattr(r, "best_ask", None)), 4)
+                        if getattr(r, "best_ask", None) is not None else None),
+            "no_ask": (round(1.0 - float(getattr(r, "best_bid", None)), 4)
+                       if getattr(r, "best_bid", None) is not None else None),
+            "top_depth_usd": round(float(getattr(r, "top_depth_usd", 0.0) or 0.0), 2),
         } for r in watch[:15]]
         self._last_scan_ts = now
         # Chainlink BTC/USD oracle read each tick (auditable; logs price+freshness
@@ -5227,10 +5234,13 @@ class PolymarketPaperTrainer:
         mode = (_os.getenv("RESEARCH_MODE") or "offline_cache").strip().lower()
         online = mode in ("online_paper", "online_shadow", "guarded_live_readonly",
                           "online", "online_research", "live", "grok_online")
-        # choose a high-value advisory target (near-miss > news-linked > liquidity).
+        # choose a high-value advisory target. Priority: a STRONG Grok-flagged Bregman
+        # candidate (Grok researches what it itself flagged) > near-miss > news > liquidity.
+        gc_ranked, _gc_summ = self._grok_bregman_candidates()
         sel = select_advisory_target(
             near_misses=list(getattr(self, "_bregman_near_miss_best", {}).values()),
-            news_packet=news_packet, watch_markets=getattr(self, "_watch_sample", []))
+            news_packet=news_packet, watch_markets=getattr(self, "_watch_sample", []),
+            grok_candidates=gc_ranked)
         target_ctx = market_ctx or sel.get("market_ctx")
         if client is None:
             caller.last_reason = "no_market_link_available" if not target_ctx else "provider_error"
@@ -5253,6 +5263,38 @@ class PolymarketPaperTrainer:
                 now=now)
         except Exception as exc:  # noqa: BLE001 — advisory call must never break a tick
             return {"called": False, "reason": "provider_error", "error": str(exc)[:120]}
+
+    def _grok_bregman_candidates(self, top_n: int = 10):
+        """Build Grok-flagged Bregman candidate groups (research-only; NEVER tradeable).
+
+        For each watched binary it forms a 2-leg (YES/NO) group and uses Grok's cached
+        fair value (when present) to flag mispricing: structural incoherence (sum of
+        asks < $1) and/or Grok disagreement with the market. The deterministic certifier
+        remains the ONLY trade gate — these are discovery/prioritization hints. Returns
+        ``(ranked_candidates, summary)``."""
+        from engine.research.bregman_candidate_finder import rank_candidates, summarize
+        cache = getattr(getattr(self, "signal_model", None), "_cache", {}) or {}
+        groups = []
+        for w in (getattr(self, "_watch_sample", []) or []):
+            mid = w.get("market_id")
+            yes_ask, no_ask = w.get("yes_ask"), w.get("no_ask")
+            if mid is None or yes_ask is None or no_ask is None:
+                continue
+            gp = None
+            hit = cache.get(mid)
+            if hit and isinstance(hit, (list, tuple)) and len(hit) == 2:
+                gp = getattr(hit[1], "fair_value", None)
+            depth = w.get("top_depth_usd", 0.0)
+            groups.append({
+                "group_id": mid, "market_ids": [mid], "complete": True,
+                "legs": [{"ask": yes_ask, "grok_prob": gp, "ask_depth": depth},
+                         {"ask": no_ask,
+                          "grok_prob": (1.0 - gp) if gp is not None else None,
+                          "ask_depth": depth}]})
+        certified = set(getattr(self, "_bregman_open_markets", set()) or set())
+        ranked = rank_candidates(groups, top_n=top_n)
+        summ = summarize(groups, certified_ids=certified, top_n=top_n)
+        return ranked, summ
 
     def research_status(self) -> dict:
         """Aggregate research-evidence status: news packet + Chainlink + Grok
@@ -5365,6 +5407,10 @@ class PolymarketPaperTrainer:
                 "freshness_floor": float(getattr(cfg, "research_freshness_floor", 0.1)),
                 "advisory_only": True,
             },
+            # Grok-driven Bregman candidate generation (research-only; certifier still
+            # the ONLY trade gate). Top Grok-flagged mispriced/incoherent groups + how
+            # many the certifier actually certified (proves proposals are validated).
+            "grok_bregman_candidates": self._grok_bregman_candidates()[1],
             # bounded advisory scheduler telemetry (research only; never execution)
             "grok_advisory_enabled": bool(getattr(cfg, "grok_advisory_enabled", True)),
             "grok_advisory_max_calls_per_hour": int(proof.get(

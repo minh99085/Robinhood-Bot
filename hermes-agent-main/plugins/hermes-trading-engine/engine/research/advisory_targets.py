@@ -78,15 +78,47 @@ def advisory_features_for(near_miss: Optional[dict], news_packet,
 
 def select_advisory_target(*, near_misses: Optional[list] = None, news_packet=None,
                            watch_markets: Optional[list] = None,
+                           grok_candidates: Optional[list] = None,
+                           min_candidate_score: float = 0.02,
                            min_liquidity_usd: float = 0.0) -> dict:
     """Choose ONE advisory target. Returns a dict with ``market_ctx`` (or ``None``)
     plus ``target_kind``, ``reason``, the analyzed-counter increments, and advisory
-    features. Read-only; never executes. Works even with zero executable trades."""
+    features. Read-only; never executes. Works even with zero executable trades.
+
+    ``grok_candidates`` (from bregman_candidate_finder.rank_candidates) are STRONG
+    Grok-flagged mispricings; when present and above ``min_candidate_score`` they are
+    researched FIRST (the tightest discovery loop: Grok studies what it itself
+    flagged). Still research-only — the certifier remains the only trade gate."""
     near_misses = near_misses or []
     watch_markets = watch_markets or []
+    grok_candidates = grok_candidates or []
     news_ids = set(_news_market_ids(news_packet))
     # eligible-target census (so "0 scheduled calls" is never implied without reason)
-    eligible = len(near_misses) + len(news_ids) + len(watch_markets)
+    eligible = len(near_misses) + len(news_ids) + len(watch_markets) + len(grok_candidates)
+
+    # 0) STRONGEST Grok-flagged Bregman candidate (research what Grok itself flagged).
+    strong = [c for c in grok_candidates
+              if float(c.get("candidate_score", 0.0)) >= float(min_candidate_score)]
+    if strong:
+        strong.sort(key=lambda c: float(c.get("candidate_score", 0.0)), reverse=True)
+        c = strong[0]
+        gid = c.get("group_id")
+        return {
+            "market_ctx": {"market_id": str(gid or "grok_bregman_candidate"),
+                           "question": "grok_flagged_bregman_candidate",
+                           "group_ids": [gid], "market_ids": list(c.get("market_ids", []) or [])},
+            "target_kind": "grok_bregman_candidate",
+            "reason": "grok_flagged_bregman_candidate", "eligible_targets": eligible,
+            "groups_analyzed": 1, "near_misses_analyzed": 0,
+            "incomplete_groups_analyzed": 0 if c.get("complete") else 1,
+            "malformed_groups_analyzed": 0, "news_linked_analyzed": 0,
+            "advisory_features": {"advisory_target_kind": "grok_bregman_candidate",
+                                  "grok_candidate_score": float(c.get("candidate_score", 0.0)),
+                                  "grok_candidate_incoherence": float(c.get("incoherence", 0.0)),
+                                  "grok_candidate_disagreement": float(
+                                      c.get("grok_disagreement", 0.0)),
+                                  "advisory_only": True},
+        }
 
     # 1) top Bregman near-miss, preferring one that is news-linked.
     if near_misses:
