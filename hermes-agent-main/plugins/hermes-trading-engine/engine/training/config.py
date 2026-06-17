@@ -199,6 +199,17 @@ class TrainingConfig:
     # ``missing_learning_probe_reason`` instead of opened blindly. Positive-EV probes
     # are exempt. Selection-only; never loosens a hard realism/risk gate.
     exploration_require_probe_reason: bool = True
+    # ---- Calibration-weighted Grok trust (PAPER ONLY; advisory-only) ----
+    # Grok's probability is blended into p_raw with a weight scaled by its MEASURED
+    # calibration (rolling Brier of its directional probability vs realized outcomes).
+    # Well-calibrated Grok earns up to full weight; poorly-calibrated Grok is floored.
+    # Until min_samples outcomes exist, trust_default (1.0 = behave as before) is used.
+    # Grok NEVER places/sizes/gates a trade — this only adjusts how much it moves p_raw.
+    grok_calibration_enabled: bool = True
+    grok_calibration_window: int = 200
+    grok_calibration_min_samples: int = 20
+    grok_calibration_trust_min: float = 0.2
+    grok_calibration_trust_default: float = 1.0
     # firm soft-quality floors the QUALITY GOVERNOR enforces BEFORE opening a probe
     # (selection-only; never loosen a hard gate). Grok/news support can NEVER bypass a
     # low execution-quality book. A near-zero/negative-EV probe must also clear a
@@ -1365,6 +1376,14 @@ class TrainingConfig:
                 "POLYMARKET_EXPLORATION_MIN_PROBE_QUALITY", 0.18),
             exploration_require_probe_reason=_envb(
                 "POLYMARKET_EXPLORATION_REQUIRE_PROBE_REASON", True),
+            # calibration-weighted Grok trust (advisory-only); env-tunable.
+            grok_calibration_enabled=_envb("POLYMARKET_GROK_CALIBRATION_ENABLED", True),
+            grok_calibration_window=_envi("POLYMARKET_GROK_CALIBRATION_WINDOW", 200),
+            grok_calibration_min_samples=_envi(
+                "POLYMARKET_GROK_CALIBRATION_MIN_SAMPLES", 20),
+            grok_calibration_trust_min=_envf("POLYMARKET_GROK_CALIBRATION_TRUST_MIN", 0.2),
+            grok_calibration_trust_default=_envf(
+                "POLYMARKET_GROK_CALIBRATION_TRUST_DEFAULT", 1.0),
             exploration_min_execution_quality=_envf(
                 "POLYMARKET_EXPLORATION_MIN_EXECUTION_QUALITY", 0.18),
             exploration_min_information_value=_envf(

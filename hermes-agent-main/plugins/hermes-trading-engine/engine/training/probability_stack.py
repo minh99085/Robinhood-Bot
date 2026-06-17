@@ -119,11 +119,15 @@ class ProbabilityEstimate:
 
 
 class ProbabilityStack:
-    def __init__(self, cfg, learner=None, chainlink=None, calibrator=None):
+    def __init__(self, cfg, learner=None, chainlink=None, calibrator=None,
+                 grok_calibration=None):
         self.cfg = cfg
         self.learner = learner
         # optional engine.chainlink_scanner.ChainlinkScanner (additive, default off)
         self.chainlink = chainlink
+        # optional engine.training.grok_calibration.GrokCalibration (advisory-only):
+        # scales the research blend weight by Grok's MEASURED calibration. Never gates.
+        self.grok_calibration = grok_calibration
         # optional engine.calibration_models.InstitutionalCalibrator (additive).
         # When present it annotates `calibrated_probability` + a confidence
         # interval; it NEVER changes the executable `p_final` or the edge gate.
@@ -179,9 +183,18 @@ class ProbabilityStack:
             stale_score = 1.0
         calib_err = float(self.learner.calibration_error()) if self.learner else 0.0
 
-        # p_raw: only blend in research when it is trustworthy for trading
+        # p_raw: only blend in research when it is trustworthy for trading. For real
+        # Grok sources, SCALE the blend weight by Grok's MEASURED calibration trust
+        # (advisory-only: a poorly-calibrated Grok moves p_raw less; it never gates).
+        research_trust = 1.0
         if research_usable:
             w_res = max(0.0, min(1.0, confidence))
+            gc = getattr(self, "grok_calibration", None)
+            if (gc is not None and gc.is_grok(source)
+                    and bool(getattr(self.cfg, "grok_calibration_enabled", True))):
+                research_trust = float(gc.trust_weight(
+                    source=source, category=getattr(rec, "category", None)))
+                w_res = max(0.0, min(1.0, w_res * research_trust))
             p_raw = (1 - w_res) * p_model + w_res * p_research
         else:
             p_raw = p_model  # == mid unless a learned bias exists

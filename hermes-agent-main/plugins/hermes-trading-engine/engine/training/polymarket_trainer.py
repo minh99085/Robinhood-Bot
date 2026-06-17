@@ -261,6 +261,9 @@ class PaperPosition:
     experiment_id: str = ""
     strategy_variant: str = "directional_edge"
     mark: float = 0.0
+    # research provenance for calibration-weighted Grok trust (advisory-only telemetry)
+    p_research: float = 0.0
+    research_source: str = ""
     closed: bool = False
     exit_price: float = 0.0
     realized_pnl: float = 0.0
@@ -328,7 +331,18 @@ class PolymarketPaperTrainer:
         if self.chainlink is not None:
             self.scanner.chainlink = self.chainlink
             self.ranker.chainlink = self.chainlink
-        self.prob = ProbabilityStack(self.cfg, learner=self.learner, chainlink=self.chainlink)
+        # calibration-weighted Grok trust (advisory-only): measures Grok's directional
+        # Brier and scales how much its probability moves p_raw. Persisted across runs.
+        from engine.training.grok_calibration import GrokCalibration
+        self.grok_calibration = GrokCalibration(
+            path=str(self.data_dir / "grok_calibration.json"),
+            window=int(getattr(self.cfg, "grok_calibration_window", 200)),
+            min_samples=int(getattr(self.cfg, "grok_calibration_min_samples", 20)),
+            trust_min=float(getattr(self.cfg, "grok_calibration_trust_min", 0.2)),
+            trust_default=float(getattr(self.cfg, "grok_calibration_trust_default", 1.0)),
+            enabled=bool(getattr(self.cfg, "grok_calibration_enabled", True)))
+        self.prob = ProbabilityStack(self.cfg, learner=self.learner, chainlink=self.chainlink,
+                                     grok_calibration=self.grok_calibration)
         # Chainlink BTC/USD oracle (validated, auditable; PAPER ONLY). Reuses the
         # Chainlink scanner's source so it shares the same read-only RPC feed.
         try:
@@ -3683,6 +3697,8 @@ class PolymarketPaperTrainer:
             strategy=_resolved_strategy(getattr(self, "_last_resolved", None)),
             chainlink_linked=bool(getattr(est, "bregman_group_id", "")),
             mark=fill["fill_price"],
+            p_research=float(getattr(est, "p_research", 0.0) or 0.0),
+            research_source=str(getattr(est, "research_source", "") or ""),
             experiment_id=self.experiments.experiment_id, strategy_variant=variant,
             execution_realism_status=realism.execution_realism_status,
             fill_source=realism.fill_source, book_source=realism.book_source,
@@ -3781,6 +3797,16 @@ class PolymarketPaperTrainer:
                     break
         self.daily_realized = round(self.daily_realized + pos.realized_pnl, 4)
         win = pos.realized_pnl > 0
+        # calibration-weighted Grok trust: record Grok's directional probability vs the
+        # realized win/loss (only for real Grok sources). Advisory-only; never gates.
+        try:
+            if self.grok_calibration.is_grok(getattr(pos, "research_source", "")):
+                self.grok_calibration.record_position(
+                    p_research=float(getattr(pos, "p_research", 0.0) or 0.0),
+                    side=pos.outcome, won=win, source=pos.research_source,
+                    category=pos.category)
+        except Exception:  # noqa: BLE001 — telemetry must never break a close
+            pass
         self.feedback.record_outcome(
             predicted_prob=pos.p_final, predicted_edge=pos.net_edge,
             realized_pnl=pos.realized_pnl, size_usd=max(1e-9, pos.cost), win=win,
@@ -5325,6 +5351,12 @@ class PolymarketPaperTrainer:
             "grok_proof_call_enabled": bool(proof.get("grok_proof_call_enabled", False)),
             "grok_proof_call_advisory_only": bool(proof.get("grok_proof_call_advisory_only", True)),
             "grok_advisory_only_count": calls_total,
+            # calibration-weighted Grok trust (advisory-only): how much Grok's measured
+            # calibration scales its blend weight on p_raw. Earns up to full weight when
+            # well-calibrated; floored when poorly-calibrated. Never gates a trade.
+            "grok_calibration": (self.grok_calibration.metrics()
+                                 if getattr(self, "grok_calibration", None) is not None
+                                 else {"grok_calibration_enabled": False}),
             # bounded advisory scheduler telemetry (research only; never execution)
             "grok_advisory_enabled": bool(getattr(cfg, "grok_advisory_enabled", True)),
             "grok_advisory_max_calls_per_hour": int(proof.get(
