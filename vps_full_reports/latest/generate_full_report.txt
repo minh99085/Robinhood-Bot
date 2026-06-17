@@ -54,43 +54,35 @@ Requirement already satisfied: h11>=0.16 in ./.report_venv/lib/python3.12/site-p
 ==> verifying report dependencies are importable in .report_venv
 report dependencies OK: pydantic, numpy, pytest, fastapi, httpx
 ==> docker compose ps
-NAME                    IMAGE                                         COMMAND                  SERVICE                 CREATED          STATUS                    PORTS
-hermes-trading-engine   hermes-trading-engine-hermes-trading-engine   "uvicorn engine.app:…"   hermes-trading-engine   52 minutes ago   Up 52 minutes (healthy)   0.0.0.0:8800->8800/tcp, [::]:8800->8800/tcp
-hermes-training         hermes-trading-engine-hermes-training         "python scripts/star…"   hermes-training         52 minutes ago   Up 52 minutes (healthy)   8800/tcp
+NAME                    IMAGE                                         COMMAND                  SERVICE                 CREATED       STATUS                 PORTS
+hermes-trading-engine   hermes-trading-engine-hermes-trading-engine   "uvicorn engine.app:…"   hermes-trading-engine   3 hours ago   Up 3 hours (healthy)   0.0.0.0:8800->8800/tcp, [::]:8800->8800/tcp
+hermes-training         hermes-trading-engine-hermes-training         "python scripts/star…"   hermes-training         3 hours ago   Up 3 hours (healthy)   8800/tcp
 ==> hermes-training recent logs (tail)
-2026-06-17 03:59:33,165 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=102665391163814068456627236313554377276062881184025720860382695619028692441379 "HTTP/1.1 200 OK"
-2026-06-17 03:59:33,321 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=44419794070385297724507376756158727647343290077053749980404870056557422166165 "HTTP/1.1 200 OK"
-2026-06-17 03:59:33,467 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=12797615153144259738954747732341133734094145186275115254810838558378550454528 "HTTP/1.1 200 OK"
-2026-06-17 03:59:33,614 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=3126911940055321863875149054201372653424786732674897333065772983413228976903 "HTTP/1.1 200 OK"
-2026-06-17 03:59:33,758 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=19911169802118979317992214933025728288865145951097516736611906291341540405040 "HTTP/1.1 200 OK"
-2026-06-17 03:59:33,901 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=96797656031191119176188453471637044475353637081608890153571023284371119486681 "HTTP/1.1 200 OK"
-2026-06-17 03:59:34,048 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=102844052859529992637803443259193395522411387362312885030298797134413940349829 "HTTP/1.1 200 OK"
-2026-06-17 03:59:34,192 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=5793707379729500818284272227553588908492513776424889835572995739672504840973 "HTTP/1.1 200 OK"
-2026-06-17 03:59:34,336 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=108055478570098355486467296476385118782789367481734207554199995826749419845617 "HTTP/1.1 200 OK"
-2026-06-17 03:59:34,565 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
-2026-06-17 03:59:45,112 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
-2026-06-17 03:59:45,127 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
-2026-06-17 03:59:45,142 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
-2026-06-17 03:59:55,718 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
-2026-06-17 03:59:55,733 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
-2026-06-17 03:59:55,749 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
-2026-06-17 04:00:09,842 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
-2026-06-17 04:00:09,857 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
-2026-06-17 04:00:09,873 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:17,608 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=52083346132784298963874642580418296493795357518810255302177037794828687952479 "HTTP/1.1 200 OK"
+2026-06-17 05:44:17,853 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:28,612 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:28,627 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:28,643 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:39,431 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:39,446 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:39,462 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:53,801 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:53,816 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
+2026-06-17 05:44:53,832 INFO hte.calibration calibrator fitted method=isotonic n=163 slope=0.372 ece_raw=0.2205 ece_cal=0.0000
 Run complete.
 Mode: paper_train
 Raw markets: 2000
-Eligible markets: 1758
-Decision records: 2460
-No-trade labels: 2333
-Shadow labels: 183
-Active-learning selected shadow/tiny: 2460/0
-Pending labels total: 2400
+Eligible markets: 1774
+Decision records: 7620
+No-trade labels: 7329
+Shadow labels: 377
+Active-learning selected shadow/tiny: 7620/0
+Pending labels total: 5000
 Completed labels total: 0
 Feedback/hr: 0.0
 Labels/day: 0.0
 Learning growth: collecting
-Bregman groups discovered/certified/opened: 549/0/0
+Bregman groups discovered/certified/opened: 551/0/0
 Directional trades opened: 0
 Exploration trades opened: 0
 Fill realism enabled: true
@@ -98,6 +90,14 @@ After-cost PnL: 0
 Reference fills counted as real: 0
 Random exploration trades: 0
 Correlation blocks: 0
+  Report: /data/reports/paper_training_inspection.md exists=true size=9824
+  Inspection summary: /data/metrics/inspection_summary.json exists=true size=766393
+  Event stream: /data/training/events.jsonl exists=true rows=3423411
+  Decision records: /data/training/decision_records.jsonl exists=true rows=532332
+  Pending labels: /data/training/pending_labels.jsonl exists=true rows=532165
+tick 64: scanned=2000 open=0 equity=500.0 closed=0
+  bregman: paper_enabled=True scanned=753 skipped=1512 candidates=0 certified=0
+  feedback_accel: target x100 decisions/tick=1000 candidates=120 exploration=True tiny=True counts_for_readiness=False
 ==> hermes-training: state=running health=healthy
 ==> refreshing runtime_data from hermes-training:/data
 ==> deleting old inspection_reports
@@ -105,42 +105,42 @@ Correlation blocks: 0
 ==> generating light-mode inspection report (.report_venv python)
 Classification : PASS_RUN_READY
 Health score   : 79.0/100
-Bundle folder  : inspection_reports/bot_inspection_20260617_040018
-Zip bundle     : inspection_reports/bot_inspection_20260617_040018.zip
+Bundle folder  : inspection_reports/bot_inspection_20260617_054511
+Zip bundle     : inspection_reports/bot_inspection_20260617_054511.zip
 Bundle mode    : light
 Full JSONL     : omitted intentionally
 Samples        : tail 500 rows each
 Source events  : verified from runtime_data
-Zip size       : 2.78 MB
+Zip size       : 2.93 MB
 Edge audit     : PASS
 Run-ready      : run_ready_for_hours=True (max_safe_runtime_minutes=None)
 Grok brain     : grok_brain_ready=True
-Grok advisory  : calls=2 with_news=2 near_misses_analyzed=1 news_linked=2 advisory_only=2
-Bregman near   : total=708 one_fix_away=116 depth_only=115 not_exhaustive=235 | no-bundle blocker=incomplete_event_families
+Grok advisory  : calls=6 with_news=6 near_misses_analyzed=5 news_linked=6 advisory_only=6
+Bregman near   : total=848 one_fix_away=139 depth_only=139 not_exhaustive=259 | no-bundle blocker=incomplete_event_families
 Artifact paths :
    runtime_training_data_dir=runtime_data/training exists=True
    runtime_metrics_dir=runtime_data/metrics exists=True
    runtime_reports_dir=runtime_data/reports exists=True
-   inspection_bundle_dir=inspection_reports/bot_inspection_20260617_040018
+   inspection_bundle_dir=inspection_reports/bot_inspection_20260617_054511
 Warnings       : safety audit raised warnings; No certified Bregman opportunities found yet; continue paper training.
 ==> running training-runtime validation (.report_venv python)
   [PASS] paper_training_running: mode=paper_train
-  [PASS] status_fresh: age=168.2s
+  [PASS] status_fresh: age=177.1s
   [PASS] live_trading_disabled: paper-only build
   [PASS] strict_paper_realism: reference fills off
   [PASS] core_metrics_non_null: {"after_cost_pnl": 0, "fill_realism_enabled": true, "fantasy_fill_rejections": 0}
   [PASS] closed_loop_metrics_present: status=collecting
-  [PASS] closed_loop_records_positive: records=2460 considered=2460
-  [PASS] decision_count_reconciles_with_events: events=2460
-  [PASS] rejection_becomes_learning_object: no_trade+shadow=2516 diagnostic=60
-  [PASS] pending_labels_or_diagnostic_without_target: pending=2400 diag_no_label=60
-  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=2516 diagnostic=60
-  [PASS] active_learning_selection_or_reason_present: selected=2460 zero_reason=None
+  [PASS] closed_loop_records_positive: records=7620 considered=7620
+  [PASS] decision_count_reconciles_with_events: events=7620
+  [PASS] rejection_becomes_learning_object: no_trade+shadow=7706 diagnostic=60
+  [PASS] pending_labels_or_diagnostic_without_target: pending=5000 diag_no_label=60
+  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=7706 diagnostic=60
+  [PASS] active_learning_selection_or_reason_present: selected=7620 zero_reason=None
   [PASS] pending_label_store_present: 
   [PASS] learning_state_saved: 
-  [PASS] bregman_metrics_consistent: discovered=549 certified=0 opened=0
-  [PASS] bregman_funnel_non_silent: detected=549 scanned=549 adapter_failed=0
-  [PASS] ledger_records_decisions: ledger.decisions=527172 decision_count=2460
+  [PASS] bregman_metrics_consistent: discovered=551 certified=0 opened=0
+  [PASS] bregman_funnel_non_silent: detected=551 scanned=551 adapter_failed=0
+  [PASS] ledger_records_decisions: ledger.decisions=532332 decision_count=7620
   [PASS] audit_win_rate_known: 
   [PASS] audit_clob_v2_executable_known: 
   [PASS] audit_production_readiness_score_known: 
@@ -149,9 +149,9 @@ Warnings       : safety audit raised warnings; No certified Bregman opportunitie
   [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=0 blocked_by_reason={} — a selected candidate must open a <=$1 paper trade or record an exact blocker
   [PASS] inspection_collector_includes_artifacts: 
   [PASS] inspection_artifacts_present: all present
-  [PASS] decision_count_has_event_file_rows: decision_count=2460 events.jsonl_rows=3400587
-  [PASS] decision_records_counter_matches_file: counter=2460 decision_records.jsonl_rows=527172
-  [PASS] pending_labels_counter_matches_file: counter=2400 pending_labels.jsonl_rows=527005
+  [PASS] decision_count_has_event_file_rows: decision_count=7620 events.jsonl_rows=3423411
+  [PASS] decision_records_counter_matches_file: counter=7620 decision_records.jsonl_rows=532332
+  [PASS] pending_labels_counter_matches_file: counter=5000 pending_labels.jsonl_rows=532165
   [PASS] training_tail_streams_same_run: same run
   [PASS] training_tail_streams_fresh_window: within freshness window
   [PASS] artifact_present:training_reconciliation.json: metrics/training_reconciliation.json
@@ -160,11 +160,11 @@ Warnings       : safety audit raised warnings; No certified Bregman opportunitie
 
 SAFE TO RUN: True
 report_rc=0 validate_rc=0
-==> packaging vps_light_report_20260617_040010.zip (complete light bundle + git proof)
-report bundle OK: 3756 files, 13247151 bytes -> vps_light_report_20260617_040010.zip
+==> packaging vps_light_report_20260617_054503.zip (complete light bundle + git proof)
+report bundle OK: 3964 files, 13657464 bytes -> vps_light_report_20260617_054503.zip
 ==> DONE
     report_rc=0 validate_rc=0
-    unique zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_20260617_040010.zip (13247151 bytes)
+    unique zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_20260617_054503.zip (13657464 bytes)
     latest zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_latest.zip
     upload vps_light_report_latest.zip to ChatGPT for inspection.
 light_report_rc=0
