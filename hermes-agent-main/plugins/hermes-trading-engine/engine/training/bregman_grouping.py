@@ -369,9 +369,14 @@ def family_completeness_report(recs: list) -> dict:
                or _rec_attr(rec, "market_id", ""))
         present.append(str(lbl)[:80])
     missing_count = (max(0, declared - n) if declared is not None else None)
+    # 6B: neg-risk family diagnostics (MECE evidence; family id for grouping audit).
+    neg_risk = any(_is_neg_risk(rec) for rec in recs)
+    fam_ids = sorted({fid for fid in (_negrisk_family_id(rec) for rec in recs) if fid})
     return {
         "group_id": "", "n_legs_scanned": n, "declared_outcome_count": declared,
         "has_complete_marker": has_marker, "complete": complete,
+        "is_neg_risk_family": neg_risk,
+        "negrisk_family_ids": fam_ids,
         "missing_outcome_count": missing_count,
         "present_outcomes_sample": present[:6],
         # a FALSE incomplete = declared count matches scanned legs yet (pre-fix) it
@@ -386,6 +391,41 @@ def _is_fallback_key(gk: str, rec) -> bool:
     shared event id) — these orphans are candidates for normalized-family linking."""
     mid = str(_rec_attr(rec, "market_id", "") or "")
     return (not gk) or gk == mid or gk.startswith("market:")
+
+
+# Polymarket neg-risk family identifiers. All markets sharing one are part of ONE
+# mutually-exclusive, collectively-exhaustive event (the neg-risk mechanism guarantees
+# exactly one resolves YES). Grouping by the family id (6B) assembles complete families
+# that the per-market event key would otherwise fragment. Exhaustiveness STILL requires
+# the declared outcome count to match the scanned legs — completeness is never fabricated.
+_NEGRISK_ID_FIELDS = ("negRiskMarketID", "negRiskMarketId", "negRiskRequestID",
+                      "negRiskRequestId", "neg_risk_market_id", "neg_risk_request_id")
+_NEGRISK_FLAGS = ("negRisk", "neg_risk", "isNegRisk", "is_neg_risk")
+
+
+def _negrisk_family_id(rec) -> Optional[str]:
+    """The neg-risk family id for a record (from the raw market or its ``events[0]``),
+    normalized as ``negrisk:<id>``; None when not a neg-risk market."""
+    raw = _rec_attr(rec, "raw", {}) or {}
+    for k in _NEGRISK_ID_FIELDS:
+        v = raw.get(k)
+        if v:
+            return f"negrisk:{v}"
+    events = raw.get("events")
+    if isinstance(events, list) and events and isinstance(events[0], dict):
+        for k in _NEGRISK_ID_FIELDS:
+            v = events[0].get(k)
+            if v:
+                return f"negrisk:{v}"
+    return None
+
+
+def _is_neg_risk(rec) -> bool:
+    """True when the record is part of a Polymarket neg-risk (MECE) family."""
+    raw = _rec_attr(rec, "raw", {}) or {}
+    if any(_truthy(raw.get(k)) for k in _NEGRISK_FLAGS):
+        return True
+    return _negrisk_family_id(rec) is not None
 
 
 def group_markets(records: list, *, chainlink=None, now: Optional[float] = None,
@@ -410,6 +450,13 @@ def group_markets(records: list, *, chainlink=None, now: Optional[float] = None,
     by_key: dict[str, list] = {}
     orphans: list = []
     for rec in records:
+        # 6B: a neg-risk family id (when present) is the STRONGEST event key — group all
+        # siblings of the MECE family together so a complete set assembles for
+        # certification instead of fragmenting across per-market keys.
+        nf = _negrisk_family_id(rec)
+        if nf:
+            by_key.setdefault(nf, []).append(rec)
+            continue
         gk = str(_rec_attr(rec, "group_key", "") or _rec_attr(rec, "market_id", ""))
         if family_fallback and _is_fallback_key(gk, rec):
             orphans.append(rec)
