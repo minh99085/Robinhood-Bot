@@ -626,6 +626,9 @@ class PolymarketPaperTrainer:
         # #5 value-of-information: per-tick markets ranked by where a Grok call is worth
         # the most (uncertain + near-threshold + liquid). Read-only targeting hint.
         self._voi_candidates: list = []
+        # 6A credible after-cost edge gate counters (readiness trades require a positive
+        # CI-lower-bound after-cost edge). Run-cumulative.
+        self._credible_gate_metrics: dict = {}
         # durable per-candidate audit log (git-ignored metrics dir)
         self._relaxed_candidates_path = self.data_dir / "metrics" / "paper_relaxed_candidates.jsonl"
         self._relaxed_records_written = 0
@@ -2505,6 +2508,22 @@ class PolymarketPaperTrainer:
         reason = "trade" if would_trade else (
             edge.reason if not gates_ok else "edge_too_low")
 
+        # 6A: a READINESS/exploit trade must have CREDIBLE positive after-cost expectancy
+        # — the LOWER confidence bound of its after-cost edge (net_edge minus the ensemble
+        # CI half-width on the taken side) must clear the floor. This is STRICTER than the
+        # point-estimate gate and directly attacks "no_credible_positive_after_cost_
+        # expectancy"; it never loosens a hard gate. Exploration probes are exempt (the
+        # tiny-exploration lane learns near/below zero under its own bounded-loss caps).
+        if (would_trade and bool(getattr(self.cfg, "require_credible_after_cost_edge", True))
+                and not bool(getattr(edge, "credible_positive_expectancy", False))):
+            would_trade = False
+            reason = "not_credible_after_cost_edge"
+            self._credible_gate_metrics["readiness_blocked_not_credible"] = (
+                self._credible_gate_metrics.get("readiness_blocked_not_credible", 0) + 1)
+        elif would_trade:
+            self._credible_gate_metrics["readiness_credible_trades"] = (
+                self._credible_gate_metrics.get("readiness_credible_trades", 0) + 1)
+
         # #5 value-of-information: record where a bounded Grok call is worth the most
         # (high ensemble disagreement + near the trade threshold + liquid). Read-only;
         # only ranks what Grok should research next — never trades/sizes/gates.
@@ -4280,6 +4299,17 @@ class PolymarketPaperTrainer:
             "learning_probe_throttle": self._learning_probe_throttle(),
             "probes_shadowed_due_to_quality": int(self._probes_shadowed_due_to_quality),
             "probes_opened_due_to_quality": int(self._probes_opened_due_to_quality),
+            # 6A: readiness trades require CREDIBLE positive after-cost expectancy (the
+            # CI lower bound of the after-cost edge clears the floor). Directly addresses
+            # the "no_credible_positive_after_cost_expectancy" readiness blocker.
+            "credible_after_cost_edge_required": bool(
+                getattr(self.cfg, "require_credible_after_cost_edge", True)),
+            "min_credible_after_cost_edge": float(
+                getattr(self.cfg, "min_credible_after_cost_edge", 0.0)),
+            "readiness_credible_trades": int(
+                self._credible_gate_metrics.get("readiness_credible_trades", 0)),
+            "readiness_blocked_not_credible": int(
+                self._credible_gate_metrics.get("readiness_blocked_not_credible", 0)),
             "thresholds": {
                 "min_after_cost_edge": float(getattr(self.cfg, "min_after_cost_edge", 0.01)),
                 "min_after_cost_roi": float(getattr(self.cfg, "min_after_cost_roi", 0.002)),

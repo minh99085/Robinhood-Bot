@@ -221,6 +221,13 @@ class TrainingConfig:
     # p_raw becomes a weighted blend of model + market + research, each weighted by its
     # base prior x MEASURED calibration. Self-correcting: the bot leans on whichever
     # source is measurably most accurate. Produces a probability only — never a gate.
+    # ---- 6A: credible (CI-lower-bound) after-cost edge gate (PAPER ONLY) ----
+    # A readiness/exploit trade only opens when the LOWER confidence bound of its after-
+    # cost edge (net_edge minus the ensemble CI half-width on the taken side) clears the
+    # floor — "credible positive expectancy". Selection-only, STRICTER than before; never
+    # loosens a hard gate. Exploration probes are exempt (they learn near/below zero).
+    require_credible_after_cost_edge: bool = False   # base off; aggressive_paper turns ON
+    min_credible_after_cost_edge: float = 0.0
     probability_ensemble_enabled: bool = True
     ensemble_base_weight_market: float = 1.0   # market mid is the anchor
     ensemble_base_weight_model: float = 0.5
@@ -1408,6 +1415,11 @@ class TrainingConfig:
                 "POLYMARKET_RESEARCH_STRUCTURED_ENABLED", True),
             grok_news_half_life_s=_envf("POLYMARKET_GROK_NEWS_HALF_LIFE_S", 1800.0),
             research_freshness_floor=_envf("POLYMARKET_RESEARCH_FRESHNESS_FLOOR", 0.1),
+            # 6A credible after-cost edge gate (stricter; env-tunable).
+            require_credible_after_cost_edge=_envb(
+                "POLYMARKET_REQUIRE_CREDIBLE_AFTER_COST_EDGE", True),
+            min_credible_after_cost_edge=_envf(
+                "POLYMARKET_MIN_CREDIBLE_AFTER_COST_EDGE", 0.0),
             # calibration-weighted ensemble (advisory-only); env-tunable.
             probability_ensemble_enabled=_envb("POLYMARKET_PROBABILITY_ENSEMBLE_ENABLED", True),
             ensemble_base_weight_market=_envf("POLYMARKET_ENSEMBLE_W_MARKET", 1.0),

@@ -154,6 +154,12 @@ class EdgeResult:
     reason: str
     cost_components: dict = field(default_factory=dict)
     band_components: dict = field(default_factory=dict)
+    # 6A: CONSERVATIVE after-cost edge using the unfavorable ensemble CI bound of the
+    # probability (net_edge minus the CI half-width on the taken side). A readiness trade
+    # is only "credible positive expectancy" when this lower bound clears the floor.
+    after_cost_edge_lower_bound: float = 0.0
+    credible_margin: float = 0.0
+    credible_positive_expectancy: bool = False
     # Chainlink advisory diagnostics (0/""/False when Chainlink not wired)
     chainlink_confidence: float = 0.0
     chainlink_feed: str = ""
@@ -291,12 +297,28 @@ class EdgeEngine:
         else:
             reason = "trade"
             should = True
+        # 6A: conservative after-cost edge using the UNFAVORABLE ensemble CI bound for the
+        # taken side. margin = how far the probability could be against us (CI half-width
+        # on this side); after_cost_edge_lower_bound = net_edge - margin. A trade only has
+        # "credible positive expectancy" when this lower bound clears the credible floor.
+        ci_lo = float(getattr(est, "confidence_interval_low", 0.0) or 0.0)
+        ci_hi = float(getattr(est, "confidence_interval_high", 0.0) or 0.0)
+        p_yes = float(est.p_final)
+        if ci_hi > ci_lo:                      # CI populated -> use it
+            margin = max(0.0, (p_yes - ci_lo) if outcome != "NO" else (ci_hi - p_yes))
+        else:
+            margin = 0.0
+        after_cost_lb = round(net_edge - margin, 6)
+        min_credible = float(getattr(cfg, "min_credible_after_cost_edge", 0.0))
+        credible = bool(after_cost_lb > min_credible)
         return EdgeResult(
             market_id=est.market_id, outcome=outcome, side="BUY",
             executable_price=executable_price, p_final=p_final, gross_edge=gross_edge,
             cost_penalty=cost_penalty, net_edge=net_edge, uncertainty_band=uncertainty_band,
             threshold=threshold, should_trade=should, reason=reason,
             cost_components=cost_components, band_components=band_components,
+            after_cost_edge_lower_bound=after_cost_lb, credible_margin=round(margin, 6),
+            credible_positive_expectancy=credible,
             chainlink_confidence=cl_conf, chainlink_feed=cl_feed,
             chainlink_no_trade=cl_block)
 
