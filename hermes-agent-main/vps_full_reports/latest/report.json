@@ -1,0 +1,5061 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-17T05:21:49.097141+00:00",
+  "repo_root": "/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine",
+  "classification": "PASS_RUN_READY",
+  "scorecard": {
+    "score": 79.0,
+    "max": 100,
+    "components": {
+      "safety": {
+        "score": 15.0,
+        "max": 25,
+        "reason": "safety audit = WARN"
+      },
+      "tests": {
+        "score": 15.0,
+        "max": 15,
+        "reason": "tests present and passing"
+      },
+      "runtime": {
+        "score": 15.0,
+        "max": 15,
+        "reason": "paper-training status collected"
+      },
+      "feature_completeness": {
+        "score": 15.0,
+        "max": 20,
+        "reason": "6/8 key features active"
+      },
+      "performance_trend": {
+        "score": 9.0,
+        "max": 15,
+        "reason": "no baseline (neutral)"
+      },
+      "observability": {
+        "score": 10.0,
+        "max": 10,
+        "reason": "3/3 observability sources present"
+      }
+    }
+  },
+  "optional_pr_context": null,
+  "history_days": 7,
+  "baseline_path": null,
+  "git": {
+    "branch": "main",
+    "status": "## main...origin/main [ahead 36]",
+    "recent_log": [
+      "9c33a47 2026-06-17 Cursor Agent vps_full_reports: refresh latest (auto-deploy; source_commit 0fa0f79d4464)",
+      "0fa0f79 2026-06-17 Cursor Agent fix(laptop-agent): correct FULL-report usability check (embedded light bundle + validation_full + runtime_metrics)",
+      "3a1c1a9 2026-06-17 Cursor Agent fix(laptop-agent): parse full commit hash in VPS sync (prefer 40-char rev-parse over short reset hash)",
+      "663a19d 2026-06-17 Cursor Agent chore(gitignore): ignore operator-local .laptop_agent.json (VPS host/user/key path \u2014 never commit)",
+      "989cdee 2026-06-17 Cursor Agent feat(laptop-agent): finish end-to-end operator loop (auto-deploy, sync-vps, collect-full-report)",
+      "6e03234 2026-06-17 Cursor Agent vps_full_reports: refresh latest (commit f6cda49; canonical quality governor metrics wired, PASS_RUN_READY)",
+      "f6cda49 2026-06-17 Cursor Agent fix(paper): canonical learning-probe quality governor that actually governs",
+      "642cae1 2026-06-17 Cursor Agent vps_full_reports: refresh latest after 2h run (32 probes opened, each with explicit probe_reason=news_relevance_probe; readiness PnL excluded; chainlink/btc valid; PASS_RUN_READY)",
+      "aa293ea 2026-06-16 Cursor Agent vps_full_reports: refresh latest (commit cefc0cf; probe_reason gate + enriched ranking fields wired, PASS_RUN_READY, chainlink/btc valid)",
+      "cefc0cf 2026-06-16 Cursor Agent feat(paper): explicit probe_reason gate + enriched probe records + tighter loss throttle",
+      "e3172ad 2026-06-16 Cursor Agent vps_full_reports: refresh latest (3h uptime healthy; throttle ACTIVE recent_win_rate 0.1<0.35 -> threshold 0.5; chainlink+btc valid; PASS_RUN_READY)",
+      "ab35c4f 2026-06-16 Cursor Agent vps_full_reports: refresh latest (commit af4c726; chainlink ON/valid, btc fast price valid, PASS_RUN_READY)",
+      "af4c726 2026-06-16 Cursor Agent fix(chainlink): aggressive_paper honors real BTC/USD heartbeat so anchor reads VALID",
+      "de0dc8c 2026-06-16 Cursor Agent vps_full_reports: refresh latest (commit 4b04bed; PASS_RUN_READY, feeds_health with exact reasons, throttle/governor + accounting buckets live)",
+      "4b04bed 2026-06-16 Cursor Agent fix(report): emit feeds_health.json runtime artifact with exact feed reasons",
+      "30d3432 2026-06-16 Cursor Agent fix(report): capture consolidated feeds_health (exact chainlink/btc reasons) in full bundle",
+      "1fd62ac 2026-06-16 Cursor Agent fix(paper): add consolidated learning-vs-readiness accounting buckets",
+      "b3e32a0 2026-06-16 Cursor Agent AGENTS.md: push to main only, do not create new branches (user preference)",
+      "133d425 2026-06-16 minh99085 Merge pull request #46 from minh99085/cursor/learning-probe-quality-throttle-3276",
+      "b685fbe 2026-06-16 Cursor Agent Add loss-aware learning-probe quality governor + throttle, exact feed reasons, Bregman next-step diagnostics"
+    ],
+    "changed_files": [
+      ".gitignore",
+      "hermes-agent-main/plugins/hermes-trading-engine/scripts/laptop_agent_coordinator.py",
+      "hermes-agent-main/plugins/hermes-trading-engine/tests/test_laptop_agent_coordinator.py",
+      "vps_full_reports/latest/MANIFEST.txt",
+      "vps_full_reports/latest/algorithmic_edge_audit.json",
+      "vps_full_reports/latest/docker_compose_ps.txt",
+      "vps_full_reports/latest/generate_full_report.txt",
+      "vps_full_reports/latest/git_commit.txt",
+      "vps_full_reports/latest/latest_zip_listing.txt",
+      "vps_full_reports/latest/latest_zip_size.txt",
+      "vps_full_reports/latest/report.json",
+      "vps_full_reports/latest/report.md",
+      "vps_full_reports/latest/runtime_metrics/active_learning.json",
+      "vps_full_reports/latest/runtime_metrics/bregman.json",
+      "vps_full_reports/latest/runtime_metrics/bregman_execution.json",
+      "vps_full_reports/latest/runtime_metrics/bregman_funnel.json",
+      "vps_full_reports/latest/runtime_metrics/bregman_source_reconciliation.json",
+      "vps_full_reports/latest/runtime_metrics/closed_loop_learning.json",
+      "vps_full_reports/latest/runtime_metrics/feeds_health.json",
+      "vps_full_reports/latest/runtime_metrics/grok_news_evidence.json",
+      "vps_full_reports/latest/runtime_metrics/inspection_summary.json",
+      "vps_full_reports/latest/runtime_metrics/learning_feedback.json",
+      "vps_full_reports/latest/runtime_metrics/paper_realism.json",
+      "vps_full_reports/latest/runtime_metrics/profitability_ranking.json",
+      "vps_full_reports/latest/runtime_metrics/strategy_priority.json",
+      "vps_full_reports/latest/runtime_metrics/training_reconciliation.json",
+      "vps_full_reports/latest/validation_contract.json",
+      "vps_full_reports/latest/validation_full.txt",
+      "vps_full_reports/latest/validation_light.txt"
+    ]
+  },
+  "safety": {
+    "status": "WARN",
+    "critical": false,
+    "warn": true,
+    "live_detected": false,
+    "engine_mode": "paper_train",
+    "findings": [
+      {
+        "flag": "HTE_AUTOTRADE",
+        "value": "1",
+        "severity": "INFO",
+        "reason": "paper-simulation autotrade flag enabled (PAPER only \u2014 not a live failure)."
+      }
+    ],
+    "forbidden_live_flags": {
+      "MICRO_LIVE_ENABLED": {
+        "value": "0",
+        "enabled": false
+      },
+      "MICRO_LIVE_ALLOW_PRODUCTION": {
+        "value": "${MICRO_LIVE_ALLOW_PRODUCTION:-0}",
+        "enabled": false
+      },
+      "POLYMARKET_MICRO_LIVE_ENABLED": {
+        "value": "0",
+        "enabled": false
+      },
+      "POLYMARKET_MICRO_LIVE_ALLOW_PROD": {
+        "value": null,
+        "enabled": false
+      },
+      "KALSHI_MICRO_LIVE_ENABLED": {
+        "value": "0",
+        "enabled": false
+      },
+      "GUARDED_LIVE_ENABLED": {
+        "value": "0",
+        "enabled": false
+      },
+      "PRODUCTION_REVIEW_ENABLE_PRODUCTION_EXECUTION": {
+        "value": "0",
+        "enabled": false
+      },
+      "PRODUCTION_REVIEW_ALLOW_AUTONOMOUS_LIVE": {
+        "value": "0",
+        "enabled": false
+      },
+      "PRODUCTION_REVIEW_ALLOW_DASHBOARD_SUBMIT": {
+        "value": "0",
+        "enabled": false
+      },
+      "PRODUCTION_REVIEW_ALLOW_API_SUBMIT": {
+        "value": "0",
+        "enabled": false
+      },
+      "PRODUCTION_REVIEW_ALLOW_SIZE_INCREASE": {
+        "value": "0",
+        "enabled": false
+      },
+      "BTC_PULSE_LIVE_ENABLED": {
+        "value": "0",
+        "enabled": false
+      },
+      "BTC_AUTOTRADE_ENABLED": {
+        "value": "0",
+        "enabled": false
+      }
+    },
+    "protective_flags": {
+      "GUARDED_LIVE_DRY_RUN_ONLY": {
+        "value": "1",
+        "enabled": true,
+        "present": true
+      },
+      "GUARDED_LIVE_BLOCK_SIGNING": {
+        "value": "1",
+        "enabled": true,
+        "present": true
+      },
+      "GUARDED_LIVE_FORBID_ORDER_ENDPOINTS": {
+        "value": "1",
+        "enabled": true,
+        "present": true
+      }
+    },
+    "secret_presence": {
+      "POLYMARKET_PRIVATE_KEY": {
+        "present": false
+      },
+      "POLYMARKET_API_SECRET": {
+        "present": false
+      },
+      "KALSHI_TRADING_PRIVATE_KEY_PEM": {
+        "present": false
+      },
+      "KALSHI_TRADING_PRIVATE_KEY_PATH": {
+        "present": false
+      },
+      "KALSHI_PRIVATE_KEY_PEM": {
+        "present": false
+      },
+      "KALSHI_PRIVATE_KEY_PATH": {
+        "present": false
+      }
+    },
+    "paper_simulation_flags": {
+      "HTE_AUTOTRADE": {
+        "value": "1",
+        "enabled": true
+      },
+      "HTE_BTC_PULSE_PAPER_ENABLED": {
+        "value": "0",
+        "enabled": false
+      }
+    },
+    "summary": {
+      "forbidden_enabled": [],
+      "credentials_present": [],
+      "protective_disabled": []
+    }
+  },
+  "runtime": {
+    "available": true,
+    "status_source": "runtime_data/polymarket_training.json",
+    "docker_available": true
+  },
+  "api": {
+    "health": {
+      "endpoint": "/api/health",
+      "url": "http://localhost:8800/api/health",
+      "status": 200,
+      "json": {
+        "ok": true,
+        "mode": "paper",
+        "engine": "HermesTradingEngine",
+        "brain_enabled": true,
+        "aggressiveness": "cautious",
+        "arb_enabled": false,
+        "oms_degraded": false
+      },
+      "ok": true
+    },
+    "state": {
+      "endpoint": "/api/state",
+      "url": "http://localhost:8800/api/state",
+      "status": 200,
+      "json": {
+        "engine_name": "HermesTradingEngine",
+        "wallet_label": "<REDACTED>",
+        "mode": "paper",
+        "autotrade": true,
+        "daily_loss_breached": false,
+        "now_utc": "05:21:45",
+        "round": 8792,
+        "portfolio": {
+          "equity": 500.0,
+          "starting_balance": 500.0,
+          "realized": 0.0,
+          "unrealized": 0.0,
+          "total_pnl": 0.0,
+          "win_rate": 0.0,
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "sharpe": 0.0
+        },
+        "latency_ms": 47.9,
+        "uptime_seconds": 8057,
+        "pulse": {
+          "round": 8792,
+          "symbol": "BTCUSDT",
+          "start_price": 65722.32,
+          "current_price": 65695.07,
+          "start_ts": 1781673489.119161,
+          "end_ts": 1781673789.119161,
+          "crowd_bias": -0.029938351647630857,
+          "market_up": 0.384,
+          "up_price": 0.4,
+          "down_price": 0.64,
+          "p_model": 0.502,
+          "p_cal": 0.539,
+          "p_feat": 0.071,
+          "p_feat_raw": 0.07132703617813994,
+          "feats": [
+            -0.7922948073717848,
+            -0.451469464764697,
+            -1.7751865045271704,
+            -1.2251857133996813,
+            -0.26127269816737786,
+            -0.2633
+          ],
+          "ev_up": 0.347,
+          "ev_down": -0.279,
+          "edge": 0.0,
+          "kelly": 0.0,
+          "stake_frac": 0.0,
+          "bet": null,
+          "samples": [
+            65722.32,
+            65722.32,
+            65722.32,
+            65722.32,
+            65722.01,
+            65722.32,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65722.01,
+            65730.01,
+            65730.01,
+            65730.41,
+            65730.01,
+            65710.71,
+            65710.71,
+            65722.99,
+            65710.71,
+            65722.99,
+            65722.99,
+            65714.01,
+            65714.01,
+            65714.01,
+            65714.01,
+            65706.6,
+            65706.6,
+            65706.6,
+            65706.6,
+            65706.6,
+            65706.6,
+            65706.6,
+            65706.6,
+            65706.6,
+            65706.6,
+            65698.4,
+            65698.4,
+            65694.3,
+            65694.3,
+            65701.34,
+            65701.34,
+            65701.34,
+            65695.07,
+            65695.07,
+            65695.07,
+            65695.07,
+            65706.01,
+            65695.07,
+            65706.01,
+            65706.01,
+            65702.55,
+            65702.55,
+            65700.63,
+            65700.63,
+            65700.63,
+            65695.07,
+            65695.07,
+            65695.07,
+            65695.07,
+            65695.07,
+            65695.07,
+            65695.07,
+            65695.07
+          ],
+          "history": [
+            {
+              "round": 8766,
+              "start": 65797.1,
+              "close": 65779.99,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8767,
+              "start": 65779.99,
+              "close": 65692.99,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8768,
+              "start": 65692.99,
+              "close": 65722.99,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8769,
+              "start": 65722.99,
+              "close": 65720.76,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8770,
+              "start": 65720.76,
+              "close": 65755.8,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8771,
+              "start": 65755.8,
+              "close": 65766.35,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8772,
+              "start": 65766.35,
+              "close": 65757.98,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8773,
+              "start": 65757.98,
+              "close": 65728.43,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8774,
+              "start": 65728.43,
+              "close": 65775.99,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8775,
+              "start": 65775.99,
+              "close": 65749.98,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8776,
+              "start": 65749.98,
+              "close": 65788.15,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8777,
+              "start": 65788.15,
+              "close": 65812.93,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8778,
+              "start": 65812.93,
+              "close": 65829.76,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8779,
+              "start": 65829.76,
+              "close": 65772.21,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8780,
+              "start": 65772.21,
+              "close": 65770.15,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8781,
+              "start": 65770.15,
+              "close": 65821.93,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8782,
+              "start": 65821.93,
+              "close": 65832.84,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8783,
+              "start": 65832.84,
+              "close": 65821.4,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8784,
+              "start": 65821.4,
+              "close": 65854.38,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8785,
+              "start": 65854.38,
+              "close": 65925.99,
+              "result": "UP",
+              "outcome": null
+            },
+            {
+              "round": 8786,
+              "start": 65925.99,
+              "close": 65910.01,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8787,
+              "start": 65910.01,
+              "close": 65855.49,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8788,
+              "start": 65855.49,
+              "close": 65820.68,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8789,
+              "start": 65820.68,
+              "close": 65816.16,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8790,
+              "start": 65816.16,
+              "close": 65738.82,
+              "result": "DOWN",
+              "outcome": null
+            },
+            {
+              "round": 8791,
+              "start": 65738.82,
+              "close": 65722.32,
+              "result": "DOWN",
+              "outcome": null
+            }
+          ],
+          "seconds_left": 83,
+          "delta": -27.25
+        },
+        "regime": {
+          "matrix": [
+            [
+              0.32,
+              0.32,
+              0.35
+            ],
+            [
+              0.3,
+              0.26,
+              0.44
+            ],
+            [
+              0.22,
+              0.25,
+              0.53
+            ]
+          ],
+          "stationary": [
+            0.27,
+            0.27,
+            0.46
+          ],
+          "current_state": "SIDE",
+          "p_up": 0.485,
+          "regime_strength": 0.53,
+          "labels": [
+            "BULL",
+            "BEAR",
+            "SIDE"
+          ]
+        },
+        "montecarlo": {
+          "spot": 65700.64,
+          "horizon_steps": 60,
+          "paths": 500,
+          "p_up": 0.518,
+          "expected": 65719.84,
+          "quantiles": {
+            "p05": [
+              65657.29,
+              65640.7,
+              65624.11,
+              65615.99,
+              65608.71,
+              65603.95,
+              65589.52,
+              65578.29,
+              65569.73,
+              65566.27,
+              65559.19,
+              65560.77,
+              65560.48,
+              65557.91,
+              65545.68,
+              65530.41,
+              65536.78,
+              65535.8,
+              65534.82,
+              65529.5,
+              65530.66,
+              65513.91,
+              65515.26,
+              65492.27,
+              65502.81,
+              65487.02,
+              65491.54,
+              65491.78,
+              65484.42,
+              65487.8,
+              65470.59,
+              65468.46,
+              65463.76,
+              65465.89,
+              65462.56,
+              65464.41,
+              65470.63,
+              65456.15,
+              65454.84,
+              65447.82,
+              65445.65,
+              65436.84,
+              65430.44,
+              65431.95,
+              65415.12,
+              65419.23,
+              65407.78,
+              65405.72,
+              65401.73,
+              65401.64,
+              65398.39,
+              65394.81,
+              65392.9,
+              65402.22,
+              65385.14,
+              65379.83,
+              65375.02,
+              65370.92,
+              65355.5,
+              65349.92
+            ],
+            "p25": [
+              65683.33,
+              65677.23,
+              65671.87,
+              65667.44,
+              65669.21,
+              65662.63,
+              65653.66,
+              65655.56,
+              65645.1,
+              65649.22,
+              65645.59,
+              65644.29,
+              65649.37,
+              65645.96,
+              65644.0,
+              65641.71,
+              65644.36,
+              65634.86,
+              65632.76,
+              65630.48,
+              65627.88,
+              65625.86,
+              65625.94,
+              65627.87,
+              65619.27,
+              65615.99,
+              65609.93,
+              65616.94,
+              65614.74,
+              65609.39,
+              65612.37,
+              65610.38,
+              65603.12,
+              65603.61,
+              65606.89,
+              65599.91,
+              65597.14,
+              65587.47,
+              65590.86,
+              65588.3,
+              65585.68,
+              65583.66,
+              65585.89,
+              65587.8,
+              65583.75,
+              65577.57,
+              65581.64,
+              65575.79,
+              65581.99,
+              65579.49,
+              65575.52,
+              65587.6,
+              65585.35,
+              65584.54,
+              65581.2,
+              65575.77,
+              65581.86,
+              65585.65,
+              65588.79,
+              65586.24
+            ],
+            "p50": [
+              65702.1,
+              65703.72,
+              65702.59,
+              65705.66,
+              65703.87,
+              65706.66,
+              65705.16,
+              65708.28,
+              65703.08,
+              65704.03,
+              65704.05,
+              65710.87,
+              65714.22,
+              65709.06,
+              65711.22,
+              65714.75,
+              65704.11,
+              65707.25,
+              65708.27,
+              65706.7,
+              65702.61,
+              65711.17,
+              65712.92,
+              65706.78,
+              65707.66,
+              65701.98,
+              65705.08,
+              65702.44,
+              65705.67,
+              65704.51,
+              65708.0,
+              65702.94,
+              65703.88,
+              65708.32,
+              65705.76,
+              65708.58,
+              65713.84,
+              65712.2,
+              65705.24,
+              65704.17,
+              65703.45,
+              65701.94,
+              65698.16,
+              65701.71,
+              65701.52,
+              65706.61,
+              65703.65,
+              65702.35,
+              65708.36,
+              65705.6,
+              65713.4,
+              65712.39,
+              65714.1,
+              65705.2,
+              65712.65,
+              65711.15,
+              65711.53,
+              65719.89,
+              65720.83,
+              65713.5
+            ],
+            "p75": [
+              65721.53,
+              65730.04,
+              65734.51,
+              65740.62,
+              65747.33,
+              65744.89,
+              65753.25,
+              65752.58,
+              65759.73,
+              65764.29,
+              65763.82,
+              65767.24,
+              65769.35,
+              65773.9,
+              65780.77,
+              65775.56,
+              65779.71,
+              65787.04,
+              65790.3,
+              65789.82,
+              65789.81,
+              65789.1,
+              65793.5,
+              65791.26,
+              65797.2,
+              65795.42,
+              65793.33,
+              65796.24,
+              65808.56,
+              65811.4,
+              65802.53,
+              65810.74,
+              65815.94,
+              65815.47,
+              65815.44,
+              65813.32,
+              65817.96,
+              65820.02,
+              65819.79,
+              65823.23,
+              65825.89,
+              65826.8,
+              65830.64,
+              65836.06,
+              65839.48,
+              65834.69,
+              65829.36,
+              65836.92,
+              65833.33,
+              65843.61,
+              65850.34,
+              65851.44,
+              65846.14,
+              65847.78,
+              65842.62,
+              65844.5,
+              65843.82,
+              65848.99,
+              65851.92,
+              65853.27
+            ],
+            "p95": [
+              65748.72,
+              65762.06,
+              65777.54,
+              65788.36,
+              65807.19,
+              65814.57,
+              65823.32,
+              65830.47,
+              65843.6,
+              65841.0,
+              65845.9,
+              65853.12,
+              65854.23,
+              65858.33,
+              65869.55,
+              65882.65,
+              65885.59,
+              65882.66,
+              65888.59,
+              65889.83,
+              65905.25,
+              65909.56,
+              65917.44,
+              65914.25,
+              65919.34,
+              65921.16,
+              65931.03,
+              65934.04,
+              65940.8,
+              65932.4,
+              65951.72,
+              65955.42,
+              65948.4,
+              65961.65,
+              65961.52,
+              65974.51,
+              65968.67,
+              65970.1,
+              65970.14,
+              65983.65,
+              65985.88,
+              65984.13,
+              66009.72,
+              66013.13,
+              66014.11,
+              66030.91,
+              66042.87,
+              66039.39,
+              66032.8,
+              66036.06,
+              66037.49,
+              66055.8,
+              66051.36,
+              66065.43,
+              66061.88,
+              66073.09,
+              66087.1,
+              66080.93,
+              66074.08,
+              66086.29
+            ]
+          },
+          "terminal_hist": {
+            "bins": [
+              65146.4,
+              65203.5,
+              65260.6,
+              65317.7,
+              65374.7,
+              65431.8,
+              65488.9,
+              65546.0,
+              65603.1,
+              65660.2,
+              65717.3,
+              65774.4,
+              65831.5,
+              65888.6,
+              65945.7,
+              66002.8,
+              66059.9,
+              66117.0,
+              66174.1,
+              66231.2,
+              66288.3,
+              66345.4,
+              66402.5,
+              66459.6
+            ],
+            "counts": [
+              2,
+              3,
+              7,
+              13,
+              11,
+              15,
+              33,
+              36,
+              44,
+              62,
+              55,
+              49,
+              50,
+              35,
+              25,
+              23,
+              12,
+              10,
+              7,
+              5,
+              1,
+              0,
+              1,
+              1
+            ]
+          },
+          "converged": true
+        },
+        "patterns": {
+          "bos": {
+            "signal": false,
+            "dir": "flat"
+          },
+          "choch": {
+            "signal": true,
+            "dir": "down"
+          },
+          "liquidity_sweep": {
+            "signal": false,
+            "dir": "flat"
+          },
+          "bias": "bearish"
+        },
+        "brain": {
+          "enabled": true,
+          "grok_network_enabled": true,
+          "grok_source": "online_research",
+          "user_override": null,
+          "research_mode": "online_paper",
+          "default_model": "grok-4.3",
+          "model": "grok-4.3",
+          "stance": "cautious",
+          "action": "WAIT",
+          "direction": "HOLD",
+          "confidence": 0.72,
+          "urgency": "low",
+          "rationale": "Mixed signals, sideways regime, no clear scalping edge",
+          "fresh": true,
+          "age_seconds": 23.3,
+          "regime": "range",
+          "memory_lessons": 0,
+          "last_error": null
+        },
+        "calibration": {
+          "samples": 1757,
+          "brier_raw": 0.2473,
+          "brier_cal": 0.2464,
+          "ece_raw": 0.0107,
+          "ece_cal": 0.0024,
+          "calibrated": true
+        },
+        "signal": {
+          "obi": -0.2633,
+          "feat_brier": 0.1404,
+          "base_brier": 0.2515,
+          "active": false,
+          "ready": true,
+          "samples": 26
+        },
+        "readiness": {
+          "score": 40,
+          "ready": false,
+          "checks": {
+            "min_500_trades": false,
+            "sharpe_gt_1_5": false,
+            "winrate_gt_55": false,
+            "maxdd_lt_15": true,
+            "no_crashes_24h": true
+          },
+          "missing": [
+            "min_500_trades",
+            "sharpe_gt_1_5",
+            "winrate_gt_55"
+          ],
+          "metrics": {
+            "trades": 0,
+            "win_rate": 0.0,
+            "sharpe": 0.0,
+            "max_drawdown": 0.0,
+            "errors_24h": 0
+          },
+          "thresholds": {
+            "min_trades": 500,
+            "min_sharpe": 1.5,
+            "min_winrate": 0.55,
+            "max_drawdown": 0.15
+          }
+        },
+        "circuit": {
+          "halted": false,
+          "halt_reason": null,
+          "paused": false,
+          "paused_seconds_left": 0,
+          "consecutive_losses": 0,
+          "orders_last_60s": 0,
+          "trading_allowed": true,
+          "last_alert": null,
+          "recent_events": [],
+          "limits": {
+            "daily_loss_pct": 0.03,
+            "consec_losses": 3,
+            "pause_minutes": 30,
+            "max_trade_pct": 0.05,
+            "max_orders_per_min": 10,
+            "api_fail_rate": 0.2
+          }
+        },
+        "risk": {
+          "kill_switch": false,
+          "approvals_total": 0,
+          "rejections_total": 0,
+          "decisions_total": 0,
+          "recent_approvals": [],
+          "recent_rejections": [],
+          "limits": {
+            "max_order_notional_frac": 0.1,
+            "max_order_notional_usd": 0.0,
+            "max_market_exposure_frac": 0.3,
+            "max_total_exposure_frac": 0.6,
+            "max_open_orders": 50,
+            "max_daily_loss_frac": 0.1,
+            "max_spread": 0.1,
+            "min_edge_after_costs": 0.0,
+            "max_data_age_s": 60.0,
+            "max_ambiguity": 1.0,
+            "research_min_evidence": 0.35,
+            "research_min_sources": 2,
+            "research_max_ambiguity": 0.35,
+            "kill_switch_file": "/data/KILL_SWITCH"
+          }
+        },
+        "market_data": {
+          "status": {
+            "source": "polymarket_clob",
+            "status": "connected",
+            "url": "wss://ws-subscriptions-clob.polymarket.com/ws/market",
+            "last_message_ms": 0,
+            "last_message_age_ms": null,
+            "messages_received": 0,
+            "parse_errors": 0,
+            "reconnect_count": 0,
+            "subscribed_asset_count": 0,
+            "tracked_asset_count": 0,
+            "stale_asset_count": 0,
+            "resolved_market_count": 0,
+            "last_error": null,
+            "last_warning": null
+          },
+          "assets": [],
+          "recent_markets": [],
+          "enabled": true
+        },
+        "oms": {
+          "open_orders": 0,
+          "degraded": false,
+          "open_order_list": [],
+          "recent_fills": [],
+          "positions": [],
+          "position_count": 0,
+          "active_position_count": 0,
+          "unique_position_count": 0,
+          "duplicate_snapshot_count": 0,
+          "reconciliation": {
+            "severity": "info",
+            "warnings": [],
+            "ts_ms": 1781673705301,
+            "position_count": 0
+          }
+        },
+        "accounting": {
+          "trade_count": 0,
+          "order_count": 0,
+          "fill_count": 0,
+          "active_position_count": 0,
+          "unique_position_count": 0,
+          "duplicate_snapshot_count": 0,
+          "equity": 500.0,
+          "realized_pnl": 0.0,
+          "unrealized_pnl": 0.0,
+          "fees": 0,
+          "starting_balance": 500.0,
+          "mode": "paper",
+          "simulated": true
+        },
+        "replay": {
+          "recent_runs": []
+        },
+        "research": {
+          "mode": "online_paper",
+          "use_in_strategy": false,
+          "recent_runs": [],
+          "recent_estimates": []
+        },
+        "training": {
+          "phase": 1,
+          "phase_name": "OBSERVATION",
+          "phase_desc": "Markov only; Grok observes",
+          "trades": 0,
+          "next_phase_at": 100,
+          "metrics": {
+            "total_trades": 0,
+            "win_rate": 0.0,
+            "sortino": 0.0,
+            "avg_hold_seconds": null,
+            "per_market": {},
+            "per_symbol": {},
+            "grok_accuracy": null,
+            "grok_signals": 0
+          },
+          "live_ready": false,
+          "notification": null
+        },
+        "prices": {
+          "BTCUSDT": 65695.07,
+          "ETHUSDT": 1788.91,
+          "SOLUSDT": 73.44
+        },
+        "equity_curve": [
+          {
+            "ts": 1781672909.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672912.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672914.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672917.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672919.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672922.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672924.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672927.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672930.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672932.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672935.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672938.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672941.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672943.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672947.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672950.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672953.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672955.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672958.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672960.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672963.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672965.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672968.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672970.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672973.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672975.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672978.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672982.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672984.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672987.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672989.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672991.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672994.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672997.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781672999.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673002.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673004.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673008.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673010.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673013.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673016.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673020.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673022.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673025.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673027.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673030.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673032.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673035.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673037.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673040.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673043.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673045.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673048.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673050.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673053.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673056.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673059.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673062.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673064.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673066.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673069.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673072.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673075.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673077.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673080.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673082.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673085.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673087.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673090.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673095.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673097.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673100.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673102.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673105.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673107.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673110.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673112.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673115.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673117.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673120.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673122.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673125.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673127.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673132.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673134.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673137.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673139.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673142.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673144.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673147.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673149.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673152.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673155.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673157.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673160.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673162.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673165.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673169.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673171.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673174.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673176.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673179.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673181.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673183.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673186.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673189.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673191.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673194.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673196.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673199.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673202.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673206.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673208.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673211.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673213.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673216.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673218.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673221.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673223.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673226.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673229.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673232.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673234.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673237.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673241.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673243.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673246.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673248.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673251.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673253.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673256.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673259.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673261.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673264.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673266.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673269.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673272.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673276.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673278.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673281.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673283.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673286.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673288.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673291.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673293.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673296.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673298.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673301.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673303.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673306.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673309.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673313.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673315.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673318.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673320.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673323.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673325.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673328.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673331.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673333.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673336.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673338.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673341.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673343.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673348.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673350.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673353.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673356.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673358.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673361.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673364.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673366.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673369.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673371.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673374.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673376.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673378.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673381.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673383.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673387.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673389.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673392.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673395.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673397.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673400.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673403.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673405.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673408.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673410.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673413.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673416.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673419.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673421.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673426.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673428.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673431.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673433.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673436.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673438.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673441.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673443.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673446.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673449.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673451.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673454.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673456.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673460.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673462.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673465.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673468.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673470.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673473.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673475.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673478.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673481.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673483.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673486.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673489.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673491.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673494.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673497.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673499.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673502.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673505.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673507.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673510.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673513.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673515.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673518.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673520.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673522.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673525.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673528.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673530.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673534.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673537.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673539.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673542.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673544.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673547.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673549.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673551.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673554.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673557.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673560.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673562.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673564.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673567.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673571.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673573.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673576.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673578.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673581.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673583.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673585.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673588.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673590.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673593.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673595.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673598.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673600.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673603.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673608.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673610.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673613.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673616.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673618.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673620.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673623.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673625.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673628.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673630.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673633.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673635.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673638.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673641.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673644.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673647.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673649.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673652.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673654.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673657.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673660.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673663.0,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673665.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673667.7,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673670.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673672.9,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673675.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673679.1,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673681.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673684.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673686.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673689.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673691.4,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673694.2,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673696.6,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673699.5,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673701.8,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          },
+          {
+            "ts": 1781673705.3,
+            "equity": 500.0,
+            "realized": 0.0,
+            "unrealized": 0.0
+          }
+        ],
+        "open_trades": [],
+        "recent_trades": [],
+        "aggressiveness": "cautious",
+        "arb": {
+          "enabled": false,
+          "permanently_disabled": true,
+          "disabled_reason": "arbitrage removed \u2014 Polymarket-only PAPER training",
+          "status": "disabled",
+          "paused_seconds_left": 0,
+          "simulate": false,
+          "last_skip": null,
+          "last_incident": null,
+          "opportunities": [],
+          "recent_trades": [],
+          "metrics": {
+            "trades": 0,
+            "total_profit": 0.0,
+            "win_rate": null,
+            "avg_net_pct": null,
+            "avg_latency_ms": null,
+            "best": 0.0,
+            "incidents": 0
+          }
+        }
+      },
+      "ok": true
+    },
+    "venues_status": {
+      "endpoint": "/api/venues/status",
+      "url": "http://localhost:8800/api/venues/status",
+      "status": 200,
+      "json": {
+        "venues": [
+          {
+            "venue": "kalshi",
+            "enabled": false,
+            "status": "disabled",
+            "supports_market_data": false,
+            "supports_metadata": false,
+            "supports_replay": true,
+            "detail": "env=demo"
+          },
+          {
+            "venue": "polymarket",
+            "enabled": true,
+            "status": "ready",
+            "supports_market_data": false,
+            "supports_metadata": true,
+            "supports_replay": true,
+            "detail": "metadata-only"
+          }
+        ]
+      },
+      "ok": true
+    },
+    "chainlink_status": {
+      "endpoint": "/api/chainlink/status",
+      "url": "http://localhost:8800/api/chainlink/status",
+      "status": 200,
+      "json": {
+        "available": true,
+        "btc_usd": {
+          "enabled": true,
+          "initialized": true,
+          "symbol": "BTC/USD",
+          "source": "chainlink",
+          "price": 65724.674,
+          "updated_at": 1781673395.0,
+          "observed_at": 1781673522.5348437,
+          "age_seconds": 127.535,
+          "heartbeat_seconds": 3600,
+          "max_age_seconds": 7200,
+          "stale": false,
+          "valid": true,
+          "error": null,
+          "consecutive_failures": 0,
+          "last_success_at": 1781673522.5348437
+        },
+        "scanner": {
+          "feeds_scanned": 0,
+          "stale_feeds": 0,
+          "matched_markets": 28435,
+          "unmatched_feeds": 0,
+          "avg_probability_impact": 0.039256,
+          "avg_signal_impact": 0.393389,
+          "signals_emitted": 19411
+        }
+      },
+      "ok": true
+    },
+    "news_status": {
+      "endpoint": "/api/news/status",
+      "url": "http://localhost:8800/api/news/status",
+      "status": 200,
+      "json": {
+        "available": true,
+        "news_scanner_enabled": true,
+        "advisory_enabled": true,
+        "trade_gate_enabled": false,
+        "news_provider_mode": "live_read_only",
+        "news_live_read_only": true,
+        "news_ticks": 55,
+        "rejected_low_relevance": 892,
+        "rejected_low_credibility": 0,
+        "rejected_unclear_date": 0,
+        "rejected_stale": 0,
+        "rejected_duplicate": 5,
+        "news_markets_scanned": 165,
+        "news_queries": 359,
+        "news_items_fetched": 3156,
+        "news_items_used": 1144,
+        "news_items_rejected": 2012,
+        "news_stale_count": 0,
+        "news_contradiction_count": 0,
+        "news_ambiguity_count": 0,
+        "news_provider_errors": 0,
+        "news_items_used_per_hour": 515.227,
+        "news_last_scan_ts": 1781673522.5348437,
+        "news_last_error": null,
+        "news_last_packet_sample": [
+          {
+            "title": "Bitcoin Price Prediction: $54,000 or $94,000, Where\u2019s BTC heading Next? - MEXC",
+            "source_name": "MEXC",
+            "direction": "unclear"
+          },
+          {
+            "title": "Bitcoin is closer to its 'buy zone' than it's been in three years - Cryptonews.net",
+            "source_name": "Cryptonews.net",
+            "direction": "unclear"
+          },
+          {
+            "title": "The Hidden On-Chain Signal That Shows Bitcoin Is Closer to a Bottom Than Most Think - BeInCrypto",
+            "source_name": "BeInCrypto",
+            "direction": "unclear"
+          }
+        ],
+        "note": "PAPER ONLY \u2014 news is read-only advisory; Grok stays advisory; never trades, never bypasses a gate."
+      },
+      "ok": true
+    },
+    "research_status": {
+      "endpoint": "/api/research/status",
+      "url": "http://localhost:8800/api/research/status",
+      "status": 200,
+      "json": {
+        "available": true,
+        "grok_research_only": true,
+        "grok_enabled": true,
+        "grok_has_api_key": true,
+        "xai_api_key_present": true,
+        "xai_api_key_source": "<REDACTED>",
+        "grok_online_active": true,
+        "grok_brain_ready": true,
+        "grok_brain_blocker": null,
+        "research_mode": "online_paper",
+        "grok_calls_total": 5,
+        "grok_calls_with_news": 5,
+        "grok_evidence_records_written": 5,
+        "grok_proof_call_enabled": true,
+        "grok_proof_call_advisory_only": true,
+        "grok_advisory_only_count": 5,
+        "grok_advisory_enabled": true,
+        "grok_advisory_max_calls_per_hour": 4,
+        "grok_advisory_min_interval_seconds": 900,
+        "grok_advisory_calls_per_hour": 2,
+        "grok_proof_calls_total": 0,
+        "grok_scheduler_calls_total": 5,
+        "grok_total_calls_reconciled": true,
+        "grok_scheduler_eligible_targets": 827,
+        "grok_scheduler_targets_selected": 5,
+        "grok_scheduler_targets_skipped": 25,
+        "grok_scheduler_skip_reasons": {
+          "not_due_yet": 25
+        },
+        "grok_scheduler_rate_limited_count": 25,
+        "grok_scheduler_no_target_count": 0,
+        "grok_bregman_incomplete_groups_analyzed": 3,
+        "grok_bregman_malformed_groups_analyzed": 1,
+        "grok_learning_features_written": 5,
+        "grok_best_bregman_group_analyzed": true,
+        "grok_best_bregman_group_skip_reason": null,
+        "grok_market_groups_analyzed": 4,
+        "grok_bregman_near_misses_analyzed": 4,
+        "grok_news_linked_markets_analyzed": 5,
+        "grok_contributed_learning_features": true,
+        "grok_cache_hits": 0,
+        "grok_offline_stub_calls": 6514,
+        "grok_eligible_markets": 0,
+        "grok_scheduled_calls": 5,
+        "grok_skipped_rate_limit": 0,
+        "grok_skipped_no_news_packet": 0,
+        "grok_skipped_no_market_link": 0,
+        "grok_provider_errors": 0,
+        "grok_zero_call_reason": null,
+        "news_enable_grok_packet": true,
+        "news_scanner_enabled": true,
+        "news_provider_mode": "live_read_only",
+        "news_items_used": 1144,
+        "chainlink_btc_usd_valid": true,
+        "chainlink_btc_usd_price": 65724.674,
+        "chainlink_btc_usd_age_seconds": 127.535,
+        "note": "PAPER ONLY \u2014 Grok is advisory; evidence packets are read-only and never include wallet/positions/orders/secrets."
+      },
+      "ok": true
+    },
+    "micro_live_status": {
+      "endpoint": "/api/micro-live/status",
+      "url": "http://localhost:8800/api/micro-live/status",
+      "status": 200,
+      "json": {
+        "enabled": false,
+        "environment": "demo",
+        "production_allowed": false,
+        "cli_only": true,
+        "all_locks_open": false,
+        "live_submit_blocked": true,
+        "max_order_notional_usd": "1.0",
+        "allowed_venues": [
+          "kalshi"
+        ],
+        "allowed_order_types": [
+          "FOK"
+        ],
+        "allowed_tif": [
+          "fill_or_kill"
+        ],
+        "no_live_submit_endpoint": true,
+        "no_dashboard_submit_button": true,
+        "config": {
+          "enabled": false,
+          "environment": "demo",
+          "allow_production": false,
+          "cli_only": true,
+          "one_order_per_token": true,
+          "max_active_orders": 1,
+          "max_orders_per_day": 1,
+          "max_order_notional_usd": "1.0",
+          "max_daily_notional_usd": "1.0",
+          "max_market_exposure_usd": "1.0",
+          "max_venue_exposure_usd": "1.0",
+          "max_total_exposure_usd": "1.0",
+          "max_daily_loss_usd": "1.0",
+          "min_edge_after_costs": 0.1,
+          "max_spread": 0.02,
+          "max_stale_ms": 750,
+          "max_ambiguity_score": 0.2,
+          "min_evidence_score": 0.6,
+          "min_source_count": 2,
+          "min_time_to_close_seconds": 7200,
+          "allowed_venues": [
+            "kalshi"
+          ],
+          "allowed_environments": [
+            "demo"
+          ],
+          "allowed_order_types": [
+            "FOK"
+          ],
+          "allowed_tif": [
+            "fill_or_kill"
+          ],
+          "allow_fak": false,
+          "allow_ioc": false,
+          "allow_gtc": false,
+          "allow_gtd": false,
+          "allow_post_only": false,
+          "allow_batch": false,
+          "allow_replace": false,
+          "allow_amend": false,
+          "allow_autonomous_loop": false,
+          "require_phase8_conformance": true,
+          "require_shadow_ready": true,
+          "required_shadow_status": "READY_FOR_MANUAL_REVIEW",
+          "max_shadow_report_age_hours": 24.0,
+          "require_approvals": true,
+          "require_arming_token": true,
+          "require_dry_run_intent": true,
+          "require_account_snapshot": true,
+          "require_reconciliation": true,
+          "market_allowlist": [],
+          "kill_switch_path": "./MICRO_LIVE_KILL_SWITCH",
+          "guarded_live_kill_switch_path": "./GUARDED_LIVE_KILL_SWITCH",
+          "global_kill_switch_path": "./KILL_SWITCH",
+          "output_dir": "micro_live_artifacts"
+        }
+      },
+      "ok": true
+    },
+    "guarded_live_status": {
+      "endpoint": "/api/guarded-live/status",
+      "url": "http://localhost:8800/api/guarded-live/status",
+      "status": 200,
+      "json": {
+        "enabled": false,
+        "mode": "design_only",
+        "dry_run_only": true,
+        "no_live_execution": true,
+        "state": "DISABLED",
+        "kill_switch_active": false,
+        "config_hash": "7985b0f7463fb8c7"
+      },
+      "ok": true
+    },
+    "production_review_status": {
+      "endpoint": "/api/production-review/status",
+      "url": "http://localhost:8800/api/production-review/status",
+      "status": 200,
+      "json": {
+        "enabled": true,
+        "production_execution": "NOT_IMPLEMENTED",
+        "size_increase": "NOT_APPROVED",
+        "autonomous_live": "NOT_APPROVED",
+        "dashboard_submit": "NOT_AVAILABLE",
+        "api_submit": "NOT_AVAILABLE",
+        "latest": null
+      },
+      "ok": true
+    }
+  },
+  "features": {
+    "paper_training_running": true,
+    "runtime_minutes": 133.04,
+    "scanned_markets": 2000,
+    "kept_markets": 1758,
+    "open_positions": 0,
+    "closed_positions": 0,
+    "paper_trades": 0,
+    "equity": 500.0,
+    "total_pnl": 0,
+    "after_cost_pnl": 0,
+    "after_cost_pnl_sample_count": 0,
+    "readiness_after_cost_pnl": 0,
+    "exploration_after_cost_pnl": 0,
+    "total_after_cost_pnl_all_paper": 0,
+    "after_cost_accounting_bucket_consistent": true,
+    "win_rate_traded_only": null,
+    "win_rate_sample_count": 0,
+    "expectancy_sample_count": 0,
+    "readiness_sample_count": 0,
+    "brier": 0.0,
+    "ece": 0.0,
+    "sharpe": null,
+    "sortino": null,
+    "calmar": null,
+    "max_drawdown": 0.0,
+    "calibration_method": null,
+    "ece_raw": null,
+    "ece_cal": null,
+    "calibration_rollbacks": null,
+    "conformal_band_width": null,
+    "leakage_ok": null,
+    "probability_ensemble_enabled": null,
+    "live_detected": false,
+    "preflight_ok": true,
+    "chainlink_enabled": true,
+    "chainlink_valid": true,
+    "chainlink_stale": false,
+    "chainlink_age_seconds": 127.535,
+    "chainlink_price": 65724.674,
+    "btc_fast_price_enabled": true,
+    "btc_fast_price_valid": true,
+    "btc_fast_price_age_seconds": 0.0,
+    "btc_fast_price_disagreement_bps": 0.406,
+    "btc_pulse_enabled": false,
+    "btc_pulse_frozen": true,
+    "btc_pulse_oracle_gate_active": null,
+    "btc_pulse_rejection_reasons": null,
+    "btc_pulse_paper_trades": null,
+    "btc_pulse_resolved_trades": null,
+    "btc_pulse_open_trades": null,
+    "btc_pulse_after_cost_pnl": null,
+    "btc_pulse_gate_enabled": null,
+    "btc_pulse_gate_shadow_decisions": null,
+    "btc_pulse_regime": null,
+    "news_scanner_enabled": true,
+    "news_provider_mode": "live_read_only",
+    "news_items_fetched": 3156,
+    "news_items_used": 1144,
+    "news_rejected_stale": null,
+    "news_rejected_unclear_date": null,
+    "news_rejected_low_credibility": null,
+    "grok_enabled": true,
+    "grok_has_api_key": true,
+    "grok_with_news_count": 5,
+    "grok_cache_hits": 0,
+    "grok_calls_total": 5,
+    "grok_calls_with_news": 5,
+    "grok_calls_without_news": 0,
+    "grok_news_market_links": 0,
+    "grok_advisory_only_count": 5,
+    "grok_affected_probability_count": 0,
+    "grok_affected_trade_count": 0,
+    "grok_evidence_records_written": 5,
+    "xai_api_key_present": true,
+    "xai_api_key_source": "<REDACTED>",
+    "grok_online_active": true,
+    "grok_brain_ready": true,
+    "grok_brain_blocker": null,
+    "grok_zero_call_reason": null,
+    "bregman_paper_enabled": true,
+    "bregman_enabled": true,
+    "bregman_arbitrage_disabled": false,
+    "bregman_constraint_groups_scanned": 548,
+    "bregman_funnel_constraint_groups_scanned": 548,
+    "legacy_bregman_constraint_groups_scanned": 744,
+    "abcas_enabled": true,
+    "abcas_mode": "aggressive_paper",
+    "normalized_markets": 744,
+    "constraint_groups_discovered": 744,
+    "aggressive_paper_training_enabled": "${AGGRESSIVE_PAPER_TRAINING:-1}",
+    "bregman_groups_skipped": 1524,
+    "bregman_candidates_found": 0,
+    "bregman_certified_count": null,
+    "bregman_certified_profit": 0.0,
+    "bregman_false_positive_rate": 0.0,
+    "bregman_fill_feasible": null,
+    "bregman_opportunity_decay": null,
+    "market_scan_limit_effective": 2000,
+    "paper_attribution_enabled": true,
+    "exploration_validation_separated": true,
+    "fill_realism_enabled": true,
+    "fantasy_fill_rejections": 0,
+    "reference_fills_blocked": 0,
+    "stale_book_rejections": 0,
+    "missing_ask_rejections": 0,
+    "thin_depth_rejections": 0,
+    "wide_spread_rejections": 0,
+    "fill_realism_sample_count": 0,
+    "fill_realism_rejection_rate": 0.0,
+    "clob_v2_executable": false,
+    "closed_loop_enabled": true,
+    "decision_records_written": 6540,
+    "no_trade_labels_written": 6261,
+    "shadow_records_written": 359,
+    "active_learning_shadow_selected": 6540,
+    "pending_labels_total": 5000,
+    "completed_labels_total": 0,
+    "learning_growth_status": "collecting",
+    "learning_growth_score": 0.75,
+    "closed_loop_zero_selection_reason": null,
+    "fill_attempts": null,
+    "exploration_trades": null,
+    "validation_trades": null,
+    "dashboard_equity": 500.0,
+    "cvar": null,
+    "kelly_fraction": null,
+    "bregman_executable_depth_ok": null,
+    "walkforward_passed": null,
+    "significance_passed": null,
+    "production_ready": null,
+    "tests_present": true,
+    "tests_passing": true,
+    "calibration_improved": null,
+    "bregman_certified_ratio": null
+  },
+  "tests": {
+    "skipped": false,
+    "present": true,
+    "passing": true,
+    "runs": {
+      "full": {
+        "exit_code": 0,
+        "ok": true,
+        "summary": {
+          "passed": null,
+          "failed": null,
+          "errors": null,
+          "skipped": null,
+          "deselected": null,
+          "collected": null
+        }
+      },
+      "chainlink": {
+        "exit_code": 0,
+        "ok": true,
+        "summary": {
+          "passed": null,
+          "failed": null,
+          "errors": null,
+          "skipped": null,
+          "deselected": null,
+          "collected": null
+        }
+      },
+      "btc_pulse": {
+        "exit_code": 0,
+        "ok": true,
+        "summary": {
+          "passed": null,
+          "failed": null,
+          "errors": null,
+          "skipped": null,
+          "deselected": null,
+          "collected": null
+        }
+      },
+      "fast_price": {
+        "exit_code": 0,
+        "ok": true,
+        "summary": {
+          "passed": null,
+          "failed": null,
+          "errors": null,
+          "skipped": null,
+          "deselected": null,
+          "collected": null
+        }
+      },
+      "news": {
+        "exit_code": 0,
+        "ok": true,
+        "summary": {
+          "passed": null,
+          "failed": null,
+          "errors": null,
+          "skipped": null,
+          "deselected": null,
+          "collected": null
+        }
+      },
+      "bregman": {
+        "exit_code": 0,
+        "ok": true,
+        "summary": {
+          "passed": null,
+          "failed": null,
+          "errors": null,
+          "skipped": null,
+          "deselected": null,
+          "collected": null
+        }
+      },
+      "paper_attribution": {
+        "exit_code": 0,
+        "ok": true,
+        "summary": {
+          "passed": null,
+          "failed": null,
+          "errors": null,
+          "skipped": null,
+          "deselected": null,
+          "collected": null
+        }
+      },
+      "inspection": {
+        "exit_code": 0,
+        "ok": true,
+        "summary": {
+          "passed": null,
+          "failed": null,
+          "errors": null,
+          "skipped": null,
+          "deselected": null,
+          "collected": null
+        }
+      }
+    }
+  },
+  "metrics": {
+    "equity": 500.0,
+    "total_pnl": 0,
+    "after_cost_pnl": 0,
+    "closed_positions": 0,
+    "paper_trades": 0,
+    "win_rate_traded_only": null,
+    "brier": 0.0,
+    "ece": 0.0,
+    "sharpe": null,
+    "sortino": null,
+    "calmar": null,
+    "max_drawdown": 0.0,
+    "btc_pulse_after_cost_pnl": null,
+    "bregman_certified_profit": 0.0,
+    "news_quality_ratio": 0.3625
+  },
+  "artifacts": {
+    "host_found": [
+      {
+        "name": "metrics",
+        "path": "runtime_data/metrics",
+        "bytes": 63045972,
+        "copied": false,
+        "reason": "skipped: bundle size cap reached"
+      },
+      {
+        "name": "reports",
+        "path": "runtime_data/reports",
+        "bytes": 13127,
+        "copied": true
+      },
+      {
+        "name": "training",
+        "path": "runtime_data/training",
+        "bytes": 8111418029,
+        "copied": false,
+        "reason": "skipped: bundle size cap reached"
+      },
+      {
+        "name": "micro_live_artifacts",
+        "path": "/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/micro_live_artifacts",
+        "bytes": 3218832,
+        "copied": true
+      }
+    ],
+    "host_missing": [
+      "data",
+      "paper_artifacts",
+      "training_artifacts",
+      "shadow_artifacts",
+      "post_canary_artifacts",
+      "replay_artifacts",
+      "production_review_artifacts",
+      "guarded_live_artifacts"
+    ],
+    "copied_bytes": 3231959,
+    "container": {},
+    "any_found": true
+  },
+  "performance_comparison": {
+    "available": false,
+    "metrics": {},
+    "regression": false,
+    "improved": [],
+    "degraded": [],
+    "flat": [],
+    "missing_data": []
+  },
+  "missing_features": [],
+  "benchmarks": {
+    "benchmarks": [
+      {
+        "name": "after_cost_pnl",
+        "value": 0,
+        "direction": "higher",
+        "target": 0.0,
+        "fail_at": -5.0,
+        "status": "pass",
+        "description": "After-cost paper PnL/expectancy (net of fees+slippage)."
+      },
+      {
+        "name": "bregman_certified_profit",
+        "value": 0.0,
+        "direction": "higher",
+        "target": 0.0,
+        "fail_at": -1.0,
+        "status": "pass",
+        "description": "Certified Bregman opportunity profit (paper)."
+      },
+      {
+        "name": "bregman_false_positive_rate",
+        "value": 0.0,
+        "direction": "lower",
+        "target": 0.2,
+        "fail_at": 0.5,
+        "status": "pass",
+        "description": "Bregman false-positive rate (incoherent but not certifiable)."
+      },
+      {
+        "name": "btc_pulse_after_cost_pnl",
+        "value": null,
+        "direction": "higher",
+        "target": 0.0,
+        "fail_at": -5.0,
+        "status": "missing",
+        "description": "BTC Pulse after-cost paper PnL."
+      },
+      {
+        "name": "win_rate_traded_only",
+        "value": null,
+        "direction": "higher",
+        "target": 0.5,
+        "fail_at": 0.4,
+        "status": "missing",
+        "description": "Win rate over traded-only paper decisions."
+      },
+      {
+        "name": "sharpe",
+        "value": null,
+        "direction": "higher",
+        "target": 1.0,
+        "fail_at": 0.0,
+        "status": "missing",
+        "description": "Sharpe ratio (paper equity curve)."
+      },
+      {
+        "name": "sortino",
+        "value": null,
+        "direction": "higher",
+        "target": 1.5,
+        "fail_at": 0.0,
+        "status": "missing",
+        "description": "Sortino ratio (downside-only)."
+      },
+      {
+        "name": "calmar",
+        "value": null,
+        "direction": "higher",
+        "target": 1.0,
+        "fail_at": 0.0,
+        "status": "missing",
+        "description": "Calmar ratio (return / max drawdown)."
+      },
+      {
+        "name": "max_drawdown",
+        "value": 0.0,
+        "direction": "lower",
+        "target": 0.15,
+        "fail_at": 0.25,
+        "status": "pass",
+        "description": "Max drawdown (fraction of equity)."
+      },
+      {
+        "name": "cvar",
+        "value": null,
+        "direction": "higher",
+        "target": -0.1,
+        "fail_at": -0.25,
+        "status": "missing",
+        "description": "Conditional VaR / Expected Shortfall of paper returns (closer to 0 is better)."
+      },
+      {
+        "name": "brier",
+        "value": 0.0,
+        "direction": "lower",
+        "target": 0.25,
+        "fail_at": 0.33,
+        "status": "pass",
+        "description": "Brier score (probability calibration)."
+      },
+      {
+        "name": "ece",
+        "value": 0.0,
+        "direction": "lower",
+        "target": 0.05,
+        "fail_at": 0.1,
+        "status": "pass",
+        "description": "Expected calibration error."
+      },
+      {
+        "name": "ece_cal",
+        "value": null,
+        "direction": "lower",
+        "target": 0.05,
+        "fail_at": 0.1,
+        "status": "missing",
+        "description": "Calibrated ECE (post-calibration)."
+      },
+      {
+        "name": "calibration_improved",
+        "value": null,
+        "direction": "bool",
+        "target": true,
+        "fail_at": false,
+        "status": "missing",
+        "description": "Calibrated ECE beats raw ECE."
+      },
+      {
+        "name": "fill_realism_rejection_rate",
+        "value": 0.0,
+        "direction": "lower",
+        "target": 0.5,
+        "fail_at": 0.8,
+        "status": "pass",
+        "description": "Realistic-fill (fantasy-fill) rejection rate; very high => feed/book problem."
+      },
+      {
+        "name": "exploration_validation_separated",
+        "value": true,
+        "direction": "bool",
+        "target": true,
+        "fail_at": false,
+        "status": "pass",
+        "description": "Exploration trades are tracked separately from validation evidence."
+      },
+      {
+        "name": "paper_attribution_enabled",
+        "value": true,
+        "direction": "bool",
+        "target": true,
+        "fail_at": false,
+        "status": "pass",
+        "description": "Per-strategy paper attribution is available."
+      },
+      {
+        "name": "fill_realism_enabled",
+        "value": true,
+        "direction": "bool",
+        "target": true,
+        "fail_at": false,
+        "status": "pass",
+        "description": "Realistic-fill modeling is enabled."
+      },
+      {
+        "name": "bregman_executable_depth_ok",
+        "value": null,
+        "direction": "bool",
+        "target": true,
+        "fail_at": false,
+        "status": "missing",
+        "description": "Certified Bregman legs pass executable-depth proof before sizing up."
+      },
+      {
+        "name": "significance_passed",
+        "value": null,
+        "direction": "bool",
+        "target": true,
+        "fail_at": false,
+        "status": "missing",
+        "description": "Sharpe/Sortino/Calmar improvement clears required significance thresholds."
+      },
+      {
+        "name": "walkforward_passed",
+        "value": null,
+        "direction": "bool",
+        "target": true,
+        "fail_at": false,
+        "status": "missing",
+        "description": "Walk-forward / purged-CV validation passed (not a single-slice artifact)."
+      },
+      {
+        "name": "production_ready",
+        "value": null,
+        "direction": "bool",
+        "target": true,
+        "fail_at": false,
+        "status": "missing",
+        "description": "Production-readiness gate passed (validation-only; exploration excluded)."
+      }
+    ],
+    "summary": {
+      "pass": 10,
+      "warn": 0,
+      "fail": 0,
+      "missing": 12
+    },
+    "failing": [],
+    "warning": []
+  },
+  "consistency": [],
+  "quant_responsibilities": {
+    "data_ingestion": {
+      "owner": "Data / market-data engineering",
+      "responsibilities": [
+        "Ingest Polymarket gamma/CLOB market data (read-only)",
+        "Read Chainlink BTC/USD anchor + Coinbase fast spot feed",
+        "Fetch market-news headlines (read-only)"
+      ],
+      "evidence_features": [
+        "scanned_markets",
+        "chainlink_enabled",
+        "btc_fast_price_enabled",
+        "news_scanner_enabled"
+      ],
+      "observed_features": [
+        "scanned_markets",
+        "chainlink_enabled",
+        "btc_fast_price_enabled",
+        "news_scanner_enabled"
+      ],
+      "coverage": "covered"
+    },
+    "preprocessing_features": {
+      "owner": "Feature engineering",
+      "responsibilities": [
+        "Normalize/timestamp/dedupe inputs; build short-horizon returns",
+        "Score + sanitize news evidence; cap feature nudges",
+        "Apply the market-scan universe limits"
+      ],
+      "evidence_features": [
+        "news_items_used",
+        "btc_fast_price_disagreement_bps",
+        "market_scan_limit_effective"
+      ],
+      "observed_features": [
+        "news_items_used",
+        "btc_fast_price_disagreement_bps",
+        "market_scan_limit_effective"
+      ],
+      "coverage": "covered"
+    },
+    "statistical_modeling": {
+      "owner": "Quant research / modeling",
+      "responsibilities": [
+        "Probability estimation + calibration (isotonic/Platt)",
+        "Track Brier/ECE; guard against overfitting"
+      ],
+      "evidence_features": [
+        "brier",
+        "ece",
+        "win_rate_traded_only"
+      ],
+      "observed_features": [
+        "brier",
+        "ece"
+      ],
+      "coverage": "covered"
+    },
+    "bregman_signals": {
+      "owner": "Quant research (convex/Bregman)",
+      "responsibilities": [
+        "Group markets; certify Bregman arbitrage-free opportunities (paper)",
+        "Track false-positive rate + certified profit"
+      ],
+      "evidence_features": [
+        "bregman_candidates_found",
+        "bregman_certified_count",
+        "bregman_certified_profit",
+        "bregman_false_positive_rate"
+      ],
+      "observed_features": [
+        "bregman_candidates_found",
+        "bregman_certified_profit",
+        "bregman_false_positive_rate"
+      ],
+      "coverage": "covered"
+    },
+    "risk_portfolio": {
+      "owner": "Risk / portfolio",
+      "responsibilities": [
+        "Deterministic RiskEngine gate on every paper order",
+        "Exposure/daily-loss caps; correlated + per-event exposure",
+        "CVaR + drawdown throttles; fractional-Kelly sizing",
+        "Prefer guaranteed after-cost arbitrage over probabilistic edge"
+      ],
+      "evidence_features": [
+        "preflight_ok",
+        "open_positions",
+        "max_drawdown",
+        "cvar",
+        "kelly_fraction"
+      ],
+      "observed_features": [
+        "preflight_ok",
+        "open_positions",
+        "max_drawdown"
+      ],
+      "coverage": "covered"
+    },
+    "backtest_simulation": {
+      "owner": "Simulation / backtest",
+      "responsibilities": [
+        "Paper OMS + realistic fills; after-cost expectancy",
+        "Resolve labels; record closed trades"
+      ],
+      "evidence_features": [
+        "paper_trades",
+        "closed_positions",
+        "after_cost_pnl"
+      ],
+      "observed_features": [
+        "paper_trades",
+        "closed_positions",
+        "after_cost_pnl"
+      ],
+      "coverage": "covered"
+    },
+    "robustness": {
+      "owner": "Quant validation",
+      "responsibilities": [
+        "Exploration-vs-validation-vs-production separation; regime/stress",
+        "Walk-forward + combinatorial purged CV; bootstrap CIs; ablations",
+        "Risk-adjusted performance (Sharpe/Sortino/Calmar) significance gates"
+      ],
+      "evidence_features": [
+        "exploration_validation_separated",
+        "sharpe",
+        "sortino",
+        "calmar",
+        "walkforward_passed",
+        "significance_passed",
+        "production_ready"
+      ],
+      "observed_features": [
+        "exploration_validation_separated"
+      ],
+      "coverage": "covered"
+    },
+    "clobv2_execution": {
+      "owner": "Execution (CLOB v2, paper)",
+      "responsibilities": [
+        "Read-only CLOB v2 book freshness; realistic-fill modeling",
+        "Reject fantasy fills; available-depth + spread/slippage/fee modeling",
+        "Certified arbs size up only when every leg passes executable depth",
+        "Never submit real orders (paper)"
+      ],
+      "evidence_features": [
+        "fill_realism_enabled",
+        "fill_realism_rejection_rate",
+        "fantasy_fill_rejections",
+        "bregman_executable_depth_ok"
+      ],
+      "observed_features": [
+        "fill_realism_enabled",
+        "fill_realism_rejection_rate",
+        "fantasy_fill_rejections"
+      ],
+      "coverage": "covered"
+    },
+    "monitoring": {
+      "owner": "MLOps / monitoring",
+      "responsibilities": [
+        "Health/benchmark reporting; test suite green",
+        "Uptime + drift/kill-switch monitoring"
+      ],
+      "evidence_features": [
+        "tests_passing",
+        "runtime_minutes"
+      ],
+      "observed_features": [
+        "tests_passing",
+        "runtime_minutes"
+      ],
+      "coverage": "covered"
+    },
+    "compliance_security_ops": {
+      "owner": "Compliance / security / ops",
+      "responsibilities": [
+        "PAPER-only enforcement; no live/wallet/order paths",
+        "Secret redaction; forbidden-live-flag audit"
+      ],
+      "evidence_features": [
+        "live_detected",
+        "preflight_ok"
+      ],
+      "observed_features": [
+        "live_detected",
+        "preflight_ok"
+      ],
+      "coverage": "covered"
+    }
+  },
+  "final_validation": {
+    "checks": {
+      "after_cost_pnl": 0.0,
+      "bregman_opportunity_decay": null,
+      "bregman_certified_profit": 0.0,
+      "bregman_executable_depth_ok": null,
+      "rejected_bad_fills": 0.0,
+      "fill_realism_rejection_rate": 0.0,
+      "calibration_rollbacks": null,
+      "walkforward_passed": null,
+      "significance_passed": null,
+      "production_ready": null,
+      "live_detected": false
+    },
+    "blocking_reasons": [],
+    "validation_ready": false,
+    "exploration_excluded": true,
+    "note": "PAPER-only; exploration excluded from the readiness verdict."
+  },
+  "algorithmic_edge_audit": {
+    "status": "complete",
+    "ok": true,
+    "stale": false,
+    "status_age_s": null,
+    "max_status_age_s": 3600.0,
+    "bregman_enabled": true,
+    "tests_passing": true,
+    "equity_mismatch_pct": 0.0,
+    "hard_failures": [],
+    "required_field_violations": [],
+    "missing_core_fields": [],
+    "readiness_cap": 100,
+    "raw_readiness_score": 79.0,
+    "capped_readiness_score": 79.0,
+    "sections": {
+      "strategy_attribution": {
+        "trades_by_strategy": null,
+        "gross_pnl": 0.0,
+        "after_cost_pnl": 0.0,
+        "win_rate": 0.0,
+        "win_rate_sample_count": 0,
+        "avg_edge_at_entry": null,
+        "avg_realized_edge": null,
+        "rejected_trades": null,
+        "open_exposure": 0.0,
+        "realized_pnl": 0.0,
+        "unrealized_pnl": 0.0
+      },
+      "bregman": {
+        "constraint_groups_scanned": 548.0,
+        "raw_groups_discovered": 548.0,
+        "incoherent_groups": 0.0,
+        "candidate_arbitrages": 0.0,
+        "certified_arbitrages": 0.0,
+        "executable_depth_certified": 0.0,
+        "rejected_fees_spread_depth_slippage": 15786,
+        "expected_min_profit": 0.0,
+        "worst_case_payoff": 0.0,
+        "execution_atomicity_risk": false,
+        "opportunity_decay_s": 300.0,
+        "canonical_source": "metrics/bregman_funnel.json"
+      },
+      "btc_pulse": {
+        "chainlink_anchor_price": 65724.674,
+        "fast_btc_price": 65722.005,
+        "feed_disagreement_bps": null,
+        "market_stale_time_s": 127.535,
+        "volatility_regime": null,
+        "trend_persistence": null,
+        "trade_trigger_reason": null,
+        "rejected_trigger_reason": null,
+        "after_cost_expectancy": null
+      },
+      "calibration": {
+        "brier": 0.0,
+        "ece": 0.0,
+        "calibration_drift": null,
+        "isotonic_logistic_status": null,
+        "probability_rollback_status": null,
+        "confidence_bucket_performance": null,
+        "no_trade_bucket_performance": null
+      },
+      "fill_realism": {
+        "fantasy_fills_rejected": 0.0,
+        "spread_paid": null,
+        "estimated_slippage": null,
+        "partial_fill_assumptions": null,
+        "available_depth_at_decision": null,
+        "fee_adjusted_ev": null,
+        "clob_v2_executable": false,
+        "fill_realism_rejection_rate": 0.0
+      },
+      "risk": {
+        "sharpe": null,
+        "sortino": null,
+        "calmar": null,
+        "max_drawdown": 0.0,
+        "exposure_by_market": null,
+        "exposure_by_event": null,
+        "exposure_by_strategy": null,
+        "cvar": null,
+        "kelly_fraction": null,
+        "risk_throttles_activated": null,
+        "kill_switch_triggers": null
+      },
+      "execution": {
+        "clob_v2_executable": false,
+        "execution_atomicity_risk": false,
+        "latency_ms": null,
+        "stale_data_events": null,
+        "rejected_bad_fills": null
+      },
+      "training_readiness": {
+        "exploration_pnl": null,
+        "validation_pnl": null,
+        "paper_only": true,
+        "production_readiness_score": 79.0,
+        "production_ready": null,
+        "raw_readiness_score": 79.0,
+        "readiness_cap": 100
+      }
+    },
+    "top_5_blockers": [],
+    "top_5_recommendations": [],
+    "note": "PAPER-only audit; fails loudly + caps readiness when the edge engine is inactive (Bregman off / 0 scans), pytest is red, fill realism or after-cost PnL is missing, or equity mismatches > 1%."
+  },
+  "ledger_reconciliation": {
+    "ok": true,
+    "max_rel_diff_pct": 0.0,
+    "values": {
+      "dashboard": 500.0,
+      "paper_training": 500.0,
+      "report": 500.0,
+      "ledger": 500.0
+    },
+    "failed_pairs": [],
+    "tolerance_pct": 1.0
+  },
+  "validation_contract": {
+    "checks": [
+      {
+        "name": "pytest_green",
+        "passed": true,
+        "detail": "tests_passing=True"
+      },
+      {
+        "name": "bregman_paper_enabled",
+        "passed": true,
+        "detail": "bregman_enabled=True"
+      },
+      {
+        "name": "groups_scanned_positive",
+        "passed": true,
+        "detail": "constraint_groups_scanned=548.0"
+      },
+      {
+        "name": "fill_realism_enabled",
+        "passed": true,
+        "detail": "fill_realism_enabled=True"
+      },
+      {
+        "name": "ledger_reconciled",
+        "passed": true,
+        "detail": "reconciliation_ok=True"
+      },
+      {
+        "name": "after_cost_pnl_populated",
+        "passed": true,
+        "detail": "after_cost_pnl=0"
+      },
+      {
+        "name": "btc_pulse_gated_when_negative",
+        "passed": true,
+        "detail": "btc_after_cost=None gate_enabled=False"
+      }
+    ],
+    "passed": true,
+    "failed": [],
+    "conditions": [
+      "pytest_green",
+      "bregman_paper_enabled",
+      "groups_scanned_positive",
+      "fill_realism_enabled",
+      "ledger_reconciled",
+      "after_cost_pnl_populated",
+      "btc_pulse_gated_when_negative"
+    ]
+  },
+  "after_cost_expectancy": {
+    "point": null,
+    "lo": null,
+    "hi": null,
+    "n": 0,
+    "credible_positive": false,
+    "reason": "insufficient_samples"
+  },
+  "production_readiness_verdict": {
+    "production_ready": false,
+    "blocking_reasons": [
+      "no_credible_positive_after_cost_expectancy"
+    ],
+    "note": "PAPER-only; readiness requires statistically credible positive after-cost expectancy under a passing validation contract."
+  },
+  "warnings": [
+    "safety audit raised warnings",
+    "No certified Bregman opportunities found yet; continue paper training."
+  ],
+  "errors": [],
+  "recommendations": [],
+  "files": [
+    "metrics/inspection_summary.json",
+    "metrics/closed_loop_learning.json",
+    "metrics/learning_feedback.json",
+    "metrics/active_learning.json",
+    "metrics/paper_realism.json",
+    "metrics/bregman_execution.json",
+    "metrics/strategy_priority.json",
+    "metrics/profitability_ranking.json",
+    "metrics/correlation_risk.json",
+    "metrics/training_reconciliation.json",
+    "metrics/run_ready.json",
+    "metrics/bregman_funnel.json",
+    "metrics/grok_news_evidence.json",
+    "reports/paper_training_inspection.md",
+    "reports/closed_loop_learning_audit.md",
+    "samples/events_tail_500.jsonl",
+    "samples/decision_records_tail_500.jsonl",
+    "samples/no_trade_labels_tail_500.jsonl",
+    "samples/shadow_labels_tail_500.jsonl",
+    "samples/diagnostics_tail_500.jsonl",
+    "samples/pending_labels_tail_500.jsonl",
+    "samples/completed_labels_tail_500.jsonl",
+    "data/training/learning_state.json",
+    "samples/event_file_stats.json",
+    "metrics/closed_loop_artifacts_manifest.json",
+    "artifact_paths.json",
+    "git_status.txt",
+    "git_branch.txt",
+    "git_log_recent.txt",
+    "git_diff_stat.txt",
+    "changed_files.txt",
+    "env_redacted.txt",
+    "env_example_redacted.txt",
+    "docker_compose_redacted.yml",
+    "dockerfile_snapshot.txt",
+    "requirements_snapshot.txt",
+    "requirements_dev_snapshot.txt",
+    "docker_compose_ps.txt",
+    "docker_compose_config.txt",
+    "docker_images.txt",
+    "docker_volumes.txt",
+    "hermes_training_status.txt",
+    "logs/hermes-training_tail1000.log",
+    "logs/hermes-trading-engine_tail500.log",
+    "api/health.json",
+    "api/state.json",
+    "api/venues_status.json",
+    "api/chainlink_status.json",
+    "api/news_status.json",
+    "api/research_status.json",
+    "api/micro_live_status.json",
+    "api/guarded_live_status.json",
+    "api/production_review_status.json",
+    "test_results_full.txt",
+    "test_results_chainlink.txt",
+    "test_results_btc_pulse.txt",
+    "test_results_fast_price.txt",
+    "test_results_news.txt",
+    "test_results_bregman.txt",
+    "test_results_paper_attribution.txt",
+    "test_results_inspection.txt",
+    "metrics/paper_training_metrics.json",
+    "metrics/strategy_attribution.json",
+    "metrics/btc_pulse.json",
+    "metrics/bregman.json",
+    "metrics/news_quality.json",
+    "metrics/chainlink.json",
+    "metrics/fast_btc_price.json",
+    "metrics/feeds_health.json",
+    "metrics/grok_research.json",
+    "metrics/market_scan.json",
+    "metrics/risk_and_safety.json",
+    "metrics/fill_realism.json",
+    "metrics/calibration.json",
+    "metrics/pnl_by_strategy.json",
+    "metrics/exploration_vs_validation.json",
+    "safety/safety_audit.json",
+    "safety/forbidden_live_flags.json",
+    "safety/redaction_audit.json",
+    "performance_summary.json",
+    "improvement_trend.json",
+    "feature_health.json",
+    "missing_features.json",
+    "recommendations.json",
+    "metrics/benchmarks.json",
+    "consistency.json",
+    "quant_responsibilities.json",
+    "final_validation.json",
+    "algorithmic_edge_audit.json",
+    "metrics/bregman_source_reconciliation.json",
+    "ledger_reconciliation.json",
+    "validation_contract.json"
+  ],
+  "run_ready": {
+    "run_ready_for_hours": true,
+    "max_safe_runtime_minutes": null,
+    "blocking_reasons": [],
+    "warnings": [
+      "1 non-required artifact(s) present but empty (legitimate when zero events): ['data/training/completed_labels.jsonl']"
+    ],
+    "proof": {
+      "training_healthy": true,
+      "event_files_present": true,
+      "event_files_non_empty": true,
+      "artifact_files_real_not_synthesized": true,
+      "ledger_reconciled": true,
+      "training_reconciliation_passed": true,
+      "bregman_funnel_non_silent": true,
+      "closed_loop_durable": true,
+      "inspection_artifacts_complete": true,
+      "tail_samples_fresh_same_run": true,
+      "single_source_data_dir": true,
+      "active_learning_config_consistent": true,
+      "active_learning_candidates_accounted": true,
+      "live_trading_disabled": true
+    },
+    "bundle_mode": "light",
+    "full_event_files_omitted_intentionally": true,
+    "source_event_files_verified": true,
+    "tail_samples_included": true,
+    "tail_freshness": {
+      "events_last_run_id": "pmtrain-1781665647",
+      "events_last_timestamp": 1781673681.227,
+      "freshness_max_gap_sec": 21600.0,
+      "per_stream": {
+        "decision_records.jsonl": {
+          "last_run_id": "pmtrain-1781665647",
+          "last_timestamp": 1781673630.049,
+          "events_run_id": "pmtrain-1781665647",
+          "events_last_timestamp": 1781673681.227,
+          "compatible_run_id": true,
+          "fresh_window_ok": true,
+          "gap_vs_events_sec": 51.178,
+          "stale_reason": null
+        },
+        "no_trade_labels.jsonl": {
+          "last_run_id": "pmtrain-1781665647",
+          "last_timestamp": 1781673630.049,
+          "events_run_id": "pmtrain-1781665647",
+          "events_last_timestamp": 1781673681.227,
+          "compatible_run_id": true,
+          "fresh_window_ok": true,
+          "gap_vs_events_sec": 51.178,
+          "stale_reason": null
+        },
+        "pending_labels.jsonl": {
+          "last_run_id": "pmtrain-1781665647",
+          "last_timestamp": 1781673630.049,
+          "events_run_id": "pmtrain-1781665647",
+          "events_last_timestamp": 1781673681.227,
+          "compatible_run_id": true,
+          "fresh_window_ok": true,
+          "gap_vs_events_sec": 51.178,
+          "stale_reason": null
+        }
+      },
+      "incompatible_streams": [],
+      "compatible": true,
+      "reasons": [],
+      "source_strict": true
+    },
+    "stale_or_mixed_training_tail_samples": false,
+    "grok_brain_ready": true,
+    "grok_brain_blocker": null,
+    "source": "inspection_report (artifact-reality verdict)"
+  },
+  "artifact_paths": {
+    "data_dir": "runtime_data",
+    "data_dir_env_HTE_DATA_DIR": null,
+    "status_source": "runtime_data/polymarket_training.json",
+    "runtime_metrics_dir": "runtime_data/metrics",
+    "runtime_metrics_dir_exists": true,
+    "runtime_reports_dir": "runtime_data/reports",
+    "runtime_reports_dir_exists": true,
+    "runtime_training_data_dir": "runtime_data/training",
+    "runtime_training_data_dir_exists": true,
+    "collector_metrics_dir": "/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/metrics",
+    "collector_reports_dir": "/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/reports",
+    "collector_training_data_dir": "/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/data/training",
+    "inspection_bundle_dir": "inspection_reports/bot_inspection_20260617_052149",
+    "hint": "If runtime_*_dir_exists is false, pass --data-dir <HTE_DATA_DIR> (or the Docker volume host path) so the collector packages the REAL runtime files instead of synthesizing empty placeholders."
+  },
+  "closed_loop_artifacts_manifest": {
+    "bundle_mode": "light",
+    "required": [
+      "metrics/inspection_summary.json",
+      "metrics/closed_loop_learning.json",
+      "metrics/learning_feedback.json",
+      "metrics/active_learning.json",
+      "metrics/paper_realism.json",
+      "metrics/bregman_execution.json",
+      "metrics/strategy_priority.json",
+      "metrics/profitability_ranking.json",
+      "metrics/correlation_risk.json",
+      "metrics/training_reconciliation.json",
+      "metrics/run_ready.json",
+      "metrics/bregman_funnel.json",
+      "metrics/grok_news_evidence.json",
+      "reports/paper_training_inspection.md",
+      "reports/closed_loop_learning_audit.md",
+      "data/training/events.jsonl",
+      "data/training/decision_records.jsonl",
+      "data/training/no_trade_labels.jsonl",
+      "data/training/shadow_labels.jsonl",
+      "data/training/diagnostics.jsonl",
+      "data/training/pending_labels.jsonl",
+      "data/training/completed_labels.jsonl",
+      "data/training/learning_state.json"
+    ],
+    "hard_required": [
+      "metrics/inspection_summary.json",
+      "metrics/training_reconciliation.json",
+      "metrics/run_ready.json",
+      "data/training/events.jsonl",
+      "data/training/decision_records.jsonl"
+    ],
+    "artifacts": [
+      {
+        "path": "metrics/inspection_summary.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": true,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/inspection_summary.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 761561
+      },
+      {
+        "path": "metrics/closed_loop_learning.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/closed_loop_learning.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 1100
+      },
+      {
+        "path": "metrics/learning_feedback.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/learning_feedback.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 610
+      },
+      {
+        "path": "metrics/active_learning.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/active_learning.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 27298
+      },
+      {
+        "path": "metrics/paper_realism.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/paper_realism.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 1598
+      },
+      {
+        "path": "metrics/bregman_execution.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/bregman_execution.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 424636
+      },
+      {
+        "path": "metrics/strategy_priority.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/strategy_priority.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 1245
+      },
+      {
+        "path": "metrics/profitability_ranking.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/profitability_ranking.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 22868
+      },
+      {
+        "path": "metrics/correlation_risk.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/correlation_risk.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 997
+      },
+      {
+        "path": "metrics/training_reconciliation.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": true,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/training_reconciliation.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 835
+      },
+      {
+        "path": "metrics/run_ready.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": true,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/run_ready.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 456
+      },
+      {
+        "path": "metrics/bregman_funnel.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/bregman_funnel.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 626245
+      },
+      {
+        "path": "metrics/grok_news_evidence.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/metrics/grok_news_evidence.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 1575
+      },
+      {
+        "path": "reports/paper_training_inspection.md",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/reports/paper_training_inspection.md",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 9824
+      },
+      {
+        "path": "reports/closed_loop_learning_audit.md",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/reports/closed_loop_learning_audit.md",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 1204
+      },
+      {
+        "path": "data/training/events.jsonl",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": true,
+        "hard_required": true,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/training/events.jsonl",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 3573868024
+      },
+      {
+        "path": "data/training/decision_records.jsonl",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": true,
+        "hard_required": true,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/training/decision_records.jsonl",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 713690515
+      },
+      {
+        "path": "data/training/no_trade_labels.jsonl",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": true,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/training/no_trade_labels.jsonl",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 704100029
+      },
+      {
+        "path": "data/training/shadow_labels.jsonl",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": true,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/training/shadow_labels.jsonl",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 20512068
+      },
+      {
+        "path": "data/training/diagnostics.jsonl",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": true,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/training/diagnostics.jsonl",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 2835198192
+      },
+      {
+        "path": "data/training/pending_labels.jsonl",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": true,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/training/pending_labels.jsonl",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 264048591
+      },
+      {
+        "path": "data/training/completed_labels.jsonl",
+        "exists": true,
+        "non_empty": false,
+        "synthesized": false,
+        "omitted_intentionally": true,
+        "hard_required": false,
+        "valid_for_run_ready": false,
+        "source": "runtime_data/training/completed_labels.jsonl",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 0
+      },
+      {
+        "path": "data/training/learning_state.json",
+        "exists": true,
+        "non_empty": true,
+        "synthesized": false,
+        "omitted_intentionally": false,
+        "hard_required": false,
+        "valid_for_run_ready": true,
+        "source": "runtime_data/training/learning_state.json",
+        "selected_root": "runtime_data",
+        "fallback_used": false,
+        "source_size_bytes": 610
+      }
+    ],
+    "event_file_stats": [
+      {
+        "logical_name": "events.jsonl",
+        "source_path": "data/training/events.jsonl",
+        "selected_absolute_source": "runtime_data/training/events.jsonl",
+        "selected_root": "runtime_data",
+        "bundle_sample_path": "samples/events_tail_500.jsonl",
+        "exists": true,
+        "size_bytes": 3573868024,
+        "mtime": 1781673684.0,
+        "total_rows_exact_if_available": 3419044,
+        "included_rows": 500,
+        "source_sha256_head_tail": "0311f98347bce0c21b46d06319ef5d77",
+        "truncated": true,
+        "source_verified_from_data_dir": true,
+        "fallback_used": false,
+        "first_tail_timestamp": 1781673629.966,
+        "last_tail_timestamp": 1781673681.227,
+        "first_tail_run_id": "pmtrain-1781665647",
+        "last_tail_run_id": "pmtrain-1781665647",
+        "run_ids_seen": [
+          "pmtrain-1781665647"
+        ],
+        "first_tail_tick": 55,
+        "last_tail_tick": 0
+      },
+      {
+        "logical_name": "decision_records.jsonl",
+        "source_path": "data/training/decision_records.jsonl",
+        "selected_absolute_source": "runtime_data/training/decision_records.jsonl",
+        "selected_root": "runtime_data",
+        "bundle_sample_path": "samples/decision_records_tail_500.jsonl",
+        "exists": true,
+        "size_bytes": 713690515,
+        "mtime": 1781673684.0,
+        "total_rows_exact_if_available": 531252,
+        "included_rows": 500,
+        "source_sha256_head_tail": "183a09b58ae2c934676db22c720022bf",
+        "truncated": true,
+        "source_verified_from_data_dir": true,
+        "fallback_used": false,
+        "first_tail_timestamp": 1781672995.383,
+        "last_tail_timestamp": 1781673630.049,
+        "first_tail_run_id": "pmtrain-1781665647",
+        "last_tail_run_id": "pmtrain-1781665647",
+        "run_ids_seen": [
+          "pmtrain-1781665647"
+        ],
+        "first_tail_tick": 51,
+        "last_tail_tick": 55
+      },
+      {
+        "logical_name": "no_trade_labels.jsonl",
+        "source_path": "data/training/no_trade_labels.jsonl",
+        "selected_absolute_source": "runtime_data/training/no_trade_labels.jsonl",
+        "selected_root": "runtime_data",
+        "bundle_sample_path": "samples/no_trade_labels_tail_500.jsonl",
+        "exists": true,
+        "size_bytes": 704100029,
+        "mtime": 1781673684.0,
+        "total_rows_exact_if_available": 524260,
+        "included_rows": 500,
+        "source_sha256_head_tail": "183a09b58ae2c934676db22c720022bf",
+        "truncated": true,
+        "source_verified_from_data_dir": true,
+        "fallback_used": false,
+        "first_tail_timestamp": 1781672995.33,
+        "last_tail_timestamp": 1781673630.049,
+        "first_tail_run_id": "pmtrain-1781665647",
+        "last_tail_run_id": "pmtrain-1781665647",
+        "run_ids_seen": [
+          "pmtrain-1781665647"
+        ],
+        "first_tail_tick": 51,
+        "last_tail_tick": 55
+      },
+      {
+        "logical_name": "shadow_labels.jsonl",
+        "source_path": "data/training/shadow_labels.jsonl",
+        "selected_absolute_source": "runtime_data/training/shadow_labels.jsonl",
+        "selected_root": "runtime_data",
+        "bundle_sample_path": "samples/shadow_labels_tail_500.jsonl",
+        "exists": true,
+        "size_bytes": 20512068,
+        "mtime": 1781673684.0,
+        "total_rows_exact_if_available": 11105,
+        "included_rows": 500,
+        "source_sha256_head_tail": "bcb5f3f5df9a261bdae7b11517d686b8",
+        "truncated": true,
+        "source_verified_from_data_dir": true,
+        "fallback_used": false,
+        "first_tail_timestamp": 1781664678.192,
+        "last_tail_timestamp": 1781673630.021,
+        "first_tail_run_id": "pmtrain-1781649554",
+        "last_tail_run_id": "pmtrain-1781665647",
+        "run_ids_seen": [
+          "pmtrain-1781649554",
+          "pmtrain-1781665647"
+        ],
+        "first_tail_tick": 104,
+        "last_tail_tick": 55
+      },
+      {
+        "logical_name": "diagnostics.jsonl",
+        "source_path": "data/training/diagnostics.jsonl",
+        "selected_absolute_source": "runtime_data/training/diagnostics.jsonl",
+        "selected_root": "runtime_data",
+        "bundle_sample_path": "samples/diagnostics_tail_500.jsonl",
+        "exists": true,
+        "size_bytes": 2835198192,
+        "mtime": 1781673684.0,
+        "total_rows_exact_if_available": 2883494,
+        "included_rows": 500,
+        "source_sha256_head_tail": "0311f98347bce0c21b46d06319ef5d77",
+        "truncated": true,
+        "source_verified_from_data_dir": true,
+        "fallback_used": false,
+        "first_tail_timestamp": 1781673522.532,
+        "last_tail_timestamp": 1781673681.227,
+        "first_tail_run_id": "pmtrain-1781665647",
+        "last_tail_run_id": "pmtrain-1781665647",
+        "run_ids_seen": [
+          "pmtrain-1781665647"
+        ],
+        "first_tail_tick": 0,
+        "last_tail_tick": 0
+      },
+      {
+        "logical_name": "pending_labels.jsonl",
+        "source_path": "data/training/pending_labels.jsonl",
+        "selected_absolute_source": "runtime_data/training/pending_labels.jsonl",
+        "selected_root": "runtime_data",
+        "bundle_sample_path": "samples/pending_labels_tail_500.jsonl",
+        "exists": true,
+        "size_bytes": 264048591,
+        "mtime": 1781673684.0,
+        "total_rows_exact_if_available": 531085,
+        "included_rows": 500,
+        "source_sha256_head_tail": "4dcbb8d4f48f745a2608456c6c853a66",
+        "truncated": true,
+        "source_verified_from_data_dir": true,
+        "fallback_used": false,
+        "first_tail_timestamp": 1781672995.383,
+        "last_tail_timestamp": 1781673630.049,
+        "first_tail_run_id": "pmtrain-1781665647",
+        "last_tail_run_id": "pmtrain-1781665647",
+        "run_ids_seen": [
+          "pmtrain-1781665647"
+        ],
+        "first_tail_tick": 51,
+        "last_tail_tick": 55
+      },
+      {
+        "logical_name": "completed_labels.jsonl",
+        "source_path": "data/training/completed_labels.jsonl",
+        "selected_absolute_source": "runtime_data/training/completed_labels.jsonl",
+        "selected_root": "runtime_data",
+        "bundle_sample_path": "samples/completed_labels_tail_500.jsonl",
+        "exists": true,
+        "size_bytes": 0,
+        "mtime": 1781673684.0,
+        "total_rows_exact_if_available": 0,
+        "included_rows": 0,
+        "source_sha256_head_tail": "e3b0c44298fc1c149afbf4c8996fb924",
+        "truncated": false,
+        "source_verified_from_data_dir": true,
+        "fallback_used": false,
+        "first_tail_timestamp": null,
+        "last_tail_timestamp": null,
+        "first_tail_run_id": null,
+        "last_tail_run_id": null,
+        "run_ids_seen": [],
+        "first_tail_tick": null,
+        "last_tail_tick": null
+      }
+    ],
+    "tail_freshness": {
+      "events_last_run_id": "pmtrain-1781665647",
+      "events_last_timestamp": 1781673681.227,
+      "freshness_max_gap_sec": 21600.0,
+      "per_stream": {
+        "decision_records.jsonl": {
+          "last_run_id": "pmtrain-1781665647",
+          "last_timestamp": 1781673630.049,
+          "events_run_id": "pmtrain-1781665647",
+          "events_last_timestamp": 1781673681.227,
+          "compatible_run_id": true,
+          "fresh_window_ok": true,
+          "gap_vs_events_sec": 51.178,
+          "stale_reason": null
+        },
+        "no_trade_labels.jsonl": {
+          "last_run_id": "pmtrain-1781665647",
+          "last_timestamp": 1781673630.049,
+          "events_run_id": "pmtrain-1781665647",
+          "events_last_timestamp": 1781673681.227,
+          "compatible_run_id": true,
+          "fresh_window_ok": true,
+          "gap_vs_events_sec": 51.178,
+          "stale_reason": null
+        },
+        "pending_labels.jsonl": {
+          "last_run_id": "pmtrain-1781665647",
+          "last_timestamp": 1781673630.049,
+          "events_run_id": "pmtrain-1781665647",
+          "events_last_timestamp": 1781673681.227,
+          "compatible_run_id": true,
+          "fresh_window_ok": true,
+          "gap_vs_events_sec": 51.178,
+          "stale_reason": null
+        }
+      },
+      "incompatible_streams": [],
+      "compatible": true,
+      "reasons": [],
+      "source_strict": true
+    },
+    "present_from_runtime": [
+      "metrics/inspection_summary.json",
+      "metrics/closed_loop_learning.json",
+      "metrics/learning_feedback.json",
+      "metrics/active_learning.json",
+      "metrics/paper_realism.json",
+      "metrics/bregman_execution.json",
+      "metrics/strategy_priority.json",
+      "metrics/profitability_ranking.json",
+      "metrics/correlation_risk.json",
+      "metrics/training_reconciliation.json",
+      "metrics/run_ready.json",
+      "metrics/bregman_funnel.json",
+      "metrics/grok_news_evidence.json",
+      "reports/paper_training_inspection.md",
+      "reports/closed_loop_learning_audit.md",
+      "data/training/events.jsonl",
+      "data/training/decision_records.jsonl",
+      "data/training/no_trade_labels.jsonl",
+      "data/training/shadow_labels.jsonl",
+      "data/training/diagnostics.jsonl",
+      "data/training/pending_labels.jsonl",
+      "data/training/learning_state.json"
+    ],
+    "synthesized_empty": [],
+    "empty_real_files": [
+      "data/training/completed_labels.jsonl"
+    ],
+    "hard_required_invalid": [],
+    "mixed_source_roots": [],
+    "stale_or_mixed_training_tail_samples": false,
+    "full_event_files_omitted_intentionally": true,
+    "omitted_full_event_files": [
+      "data/training/events.jsonl",
+      "data/training/decision_records.jsonl",
+      "data/training/no_trade_labels.jsonl",
+      "data/training/shadow_labels.jsonl",
+      "data/training/diagnostics.jsonl",
+      "data/training/pending_labels.jsonl",
+      "data/training/completed_labels.jsonl"
+    ],
+    "tail_samples_included": true,
+    "source_event_files_verified": true,
+    "all_paths_in_bundle": false,
+    "runtime_complete": false,
+    "hard_required_satisfied": true,
+    "search_roots": [
+      "runtime_data",
+      "/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine",
+      "/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/data"
+    ],
+    "source_strict": true
+  },
+  "aggressive_paper": {
+    "aggressive_paper_training_enabled": true,
+    "feedback_accelerator_enabled": true,
+    "feedback_accelerator_target_multiplier": 100,
+    "feedback_accelerator_requested_multiplier": 100,
+    "feedback_accelerator_effective_capacity_cap": 100,
+    "feedback_accelerator_effective_capacity_multiplier": 100,
+    "paper_profit_discovery_profile_enabled": true,
+    "real_execution_possible": false,
+    "live_flags_forced_off": true
+  },
+  "paper_trade_acceleration": {
+    "aggressive_paper_training_enabled": true,
+    "feedback_accelerator_enabled": true,
+    "feedback_accelerator_target_multiplier": 100,
+    "feedback_accelerator_requested_multiplier": 100,
+    "feedback_accelerator_effective_capacity_cap": 100,
+    "feedback_accelerator_effective_capacity_multiplier": 100,
+    "paper_profit_discovery_profile_enabled": true,
+    "real_execution_possible": false,
+    "live_flags_forced_off": true,
+    "active_learning_enabled": true,
+    "exploration_enabled": true,
+    "accelerated_discovery_enabled": true,
+    "active_learning_runtime_enabled": true,
+    "active_learning_config_source": "aggressive_paper_profile",
+    "active_learning_tiny_evaluator_called": 0,
+    "active_learning_config_mismatch": false,
+    "active_learning_config_mismatch_reason": "",
+    "active_learning_tiny_trades_selected": 0,
+    "active_learning_tiny_trades_opened": 0,
+    "active_learning_tiny_trades_blocked_by_reason": {},
+    "active_learning_tiny_blocked_by_reason": {},
+    "relaxed_bregman_trades_opened": 0,
+    "btc_pulse_paper_trades_opened": 0,
+    "readiness_paper_trades_opened": 0,
+    "exploration_pnl": 0.0,
+    "readiness_pnl": 0.0,
+    "readiness_pnl_excludes_exploration": true,
+    "bregman_blocker": "no_certified_bregman_opportunity: dominant_reject=not_exhaustive(12359)",
+    "relaxed_bregman_blocker": "real_book_candidates_but_no_positive_after_cost_edge: real_book_candidates_seen=12917; positive=0; best_after_cost_edge=-0.0025; best_reject={'group_id': 'binary:event:596172', 'group_type': 'binary_yes_no', 'after_cost_edge': -0.0025, 'reject_reason': 'negative_after_cost_edge', 'depth_for_1usd': 13.5, 'n_legs': 2}",
+    "tiny_directional_blocker": "no_active_learning_tiny_selection: exploration_enabled=True; active_learning_enabled=True",
+    "btc_pulse_blocker": "btc_pulse_disabled",
+    "paper_trade_acceleration_blocker_if_any": "no_paper_trade_opened_in_any_lane: bregman=no_certified_bregman_opportunity: dominant_reject=not_exhaustive(12359); relaxed_bregman=real_book_candidates_but_no_positive_after_cost_edge: real_book_candidates_seen=12917; positive=0; best_after_cost_edge=-0.0025; best_reject={'group_id': 'binary:event:596172', 'group_type': 'binary_yes_no', 'after_cost_edge': -0.0025, 'reject_reason': 'negative_after_cost_edge', 'depth_for_1usd': 13.5, 'n_legs': 2}; tiny_directional=no_active_learning_tiny_selection: exploration_enabled=True; active_learning_enabled=True; btc_pulse=btc_pulse_disabled"
+  }
+}

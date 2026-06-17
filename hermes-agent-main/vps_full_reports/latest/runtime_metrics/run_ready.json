@@ -1,0 +1,17 @@
+{
+  "run_ready_for_hours": true,
+  "max_safe_runtime_minutes": null,
+  "required_before_two_hour_run": [],
+  "blocking_reasons": [],
+  "warnings": [],
+  "proof": {
+    "training_healthy": true,
+    "event_files_present": true,
+    "ledger_reconciled": true,
+    "training_reconciliation_passed": true,
+    "bregman_funnel_non_silent": true,
+    "closed_loop_durable": true,
+    "inspection_artifacts_complete": true,
+    "live_trading_disabled": true
+  }
+}

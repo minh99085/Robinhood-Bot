@@ -1,0 +1,67 @@
+{
+  "contract": {
+    "checks": [
+      {
+        "name": "pytest_green",
+        "passed": true,
+        "detail": "tests_passing=True"
+      },
+      {
+        "name": "bregman_paper_enabled",
+        "passed": true,
+        "detail": "bregman_enabled=True"
+      },
+      {
+        "name": "groups_scanned_positive",
+        "passed": true,
+        "detail": "constraint_groups_scanned=548.0"
+      },
+      {
+        "name": "fill_realism_enabled",
+        "passed": true,
+        "detail": "fill_realism_enabled=True"
+      },
+      {
+        "name": "ledger_reconciled",
+        "passed": true,
+        "detail": "reconciliation_ok=True"
+      },
+      {
+        "name": "after_cost_pnl_populated",
+        "passed": true,
+        "detail": "after_cost_pnl=0"
+      },
+      {
+        "name": "btc_pulse_gated_when_negative",
+        "passed": true,
+        "detail": "btc_after_cost=None gate_enabled=False"
+      }
+    ],
+    "passed": true,
+    "failed": [],
+    "conditions": [
+      "pytest_green",
+      "bregman_paper_enabled",
+      "groups_scanned_positive",
+      "fill_realism_enabled",
+      "ledger_reconciled",
+      "after_cost_pnl_populated",
+      "btc_pulse_gated_when_negative"
+    ]
+  },
+  "expectancy": {
+    "point": null,
+    "lo": null,
+    "hi": null,
+    "n": 0,
+    "credible_positive": false,
+    "reason": "insufficient_samples"
+  },
+  "production_readiness_verdict": {
+    "production_ready": false,
+    "blocking_reasons": [
+      "no_credible_positive_after_cost_expectancy"
+    ],
+    "note": "PAPER-only; readiness requires statistically credible positive after-cost expectancy under a passing validation contract."
+  }
+}
