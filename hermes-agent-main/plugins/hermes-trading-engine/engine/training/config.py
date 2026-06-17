@@ -122,6 +122,10 @@ class TrainingConfig:
     slippage_bps: float = 25.0
     max_fill_depth_fraction: float = 0.35
     # ---- paper policy / sizing ----
+    # Minimum paper order/probe size (USD). Orders never open below this (no sub-$1
+    # probes); a book that cannot support the floor is rejected by realism, not shrunk
+    # below it. PAPER ONLY; env POLYMARKET_MIN_ORDER_NOTIONAL_USD.
+    min_order_notional_usd: float = 1.0
     fixed_notional_usd: float = 5.0
     max_open_trades: int = 5
     max_open_trades_hard_cap: int = 8
@@ -784,6 +788,8 @@ class TrainingConfig:
             # Exploration trades NEVER count as proven readiness edge in a campaign.
             self.exploration_counts_for_readiness = False
         # hard PAPER clamps (cannot exceed even if env is misconfigured)
+        self.min_order_notional_usd = max(0.0, min(
+            float(getattr(self, "min_order_notional_usd", 1.0) or 0.0), 50.0))
         self.fixed_notional_usd = max(0.0, min(self.fixed_notional_usd, 50.0))
         self.max_kelly_size_usd = max(0.0, min(self.max_kelly_size_usd, 50.0))
         # authoritative hard per-order PAPER cap (>=0; sane upper bound). Only ever
@@ -933,6 +939,7 @@ class TrainingConfig:
             slippage_bps=_envf("PAPER_SLIPPAGE_BPS", 25.0),
             max_fill_depth_fraction=_envf("PAPER_MAX_FILL_DEPTH_FRACTION", 0.35),
             fixed_notional_usd=_envf("POLYMARKET_PAPER_FIXED_NOTIONAL_USD", 5.0),
+            min_order_notional_usd=_envf("POLYMARKET_MIN_ORDER_NOTIONAL_USD", 1.0),
             paper_max_order_notional_usd=_envf("PAPER_MAX_ORDER_NOTIONAL_USD", 0.0),
             max_open_trades=_envi("POLYMARKET_MAX_OPEN_TRADES", 5),
             max_open_trades_hard_cap=_envi("POLYMARKET_MAX_OPEN_TRADES_HARD_CAP", 8),
@@ -1307,12 +1314,14 @@ class TrainingConfig:
             min_evidence_score=0.30, min_liquidity=100.0, min_volume=250.0,
             max_time_to_close_days=180.0, min_time_to_close_s=1800.0,
             max_ambiguity_score=0.45,
-            # hard order-notional cap stays SMALL (<= $2). PAPER_MAX_ORDER_NOTIONAL_USD is
-            # the authoritative cap (only ever tightens max_order_notional_usd); also bound
-            # the fixed/kelly sizing base so the effective ceiling can never exceed $2.
-            paper_max_order_notional_usd=min(2.0, _envf("PAPER_MAX_ORDER_NOTIONAL_USD", 2.0)),
-            fixed_notional_usd=min(2.0, _envf("PAPER_MAX_ORDER_NOTIONAL_USD", 2.0)),
-            max_kelly_size_usd=min(2.0, _envf("PAPER_MAX_ORDER_NOTIONAL_USD", 2.0)),
+            # PAPER order sizing band: $1 floor (no sub-$1 probes) up to a $10 ceiling.
+            # PAPER_MAX_ORDER_NOTIONAL_USD is the authoritative hard cap (only ever
+            # TIGHTENS max_order_notional_usd); the fixed/kelly base sets the $10 ceiling.
+            # All env-tunable. PAPER ONLY — never raises live risk (live stays disabled).
+            paper_max_order_notional_usd=min(10.0, _envf("PAPER_MAX_ORDER_NOTIONAL_USD", 10.0)),
+            fixed_notional_usd=min(10.0, _envf("PAPER_MAX_ORDER_NOTIONAL_USD", 10.0)),
+            max_kelly_size_usd=min(10.0, _envf("PAPER_MAX_ORDER_NOTIONAL_USD", 10.0)),
+            min_order_notional_usd=_envf("POLYMARKET_MIN_ORDER_NOTIONAL_USD", 1.0),
             max_open_trades=8, max_open_trades_hard_cap=8,
             # every non-live learning feature ON
             learner_enabled=True, feedback_enabled=True,
@@ -1338,12 +1347,16 @@ class TrainingConfig:
             # fill, synthetic NO, RiskEngine, realistic fill, and the tiny size cap all
             # still hard-reject downstream). PAPER ONLY.
             exploration_rate=_envf("POLYMARKET_EXPLORATION_RATE", 1.0),
-            exploration_notional_usd=_envf("POLYMARKET_EXPLORATION_NOTIONAL_USD", 1.0),
+            # exploration probes are sized $1..$10 (to available book depth, floored at
+            # min_order_notional_usd) — this is the probe CEILING.
+            exploration_notional_usd=_envf("POLYMARKET_EXPLORATION_NOTIONAL_USD", 10.0),
+            exploration_max_position_size_usd=_envf(
+                "POLYMARKET_EXPLORATION_MAX_POSITION_SIZE", 10.0),
             exploration_min_edge=_envf("POLYMARKET_EXPLORATION_MIN_EDGE", -0.15),
             exploration_max_trades_per_tick=_envi(
                 "POLYMARKET_EXPLORATION_MAX_TRADES_PER_TICK", 5),
             exploration_max_expected_loss_usd=_envf(
-                "POLYMARKET_EXPLORATION_MAX_EXPECTED_LOSS_USD", 0.50),
+                "POLYMARKET_EXPLORATION_MAX_EXPECTED_LOSS_USD", 1.0),
             active_learning_tiny_trades_per_tick=_envi(
                 "POLYMARKET_ACTIVE_LEARNING_TINY_TRADES_PER_TICK", 5),
             # modest quality floor so the lowest-quality learning probes are not opened

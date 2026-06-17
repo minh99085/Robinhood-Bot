@@ -2509,7 +2509,7 @@ class PolymarketPaperTrainer:
             # under strict realism + bounded loss + diversity caps; random/hash can
             # no longer open a trade while active learning is enabled. Still routed
             # through RiskEngine + PaperBroker — cannot bypass hard caps.
-            explore_notional = min(float(self.cfg.exploration_notional_usd),
+            explore_notional = min(self._exploration_probe_size(rec, est),
                                    float(self.cfg.max_order_notional_usd))
             budget_ok = (self.exploration_budget_used + explore_notional
                          <= float(self.cfg.exploration_budget_usd) + 1e-9)
@@ -2696,10 +2696,39 @@ class PolymarketPaperTrainer:
         below $1 and never above the full-size gate. The full-size directional depth gate
         (min_depth_at_price, default $25) is UNCHANGED — this only sizes realism to the
         actual tiny order, mirroring the existing Bregman micro-exploration policy."""
-        size = min(float(getattr(self.cfg, "exploration_notional_usd", 1.0) or 1.0),
-                   float(getattr(self.cfg, "max_order_notional_usd", 2.0) or 2.0))
-        full = float(getattr(self.cfg, "min_depth_at_price", 25.0) or 25.0)
-        return max(1.0, min(2.0 * max(size, 0.5), full))
+        # the PaperBroker fills at most depth * max_fill_depth_fraction, so the smallest
+        # order (the $1 floor) needs depth >= floor / fraction to fill fully.
+        floor = float(getattr(self.cfg, "min_order_notional_usd", 1.0) or 1.0)
+        frac = float(getattr(self.cfg, "max_fill_depth_fraction", 0.35) or 0.35)
+        return max(1.0, floor / frac) if frac > 0 else max(1.0, floor)
+
+    def _exploration_probe_size(self, rec, est) -> float:
+        """Depth-aware paper probe size in the [min_order, ceiling] band (default $1..$10).
+
+        Sizes the probe to the AVAILABLE top-of-book depth (a fill needs ~2x its notional
+        in depth), floored at ``min_order_notional_usd`` (no sub-$1 probes) and capped by
+        the per-order ceiling and the bounded expected-loss cap. PAPER ONLY; never raises
+        live risk. A book that cannot support the floor is rejected by realism (it is
+        never shrunk below the floor)."""
+        cfg = self.cfg
+        floor = float(getattr(cfg, "min_order_notional_usd", 1.0) or 1.0)
+        ceil = min(float(getattr(cfg, "exploration_notional_usd", 10.0) or 10.0),
+                   float(getattr(cfg, "exploration_max_position_size_usd", 10.0) or 10.0),
+                   float(getattr(cfg, "max_order_notional_usd", 10.0) or 10.0))
+        ceil = max(floor, ceil)
+        depth = float(getattr(rec, "top_depth_usd", 0.0) or 0.0)
+        # the PaperBroker fills at most depth * max_fill_depth_fraction; size the probe to
+        # exactly that (so it fills fully, no silent shrink), within [floor, ceil].
+        frac = float(getattr(cfg, "max_fill_depth_fraction", 0.35) or 0.35)
+        size = max(floor, min(ceil, depth * frac))     # deeper books -> bigger probe
+        # bound by the conservative expected-loss cap (shrink toward the floor only).
+        spread = float(getattr(est, "spread", 0.0) or 0.0)
+        slip = float(getattr(cfg, "slippage_bps", 25.0)) / 10000.0
+        adverse = min(1.0, spread + 2.0 * slip)
+        max_loss = float(getattr(cfg, "exploration_max_expected_loss_usd", 1.0) or 1.0)
+        if adverse > 0 and size * adverse > max_loss:
+            size = max(floor, min(size, max_loss / adverse))
+        return round(size, 2)
 
     def _exploration_eligibility(self, rec, est, edge) -> "tuple[bool, dict]":
         """Strict PASS-3 realism + bounded-loss eligibility for an exploration
@@ -2717,9 +2746,8 @@ class PolymarketPaperTrainer:
         min_depth = self._exploration_micro_min_depth()
         max_amb = float(getattr(cfg, "exploration_max_ambiguity_score", 0.45))
         max_age = float(getattr(cfg, "exploration_max_book_age_sec", 20.0))
-        size = min(float(getattr(cfg, "exploration_notional_usd", 2.0)),
-                   float(getattr(cfg, "exploration_max_position_size_usd", 5.0)),
-                   float(getattr(cfg, "max_order_notional_usd", 5.0)))
+        # depth-aware probe size in the $1..$10 band (floored at min_order_notional_usd).
+        size = self._exploration_probe_size(rec, est)
         max_loss = float(getattr(cfg, "exploration_max_expected_loss_usd", 0.25))
 
         def nm(gate, observed, threshold, need) -> dict:
@@ -3327,8 +3355,7 @@ class PolymarketPaperTrainer:
             src = SRC_OFFLINE_STUB
         else:
             src = SRC_REFERENCE
-        probe_notional = min(float(getattr(self.cfg, "exploration_notional_usd", 1.0) or 1.0),
-                             float(getattr(self.cfg, "max_order_notional_usd", 2.0) or 2.0))
+        probe_notional = self._exploration_probe_size(rec, est)
         ctx = PaperExecutionContext(
             fill_source=src,
             ask=(edge.executable_price if fresh else None),
@@ -3535,7 +3562,7 @@ class PolymarketPaperTrainer:
             return {"opened": False, "shadow_only": True, "reason": realism.reason,
                     "execution_realism_status": realism.execution_realism_status}
         if exploratory:
-            notional = min(float(self.cfg.exploration_notional_usd),
+            notional = min(self._exploration_probe_size(rec, est),
                            float(self.cfg.max_order_notional_usd))
             proposal.notional_usd = round(notional, 2)
             proposal.qty = round(notional / proposal.price, 4) if proposal.price > 0 else 0.0

@@ -15,11 +15,15 @@ from engine.training.polymarket_trainer import TrainingRiskGate
 from engine.training.portfolio import PortfolioLimits
 
 
-def test_aggressive_uses_smaller_size_and_more_positions():
+def test_aggressive_uses_one_to_ten_dollar_band_and_more_positions():
     base = TrainingConfig()
     agg = AggressivePaperTrainingConfig()
     assert agg.mode == "paper_train"
-    assert agg.fixed_notional_usd < base.fixed_notional_usd       # smaller paper size
+    # PAPER order sizing band is $1..$10 (operator-set): a $1 floor (no sub-$1 probes)
+    # and a $10 ceiling — never the live-risk ceiling.
+    assert agg.min_order_notional_usd == 1.0                      # $1 floor
+    assert agg.max_order_notional_usd <= 10.0                     # $10 ceiling
+    assert agg.max_order_notional_usd >= 1.0
     assert agg.max_open_trades >= base.max_open_trades            # more positions
     assert agg.exploration_enabled is True
     assert agg.exploration_budget_usd > 0.0                       # explicit budget

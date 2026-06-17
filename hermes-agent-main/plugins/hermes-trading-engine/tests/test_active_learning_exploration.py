@@ -526,6 +526,43 @@ def test_profitability_ranking_explains_probes_and_reasons(tmp_path, monkeypatch
     assert "probe_reason" in pr["top_opened_learning_probes"][0]
 
 
+# --- paper order sizing band $1..$10 (operator request) ---------------------
+
+def _sized_trainer(tmp_path, monkeypatch, **over):
+    cfg = dict(min_order_notional_usd=1.0, exploration_notional_usd=10.0,
+               exploration_max_position_size_usd=10.0, fixed_notional_usd=10.0,
+               max_kelly_size_usd=10.0, exploration_max_expected_loss_usd=1.0)
+    cfg.update(over)
+    return _trainer(tmp_path, monkeypatch, **cfg)
+
+
+def test_exploration_probe_size_scales_one_to_ten(tmp_path, monkeypatch):
+    t = _sized_trainer(tmp_path, monkeypatch)
+    # deep book -> capped at the $10 ceiling
+    assert t._exploration_probe_size(_rec(depth=2000), _est()) == 10.0
+    # mid book -> scales with depth * max_fill_depth_fraction (0.35)
+    assert t._exploration_probe_size(_rec(depth=20), _est()) == 7.0
+    # shallow book -> floored at $1 (NEVER sub-$1)
+    assert t._exploration_probe_size(_rec(depth=2), _est()) == 1.0
+
+
+def test_opened_probe_is_at_least_one_dollar(tmp_path, monkeypatch):
+    t = _sized_trainer(tmp_path, monkeypatch)
+    d = t._active_learning_admit(_rec(depth=2000), _est(unc=0.9), _edge(net_edge=0.0),
+                                 "edge_too_low")
+    assert d["decision"] == "explore"
+    assert d["exploration_size"] >= 1.0 and d["exploration_size"] <= 10.0
+
+
+def test_book_too_thin_for_one_dollar_is_rejected_not_shrunk(tmp_path, monkeypatch):
+    # depth below floor/fraction ($1 / 0.35 ≈ $2.86) cannot support the $1 floor -> reject,
+    # never open a sub-$1 probe.
+    t = _sized_trainer(tmp_path, monkeypatch)
+    d = t._active_learning_admit(_rec(depth=1.0), _est(unc=0.9), _edge(net_edge=0.0),
+                                 "edge_too_low")
+    assert d["decision"] == "near_miss" and t.near_miss_log[-1]["failed_gate"] == "thin_depth"
+
+
 # --- canonical quality governor (Fix: governor must actually govern) --------
 
 def _est_grok(*, spread=0.02, unc=0.6, mid=0.40):

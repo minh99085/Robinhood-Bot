@@ -239,11 +239,12 @@ def test_vps_100x_profile_resolves_effective_runtime_config(monkeypatch):
 
 def test_100x_profile_does_not_loosen_hard_caps_or_bregman(monkeypatch):
     """Loosening SOFT selection gates must not raise the hard order-notional cap above
-    the tiny ceiling, and must not touch Bregman after-cost positivity / paper-realism."""
+    the operator-set $10 PAPER ceiling, and must not touch Bregman after-cost positivity
+    / paper-realism. A wild env value is clamped to $10, never honored as 999."""
     monkeypatch.setenv("PAPER_MAX_ORDER_NOTIONAL_USD", "999")     # attempt to over-loosen
     monkeypatch.setenv("POLYMARKET_EXPLORATION_NOTIONAL_USD", "999")
     cfg = TrainingConfig.aggressive_paper()
-    assert cfg.max_order_notional_usd <= 2.0                     # clamped small, never 999
+    assert cfg.max_order_notional_usd <= 10.0                    # clamped to $10, never 999
     assert cfg.exploration_notional_usd <= cfg.max_order_notional_usd
     # hard paper-realism invariants remain reasserted by __post_init__
     assert cfg.exploration_can_bypass_hard_gate is False
