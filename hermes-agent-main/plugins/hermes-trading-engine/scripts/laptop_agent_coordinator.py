@@ -16,6 +16,19 @@ text, and NEVER prints secrets (VPS host/user/key) or API keys.
 
 Main command
 ------------
+* ``auto-deploy``          FULL end-to-end operator loop in ONE command (PAPER ONLY):
+                           sync local ``main`` -> push origin -> sync the VPS repo to it
+                           (git-BUNDLE fallback when the passphrase deploy key blocks a
+                           direct pull) -> (``--approved-paper-run``) rebuild with
+                           ``--remove-orphans`` -> run the canonical FULL report on the VPS
+                           -> copy it back -> extract into ``vps_full_reports/latest`` ->
+                           commit + push to ``main``. Inspect-only by default (no rebuild).
+                           Live trading is NEVER enabled.
+* ``sync-vps``             push local ``main`` to origin, then bring the VPS repo to it
+                           (git-bundle fallback for a passphrase-protected deploy key).
+* ``collect-full-report``  run the canonical FULL report on the VPS, copy it back, and
+                           (``--save-to-repo`` / ``--commit``) extract it into
+                           ``vps_full_reports/latest`` and commit/push to ``main``.
 * ``mission-control``      ONE-COMMAND mission. ``--mode inspect-only`` (default) is
                            read-only and never starts/restarts a container. ``--mode
                            proof2h`` (needs ``--approved-paper-run``) runs the safe
@@ -530,6 +543,21 @@ def build_scp_pull_cmd(cfg: Config, remote_path: str, local_dir: str) -> list:
     return argv
 
 
+def build_scp_push_cmd(cfg: Config, local_path: str, remote_path: str) -> list:
+    """scp a LOCAL file UP to the VPS (laptop -> VPS). Used to ship a git bundle when the
+    VPS deploy key is passphrase-protected and a non-interactive `git fetch origin` from
+    GitHub is impossible. Read-only w.r.t. trading; never carries secrets."""
+    argv = ["scp"]
+    if cfg.vps_ssh_key:
+        argv += ["-i", cfg.vps_ssh_key]
+    argv += ["-P", str(cfg.vps_port),
+             "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+             "-o", "StrictHostKeyChecking=accept-new",
+             local_path,
+             f"{cfg.vps_user}@{cfg.vps_host}:{remote_path}"]
+    return argv
+
+
 # Canonical VPS report runner + the COMPLETE bundle zip it always produces. The
 # coordinator no longer builds its own thin zip — it runs this script (which refreshes
 # runtime_data, regenerates the light report, validates, and packages the FULL bundle
@@ -537,6 +565,13 @@ def build_scp_pull_cmd(cfg: Config, remote_path: str, local_dir: str) -> list:
 CANONICAL_REPORT_SCRIPT = "scripts/vps_generate_light_report.sh"
 CANONICAL_REPORT_ZIP = "vps_light_report_latest.zip"
 GIT_PROOF_MEMBER = "git_commit_proof.txt"
+
+# Canonical FULL diagnostic report (superset of the light bundle) + the repo extractor.
+# The full bundle is what we commit into vps_full_reports/latest for inspection.
+FULL_REPORT_SCRIPT = "scripts/vps_generate_full_report.sh"
+FULL_REPORT_ZIP = "vps_full_report_latest.zip"
+SAVE_REPORT_TO_REPO = "scripts/save_full_report_to_repo.py"
+VPS_FULL_REPORTS_DIR = "vps_full_reports/latest"
 
 # A non-thin light bundle must contain ALL of these (substring/suffix matched against the
 # zip's member names). Refusing a thin zip is what stops the repeated 4-file failure.
@@ -863,6 +898,224 @@ def cmd_collect_light_report(ctx: Ctx, *, dry_run: bool = False) -> int:
     ctx.say(f"COLLECTED (complete bundle): {local_zip}")
     ctx.say("NEXT: python scripts/laptop_agent_coordinator.py handoff-summary "
             f"--config {cfg.source_file or DEFAULT_CONFIG}")
+    return 0
+
+
+def _push_origin_main(ctx: Ctx) -> "tuple[bool, str]":
+    """Push the local ``main`` to ``origin`` (no force, no amend). Keeps GitHub main and
+    the laptop in lock-step BEFORE the VPS is synced from it. Returns (ok, error)."""
+    rc, _o, err = ctx.run(["git", "push", "origin", "main"], timeout=180)
+    return (rc == 0), ("" if rc == 0 else (err.strip().splitlines() or ["git push failed"])[-1])
+
+
+# --------------------------------------------------------------------------- #
+# sync-vps : push local main to origin, then bring the VPS repo to it. Uses a git
+# BUNDLE fallback when the passphrase-protected VPS deploy key blocks a direct pull.
+# --------------------------------------------------------------------------- #
+def cmd_sync_vps(ctx: Ctx, *, dry_run: bool = False) -> int:
+    cfg = ctx.cfg
+    if not ctx.config_found:
+        ctx.say(load_message(ConfigLoad(cfg, ctx.config_status, ctx.config_detail, ctx.config_path)))
+        return 2
+    if cfg.missing_required():
+        ctx.say(f"STOP — config missing required fields: {', '.join(cfg.missing_required())}")
+        return 2
+    key_ok, key_msg = validate_ssh_key(cfg)
+    if not key_ok:
+        ctx.say(f"STOP — {key_msg}")
+        return 2
+    ctx.say("Laptop coordinator — sync VPS repo to local GitHub main (PAPER ONLY)")
+    if dry_run:
+        ctx.say("  [DRY-RUN] would: git push origin main; then VPS git pull (ff-only) OR, if "
+                "blocked by the passphrase deploy key, ship a git bundle and hard-reset the "
+                "VPS repo to main. Nothing rebuilt/started.")
+        return 0
+    local_head = _local_commit(ctx)
+    ctx.say(f"  local main commit: {local_head or 'unknown'}")
+    pushed, perr = _push_origin_main(ctx)
+    if not pushed:
+        ctx.say(f"STOP — could not push local main to origin: {perr}")
+        return 1
+    ctx.say("  [PASS] pushed local main to origin")
+    # fast path: direct ff-only pull on the VPS (works if its key is unencrypted)
+    ok, vps_head, err = _remote_vps_git_pull(ctx)
+    if ok and _hex_commit(vps_head) == local_head:
+        ctx.say(f"  [PASS] VPS pulled main directly (commit {vps_head})")
+        return 0
+    ctx.say("  direct VPS pull unavailable/behind (likely passphrase-protected deploy key) "
+            "— using git-bundle fallback")
+    ok, vps_head, err = _remote_vps_sync_via_bundle(ctx)
+    if not ok:
+        ctx.say(f"STOP — VPS bundle sync failed: {err}")
+        return 1
+    if local_head and vps_head and vps_head != local_head:
+        ctx.say(f"STOP — VPS commit {vps_head} != local main {local_head} after sync.")
+        return 1
+    ctx.say(f"  [PASS] VPS synced to main via bundle (commit {vps_head})")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# collect-full-report : run the canonical FULL diagnostic report on the VPS, copy it
+# back, optionally extract it into vps_full_reports/latest and commit/push to main.
+# --------------------------------------------------------------------------- #
+def cmd_collect_full_report(ctx: Ctx, *, dry_run: bool = False,
+                            save_to_repo: bool = False, commit: bool = False) -> int:
+    cfg = ctx.cfg
+    if not ctx.config_found:
+        ctx.say(load_message(ConfigLoad(cfg, ctx.config_status, ctx.config_detail, ctx.config_path)))
+        return 2
+    if cfg.missing_required():
+        ctx.say(f"STOP — config missing required fields: {', '.join(cfg.missing_required())}")
+        return 2
+    key_ok, key_msg = validate_ssh_key(cfg)
+    if not key_ok:
+        ctx.say(f"STOP — {key_msg}")
+        return 2
+    plugin = cfg.vps_remote_plugin_path
+    remote_script = (f"cd {shlex.quote(plugin)} || {{ echo 'cannot cd to plugin' 1>&2; "
+                     f"exit 12; }}; bash {FULL_REPORT_SCRIPT}")
+    remote_zip = f"{plugin.rstrip('/')}/{FULL_REPORT_ZIP}"
+    ssh_cmd = build_ssh_cmd(cfg, remote_script)
+    art = (ctx.repo_root / cfg.local_artifact_dir) \
+        if not Path(cfg.local_artifact_dir).is_absolute() else Path(cfg.local_artifact_dir)
+    scp_cmd = build_scp_pull_cmd(cfg, remote_zip, str(art))
+
+    ctx.say("Laptop coordinator — collect FULL diagnostic report from the VPS (canonical)")
+    ctx.say(f"  NOTE: runs {FULL_REPORT_SCRIPT} on the VPS, copies {FULL_REPORT_ZIP} back"
+            + (", extracts it into vps_full_reports/latest" if save_to_repo else "")
+            + (", commits + pushes it to main." if commit else "."))
+    if dry_run:
+        ctx.say("  [DRY-RUN] would run (secrets redacted):")
+        ctx.say(f"    {redact(ssh_cmd, cfg)}")
+        ctx.say(f"    {redact(scp_cmd, cfg)}")
+        if save_to_repo:
+            ctx.say(f"    python {SAVE_REPORT_TO_REPO} --zip <pulled zip> "
+                    f"--repo-root {ctx.repo_root}")
+        if commit:
+            ctx.say(f"    git add {VPS_FULL_REPORTS_DIR} && git commit && git push origin main")
+        return 0
+
+    art.mkdir(parents=True, exist_ok=True)
+    rc, out, err = ctx.run(ssh_cmd, timeout=3600, redact_display=True)
+    if out.strip():
+        ctx.say(out.rstrip()[-2000:])
+    if rc != 0:
+        ctx.say(f"STOP — remote full-report generation failed (rc={rc}).")
+        if err.strip():
+            ctx.say(f"  detail: {redact_text(err.strip().splitlines()[-1], cfg)}")
+        return 1
+    rc, _o, err = ctx.run(scp_cmd, timeout=900, redact_display=True)
+    if rc != 0:
+        ctx.say(f"STOP — copying the full-report zip back failed (rc={rc}).")
+        return 1
+    local_zip = art / FULL_REPORT_ZIP
+    try:
+        with zipfile.ZipFile(local_zip) as zf:
+            names = zf.namelist()
+        usable = any(n.endswith("report.json") for n in names) and len(names) >= 8
+    except (OSError, zipfile.BadZipFile):
+        usable = False
+    if not usable:
+        ctx.say(f"STOP — full report zip missing/thin ({local_zip}); not using it.")
+        return 1
+    ctx.say(f"COLLECTED full report: {local_zip}")
+    if not save_to_repo:
+        return 0
+    # extract into vps_full_reports/latest using the canonical (redacting) extractor.
+    # The extractor script lives under the PLUGIN dir; the extraction target (and git
+    # ops) are at the repo root (where vps_full_reports/ lives) — handles both a flat
+    # layout (repo_root == plugin) and a nested one (plugin under the repo root).
+    plugin_local = Path(cfg.plugin_path) if cfg.plugin_path else ctx.repo_root
+    save_py = plugin_local / SAVE_REPORT_TO_REPO
+    if not save_py.is_file():
+        save_py = ctx.repo_root / SAVE_REPORT_TO_REPO
+    py = sys.executable or "python3"
+    rc, sout, serr = ctx.run([py, str(save_py), "--zip", str(local_zip),
+                              "--repo-root", str(ctx.repo_root)], timeout=300)
+    if sout.strip():
+        ctx.say("  " + sout.strip().splitlines()[-1])
+    if rc != 0:
+        ctx.say(f"STOP — extracting the report into {VPS_FULL_REPORTS_DIR} failed (rc={rc}).")
+        if serr.strip():
+            ctx.say(f"  detail: {serr.strip().splitlines()[-1]}")
+        return 1
+    ctx.say(f"  [PASS] extracted into {VPS_FULL_REPORTS_DIR}")
+    if not commit:
+        return 0
+    ctx.run(["git", "add", VPS_FULL_REPORTS_DIR], timeout=60)
+    msg = f"vps_full_reports: refresh latest (auto-deploy; source_commit {_local_commit(ctx)[:12]})"
+    rc, _o, cerr = ctx.run(["git", "commit", "-m", msg], timeout=60)
+    if rc != 0:
+        # nothing to commit is OK (report unchanged); any other failure stops.
+        if "nothing to commit" in (cerr + _o).lower():
+            ctx.say("  (report unchanged — nothing to commit)")
+            return 0
+        ctx.say(f"STOP — committing the report failed: "
+                f"{(cerr.strip().splitlines() or ['?'])[-1]}")
+        return 1
+    pushed, perr = _push_origin_main(ctx)
+    if not pushed:
+        ctx.say(f"STOP — pushing the report commit failed: {perr}")
+        return 1
+    ctx.say(f"  [PASS] committed + pushed refreshed {VPS_FULL_REPORTS_DIR} to main")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# auto-deploy : the full end-to-end operator loop in ONE command.
+#   sync-main (ff-only) -> push origin -> sync VPS (bundle fallback) ->
+#   [approved] rebuild (--remove-orphans) -> FULL report -> extract -> commit/push.
+# Inspect-only by default (no rebuild). Live trading is NEVER enabled.
+# --------------------------------------------------------------------------- #
+def cmd_auto_deploy(ctx: Ctx, *, approved_paper_run: bool = False,
+                    dry_run: bool = False, commit: bool = True) -> int:
+    import os as _os
+    cfg = ctx.cfg
+    ctx.say("=" * 64)
+    ctx.say("AUTO-DEPLOY — laptop -> GitHub main -> VPS -> full report (PAPER ONLY)")
+    ctx.say("=" * 64)
+    live = detect_live_flags(_os.environ)
+    if live:
+        ctx.say(f"STOP — live/real-money flag(s) detected: {', '.join(live)}. PAPER ONLY.")
+        return 2
+    ctx.say("\n[1] local doctor")
+    if cmd_doctor(ctx) != 0:
+        ctx.say("STOP — local environment/config check failed.")
+        return 2
+    ctx.say("\n[2] sync local GitHub main (fast-forward only)")
+    if cmd_sync_main(ctx) != 0:
+        dirty, cleanup = _mission_dirty_artifacts(ctx)
+        if dirty:
+            ctx.say(f"  safe cleanup (run yourself; never auto-run): {cleanup}")
+        ctx.say("STOP — could not safely sync local GitHub main.")
+        return 2
+    ctx.say("\n[3] push local main to origin + sync the VPS repo to it")
+    if cmd_sync_vps(ctx, dry_run=dry_run) != 0:
+        ctx.say("STOP — VPS sync failed.")
+        return 1
+    if approved_paper_run:
+        ctx.say("\n[4] APPROVED rebuild (down --remove-orphans; build --no-cache; up)")
+        dchk = _remote_vps_dirty_check(ctx)
+        if dchk["source"]:
+            ctx.say(f"STOP — VPS has dirty SOURCE files (pull/rebuild unsafe): {dchk['source']}")
+            return 1
+        if _remote_rebuild(ctx, dry_run=dry_run) != 0:
+            ctx.say("STOP — approved rebuild failed.")
+            return 1
+        if not dry_run:
+            ok100, _present, missing = _remote_100x_proof(ctx)
+            ctx.say(f"  100X runtime env    : {'OK' if ok100 else 'NOT proven: ' + str(missing)}")
+    else:
+        ctx.say("\n[4] rebuild skipped (inspect-only; pass --approved-paper-run to rebuild)")
+    ctx.say("\n[5] collect FULL report + extract into vps_full_reports/latest"
+            + (" + commit/push" if commit else ""))
+    rc = cmd_collect_full_report(ctx, dry_run=dry_run, save_to_repo=True, commit=commit)
+    if rc != 0:
+        ctx.say("STOP — full report collection/commit failed.")
+        return rc
+    ctx.say("\nAUTO-DEPLOY complete. GitHub main, the VPS, and vps_full_reports/latest are "
+            "in sync. Live trading remained disabled throughout.")
     return 0
 
 
@@ -1822,7 +2075,7 @@ def build_remote_rebuild_cmd(cfg: Config) -> str:
     """Approved rebuild via EXISTING compose commands (PAPER ONLY; never live)."""
     return (f"cd {shlex.quote(cfg.vps_remote_plugin_path)} && "
             f"docker compose down --remove-orphans && docker compose build --no-cache && "
-            f"docker compose up -d")
+            f"docker compose up -d --remove-orphans")
 
 
 def _remote_compose_config_ok(ctx: Ctx) -> "tuple[bool, str]":
@@ -1836,6 +2089,61 @@ def _remote_vps_git_pull(ctx: Ctx) -> "tuple[bool, str, str]":
                            timeout=180, redact_display=True)
     return (rc == 0), _hex_commit(out), ("" if rc == 0 else
             (err.strip().splitlines() or ["vps git pull failed"])[-1])
+
+
+def build_remote_vps_head_cmd(cfg: Config) -> str:
+    return f"cd {shlex.quote(cfg.vps_remote_plugin_path)} && git rev-parse HEAD"
+
+
+def build_remote_bundle_fetch_cmd(cfg: Config, remote_bundle: str) -> str:
+    """Apply a transferred git bundle on the VPS (non-interactive; no GitHub auth needed):
+    fetch ``main`` from the bundle and hard-reset the VPS repo to it. PAPER ONLY — only
+    moves the checked-out commit; never starts/stops a container."""
+    return (f"cd {shlex.quote(cfg.vps_remote_plugin_path)} && "
+            f"git fetch {shlex.quote(remote_bundle)} main && "
+            f"git reset --hard FETCH_HEAD && git rev-parse HEAD")
+
+
+def _remote_vps_sync_via_bundle(ctx: Ctx) -> "tuple[bool, str, str]":
+    """Sync the VPS repo to LOCAL ``main`` using a git BUNDLE (laptop -> VPS), which works
+    even when the VPS deploy key is passphrase-protected (so a non-interactive
+    ``git fetch origin`` from GitHub is impossible). Steps: read VPS HEAD, build an
+    incremental bundle (full if VPS HEAD is not an ancestor), scp it up, then fetch +
+    hard-reset on the VPS. Returns (ok, vps_head, error). Never enables live trading,
+    never changes any gate/topology, never deletes runtime data."""
+    cfg = ctx.cfg
+    local_head = _local_commit(ctx)
+    # current VPS HEAD (best-effort; full bundle still works if unknown)
+    rc, out, _err = ctx.run(build_ssh_cmd(cfg, build_remote_vps_head_cmd(cfg)),
+                            timeout=60, redact_display=True)
+    vps_head = _hex_commit(out) if rc == 0 else ""
+    art = _artifact_dir(ctx)
+    bundle_local = str(art / "vps_sync_main.bundle")
+    # incremental bundle when the VPS commit is an ancestor of local main; else full.
+    rng = "main"
+    if vps_head:
+        anc_rc, _o, _e = ctx.run(
+            ["git", "merge-base", "--is-ancestor", vps_head, "main"], timeout=30)
+        if anc_rc == 0 and vps_head != local_head:
+            rng = f"{vps_head}..main"
+        elif vps_head == local_head:
+            return True, vps_head, ""          # already in sync — nothing to do
+    brc, _bo, berr = ctx.run(["git", "bundle", "create", bundle_local, *rng.split()],
+                             timeout=120)
+    if brc != 0:
+        return False, vps_head, (berr.strip().splitlines() or ["git bundle create failed"])[-1]
+    remote_bundle = "/tmp/vps_sync_main.bundle"
+    src = ctx.run(build_scp_push_cmd(cfg, bundle_local, remote_bundle),
+                  timeout=120, redact_display=True)
+    if src[0] != 0:
+        return False, vps_head, (src[2].strip().splitlines() or ["scp bundle failed"])[-1]
+    frc, fout, ferr = ctx.run(
+        build_ssh_cmd(cfg, build_remote_bundle_fetch_cmd(cfg, remote_bundle)),
+        timeout=120, redact_display=True)
+    if frc != 0:
+        return False, vps_head, redact_text(
+            (ferr.strip().splitlines() or ["vps bundle fetch failed"])[-1], cfg)
+    return True, _hex_commit(fout) or local_head, ""
 
 
 def _remote_container_env(ctx: Ctx) -> dict:
@@ -2323,6 +2631,9 @@ COMMANDS = {
     "vps-smoke": cmd_vps_smoke,
     "collect-light-report": cmd_collect_light_report,
     "collect-report": cmd_collect_light_report,     # friendly alias (same behavior)
+    "collect-full-report": cmd_collect_full_report,
+    "sync-vps": cmd_sync_vps,
+    "auto-deploy": cmd_auto_deploy,
     "handoff-summary": cmd_handoff_summary,
     "operator-cycle": cmd_operator_cycle,
     "mission-control": cmd_mission_control,
@@ -2352,6 +2663,12 @@ def build_parser() -> argparse.ArgumentParser:
         "vps-smoke": "read-only VPS checks over SSH (reachable/path/docker/container)",
         "collect-light-report": "collect a light-mode report zip from the VPS",
         "collect-report": "alias of collect-light-report",
+        "collect-full-report": "run the canonical FULL report on the VPS, copy it back, and "
+                               "(opt) extract into vps_full_reports/latest + commit/push",
+        "sync-vps": "push local main to origin, then bring the VPS repo to it (git-bundle "
+                    "fallback when the passphrase deploy key blocks a direct pull)",
+        "auto-deploy": "ONE COMMAND: sync main -> push -> sync VPS -> (approved) rebuild -> "
+                       "FULL report -> extract into vps_full_reports/latest -> commit/push",
         "handoff-summary": "print the ChatGPT upload checklist for the latest zip",
         "operator-cycle": "ONE-COMMAND safe workflow: verify+sync+VPS+collect+handoff "
                           "(+ optional approved paper run)",
@@ -2372,10 +2689,23 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--debug", action="store_true",
                         help="print command traces (exit code + stdout/stderr tails), "
                              "with secrets redacted")
-        if name in ("collect-light-report", "collect-report", "operator-cycle",
+        if name in ("collect-light-report", "collect-report", "collect-full-report",
+                    "sync-vps", "auto-deploy", "operator-cycle",
                     "mission-control", "start-paper-run"):
             sp.add_argument("--dry-run", action="store_true",
                             help="print the exact remote/scp commands without running them")
+        if name == "collect-full-report":
+            sp.add_argument("--save-to-repo", action="store_true",
+                            help="extract the pulled full report into vps_full_reports/latest")
+            sp.add_argument("--commit", action="store_true",
+                            help="git add/commit/push the refreshed vps_full_reports/latest "
+                                 "to main (implies --save-to-repo)")
+        if name == "auto-deploy":
+            sp.add_argument("--approved-paper-run", action="store_true",
+                            help="REQUIRED to rebuild the VPS (down --remove-orphans + "
+                                 "build --no-cache + up); omit for inspect-only sync+report")
+            sp.add_argument("--no-commit", action="store_true",
+                            help="extract the full report locally but do NOT commit/push it")
         if name == "operator-cycle":
             sp.add_argument("--approved-paper-run", action="store_true",
                             help="explicitly approve starting a PAPER run at the end of the "
@@ -2447,6 +2777,17 @@ def main(argv=None, *, runner: Optional[Runner] = None,
                        proof_wait_seconds=getattr(args, "proof_wait_seconds", None))
     if args.command in ("collect-light-report", "collect-report"):
         return handler(ctx, dry_run=bool(getattr(args, "dry_run", False)))
+    if args.command == "collect-full-report":
+        _commit = bool(getattr(args, "commit", False))
+        return handler(ctx, dry_run=bool(getattr(args, "dry_run", False)),
+                       save_to_repo=bool(getattr(args, "save_to_repo", False)) or _commit,
+                       commit=_commit)
+    if args.command == "sync-vps":
+        return handler(ctx, dry_run=bool(getattr(args, "dry_run", False)))
+    if args.command == "auto-deploy":
+        return handler(ctx, approved_paper_run=bool(getattr(args, "approved_paper_run", False)),
+                       dry_run=bool(getattr(args, "dry_run", False)),
+                       commit=not bool(getattr(args, "no_commit", False)))
     if args.command in ("record-chatgpt-decision", "prepare-cursor-handoff"):
         return handler(ctx, file=args.file)
     if args.command == "start-paper-run":

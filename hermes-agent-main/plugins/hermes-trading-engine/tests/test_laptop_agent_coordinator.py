@@ -719,3 +719,122 @@ def test_post_cursor_verify_runs_chain(tmp_path):
     out = "\n".join(lines)
     assert "sync-main" in out and "local tests" in out
     assert "SAFE TO COLLECT" in out and rc == 0
+
+
+# --------------------------------------------------------------------------- #
+# sync-vps : git-bundle fallback when the passphrase deploy key blocks a pull
+# --------------------------------------------------------------------------- #
+_LOCAL_HEAD = "a" * 40
+_VPS_OLD_HEAD = "b" * 40
+
+
+def test_sync_vps_dry_run_executes_nothing(tmp_path):
+    _plugin(tmp_path)
+    write_cfg(tmp_path)
+    calls = []
+
+    def runner(argv, cwd=None, timeout=None):
+        calls.append(" ".join(str(a) for a in argv))
+        return (0, "", "")
+    rc, lines = _run(["sync-vps", "--config", str(tmp_path / co.DEFAULT_CONFIG), "--dry-run"],
+                     tmp_path, runner=runner)
+    out = "\n".join(lines)
+    assert rc == 0 and "DRY-RUN" in out
+    assert not any(c.startswith("ssh") or c.startswith("scp") for c in calls)
+    assert not any("git push" in c for c in calls)
+
+
+def test_sync_vps_uses_git_bundle_fallback(tmp_path):
+    _plugin(tmp_path)
+    write_cfg(tmp_path)
+    calls = []
+
+    def runner(argv, cwd=None, timeout=None):
+        s = " ".join(str(a) for a in argv)
+        calls.append(s)
+        if argv and argv[0] == "ssh":
+            if "git pull --ff-only origin main" in s:
+                return (255, "", "git@github.com: Permission denied (publickey).")
+            if "git fetch /tmp/vps_sync_main.bundle main" in s:
+                return (0, _LOCAL_HEAD + "\n", "")        # VPS now at local main
+            if "git rev-parse HEAD" in s:
+                return (0, _VPS_OLD_HEAD + "\n", "")        # VPS behind
+            return (0, "", "")
+        if argv and argv[0] == "scp":
+            return (0, "", "")
+        if argv and argv[0] == "git":
+            if "rev-parse" in argv:
+                return (0, _LOCAL_HEAD + "\n", "")
+            if "merge-base" in argv:
+                return (0, "", "")                          # VPS head is an ancestor
+            if "bundle" in argv or "push" in argv:
+                return (0, "", "")
+            return (0, "", "")
+        return (0, "", "")
+    rc, lines = _run(["sync-vps", "--config", str(tmp_path / co.DEFAULT_CONFIG)],
+                     tmp_path, runner=runner)
+    out = "\n".join(lines)
+    assert rc == 0
+    assert "git-bundle fallback" in out and "via bundle" in out
+    assert any("git bundle create" in c for c in calls)
+    assert any(c.startswith("scp") and "vps_sync_main.bundle" in c for c in calls)
+    assert any("git fetch /tmp/vps_sync_main.bundle main" in c for c in calls)
+
+
+# --------------------------------------------------------------------------- #
+# collect-full-report : full bundle -> extract into vps_full_reports/latest -> commit
+# --------------------------------------------------------------------------- #
+def test_collect_full_report_dry_run(tmp_path):
+    _plugin(tmp_path)
+    write_cfg(tmp_path)
+    rc, lines = _run(["collect-full-report", "--config", str(tmp_path / co.DEFAULT_CONFIG),
+                      "--save-to-repo", "--commit", "--dry-run"], tmp_path)
+    out = "\n".join(lines)
+    assert rc == 0 and "DRY-RUN" in out
+    assert co.FULL_REPORT_SCRIPT in out
+    assert "vps_full_reports/latest" in out
+
+
+def test_collect_full_report_saves_and_commits(tmp_path):
+    _plugin(tmp_path)
+    write_cfg(tmp_path)
+    art = tmp_path / "artifacts"
+    calls = []
+
+    def runner(argv, cwd=None, timeout=None):
+        s = " ".join(str(a) for a in argv)
+        calls.append(s)
+        if argv and argv[0] == "scp":
+            _write_full_bundle(art / co.FULL_REPORT_ZIP)   # pulled full report zip
+            return (0, "", "")
+        if "save_full_report_to_repo.py" in s:
+            return (0, "saved 31 files -> vps_full_reports/latest\n", "")
+        if argv and argv[0] == "git":
+            if "rev-parse" in argv:
+                return (0, "deadbeefdeadbeef\n", "")
+            return (0, "", "")               # add / commit / push all succeed
+        return (0, "", "")
+    rc, lines = _run(["collect-full-report", "--config", str(tmp_path / co.DEFAULT_CONFIG),
+                      "--commit"], tmp_path, runner=runner)
+    out = "\n".join(lines)
+    assert rc == 0
+    assert "COLLECTED full report" in out
+    assert "extracted into vps_full_reports/latest" in out
+    assert "committed + pushed" in out
+    assert any("save_full_report_to_repo.py" in c for c in calls)
+    assert any(c.startswith("git") and "commit" in c for c in calls)
+    assert any("git push origin main" in c for c in calls)
+
+
+def test_auto_deploy_dry_run_inspect_only_never_rebuilds(tmp_path):
+    _plugin(tmp_path)
+    write_cfg(tmp_path)
+    started = []
+    rc, lines = _run(["auto-deploy", "--config", str(tmp_path / co.DEFAULT_CONFIG), "--dry-run"],
+                     tmp_path, runner=_cycle_runner(tmp_path, started=started))
+    out = "\n".join(lines)
+    assert rc == 0
+    assert "AUTO-DEPLOY" in out
+    assert "rebuild skipped (inspect-only" in out
+    assert not started                                   # no docker compose rebuild in dry/inspect
+    assert "AUTO-DEPLOY complete" in out
