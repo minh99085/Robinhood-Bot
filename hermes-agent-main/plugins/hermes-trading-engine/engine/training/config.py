@@ -199,8 +199,8 @@ class TrainingConfig:
     # (selection-only; never loosen a hard gate). Grok/news support can NEVER bypass a
     # low execution-quality book. A near-zero/negative-EV probe must also clear a
     # minimum information value (else it is shadowed, not opened).
-    exploration_min_execution_quality: float = 0.25
-    exploration_min_information_value: float = 0.12
+    exploration_min_execution_quality: float = 0.18
+    exploration_min_information_value: float = 0.08
     # RUN-LEVEL duplicate caps (across ALL ticks, not just per-tick): stop re-probing
     # the same market/event/cluster repeatedly. Exceeding these SHADOWS the probe.
     exploration_max_probes_per_market_run: int = 1
@@ -1349,13 +1349,13 @@ class TrainingConfig:
             # modest quality floor so the lowest-quality learning probes are not opened
             # blindly (selection-only; hard realism/risk gates unchanged). env-tunable.
             exploration_min_probe_quality=_envf(
-                "POLYMARKET_EXPLORATION_MIN_PROBE_QUALITY", 0.25),
+                "POLYMARKET_EXPLORATION_MIN_PROBE_QUALITY", 0.18),
             exploration_require_probe_reason=_envb(
                 "POLYMARKET_EXPLORATION_REQUIRE_PROBE_REASON", True),
             exploration_min_execution_quality=_envf(
-                "POLYMARKET_EXPLORATION_MIN_EXECUTION_QUALITY", 0.25),
+                "POLYMARKET_EXPLORATION_MIN_EXECUTION_QUALITY", 0.18),
             exploration_min_information_value=_envf(
-                "POLYMARKET_EXPLORATION_MIN_INFORMATION_VALUE", 0.12),
+                "POLYMARKET_EXPLORATION_MIN_INFORMATION_VALUE", 0.08),
             exploration_max_probes_per_market_run=_envi(
                 "POLYMARKET_EXPLORATION_MAX_PROBES_PER_MARKET_RUN", 1),
             exploration_max_probes_per_event_run=_envi(
