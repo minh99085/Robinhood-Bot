@@ -97,3 +97,33 @@ def test_base_profile_keeps_conservative_grok_budget():
     assert base.grok_advisory_max_calls_per_hour == 4
     assert base.grok_advisory_min_interval_seconds == 900
     assert base.grok_advisory_require_news is True
+
+
+class _FakeRes:                       # estimate bundle (no failure status) => real call
+    status = None
+    source = "grok_online"
+
+
+class _FakeClient:
+    model = "grok-x"
+
+    def research(self, ctx, mode=None, news_packet=None):
+        return _FakeRes()
+
+
+def test_require_news_false_allows_newsless_call():
+    from engine.research.proof_call import GrokProofCaller
+    c = GrokProofCaller(enabled=True, max_per_hour=60, max_per_run=2000,
+                        min_interval_seconds=0, require_news=False)
+    r = c.maybe_call(client=_FakeClient(), online=True, has_key=True,
+                     news_packet=None, market_ctx={"market_id": "m1"})
+    assert r["called"] is True and r["reason"] is None
+
+
+def test_require_news_true_skips_newsless_call():
+    from engine.research.proof_call import GrokProofCaller
+    c = GrokProofCaller(enabled=True, max_per_hour=60, max_per_run=2000,
+                        min_interval_seconds=0, require_news=True)
+    r = c.maybe_call(client=_FakeClient(), online=True, has_key=True,
+                     news_packet=None, market_ctx={"market_id": "m1"})
+    assert r["called"] is False and r["reason"] == "no_news_packet_available"

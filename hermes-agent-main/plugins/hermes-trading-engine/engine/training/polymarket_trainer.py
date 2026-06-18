@@ -5412,7 +5412,8 @@ class PolymarketPaperTrainer:
                              or advisory),
                 max_per_hour=max_per_hour, max_per_run=max_per_run,
                 min_interval_seconds=min_interval,
-                advisory_only=bool(getattr(self.cfg, "grok_proof_call_advisory_only", True)))
+                advisory_only=bool(getattr(self.cfg, "grok_proof_call_advisory_only", True)),
+                require_news=bool(getattr(self.cfg, "grok_advisory_require_news", True)))
             self._grok_proof = caller
         return caller
 

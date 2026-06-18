@@ -36,12 +36,17 @@ class GrokProofCaller:
 
     def __init__(self, *, enabled: bool, max_per_hour: int = 1, max_per_run: int = 1,
                  min_interval_seconds: int = 900, advisory_only: bool = True,
+                 require_news: bool = True,
                  clock: Optional[Callable[[], float]] = None):
         self.enabled = bool(enabled)
         self.max_per_hour = int(max_per_hour)
         self.max_per_run = int(max_per_run)
         self.min_interval_seconds = int(min_interval_seconds)
         self.advisory_only = bool(advisory_only)
+        # When False, an advisory call may proceed WITHOUT a news packet (Grok researches
+        # from the market context + its own knowledge) — used to BROADEN directional
+        # coverage when the news scanner is off. Still advisory-only; never trades.
+        self.require_news = bool(require_news)
         self._clock = clock or time.time
         self._calls: list[float] = []          # timestamps of proof calls made
         self.calls_total = 0
@@ -135,7 +140,7 @@ class GrokProofCaller:
             reason = REASON_NO_KEY
         elif not online:
             reason = REASON_NOT_ONLINE
-        elif not news_packet:
+        elif self.require_news and not news_packet:
             reason = REASON_NO_NEWS
         elif not market_ctx or not market_ctx.get("market_id"):
             reason = REASON_NO_MARKET
@@ -193,7 +198,8 @@ class GrokProofCaller:
         self._calls.append(now)
         self.last_call_ts = now
         self.calls_total += 1
-        self.calls_with_news += 1            # proof call always attaches a news packet
+        if news_packet:
+            self.calls_with_news += 1        # may be news-less when require_news is off
         inc = analyzed_increments or {}
         self.market_groups_analyzed += int(inc.get("groups_analyzed", 0) or 0)
         self.bregman_near_misses_analyzed += int(inc.get("near_misses_analyzed", 0) or 0)
