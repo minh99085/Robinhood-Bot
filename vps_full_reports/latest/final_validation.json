@@ -2,7 +2,7 @@
   "checks": {
     "after_cost_pnl": 0.0,
     "bregman_opportunity_decay": null,
-    "bregman_certified_profit": 0.0,
+    "bregman_certified_profit": 0.385137,
     "bregman_executable_depth_ok": null,
     "rejected_bad_fills": 0.0,
     "fill_realism_rejection_rate": 0.0,
