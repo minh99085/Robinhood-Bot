@@ -1,41 +1,41 @@
 # Hermes Polymarket Paper-Training — Bot Inspection Report
 
-_Generated: 2026-06-18T13:45:31.442901+00:00 · PAPER ONLY · inspection/reporting only_
+_Generated: 2026-06-18T14:19:56.202527+00:00 · PAPER ONLY · inspection/reporting only_
 
 ## 0. Algorithmic Edge Audit (MANDATORY)
 
 **Audit status: PASS** (`complete`; stale=False)
 
 - Bregman edge engine enabled: **True**
-- Readiness cap: **100** (raw 79.0 → capped **79.0**)
+- Readiness cap: **100** (raw 81.5 → capped **81.5**)
 
 ### 1. Strategy Attribution
 
 | Field | Value |
 |---|---|
 | trades_by_strategy | None |
-| gross_pnl | -0.0635 |
+| gross_pnl | 0.0 |
 | after_cost_pnl | 0.0 |
-| win_rate | 0.2 |
-| win_rate_sample_count | 10 |
+| win_rate | 0.0 |
+| win_rate_sample_count | 0 |
 | avg_edge_at_entry | None |
 | avg_realized_edge | None |
 | rejected_trades | None |
-| open_exposure | 2.0 |
-| realized_pnl | -0.0644 |
-| unrealized_pnl | 0.0009 |
+| open_exposure | 0.0 |
+| realized_pnl | 0.0 |
+| unrealized_pnl | 0.0 |
 
 ### 2. Bregman Arbitrage Diagnostics
 
 | Field | Value |
 |---|---|
-| constraint_groups_scanned | 508.0 |
-| raw_groups_discovered | 508.0 |
-| incoherent_groups | 0.0 |
+| constraint_groups_scanned | 462.0 |
+| raw_groups_discovered | 462.0 |
+| incoherent_groups | 1.0 |
 | candidate_arbitrages | 0.0 |
 | certified_arbitrages | 0.0 |
 | executable_depth_certified | 0.0 |
-| rejected_fees_spread_depth_slippage | 55027 |
+| rejected_fees_spread_depth_slippage | 2047 |
 | expected_min_profit | 0.0 |
 | worst_case_payoff | 0.0 |
 | execution_atomicity_risk | False |
@@ -47,9 +47,9 @@ _Generated: 2026-06-18T13:45:31.442901+00:00 · PAPER ONLY · inspection/reporti
 | Field | Value |
 |---|---|
 | chainlink_anchor_price | 63966.2110539 |
-| fast_btc_price | 63865.745 |
+| fast_btc_price | 63869.815 |
 | feed_disagreement_bps | None |
-| market_stale_time_s | 124.82 |
+| market_stale_time_s | 2250.586 |
 | volatility_regime | None |
 | trend_persistence | None |
 | trade_trigger_reason | None |
@@ -78,7 +78,7 @@ _Generated: 2026-06-18T13:45:31.442901+00:00 · PAPER ONLY · inspection/reporti
 | partial_fill_assumptions | None |
 | available_depth_at_decision | None |
 | fee_adjusted_ev | None |
-| clob_v2_executable | True |
+| clob_v2_executable | False |
 | fill_realism_rejection_rate | 0.0 |
 
 ### 6. Risk Metrics
@@ -88,7 +88,7 @@ _Generated: 2026-06-18T13:45:31.442901+00:00 · PAPER ONLY · inspection/reporti
 | sharpe | None |
 | sortino | None |
 | calmar | None |
-| max_drawdown | -0.0653 |
+| max_drawdown | 0.0 |
 | exposure_by_market | None |
 | exposure_by_event | None |
 | exposure_by_strategy | None |
@@ -104,18 +104,18 @@ _Generated: 2026-06-18T13:45:31.442901+00:00 · PAPER ONLY · inspection/reporti
 | exploration_pnl | None |
 | validation_pnl | None |
 | paper_only | True |
-| production_readiness_score | 79.0 |
+| production_readiness_score | 81.5 |
 | production_ready | None |
-| raw_readiness_score | 79.0 |
+| raw_readiness_score | 81.5 |
 | readiness_cap | 100 |
 
 ### Top 5 Algorithmic Blockers
 
-- benchmark failing: win_rate_traded_only
+- None detected.
 
 ### Top 5 Next Recommended Code Changes
 
-- Traded-only win rate below target — recalibrate entry edge.
+- None.
 
 ## 0b. Validation Contract (proves improvement, not completion)
 
@@ -125,7 +125,7 @@ _Generated: 2026-06-18T13:45:31.442901+00:00 · PAPER ONLY · inspection/reporti
 |---|---|---|
 | pytest_green | OK | tests_passing=True |
 | bregman_paper_enabled | OK | bregman_enabled=True |
-| groups_scanned_positive | OK | constraint_groups_scanned=508.0 |
+| groups_scanned_positive | OK | constraint_groups_scanned=462.0 |
 | fill_realism_enabled | OK | fill_realism_enabled=True |
 | ledger_reconciled | OK | reconciliation_ok=True |
 | after_cost_pnl_populated | OK | after_cost_pnl=0 |
@@ -137,11 +137,11 @@ _Generated: 2026-06-18T13:45:31.442901+00:00 · PAPER ONLY · inspection/reporti
 
 ## 1. Executive Summary
 
-**Classification: FAIL_NOT_RUN_READY**
+**Classification: PASS_RUN_READY**
 
-- Bot health score: **79.0/100**
+- Bot health score: **81.5/100**
 - Safety: WARN · live_detected=no
-- Paper training running: yes · runtime: 513.54 min
+- Paper training running: yes · runtime: 33.9 min
 - Tests: present=yes passing=yes
 - Trend vs baseline: no baseline provided (current-state scorecard only)
 - Missing/weak features: 0
@@ -153,10 +153,10 @@ _Generated: 2026-06-18T13:45:31.442901+00:00 · PAPER ONLY · inspection/reporti
 | safety | 15.0 | 25 | safety audit = WARN |
 | tests | 15.0 | 15 | tests present and passing |
 | runtime | 15.0 | 15 | paper-training status collected |
-| feature_completeness | 15.0 | 20 | 6/8 key features active |
+| feature_completeness | 17.5 | 20 | 7/8 key features active |
 | performance_trend | 9.0 | 15 | no baseline (neutral) |
 | observability | 10.0 | 10 | 3/3 observability sources present |
-| **Total** | **79.0** | **100** | |
+| **Total** | **81.5** | **100** | |
 
 ## 3. Safety / Live-Execution Audit
 
@@ -171,34 +171,34 @@ Findings:
 
 - Paper status collected: yes (source: runtime_data/polymarket_training.json)
 - Docker available: yes
-- preflight_ok: yes · scanned=2000 kept=1710
+- preflight_ok: yes · scanned=2000 kept=1739
 
 ## 5. Performance Improvement / Regression Analysis
 
 No baseline provided — current-state key metrics:
 
-- equity: 499.9363
-- total_pnl: -0.0635
+- equity: 500.0
+- total_pnl: 0
 - after_cost_pnl: 0
-- closed_positions: 10
-- paper_trades: 10
-- win_rate_traded_only: 0.2
+- closed_positions: 0
+- paper_trades: 0
+- win_rate_traded_only: None
 - brier: 0.0
 - ece: 0.0
 - sharpe: None
 - sortino: None
 - calmar: None
-- max_drawdown: -0.0653
+- max_drawdown: 0.0
 - btc_pulse_after_cost_pnl: None
 - bregman_certified_profit: 0.0
-- news_quality_ratio: 0.4169
+- news_quality_ratio: 0.444
 
 ## 6. Chainlink / Oracle Health
 
 - chainlink_enabled: yes
 - chainlink_valid: yes
 - chainlink_stale: no
-- chainlink_age_seconds: 124.82
+- chainlink_age_seconds: 2250.586
 - chainlink_price: 63966.2110539
 - chainlink_stale_reason: none
 
@@ -207,7 +207,7 @@ No baseline provided — current-state key metrics:
 - btc_fast_price_enabled: yes
 - btc_fast_price_valid: yes
 - btc_fast_price_age_seconds: 0.0
-- btc_fast_price_disagreement_bps: 15.706
+- btc_fast_price_disagreement_bps: 15.07
 - btc_fast_price_disabled_reason: none
 
 ## 8. BTC Pulse Status
@@ -224,18 +224,18 @@ No baseline provided — current-state key metrics:
 
 - news_scanner_enabled: yes
 - news_provider_mode: live_read_only
-- news_items_fetched: 10042
-- news_items_used: 4187
+- news_items_fetched: 482
+- news_items_used: 214
 - news_rejected_stale: unknown
 - news_rejected_unclear_date: unknown
 - news_rejected_low_credibility: unknown
-- news_quality_ratio: 0.4169
+- news_quality_ratio: 0.444
 
 ## 10. Grok / Research Status
 
 - grok_enabled: yes
 - grok_has_api_key: <REDACTED>
-- grok_with_news_count: 11
+- grok_with_news_count: 2
 - grok_cache_hits: 0
 
 ### 10a. Grok Advisory Scheduler (research-only)
@@ -244,26 +244,26 @@ No baseline provided — current-state key metrics:
 - grok_brain_ready: True
 - grok_brain_blocker: None
 - xai_api_key_source: <REDACTED>
-- grok_calls_total: 11
-- grok_calls_with_news: 11
+- grok_calls_total: 2
+- grok_calls_with_news: 2
 - grok_proof_calls_total: 0
-- grok_scheduler_calls_total: 11
+- grok_scheduler_calls_total: 2
 - grok_total_calls_reconciled: True
-- grok_scheduled_calls: 11
-- grok_scheduler_eligible_targets: 1194
-- grok_scheduler_targets_selected: 11
-- grok_scheduler_targets_skipped: 50
-- grok_scheduler_skip_reasons: {'not_due_yet': 50}
-- grok_advisory_only_count: 11
-- grok_evidence_records_written: 11
+- grok_scheduled_calls: 2
+- grok_scheduler_eligible_targets: 546
+- grok_scheduler_targets_selected: 2
+- grok_scheduler_targets_skipped: 7
+- grok_scheduler_skip_reasons: {'not_due_yet': 7}
+- grok_advisory_only_count: 2
+- grok_evidence_records_written: 2
 - grok_advisory_max_calls_per_hour: 4
-- grok_advisory_calls_per_hour: 0
-- grok_market_groups_analyzed: 10
-- grok_bregman_near_misses_analyzed: 10
-- grok_bregman_incomplete_groups_analyzed: 9
-- grok_bregman_malformed_groups_analyzed: 4
-- grok_news_linked_markets_analyzed: 10
-- grok_learning_features_written: 11
+- grok_advisory_calls_per_hour: 2
+- grok_market_groups_analyzed: 1
+- grok_bregman_near_misses_analyzed: 1
+- grok_bregman_incomplete_groups_analyzed: 1
+- grok_bregman_malformed_groups_analyzed: 0
+- grok_news_linked_markets_analyzed: 2
+- grok_learning_features_written: 2
 - grok_best_bregman_group_analyzed: True
 - grok_best_bregman_group_skip_reason: None
 - grok_contributed_learning_features: True
@@ -273,22 +273,22 @@ No baseline provided — current-state key metrics:
 ## 11. Bregman Paper Scanner Status
 
 - bregman_paper_enabled: yes
-- bregman_candidates_found: 0
+- bregman_candidates_found: 1
 - bregman_certified_count: unknown
 - bregman_certified_profit: 0.0
 - bregman_false_positive_rate: 0.0
 
 ### 11.0 ABCAS Certifier Funnel Diagnostics (read-only)
 
-- constraint_groups_scanned: 755
-- candidate_arbitrages: 0
+- constraint_groups_scanned: 749
+- candidate_arbitrages: 1
 - certified_arbitrages: 0
 - best_projected_profit_per_set: 0.0
-- max_bregman_distance: 0.0
-- mean_cost_per_set: 1.013499
+- max_bregman_distance: 0.25
+- mean_cost_per_set: 1.01613
 - expected_min_profit: 0.0
 - near_miss_count: 10
-- stage_rejections: {'adapter_failed': 1474, 'certifier_no_positive_profit': 755, 'realism_fees_spread_depth': 0, 'other': 0}
+- stage_rejections: {'adapter_failed': 1480, 'certifier_no_positive_profit': 749, 'realism_fees_spread_depth': 0, 'other': 0}
   - near_miss(certifier_reached): legs=['<REDACTED>', '<REDACTED>'] D(mu*||theta)=0.0 projected_profit/set=0.0 cost/set=1.0 reason=no_positive_worst_case_profit tradeable=False
   - near_miss(certifier_reached): legs=['<REDACTED>', '<REDACTED>'] D(mu*||theta)=0.0 projected_profit/set=0.0 cost/set=1.0 reason=no_positive_worst_case_profit tradeable=False
   - near_miss(certifier_reached): legs=['<REDACTED>', '<REDACTED>'] D(mu*||theta)=0.0 projected_profit/set=0.0 cost/set=1.0 reason=no_positive_worst_case_profit tradeable=False
@@ -297,33 +297,33 @@ No baseline provided — current-state key metrics:
 
 ### 11a. Bregman Near-Miss Diagnostics (read-only)
 
-- bregman_near_misses_total: 1179
-- near_miss_one_fix_away_count: 192
-- near_miss_depth_only_count: 188
-- near_miss_not_exhaustive_count: 300
+- bregman_near_misses_total: 533
+- near_miss_one_fix_away_count: 104
+- near_miss_depth_only_count: 85
+- near_miss_not_exhaustive_count: 243
 - near_miss_stale_refresh_failed_count: 0
-- near_miss_by_rejection_reason: {'depth_too_thin': 197, 'invalid_simplex': 216, 'no_positive_edge': 397, 'not_exhaustive': 300, 'spread_too_wide': 3, 'stale_book': 66}
-- near_miss_learning_priority_counts (high/med/low): {'high': 138, 'medium': 914, 'low': 127}
-- near_miss_shadow_label_candidate_count: 138
-- near_miss_learning_label_counts: {'needs_multiple_fixes': 590, 'no_positive_after_cost_edge': 397, 'would_certify_if_book_fresh': 1, 'would_certify_if_complete_set': 2, 'would_certify_if_depth_sufficient': 188, 'would_certify_if_spread_tightens': 1}
-  - learn: event:event:551781 priority=high(1.0) label=would_certify_if_complete_set shadow_candidate=True would_trade_if=the outcome family becomes a proven complete set (observed 2 outcomes; kind=binary)
-  - learn: event:negrisk:<REDACTED> priority=high(1.0) label=would_certify_if_complete_set shadow_candidate=True would_trade_if=the outcome family becomes a proven complete set (observed 2 outcomes; kind=range)
-  - learn: binary:event:107711 priority=high(1.0) label=would_certify_if_depth_sufficient shadow_candidate=True would_trade_if=worst-leg depth $12.683 reaches required $25.0 (thin legs=1)
-  - learn: binary:event:279977 priority=high(1.0) label=would_certify_if_depth_sufficient shadow_candidate=True would_trade_if=worst-leg depth $8.2293 reaches required $25.0 (thin legs=1)
-  - learn: binary:event:276527 priority=high(1.0) label=would_certify_if_depth_sufficient shadow_candidate=True would_trade_if=worst-leg depth $10.6652 reaches required $25.0 (thin legs=1)
+- near_miss_by_rejection_reason: {'depth_too_thin': 89, 'no_executable_price': 4, 'no_positive_edge': 163, 'not_exhaustive': 243, 'spread_too_wide': 4, 'stale_book': 30}
+- near_miss_learning_priority_counts (high/med/low): {'high': 68, 'medium': 345, 'low': 120}
+- near_miss_shadow_label_candidate_count: 68
+- near_miss_learning_label_counts: {'needs_multiple_fixes': 266, 'no_positive_after_cost_edge': 163, 'would_certify_if_complete_set': 17, 'would_certify_if_depth_sufficient': 85, 'would_certify_if_spread_tightens': 2}
+  - learn: event:event:36173 priority=high(1.0) label=would_certify_if_complete_set shadow_candidate=True would_trade_if=the outcome family becomes a proven complete set (observed 2 outcomes; kind=binary)
+  - learn: event:event:23784 priority=high(1.0) label=would_certify_if_complete_set shadow_candidate=True would_trade_if=the outcome family becomes a proven complete set (observed 2 outcomes; kind=binary)
+  - learn: binary:event:106811 priority=high(1.0) label=would_certify_if_depth_sufficient shadow_candidate=True would_trade_if=worst-leg depth $14.135 reaches required $25.0 (thin legs=1)
+  - learn: event:event:139507 priority=high(1.0) label=would_certify_if_complete_set shadow_candidate=True would_trade_if=the outcome family becomes a proven complete set (observed 2 outcomes; kind=binary)
+  - learn: event:event:386788 priority=high(1.0) label=would_certify_if_complete_set shadow_candidate=True would_trade_if=the outcome family becomes a proven complete set (observed 2 outcomes; kind=binary)
 
 ### 11b. Bregman Price/Outcome Parsing + Depth Census (read-only)
 
 - non_numeric_price_count: 0
 - insufficient_outcomes_count: 0
-- malformed_group_count: 305569
+- malformed_group_count: 305870
 - parsed_price_success_rate: 1.0
-- bregman_depth_sufficient_groups: 122
-- bregman_depth_insufficient_groups: 386
-- bregman_high_liquidity_groups_scanned: 80
+- bregman_depth_sufficient_groups: 115
+- bregman_depth_insufficient_groups: 347
+- bregman_high_liquidity_groups_scanned: 74
 - bregman_all_groups_thin: False
 - complete_set_count (certified): 0
-- incomplete_set_count (not_exhaustive near-misses): 300
+- incomplete_set_count (not_exhaustive near-misses): 243
 - bregman_promising_groups_refreshed: 0
 - bregman_refresh_success: 0 failed: 0 stale_after: 6
 - refresh_not_attempted_reason: no_refresher_configured
@@ -332,57 +332,57 @@ No baseline provided — current-state key metrics:
 
 Top Bregman near-misses (diagnostic only — NOT executed):
 
-  - binary:event:106811 reason=no_positive_edge score=0.9 market_ids=['948956'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'NO'] one_fix_away=False tradeable=False blockers=[]
   - binary:event:108634 reason=no_positive_edge score=0.9 market_ids=['958443'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'NO'] one_fix_away=False tradeable=False blockers=[]
-  - binary:event:107726 reason=no_positive_edge score=0.9 market_ids=['956590'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'NO'] one_fix_away=False tradeable=False blockers=[]
   - binary:event:261273 reason=no_positive_edge score=0.9 market_ids=['1559394'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'NO'] one_fix_away=False tradeable=False blockers=[]
-  - binary:event:139507 reason=no_positive_edge score=0.9 market_ids=['1090199'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'NO'] one_fix_away=False tradeable=False blockers=[]
+  - binary:event:107726 reason=no_positive_edge score=0.9 market_ids=['956590'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'NO'] one_fix_away=False tradeable=False blockers=[]
+  - binary:event:548786 reason=no_positive_edge score=0.9 market_ids=['2412312'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'NO'] one_fix_away=False tradeable=False blockers=[]
+  - binary:event:211827 reason=no_positive_edge score=0.9 market_ids=['1385754'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'NO'] one_fix_away=False tradeable=False blockers=[]
 
 ### 11c. Bregman Certifier / Candidate Health (read-only)
 
-- bregman_groups_entered_certifier: 508
+- bregman_groups_entered_certifier: 462
 - candidates_generated (certified): 0
 - realistic_executable: 0
 - bundles_opened: 0
 - bregman_real_market_zero_candidate_reason: no_positive_after_cost_lower_bound_among_depth_sufficient_groups
-- bregman_real_market_zero_candidate_reason_counts: {'depth_too_thin': 111, 'invalid_simplex': 9, 'no_executable_price': 4, 'no_positive_edge': 116, 'not_exhaustive': 223, 'stale_book': 45}
-- bregman_depth_sufficient_groups: 122
-- bregman_depth_sufficient_but_negative_edge_count: 120
-- bregman_best_depth_sufficient_group_lower_bound: 0.555
+- bregman_real_market_zero_candidate_reason_counts: {'depth_too_thin': 94, 'no_executable_price': 6, 'no_positive_edge': 95, 'not_exhaustive': 235, 'spread_too_wide': 4, 'stale_book': 28}
+- bregman_depth_sufficient_groups: 115
+- bregman_depth_sufficient_but_negative_edge_count: 107
+- bregman_best_depth_sufficient_group_lower_bound: 0.928
 - bregman_best_depth_sufficient_group_reject_reason: not_exhaustive
-- best_real_group: event:negrisk:<REDACTED> depth_sufficient=True min_leg_depth=$241.1756 (required $25.0) reject=not_exhaustive lower_bound=0.555 market_ids=['2406025', '2406028'] labels=['YES', 'YES']
-  - sample: group=event:event:551781 reason=not_exhaustive depth_sufficient=True market_ids=['2419345', '2419365'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'YES']
-  - sample: group=event:event:548813 reason=not_exhaustive depth_sufficient=True market_ids=['2412401', '2412403', '2412404'] token_ids=<REDACTED> '<REDACTED>', '<REDACTED>'] labels=['YES', 'YES', 'YES']
-  - sample: group=event:negrisk:<REDACTED> reason=not_exhaustive depth_sufficient=True market_ids=['2406025', '2406028'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'YES']
+- best_real_group: event:event:36173 depth_sufficient=True min_leg_depth=$132.8273 (required $25.0) reject=not_exhaustive lower_bound=0.928 market_ids=['573655', '573656'] labels=['YES', 'YES']
+  - sample: group=event:event:551781 reason=not_exhaustive depth_sufficient=False market_ids=['2419341', '2419344', '2419350', '2419355', '2419365'] token_ids=<REDACTED> '<REDACTED>', '<REDACTED>', '<REDACTED>', '<REDACTED>'] labels=['YES', 'YES', 'YES', 'YES', 'YES']
+  - sample: group=event:event:548813 reason=not_exhaustive depth_sufficient=False market_ids=['2412401', '2412402', '2412403', '2412404'] token_ids=<REDACTED> '<REDACTED>', '<REDACTED>', '<REDACTED>'] labels=['YES', 'YES', 'YES', 'YES']
+  - sample: group=binary:negrisk:<REDACTED> reason=stale_book depth_sufficient=False market_ids=['2406028'] token_ids=<REDACTED> '<REDACTED>'] labels=['YES', 'NO']
 - best_one_fix_away_reason: depth
 - all_top_near_misses_negative_lower_bound: True
 
 ### 11d. Malformed-Group Reconciliation (summary vs tail)
 
-- malformed_group_count (reconciled): 305569
+- malformed_group_count (reconciled): 305870
 - bregman_malformed_group_reported_count (trainer certifier): 0
 - bregman_malformed_group_runtime_count (ABCAS scanner): 458
-- bregman_malformed_group_tail_count (diagnostics tail): 305569
-- bregman_malformed_group_legacy_or_tail_only_count: 305111
+- bregman_malformed_group_tail_count (diagnostics tail): 305870
+- bregman_malformed_group_legacy_or_tail_only_count: 305412
 - source: abcas_scanner_path_real_rejects
 
 ### 11d-stage. Trainer Certifier Per-Stage Census (read-only)
 
-- bregman_rejection_stage_counts: {'edge': 116, 'realism': 160, 'validate_simplex': 232}
-- bregman_max_divergence_gap (D(mu*||theta)): 14.41756133
+- bregman_rejection_stage_counts: {'edge': 95, 'realism': 132, 'validate_simplex': 235}
+- bregman_max_divergence_gap (D(mu*||theta)): 9.6826144
 - bregman_best_projected_lower_bound: 0.999
-- bregman_positive_projected_but_rejected_count: 117
-- bregman_positive_projected_rejected_by_stage: {'realism': 13, 'validate_simplex': 104}
-- WHY certified=0: dominant stage=validate_simplex: groups are structurally INCOMPLETE (exhaustive=False / not a provable complete set) — buying a partial set is not a guaranteed hedge, so it is correctly NOT certified (completeness is never fabricated); NOTE: 117 group(s) had POSITIVE raw projected profit (best=0.999) but were still rejected (realism=13, validate_simplex=104) — the raw mispricing is real, but the set is not a certifiable complete hedge
-- profit_lower_bound (min/mean/max): -18.847 / -0.192575 / 0.999
-- groups by lower_bound sign (neg/zero/pos): 387 / 4 / 117
-  - group: event:event:551781 exhaustive=False settlement_consistent=False profit_lower_bound=0.5 divergence_gap=0.125 reason=not_exhaustive
-  - group: event:event:548813 exhaustive=False settlement_consistent=False profit_lower_bound=-0.52 divergence_gap=0.09013333 reason=not_exhaustive
-  - group: event:negrisk:<REDACTED> exhaustive=False settlement_consistent=False profit_lower_bound=0.555 divergence_gap=0.1540125 reason=not_exhaustive
-  - group: event:event:23784 exhaustive=False settlement_consistent=False profit_lower_bound=-0.006 divergence_gap=1.8e-05 reason=not_exhaustive
-  - group: binary:event:606220 exhaustive=True settlement_consistent=True profit_lower_bound=-0.001 divergence_gap=5e-07 reason=depth_too_thin
-  - near_miss: binary:event:106811 stage=edge exhaustive=True settlement_consistent=True divergence_gap=2e-06 projected_lb=-0.002 reason=no_positive_edge
+- bregman_positive_projected_but_rejected_count: 105
+- bregman_positive_projected_rejected_by_stage: {'realism': 17, 'validate_simplex': 88}
+- WHY certified=0: dominant stage=validate_simplex: groups are structurally INCOMPLETE (exhaustive=False / not a provable complete set) — buying a partial set is not a guaranteed hedge, so it is correctly NOT certified (completeness is never fabricated); NOTE: 105 group(s) had POSITIVE raw projected profit (best=0.999) but were still rejected (realism=17, validate_simplex=88) — the raw mispricing is real, but the set is not a certifiable complete hedge
+- profit_lower_bound (min/mean/max): -13.11 / -0.207253 / 0.999
+- groups by lower_bound sign (neg/zero/pos): 354 / 3 / 105
+  - group: event:event:551781 exhaustive=False settlement_consistent=False profit_lower_bound=0.328 divergence_gap=0.0215168 reason=not_exhaustive
+  - group: event:event:548813 exhaustive=False settlement_consistent=False profit_lower_bound=-1.11 divergence_gap=0.3099 reason=not_exhaustive
+  - group: binary:negrisk:<REDACTED> exhaustive=True settlement_consistent=True profit_lower_bound=-0.044 divergence_gap=0.000968 reason=stale_book
+  - group: event:event:601658 exhaustive=False settlement_consistent=False profit_lower_bound=-0.61 divergence_gap=0.18605 reason=not_exhaustive
+  - group: event:event:36173 exhaustive=False settlement_consistent=False profit_lower_bound=0.928 divergence_gap=0.430592 reason=not_exhaustive
   - near_miss: binary:event:108634 stage=edge exhaustive=True settlement_consistent=True divergence_gap=5e-07 projected_lb=-0.001 reason=no_positive_edge
+  - near_miss: binary:event:261273 stage=edge exhaustive=True settlement_consistent=True divergence_gap=5e-07 projected_lb=-0.001 reason=no_positive_edge
   - near_miss: binary:event:107726 stage=edge exhaustive=True settlement_consistent=True divergence_gap=5e-07 projected_lb=-0.001 reason=no_positive_edge
 
 ### 11e. Bregman Synthetic Fixture Proof (isolated, default gates)
@@ -399,99 +399,98 @@ Top Bregman near-misses (diagnostic only — NOT executed):
 
 ### 11f. Profit-Discovery Learning (shadow labels + queue + bandit)
 
-- bregman_shadow_label_candidates: 138
-- bregman_shadow_labels_written: 241
-- bregman_shadow_label_write_rate: 1.7464
-- shadow_records_written: 22236
+- bregman_shadow_label_candidates: 68
+- bregman_shadow_labels_written: 99
+- bregman_shadow_label_write_rate: 1.4559
+- shadow_records_written: 22384
 - shadow_labels_tail_nonempty: True
-- shadow_label_write_rejection_reasons: {'already_written': 21343}
-- profit_discovery_queue_items: 1179
-- profit_discovery_queue_by_priority: {'1': 2, '2': 188, '3': 315, '5': 674}
+- shadow_label_write_rejection_reasons: {'already_written': 541}
+- profit_discovery_queue_items: 533
+- profit_discovery_queue_by_priority: {'1': 10, '2': 85, '3': 131, '5': 307}
 - profit_learning_status: shadow_data_only
-- profit_data_sufficiency: sufficient
+- profit_data_sufficiency: building
 - bandit_router_enabled: True
-- bandit_action_counts: {'bregman_depth_watchlist': 66, 'bregman_not_exhaustive_completer': 66, 'bregman_rebalancing_watchlist': 65, 'grok_news_linked_near_miss': 1, 'active_learning_shadow': 3}
-- bandit_action_rewards: {'bregman_depth_watchlist': 198.0, 'bregman_not_exhaustive_completer': 198.0, 'bregman_rebalancing_watchlist': 195.0, 'grok_news_linked_near_miss': -1.0, 'active_learning_shadow': 4.0}
-- bandit_selected_action: bregman_not_exhaustive_completer
+- bandit_action_counts: {'bregman_depth_watchlist': 3, 'bregman_not_exhaustive_completer': 2, 'bregman_rebalancing_watchlist': 2, 'grok_news_linked_near_miss': 1, 'active_learning_shadow': 1}
+- bandit_action_rewards: {'bregman_depth_watchlist': 9.0, 'bregman_not_exhaustive_completer': 6.0, 'bregman_rebalancing_watchlist': 6.0, 'grok_news_linked_near_miss': -1.0, 'active_learning_shadow': 2.0}
+- bandit_selected_action: bregman_depth_watchlist
 - bandit_no_gate_override: True
 
 ### 11g. Targeted Market-Scan Prioritization (never a trade gate)
 
 - targeted_market_scan_enabled: True
-- targeted_markets_scanned_total: 1782
+- targeted_markets_scanned_total: 1808
 - targeted_scan_field_source: bregman_normalized_groups+raw_records
-- targeted_scan_bregman_groups_seen: 1179
-- targeted_scan_binary_groups_seen: 864
-- targeted_scan_yes_no_pairs_seen: 655
-- targeted_scan_binary_group_matches: 357 raw_market_matches=1682
-- targeted_scan_bregman_categories: {'high_liquidity_binary': 393, 'complete_yes_no_tight_spread': 582, 'negative_risk_complete': 9, 'complete_event_family': 9}
-- targeted_scan_raw_market_categories: {'complete_yes_no_tight_spread': 15, 'negative_risk_complete': 72, 'short_resolution': 1105, 'btc_eth_chainlink': 146, 'fed_macro_reference': 35, 'high_volume_news_linked': 1, 'complete_event_family': 72}
-- targeted_scan_normalized_reject_reasons: {'not_exhaustive': 300, 'no_positive_edge': 397, 'invalid_simplex': 216, 'depth_too_thin': 197, 'stale_book': 66, 'spread_too_wide': 3}
+- targeted_scan_bregman_groups_seen: 533
+- targeted_scan_binary_groups_seen: 288
+- targeted_scan_yes_no_pairs_seen: 288
+- targeted_scan_binary_group_matches: 249 raw_market_matches=1776
+- targeted_scan_bregman_categories: {'complete_yes_no_tight_spread': 248, 'high_liquidity_binary': 165, 'negative_risk_complete': 2, 'complete_event_family': 2}
+- targeted_scan_raw_market_categories: {'complete_yes_no_tight_spread': 13, 'negative_risk_complete': 70, 'short_resolution': 1084, 'btc_eth_chainlink': 139, 'fed_macro_reference': 34, 'high_volume_news_linked': 1, 'complete_event_family': 70}
+- targeted_scan_normalized_reject_reasons: {'not_exhaustive': 243, 'depth_too_thin': 89, 'no_positive_edge': 163, 'stale_book': 30, 'no_executable_price': 4, 'spread_too_wide': 4}
 - bregman_clob_hydration_enabled: True
-- bregman_clob_hydration_attempted: 250 success=229 failed=21
-- bregman_real_yes_no_books_seen: 482
+- bregman_clob_hydration_attempted: 250 success=228 failed=22
+- bregman_real_yes_no_books_seen: 481
 - bregman_certifier_used_real_clob_books: True
-- bregman_synthetic_no_diagnostic_only_count: 13
-- bregman_hydration_failure_reasons: {'no_book_or_no_ask': 25}
-- bregman_clob_hydration_eligible_groups: 508 selected=250 coverage_rate=0.4921
+- bregman_synthetic_no_diagnostic_only_count: 17
+- bregman_hydration_failure_reasons: {'no_book_or_no_ask': 30}
+- bregman_clob_hydration_eligible_groups: 462 selected=250 coverage_rate=0.5411
 - paper_trade_pressure_enabled: True
 - paper_micro_exploration_enabled: True
-- paper_micro_exploration_candidates: 1 trades=0
-- hydrated_positive_after_cost_candidates: 0
-- realistic_trade_goal_met_11h: True
-- paper_micro_exploration_reject_reasons: {'bregman_leg_stale_book': 1}
+- paper_micro_exploration_candidates: 0 trades=0
+- hydrated_positive_after_cost_candidates: 12
+- realistic_trade_goal_met_11h: False
+- zero_trade_blocker_if_any: positive_candidates_rejected_before_open: positive=59; dominant_reject_reason=negative_after_cost_edge; reject_reasons={'stale_book': 144, 'negative_after_cost_edge': 1624, 'incomplete_event_family': 59, 'depth_insufficient_for_1usd': 191}; best_reject={'group_id': 'event:event:36173', 'group_type': 'mutually_exclusive', 'after_cost_edge': 0.92782, 'reject_reason': 'incomplete_event_family', 'depth_for_1usd': 132.9277, 'n_legs': 2}
 - paper_relaxed_exploration_enabled: True (max_notional=1.0 per_hour=3 per_day=30)
-- paper_relaxed_candidates_seen: 1 trades_opened=0
-- paper_relaxed_after_cost_positive_seen: 1 real_clob_book_seen=48175
+- paper_relaxed_candidates_seen: 0 trades_opened=0
+- paper_relaxed_after_cost_positive_seen: 59 real_clob_book_seen=2018
 - paper_relaxed_readiness_pnl_excluded: True
-- paper_relaxed_reject_reasons: {'bregman_leg_stale_book': 1}
-- paper_relaxed_pipeline_scanned: 106984
-- paper_relaxed_real_book_candidates_seen: 48175 positive=1
-- paper_relaxed_candidate_source_counts: {'binary_yes_no': 47981, 'exhaustive_event': 194}
-- paper_relaxed_candidates_blocked_by_reason: {'negative_after_cost_edge': 39817, 'depth_insufficient_for_1usd': 4092, 'stale_book': 4265}
-- paper_relaxed_best_real_book_candidate: {'group_id': 'binary:event:604437', 'group_type': 'binary_yes_no', 'after_cost_edge': 0.01755, 'reject_reason': '', 'depth_for_1usd': 1.38, 'n_legs': 2}
-- paper_relaxed_best_reject_example: {'group_id': 'binary:event:604043', 'group_type': 'binary_yes_no', 'after_cost_edge': -0.0025, 'reject_reason': 'negative_after_cost_edge', 'depth_for_1usd': 12.32, 'n_legs': 2}
+- paper_relaxed_pipeline_scanned: 4188
+- paper_relaxed_real_book_candidates_seen: 2018 positive=59
+- paper_relaxed_candidate_source_counts: {'mutually_exclusive': 137, 'binary_yes_no': 1881}
+- paper_relaxed_candidates_blocked_by_reason: {'stale_book': 144, 'negative_after_cost_edge': 1624, 'incomplete_event_family': 59, 'depth_insufficient_for_1usd': 191}
+- paper_relaxed_best_real_book_candidate: {'group_id': 'event:event:36173', 'group_type': 'mutually_exclusive', 'after_cost_edge': 0.92782, 'reject_reason': 'incomplete_event_family', 'depth_for_1usd': 132.9277, 'n_legs': 2}
+- paper_relaxed_best_reject_example: {'group_id': 'event:event:36173', 'group_type': 'mutually_exclusive', 'after_cost_edge': 0.92782, 'reject_reason': 'incomplete_event_family', 'depth_for_1usd': 132.9277, 'n_legs': 2}
 - bregman_false_incomplete_family_count: 0 near_miss_promoted=0
-- bregman_incomplete_family_examples: [{'group_id': 'event:event:551781', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:548813', 'n_legs_scanned': 3, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:negrisk:<REDACTED>', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:23784', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:36173', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:negrisk:<REDACTED>', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:598003', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:386788', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}]
-- bregman_missing_outcome_examples: [{'group_id': 'event:event:577376', 'present_outcomes_sample': ['Will Iran close its airspace by July 31?', 'Will Iran close its airspace by June 30?', 'Will Iran close its airspace by December 31?', 'Will Iran close its airspace by June 10?', 'Will Iran close its airspace by June 12?', 'Will Iran close its airspace by June 11?'], 'missing_outcome_count': 1}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will Renan Santos win the 2026 Brazilian presidential election?', 'Will Tereza Cristina win the 2026 Brazilian presidential election?', 'Will Geraldo Alckmin win the 2026 Brazilian presidential election?', 'Will Michelle Bolsonaro win the 2026 Brazilian presidential election?', 'Will Tarcisio de Freitas win the 2026 Brazilian presidential election?', 'Will Romeu Zema win the 2026 Brazilian presidential election?'], 'missing_outcome_count': 7}, {'group_id': 'event:event:511460', 'present_outcomes_sample': ['Czechia vs. South Africa: Czechia O/U 0.5', 'Spread: Czechia (-2.5)', 'Czechia vs. South Africa: Both Teams to Score', 'Czechia vs. South Africa: O/U 5.5', 'Czechia vs. South Africa: O/U 7.5', 'Spread: Czechia (-1.5)'], 'missing_outcome_count': 13}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ["Will Max Verstappen be the 2026 F1 Drivers' Champion?", "Will Lance Stroll be the 2026 F1 Drivers' Champion?", "Will Sergio Pérez be the 2026 F1 Drivers' Champion?", "Will Nico Hülkenberg be the 2026 F1 Drivers' Champion?", "Will Oliver Bearman be the 2026 F1 Drivers' Champion?", "Will Esteban Ocon be the 2026 F1 Drivers' Champion?"], 'missing_outcome_count': 2}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will Ted Cruz win the 2028 Republican presidential nomination?', 'Will Robert F. Kennedy Jr. win the 2028 Republican presidential nomination?', 'Will Donald Trump Jr. win the 2028 Republican presidential nomination?', 'Will Nikki Haley win the 2028 Republican presidential nomination?', 'Will Marjorie Taylor Greene win the 2028 Republican presidential nomination?', 'Will Steve Bannon win the 2028 Republican presidential nomination?'], 'missing_outcome_count': 86}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will Gretchen Whitmer win the 2028 US Presidential Election?', 'Will Tulsi Gabbard win the 2028 US Presidential Election?', 'Will Zohran Mamdani win the 2028 US Presidential Election?', 'Will Jalen Brunson win the 2028 US Presidential Election?', 'Will Ivanka Trump win the 2028 US Presidential Election?', 'Will LeBron James win the 2028 US Presidential Election?'], 'missing_outcome_count': 85}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will J.B. Pritzker win the 2028 Democratic presidential nomination?', 'Will Beto O’Rourke win the 2028 Democratic presidential nomination?', 'Will Josh Shapiro win the 2028 Democratic presidential nomination?', 'Will Phil Murphy win the 2028 Democratic presidential nomination?', 'Will Raphael Warnock win the 2028 Democratic presidential nomination?', 'Will Bernie Sanders win the 2028 Democratic presidential nomination?'], 'missing_outcome_count': 75}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will Haiti win the 2026 FIFA World Cup?', 'Will Iran win the 2026 FIFA World Cup?', 'Will Uzbekistan win the 2026 FIFA World Cup?', 'Will Saudi Arabia win the 2026 FIFA World Cup?', 'Will Switzerland win the 2026 FIFA World Cup?', 'Will Netherlands win the 2026 FIFA World Cup?'], 'missing_outcome_count': 4}]
+- bregman_incomplete_family_examples: [{'group_id': 'event:event:551781', 'n_legs_scanned': 5, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:548813', 'n_legs_scanned': 4, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:601658', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:36173', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:139507', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:23784', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:event:106811', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}, {'group_id': 'event:negrisk:<REDACTED>', 'n_legs_scanned': 2, 'declared_outcome_count': None, 'has_complete_marker': False, 'missing_outcome_count': None}]
+- bregman_missing_outcome_examples: [{'group_id': 'event:event:577376', 'present_outcomes_sample': ['Will Iran close its airspace by July 31?', 'Will Iran close its airspace by June 30?', 'Will Iran close its airspace by December 31?', 'Will Iran close its airspace by June 10?', 'Will Iran close its airspace by June 12?', 'Will Iran close its airspace by June 11?'], 'missing_outcome_count': 1}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will Tereza Cristina win the 2026 Brazilian presidential election?', 'Will Geraldo Alckmin win the 2026 Brazilian presidential election?', 'Will Renan Santos win the 2026 Brazilian presidential election?', 'Will Tarcisio de Freitas win the 2026 Brazilian presidential election?', 'Will Camilo Santana win the 2026 Brazilian presidential election?', 'Will Romeu Zema win the 2026 Brazilian presidential election?'], 'missing_outcome_count': 7}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ["Will Oliver Bearman be the 2026 F1 Drivers' Champion?", "Will Alexander Albon be the 2026 F1 Drivers' Champion?", "Will Isack Hadjar be the 2026 F1 Drivers' Champion?", "Will Pierre Gasly be the 2026 F1 Drivers' Champion?", "Will Arvid Lindblad be the 2026 F1 Drivers' Champion?", "Will Valtteri Bottas be the 2026 F1 Drivers' Champion?"], 'missing_outcome_count': 2}, {'group_id': 'event:event:511460', 'present_outcomes_sample': ['Czechia vs. South Africa: 1st Half O/U 1.5', 'Czechia vs. South Africa: 1st Half O/U 0.5', 'Czechia vs. South Africa: O/U 4.5', 'Czechia vs. South Africa: O/U 7.5', 'Czechia vs. South Africa: O/U 5.5', 'Czechia vs. South Africa: Both Teams to Score'], 'missing_outcome_count': 12}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will Pete Hegseth win the 2028 Republican presidential nomination?', 'Will Thomas Massie win the 2028 Republican presidential nomination?', 'Will J.D. Vance win the 2028 Republican presidential nomination?', 'Will Eric Trump win the 2028 Republican presidential nomination?', 'Will Mike Pence win the 2028 Republican presidential nomination?', 'Will Kristi Noem win the 2028 Republican presidential nomination?'], 'missing_outcome_count': 85}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will Jalen Brunson win the 2028 US Presidential Election?', 'Will Zohran Mamdani win the 2028 US Presidential Election?', 'Will Ivanka Trump win the 2028 US Presidential Election?', 'Will LeBron James win the 2028 US Presidential Election?', 'Will Elon Musk win the 2028 US Presidential Election?', 'Will Nikki Haley win the 2028 US Presidential Election?'], 'missing_outcome_count': 83}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will Graham Platner win the 2028 Democratic presidential nomination?', 'Will Ruben Gallego win the 2028 Democratic presidential nomination?', 'Will Jasmine Crockett win the 2028 Democratic presidential nomination?', 'Will Kim Kardashian win the 2028 Democratic presidential nomination?', 'Will Beto O’Rourke win the 2028 Democratic presidential nomination?', 'Will Andrew Yang win the 2028 Democratic presidential nomination?'], 'missing_outcome_count': 75}, {'group_id': 'event:negrisk:<REDACTED>', 'present_outcomes_sample': ['Will Turkiye win the 2026 FIFA World Cup?', 'Will Czechia win the 2026 FIFA World Cup?', 'Will Bosnia-Herzegovina win the 2026 FIFA World Cup?', 'Will Congo DR win the 2026 FIFA World Cup?', 'Will Sweden win the 2026 FIFA World Cup?', 'Will Croatia win the 2026 FIFA World Cup?'], 'missing_outcome_count': 4}]
 - accelerated_discovery_enabled: True
-- markets_scanned_per_tick: 1782 candidates_evaluated_per_tick=508 shadow_labels_per_tick=150 no_trade_labels_per_tick=508
-- near_miss_records_written: 1179 bregman_diagnostics_records_written=106984
-- top_near_miss_edges_after_cost: [0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.998, 0.998, 0.998]
-- top_bregman_rejection_reasons: [{'reason': 'not_exhaustive', 'count': 49094}, {'reason': 'no_positive_edge', 'count': 22832}, {'reason': 'depth_too_thin', 'count': 21817}, {'reason': 'stale_book', 'count': 10319}, {'reason': 'invalid_simplex', 'count': 2653}, {'reason': 'no_executable_price', 'count': 210}, {'reason': 'spread_too_wide', 'count': 59}, {'reason': 'bregman_leg_stale_book', 'count': 1}]
-- report_buckets: {'realistic_executable_trades': 12, 'bregman_certified_bundles': 0, 'directional_exploit_trades': 12, 'shadow_exploration': 0, 'no_trade_labels': 508, 'near_miss_rejects': 1179, 'paper_relaxed_exploration_trades': 0}
+- markets_scanned_per_tick: 1808 candidates_evaluated_per_tick=462 shadow_labels_per_tick=150 no_trade_labels_per_tick=462
+- near_miss_records_written: 533 bregman_diagnostics_records_written=4188
+- top_near_miss_edges_after_cost: [0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999]
+- top_bregman_rejection_reasons: [{'reason': 'not_exhaustive', 'count': 2077}, {'reason': 'no_positive_edge', 'count': 885}, {'reason': 'depth_too_thin', 'count': 864}, {'reason': 'stale_book', 'count': 274}, {'reason': 'no_executable_price', 'count': 64}, {'reason': 'spread_too_wide', 'count': 24}]
+- report_buckets: {'realistic_executable_trades': 0, 'bregman_certified_bundles': 0, 'directional_exploit_trades': 0, 'shadow_exploration': 0, 'no_trade_labels': 462, 'near_miss_rejects': 533, 'paper_relaxed_exploration_trades': 0}
 - accelerated_discovery_knobs: {'bregman_discovery_limit': 3000, 'bregman_shadow_labels_per_tick': 150, 'bregman_top_near_misses': 50, 'bregman_near_miss_store_cap': 5000, 'bregman_clob_hydration_max_groups': 250, 'shortlist_limit': 400, 'scan_interval_seconds': 15.0}
-- market_quality_tier_counts: {'gold': 0, 'silver': 1, 'bronze': 864, 'watch': 688, 'reject_or_diagnostic': 229}
-- market_quality_score_distribution: {'0.8+': 0, '0.6-0.8': 0, '0.4-0.6': 884, '0.2-0.4': 800, '<0.2': 98}
-- targeted_scan_budget_by_category: {'complete_yes_no_tight_spread': 13, 'negative_risk_complete': 9, 'short_resolution': 966, 'btc_eth_chainlink': 122, 'fed_macro_reference': 31, 'complete_event_family': 9, 'broad_exploration': 536}
-- targeted_scan_markets_by_category: {'complete_yes_no_tight_spread': 15, 'negative_risk_complete': 72, 'short_resolution': 1105, 'btc_eth_chainlink': 146, 'fed_macro_reference': 35, 'high_volume_news_linked': 1, 'complete_event_family': 72, 'broad_exploration': 572}
-- high_liquidity_binary_markets_scanned: 393
-- complete_yes_no_tight_spread_markets_scanned: 597
-- negative_risk_complete_events_scanned: 81
-- short_resolution_markets_scanned: 1105
-- btc_eth_chainlink_markets_scanned: 146
-- fed_macro_reference_markets_scanned: 35
+- market_quality_tier_counts: {'gold': 0, 'silver': 2, 'bronze': 851, 'watch': 676, 'reject_or_diagnostic': 279}
+- market_quality_score_distribution: {'0.8+': 0, '0.6-0.8': 0, '0.4-0.6': 868, '0.2-0.4': 846, '<0.2': 94}
+- targeted_scan_budget_by_category: {'complete_yes_no_tight_spread': 11, 'negative_risk_complete': 7, 'short_resolution': 913, 'btc_eth_chainlink': 116, 'fed_macro_reference': 30, 'high_volume_news_linked': 1, 'complete_event_family': 7, 'broad_exploration': 568}
+- targeted_scan_markets_by_category: {'complete_yes_no_tight_spread': 13, 'negative_risk_complete': 70, 'short_resolution': 1084, 'btc_eth_chainlink': 139, 'fed_macro_reference': 34, 'high_volume_news_linked': 1, 'complete_event_family': 70, 'broad_exploration': 622}
+- high_liquidity_binary_markets_scanned: 165
+- complete_yes_no_tight_spread_markets_scanned: 261
+- negative_risk_complete_events_scanned: 72
+- short_resolution_markets_scanned: 1084
+- btc_eth_chainlink_markets_scanned: 139
+- fed_macro_reference_markets_scanned: 34
 - high_volume_news_linked_markets_scanned: 1
-- complete_event_families_scanned: 81
-- thin_depth_scan_waste_count (KNOWN-thin only): 1776
-- stale_book_scan_waste_count (KNOWN-stale only): 1724
-- targeted_scan_missing_data_counts (NOT waste): {'missing_book_timestamp': 0, 'missing_depth': 7, 'missing_volume': 0}
-- scan_deprioritized_groups: 26 cooldown_active=1835 reasons={'invalid_simplex': 5, 'stale_book': 26, 'thin_depth': 26}
-- not_exhaustive_high_quality_groups: 2 (sibling=2 grok=2 shadow_only=2)
-- targeted_scan_noop_reasons: {'thin_depth_deprioritized': '0/1782 markets matched thin_depth_deprioritized (binaries seen=864)', 'stale_book_refresh': '0/1782 markets matched stale_book_refresh (binaries seen=864)'}
-  - best: 2532409 tier=silver score=0.596489 categories=['short_resolution', 'btc_eth_chainlink']
-  - best: 1897206 tier=bronze score=0.577151 categories=['complete_yes_no_tight_spread', 'short_resolution']
-  - best: 1897162 tier=bronze score=0.575444 categories=['complete_yes_no_tight_spread', 'short_resolution']
+- complete_event_families_scanned: 72
+- thin_depth_scan_waste_count (KNOWN-thin only): 1799
+- stale_book_scan_waste_count (KNOWN-stale only): 1771
+- targeted_scan_missing_data_counts (NOT waste): {'missing_book_timestamp': 0, 'missing_depth': 10, 'missing_volume': 2}
+- scan_deprioritized_groups: 9 cooldown_active=1890 reasons={'stale_book': 9, 'thin_depth': 9}
+- not_exhaustive_high_quality_groups: 10 (sibling=10 grok=10 shadow_only=10)
+- targeted_scan_noop_reasons: {'thin_depth_deprioritized': '0/1808 markets matched thin_depth_deprioritized (binaries seen=288)', 'stale_book_refresh': '0/1808 markets matched stale_book_refresh (binaries seen=288)'}
+  - best: 2322768 tier=silver score=0.587403 categories=['complete_yes_no_tight_spread', 'short_resolution']
+  - best: 2322796 tier=silver score=0.586121 categories=['complete_yes_no_tight_spread', 'short_resolution']
+  - best: 2412401 tier=bronze score=0.571023 categories=['short_resolution']
 
 ## 12. Paper Training Metrics
 
-- equity: 499.9363
-- total_pnl: -0.0635
+- equity: 500.0
+- total_pnl: 0
 - after_cost_pnl: 0
-- open_positions: 2
-- closed_positions: 10
-- paper_trades: 10
-- win_rate_traded_only: 0.2
+- open_positions: 0
+- closed_positions: 0
+- paper_trades: 0
+- win_rate_traded_only: unknown
 
 ## 13. Strategy Attribution
 
@@ -505,14 +504,14 @@ Top Bregman near-misses (diagnostic only — NOT executed):
 
 ### 14a. Paper Realism (Pass 3)
 
-- total_candidates_considered: 14
-- realistic_trade_count: 12
+- total_candidates_considered: 0
+- realistic_trade_count: 0
 - shadow_trade_count: 0
 - hard_reject_count: 0
 - reference_fill_attempts: 0
 - reference_fills_allowed: 0
 - reference_fills_blocked: 0
-- stale_book_rejection_count: 1
+- stale_book_rejection_count: 0
 - missing_ask_rejection_count: 0
 - thin_depth_rejection_count: 0
 - wide_spread_rejection_count: 0
@@ -525,7 +524,7 @@ Top Bregman near-misses (diagnostic only — NOT executed):
 PnL separation (only realistic_executable counts toward readiness):
 - bregman_realistic_pnl: 0
 - directional_realistic_pnl: 0
-- exploration_pnl: -0.0644
+- exploration_pnl: 0
 - shadow_theoretical_pnl: 0
 - reference_fill_theoretical_pnl: 0
 - realistic_pnl: 0
@@ -554,33 +553,33 @@ Realism posture:
 - live_flags_forced_off: yes
 
 Tiny paper-learning lanes (exploration PnL excluded from readiness):
-- active_learning_tiny_trades_selected: 13
-- active_learning_tiny_trades_opened: 12
+- active_learning_tiny_trades_selected: 0
+- active_learning_tiny_trades_opened: 0
 - relaxed_bregman_trades_opened: 0
 - btc_pulse_paper_trades_opened: 0
-- exploration_pnl: -0.0644
+- exploration_pnl: 0.0
 - readiness_pnl_excludes_exploration: yes
-- active_learning_tiny_trades_blocked_by_reason: {'collision_blocked': 1}
+- active_learning_tiny_trades_blocked_by_reason: {}
 
 Lane-specific zero-trade blockers (empty == lane opened >=1 paper trade):
-- bregman_blocker: no_certified_bregman_opportunity: dominant_reject=not_exhaustive(49094)
-- relaxed_bregman_blocker: no_relaxed_bregman_real_book_candidate
-- tiny_directional_blocker: (none)
+- bregman_blocker: no_certified_bregman_opportunity: dominant_reject=not_exhaustive(2310)
+- relaxed_bregman_blocker: positive_candidates_rejected_before_open: positive=68; dominant_reject_reason=negative_after_cost_edge; reject_reasons={'stale_book': 153, 'negative_after_cost_edge': 1807, 'incomplete_event_family': 68, 'depth_insufficient_for_1usd': 219}; best_reject={'group_id': 'event:event:36173', 'group_type': 'mutually_exclusive', 'after_cost_edge': 0.92782, 'reject_reason': 'incomplete_event_family', 'depth_for_1usd': 132.9277, 'n_legs': 2}
+- tiny_directional_blocker: no_active_learning_tiny_selection: exploration_enabled=True; active_learning_enabled=True
 - btc_pulse_blocker: btc_pulse_disabled
-- paper_trade_acceleration_blocker_if_any: (none)
+- paper_trade_acceleration_blocker_if_any: no_paper_trade_opened_in_any_lane: bregman=no_certified_bregman_opportunity: dominant_reject=not_exhaustive(2310); relaxed_bregman=positive_candidates_rejected_before_open: positive=68; dominant_reject_reason=negative_after_cost_edge; reject_reasons={'stale_book': 153, 'negative_after_cost_edge': 1807, 'incomplete_event_family': 68, 'depth_insufficient_for_1usd': 219}; best_reject={'group_id': 'event:event:36173', 'group_type': 'mutually_exclusive', 'after_cost_edge': 0.92782, 'reject_reason': 'incomplete_event_family', 'depth_for_1usd': 132.9277, 'n_legs': 2}; tiny_directional=no_active_learning_tiny_selection: exploration_enabled=True; active_learning_enabled=True; btc_pulse=btc_pulse_disabled
 
 ### 14b. Strategy Priority (Pass 4)
 
 - Bregman evaluated before directional: yes
 - Directional consumed capacity before Bregman: no (should be false)
-- Bregman groups discovered: 508
+- Bregman groups discovered: 465
 - Bregman certified (realistic executable): 0
 - Bregman bundles opened before directional: 0
   - Why zero opened: no certified-realistic Bregman opportunity this tick (see metrics/bregman_execution.json rejected_by_reason)
 - bregman_reserved_slots: 0
 - bregman_reserved_capital_usd: 0.0
-- directional_slots_before_bregman: 6
-- directional_slots_after_bregman: 6
+- directional_slots_before_bregman: 8
+- directional_slots_after_bregman: 8
 - directional_trades_blocked_by_bregman_reservation: 0
 - directional_trades_blocked_by_bregman_market_collision: 0
 - directional_trades_blocked_by_bregman_event_collision: 0
@@ -595,7 +594,7 @@ Lane-specific zero-trade blockers (empty == lane opened >=1 paper trade):
 - Annotation before truncation: yes
 - Bregman-first priority preserved: yes (should be true)
 - Execution without annotation: 0 (should be 0)
-- candidates_annotated: 13
+- candidates_annotated: 0
 - candidates_missing_profitability_data: 0
 - directional_after_cost_positive: 0
 - bregman_after_cost_positive: 0
@@ -606,7 +605,7 @@ Lane-specific zero-trade blockers (empty == lane opened >=1 paper trade):
 - avg_after_cost_roi_executed: 0.0
 - total_expected_value_usd_executed: 0
 - top_ranked_candidate_reason: no after-cost-positive executable candidate this run
-- profitability_buckets: {'exploration_feedback_positive': 13}
+- profitability_buckets: {}
 
 ### 14d. Active Learning (Pass 6)
 
@@ -614,61 +613,61 @@ Lane-specific zero-trade blockers (empty == lane opened >=1 paper trade):
 - Active learning runtime enabled: yes
 - Active learning config source: aggressive_paper_profile
 - Config mismatch (declared vs effective): no (should be false)
-- Tiny evaluator called: 13
-- Tiny candidates evaluated: 13
-- Tiny trades selected: 13
-- Tiny trades opened: 12
+- Tiny evaluator called: 0
+- Tiny candidates evaluated: 0
+- Tiny trades selected: 0
+- Tiny trades opened: 0
 - Selected-but-not-evaluated (must be 0): 0
-- Tiny blocked by reason: {'collision_blocked': 1}
+- Tiny blocked by reason: {}
 - Random exploration enabled: no (should be false)
 - Random/hash exploration opened trades: 0 (should be 0)
-- Legacy random exploration blocked: 3143
+- Legacy random exploration blocked: 51
 - Exploration counted toward readiness: no (should be false)
 - Exploration consumes Bregman reserved capacity: no (should be false)
-- active_learning_candidates_considered: 24120
-- active_learning_candidates_selected: 24120
-- exploration_trades_opened: 12
-- exploration_shadow_only: 3304
-- exploration_rejected_by_realism: 1022
-- exploration_rejected_by_budget: 2
+- active_learning_candidates_considered: 1200
+- active_learning_candidates_selected: 1200
+- exploration_trades_opened: 0
+- exploration_shadow_only: 195
+- exploration_rejected_by_realism: 32
+- exploration_rejected_by_budget: 0
 - exploration_rejected_by_collision: 0
-- exploration_rejected_by_diversity: 1
-- exploration_budget_used_usd: 21.0
-- exploration_expected_loss_usd: 0.14525
-- exploration_pnl: -0.0644
-- avg_active_learning_score_selected: 0.337108
-- avg_execution_quality_selected: 0.193147
-- top_learning_buckets: ['model_uncertain_high_liquidity', 'calibration_gap_bucket', 'chainlink_disagreement_case']
-- category_coverage: {'uncategorized': 13}
-- pending_feedback_count: 2
-- completed_feedback_count: 10
+- exploration_rejected_by_diversity: 0
+- exploration_budget_used_usd: 0.0
+- exploration_expected_loss_usd: 0.0
+- exploration_pnl: 0
+- avg_active_learning_score_selected: 0.281784
+- avg_execution_quality_selected: 0.192843
+- top_learning_buckets: ['model_uncertain_high_liquidity', 'chainlink_disagreement_case', 'calibration_gap_bucket']
+- category_coverage: {}
+- pending_feedback_count: 0
+- completed_feedback_count: 0
 
 ### 14e. Correlation Risk (Pass 7)
 
 - Correlation gate enabled: yes
 - Unknown clusters become shadow-only: yes (default)
 - Real trade without cluster metadata: 0 (should be 0)
-- candidates_with_cluster_id: 13
+- candidates_with_cluster_id: 0
 - candidates_missing_cluster_id: 0
-- open_clusters_count: 2
-- open_events_count: 2
-- open_correlation_groups_count: 2
+- open_clusters_count: 0
+- open_events_count: 0
+- open_correlation_groups_count: 0
 - blocked_same_market: 0
 - blocked_same_condition: 0
 - blocked_same_event: 0
 - blocked_same_cluster: 0
 - blocked_bregman_market_collision: 0
 - blocked_bregman_event_collision: 0
-- blocked_exploration_cluster_collision: 1
+- blocked_exploration_cluster_collision: 0
 - size_capped_by_cluster_exposure: 0
 - shadowed_unknown_cluster: 0
 - directional_trades_blocked_by_correlation: 0
-- exploration_trades_blocked_by_correlation: 1
+- exploration_trades_blocked_by_correlation: 0
 - bregman_bundles_blocked_as_duplicates: 0
 - bregman_bundles_blocked_as_overlapping: 0
-- max_cluster_exposure_usd: 1.75
-- max_event_exposure_usd: 1.75
-- top_open_clusters: [{'cluster': 'event:605245', 'count': 1, 'notional': 1.75}, {'cluster': 'event:30829', 'count': 1, 'notional': 1.7499}]
+- max_cluster_exposure_usd: 0.0
+- max_event_exposure_usd: 0.0
+- top_open_clusters: []
 
 ## 15. Calibration Metrics
 
@@ -677,7 +676,7 @@ Lane-specific zero-trade blockers (empty == lane opened >=1 paper trade):
 - sharpe: unknown
 - sortino: unknown
 - calmar: unknown
-- max_drawdown: -0.0653
+- max_drawdown: 0.0
 
 ## 16. Test Results
 
@@ -713,10 +712,10 @@ Lane-specific zero-trade blockers (empty == lane opened >=1 paper trade):
 
 ## 19. Artifacts Included
 
-- metrics: present (not copied) (83595805 bytes)
-- reports: copied (14906 bytes)
-- training: present (not copied) (9138567273 bytes)
-- micro_live_artifacts: copied (5454132 bytes)
+- metrics: present (not copied) (83824206 bytes)
+- reports: copied (13321 bytes)
+- training: present (not copied) (9151774217 bytes)
+- micro_live_artifacts: copied (5543544 bytes)
 - Missing (recorded, not fatal): data, paper_artifacts, training_artifacts, shadow_artifacts, post_canary_artifacts, replay_artifacts, production_review_artifacts, guarded_live_artifacts
 
 ## 20. Missing Features / Missing Evidence
@@ -726,17 +725,15 @@ Lane-specific zero-trade blockers (empty == lane opened >=1 paper trade):
 ## 21. Key Problems Found
 
 - [WARN] safety audit raised warnings
-- [WARN] 1 benchmark(s) failing
-- [WARN] NOT RUN-READY: stale_or_mixed_training_tail_samples: decision_records.jsonl: last_run_id=pmtrain-1781759423 != events run_id=pmtrain-1781790321; no_trade_labels.jsonl: last_run_id=pmtrain-1781759423 != events run_id=pmtrain-1781790321; pending_labels.jsonl: last_run_id=pmtrain-1781759423 != events run_id=pmtrain-1781790321
 - [WARN] No certified Bregman opportunities found yet; continue paper training.
 
 ## 22. Recommended Next Fixes
 
-- **P2** (benchmark): Traded-only win rate below target — recalibrate entry edge.
+- None — bot looks healthy.
 
 ## 23. Algorithmic Benchmarks
 
-Summary: pass=10 warn=0 fail=1 missing=11
+Summary: pass=10 warn=0 fail=0 missing=12
 
 | Benchmark | Value | Target | Dir | Status | Description |
 |---|---|---|---|---|---|
@@ -744,11 +741,11 @@ Summary: pass=10 warn=0 fail=1 missing=11
 | bregman_certified_profit | 0.0 | 0.0 | higher | PASS | Certified Bregman opportunity profit (paper). |
 | bregman_false_positive_rate | 0.0 | 0.2 | lower | PASS | Bregman false-positive rate (incoherent but not certifiable). |
 | btc_pulse_after_cost_pnl | unknown | 0.0 | higher | MISSING | BTC Pulse after-cost paper PnL. |
-| win_rate_traded_only | 0.2 | 0.5 | higher | FAIL | Win rate over traded-only paper decisions. |
+| win_rate_traded_only | unknown | 0.5 | higher | MISSING | Win rate over traded-only paper decisions. |
 | sharpe | unknown | 1.0 | higher | MISSING | Sharpe ratio (paper equity curve). |
 | sortino | unknown | 1.5 | higher | MISSING | Sortino ratio (downside-only). |
 | calmar | unknown | 1.0 | higher | MISSING | Calmar ratio (return / max drawdown). |
-| max_drawdown | -0.0653 | 0.15 | lower | PASS | Max drawdown (fraction of equity). |
+| max_drawdown | 0.0 | 0.15 | lower | PASS | Max drawdown (fraction of equity). |
 | cvar | unknown | -0.1 | higher | MISSING | Conditional VaR / Expected Shortfall of paper returns (closer to 0 is better). |
 | brier | 0.0 | 0.25 | lower | PASS | Brier score (probability calibration). |
 | ece | 0.0 | 0.05 | lower | PASS | Expected calibration error. |
