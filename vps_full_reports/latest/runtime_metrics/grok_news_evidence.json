@@ -7,7 +7,7 @@
   "grok_brain_ready": true,
   "grok_brain_blocker": null,
   "research_mode": "online_paper",
-  "news_items_used": 193,
+  "news_items_used": 307,
   "grok_calls_total": 2,
   "grok_calls_with_news": 2,
   "grok_advisory_only_count": 2,
@@ -19,7 +19,7 @@
   "grok_scheduler_calls_total": 2,
   "grok_total_calls_reconciled": true,
   "grok_scheduled_calls": 2,
-  "grok_scheduler_eligible_targets": 642,
+  "grok_scheduler_eligible_targets": 669,
   "grok_scheduler_targets_selected": 2,
   "grok_scheduler_targets_skipped": 8,
   "grok_scheduler_skip_reasons": {
