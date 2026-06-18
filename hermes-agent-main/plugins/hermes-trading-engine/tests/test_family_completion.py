@@ -118,3 +118,59 @@ def test_already_complete_family_adds_nothing():
     out, tel = expand_event_families(scanned, now=now)
     assert tel["family_completion_missing_siblings_added"] == 0
     assert tel["family_completion_families_with_gap"] == 0
+
+
+def _scanned_member_no_embedded(i, *, event_id, now):
+    # mirrors the REAL /markets payload: events[0] carries the id but NOT the markets list
+    raw = dict(_sibling(f"m{i}", f"tok{i}", f"Outcome {i}"))
+    raw["events"] = [{"id": event_id, "slug": event_id}]   # no embedded 'markets'
+    raw["bestAsk"] = 0.30
+    raw["bestBid"] = 0.28
+    raw["liquidityNum"] = 500.0
+    return um.MarketRecord.from_raw(raw, now=now)
+
+
+def test_event_fetch_enumerates_siblings_when_not_embedded():
+    now = time.time()
+    full = _event_markets(4)                       # the /events/{id} response markets
+    scanned = [_scanned_member_no_embedded(0, event_id="E8", now=now)]
+    calls = []
+
+    def fake_event_fetcher(eid):
+        calls.append(eid)
+        return {"id": eid, "slug": eid, "markets": full}
+
+    out, tel = expand_event_families(scanned, now=now, event_fetcher=fake_event_fetcher)
+    assert calls == ["E8"]                          # fetched the event once
+    assert tel["family_completion_event_fetch_enabled"] is True
+    assert tel["family_completion_events_fetched"] == 1
+    assert tel["family_completion_missing_siblings_added"] == 3
+    assert {r.market_id for r in out} == {"m0", "m1", "m2", "m3"}
+
+
+def test_event_fetch_respects_per_tick_cap():
+    now = time.time()
+    scanned = [_scanned_member_no_embedded(0, event_id="EA", now=now),
+               _scanned_member_no_embedded(9, event_id="EB", now=now)]
+    seen = []
+
+    def fake(eid):
+        seen.append(eid)
+        return {"id": eid, "markets": _event_markets(3)}
+
+    out, tel = expand_event_families(scanned, now=now, event_fetcher=fake, max_events_fetched=1)
+    assert tel["family_completion_events_fetched"] == 1   # capped at 1 event/tick
+    assert len(seen) == 1
+
+
+def test_event_fetch_failure_is_safe():
+    now = time.time()
+    scanned = [_scanned_member_no_embedded(0, event_id="EC", now=now)]
+
+    def boom(eid):
+        raise RuntimeError("network down")
+
+    out, tel = expand_event_families(scanned, now=now, event_fetcher=boom)
+    assert tel["family_completion_events_fetch_failed"] >= 0   # never raises
+    assert tel["family_completion_missing_siblings_added"] == 0
+    assert len(out) == 1

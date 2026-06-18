@@ -950,6 +950,24 @@ class PolymarketPaperTrainer:
             book_fetcher=fetcher, max_book_age_s=age, max_groups_per_tick=cap)
         return self._bregman_clob_hydrator.enabled
 
+    def _family_event_fetcher(self):
+        """Lazily build (and cache) the READ-ONLY Polymarket ``/events`` fetcher used to
+        enumerate sibling markets for event-family completion. Returns None when event
+        fetch is disabled (offline/unit tests) so completion stays embedded-metadata-only.
+        An explicitly-injected fetcher (``self._family_event_fetcher_override``) wins."""
+        override = getattr(self, "_family_event_fetcher_override", None)
+        if override is not None:
+            return override
+        if not getattr(self.cfg, "family_completion_enabled", True):
+            return None
+        if not hasattr(self, "_family_event_fetcher_cached"):
+            try:
+                from engine.training.family_completion import default_event_markets_fetcher
+                self._family_event_fetcher_cached = default_event_markets_fetcher()
+            except Exception:  # noqa: BLE001 — never break a tick building a fetcher
+                self._family_event_fetcher_cached = None
+        return self._family_event_fetcher_cached
+
     def scan_bregman(self, records: list, now: float) -> list:
         """Certify Bregman opportunities across the candidate set (read-only).
 
@@ -973,7 +991,10 @@ class PolymarketPaperTrainer:
                     max_total_new=int(getattr(self.cfg, "family_completion_max_new_records", 40)),
                     max_per_family=int(getattr(self.cfg, "family_completion_max_per_family", 8)),
                     min_family_liquidity_usd=float(
-                        getattr(self.cfg, "family_completion_min_family_liquidity_usd", 0.0)))
+                        getattr(self.cfg, "family_completion_min_family_liquidity_usd", 0.0)),
+                    event_fetcher=self._family_event_fetcher(),
+                    max_events_fetched=int(
+                        getattr(self.cfg, "family_completion_max_events_per_tick", 20)))
             except Exception:  # noqa: BLE001 — completion must never break a tick
                 family_tel = {"family_completion_enabled": True, "family_completion_error": True}
         try:

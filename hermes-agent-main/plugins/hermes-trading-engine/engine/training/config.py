@@ -139,6 +139,7 @@ class TrainingConfig:
     family_completion_max_new_records: int = 40
     family_completion_max_per_family: int = 8
     family_completion_min_family_liquidity_usd: float = 0.0
+    family_completion_max_events_per_tick: int = 20   # bound on /events fetches per tick
     # ---- paper policy / sizing ----
     # Minimum paper order/probe size (USD). Orders never open below this (no sub-$1
     # probes); a book that cannot support the floor is rejected by realism, not shrunk
@@ -1012,6 +1013,8 @@ class TrainingConfig:
                 "POLYMARKET_FAMILY_COMPLETION_MAX_PER_FAMILY", 8),
             family_completion_min_family_liquidity_usd=_envf(
                 "POLYMARKET_FAMILY_COMPLETION_MIN_FAMILY_LIQUIDITY_USD", 0.0),
+            family_completion_max_events_per_tick=_envi(
+                "POLYMARKET_FAMILY_COMPLETION_MAX_EVENTS_PER_TICK", 20),
             max_fill_depth_fraction=_envf("PAPER_MAX_FILL_DEPTH_FRACTION", 0.35),
             fixed_notional_usd=_envf("POLYMARKET_PAPER_FIXED_NOTIONAL_USD", 5.0),
             min_order_notional_usd=_envf("POLYMARKET_MIN_ORDER_NOTIONAL_USD", 1.0),

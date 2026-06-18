@@ -534,6 +534,16 @@ services:
       NEWS_MIN_SOURCE_CREDIBILITY: "${NEWS_MIN_SOURCE_CREDIBILITY:-0.4}"
       POLYMARKET_TRAINING_MODE: "${POLYMARKET_TRAINING_MODE:-paper_train}"
       POLYMARKET_CLOB_ENABLED: "1"
+      # ---- Priority-1 targeted event-family completion (READ-ONLY) ----
+      # ON: before Bregman grouping, the engine enumerates each scanned market's full
+      # event sibling set from the public Polymarket /events/{id} endpoint and synthesizes
+      # records for the MISSING siblings (token ids only — no fabricated prices) so
+      # multi-outcome MECE families assemble and 1-2-leg-short families stop being rejected
+      # not_exhaustive. The missing legs get REAL CLOB books from the hydrator and
+      # completeness is still PROVEN by the unchanged certifier. Read-only; bounded per tick.
+      FAMILY_COMPLETION_EVENT_FETCH_ENABLED: "1"
+      POLYMARKET_FAMILY_COMPLETION_ENABLED: "1"
+      POLYMARKET_FAMILY_COMPLETION_MAX_EVENTS_PER_TICK: "20"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----
       # Live Chainlink mainnet aggregator reads (latestRoundData over JSON-RPC),
       # used ONLY as a probability/edge input feature for crypto-linked markets.
