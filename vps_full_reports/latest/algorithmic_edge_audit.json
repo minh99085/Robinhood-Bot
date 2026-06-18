@@ -6,7 +6,7 @@
   "max_status_age_s": 3600.0,
   "bregman_enabled": true,
   "tests_passing": true,
-  "equity_mismatch_pct": 0.0,
+  "equity_mismatch_pct": 0.0085,
   "hard_failures": [],
   "required_field_violations": [],
   "missing_core_fields": [],
@@ -16,25 +16,25 @@
   "sections": {
     "strategy_attribution": {
       "trades_by_strategy": null,
-      "gross_pnl": 0.0,
+      "gross_pnl": -0.0425,
       "after_cost_pnl": 0.0,
       "win_rate": 0.0,
       "win_rate_sample_count": 0,
       "avg_edge_at_entry": null,
       "avg_realized_edge": null,
       "rejected_trades": null,
-      "open_exposure": 0.0,
+      "open_exposure": 2.0,
       "realized_pnl": 0.0,
-      "unrealized_pnl": 0.0
+      "unrealized_pnl": -0.0425
     },
     "bregman": {
-      "constraint_groups_scanned": 490.0,
-      "raw_groups_discovered": 490.0,
+      "constraint_groups_scanned": 523.0,
+      "raw_groups_discovered": 523.0,
       "incoherent_groups": 0.0,
       "candidate_arbitrages": 0.0,
       "certified_arbitrages": 0.0,
       "executable_depth_certified": 0.0,
-      "rejected_fees_spread_depth_slippage": 3414,
+      "rejected_fees_spread_depth_slippage": 2647,
       "expected_min_profit": 0.0,
       "worst_case_payoff": 0.0,
       "execution_atomicity_risk": false,
@@ -43,9 +43,9 @@
     },
     "btc_pulse": {
       "chainlink_anchor_price": 63964.517,
-      "fast_btc_price": 63795.245,
+      "fast_btc_price": 63779.04,
       "feed_disagreement_bps": null,
-      "market_stale_time_s": 580.108,
+      "market_stale_time_s": 2549.427,
       "volatility_regime": null,
       "trend_persistence": null,
       "trade_trigger_reason": null,
@@ -68,7 +68,7 @@
       "partial_fill_assumptions": null,
       "available_depth_at_decision": null,
       "fee_adjusted_ev": null,
-      "clob_v2_executable": false,
+      "clob_v2_executable": true,
       "fill_realism_rejection_rate": 0.0
     },
     "risk": {
@@ -85,7 +85,7 @@
       "kill_switch_triggers": null
     },
     "execution": {
-      "clob_v2_executable": false,
+      "clob_v2_executable": true,
       "execution_atomicity_risk": false,
       "latency_ms": null,
       "stale_data_events": null,

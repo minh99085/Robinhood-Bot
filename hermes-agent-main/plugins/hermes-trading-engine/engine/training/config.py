@@ -136,7 +136,7 @@ class TrainingConfig:
     # Read-only; the missing legs get REAL books from the CLOB hydrator and completeness is
     # still PROVEN by the unchanged certifier. Bounded by the caps below. Env-tunable.
     family_completion_enabled: bool = True
-    family_completion_max_new_records: int = 40
+    family_completion_max_new_records: int = 120   # P1 validation hit the 40 cap; raised
     family_completion_max_per_family: int = 8
     family_completion_min_family_liquidity_usd: float = 0.0
     family_completion_max_events_per_tick: int = 20   # bound on /events fetches per tick

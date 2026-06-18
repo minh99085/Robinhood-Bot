@@ -544,6 +544,7 @@ services:
       FAMILY_COMPLETION_EVENT_FETCH_ENABLED: "1"
       POLYMARKET_FAMILY_COMPLETION_ENABLED: "1"
       POLYMARKET_FAMILY_COMPLETION_MAX_EVENTS_PER_TICK: "20"
+      POLYMARKET_FAMILY_COMPLETION_MAX_NEW_RECORDS: "120"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----
       # Live Chainlink mainnet aggregator reads (latestRoundData over JSON-RPC),
       # used ONLY as a probability/edge input feature for crypto-linked markets.
