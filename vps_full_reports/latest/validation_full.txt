@@ -1,37 +1,36 @@
   [PASS] paper_training_running: mode=paper_train
-  [PASS] status_fresh: age=229.2s
+  [PASS] status_fresh: age=269.6s
   [PASS] live_trading_disabled: paper-only build
   [PASS] strict_paper_realism: reference fills off
   [PASS] core_metrics_non_null: {"after_cost_pnl": 0, "fill_realism_enabled": true, "fantasy_fill_rejections": 0}
   [PASS] closed_loop_metrics_present: status=collecting
-  [PASS] closed_loop_records_positive: records=960 considered=960
-  [PASS] decision_count_reconciles_with_events: events=960
-  [PASS] rejection_becomes_learning_object: no_trade+shadow=1075 diagnostic=0
-  [PASS] pending_labels_or_diagnostic_without_target: pending=960 diag_no_label=0
-  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=1075 diagnostic=0
-  [PASS] active_learning_selection_or_reason_present: selected=960 zero_reason=None
+  [PASS] closed_loop_records_positive: records=5279 considered=5280
+  [PASS] decision_count_reconciles_with_events: events=5279
+  [PASS] rejection_becomes_learning_object: no_trade+shadow=4453 diagnostic=960
+  [PASS] pending_labels_or_diagnostic_without_target: pending=4319 diag_no_label=960
+  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=4453 diagnostic=960
+  [PASS] active_learning_selection_or_reason_present: selected=5279 zero_reason=None
   [PASS] pending_label_store_present: 
   [PASS] learning_state_saved: 
-  [PASS] bregman_metrics_consistent: discovered=491 certified=0 opened=0
-  [PASS] bregman_funnel_non_silent: detected=491 scanned=491 adapter_failed=0
-  [PASS] ledger_records_decisions: ledger.decisions=584788 decision_count=960
+  [PASS] bregman_metrics_consistent: discovered=60 certified=0 opened=0
+  [PASS] bregman_funnel_non_silent: detected=60 scanned=60 adapter_failed=0
+  [PASS] ledger_records_decisions: ledger.decisions=590067 decision_count=5280
   [PASS] audit_win_rate_known: 
   [PASS] audit_clob_v2_executable_known: 
   [PASS] audit_production_readiness_score_known: 
   [PASS] run_ready_for_hours: blocking=[]
   [PASS] active_learning_config_consistent: config_source=aggressive_paper_profile runtime_enabled=True — aggressive_paper profile ALWAYS enables active learning; mismatch => container STALE, rebuild (mission-control --mode proof2h --approved-paper-run)
-  [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=4 blocked_by_reason={} — a selected candidate must open a <=$1 paper trade or record an exact blocker
+  [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=6 blocked_by_reason={'collision_blocked': 1} — a selected candidate must open a <=$1 paper trade or record an exact blocker
   [PASS] inspection_collector_includes_artifacts: 
   [PASS] inspection_artifacts_present: all present
-  [PASS] decision_count_has_event_file_rows: decision_count=960 events.jsonl_rows=3661152
-  [PASS] decision_records_counter_matches_file: counter=960 decision_records.jsonl_rows=584788
-  [PASS] pending_labels_counter_matches_file: counter=960 pending_labels.jsonl_rows=584621
-  [FAIL] training_tail_streams_same_run: events_run_id=pmtrain-1781741271 stale=['decision_records.jsonl=pmtrain-1781739918', 'no_trade_labels.jsonl=pmtrain-1781739918', 'pending_labels.jsonl=pmtrain-1781739918']
+  [PASS] decision_count_has_event_file_rows: decision_count=5280 events.jsonl_rows=3681495
+  [PASS] decision_records_counter_matches_file: counter=5279 decision_records.jsonl_rows=590067
+  [PASS] pending_labels_counter_matches_file: counter=4319 pending_labels.jsonl_rows=588940
+  [PASS] training_tail_streams_same_run: same run
   [PASS] training_tail_streams_fresh_window: within freshness window
   [PASS] artifact_present:training_reconciliation.json: metrics/training_reconciliation.json
   [PASS] artifact_present:inspection_summary.json: metrics/inspection_summary.json
   [PASS] artifact_present:run_ready.json: metrics/run_ready.json
 
-SAFE TO RUN: False
-BLOCKING: ['training_tail_streams_same_run']
-validate_rc=1
+SAFE TO RUN: True
+validate_rc=0

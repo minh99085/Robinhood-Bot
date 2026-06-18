@@ -54,119 +54,117 @@ Requirement already satisfied: h11>=0.16 in ./.report_venv/lib/python3.12/site-p
 ==> verifying report dependencies are importable in .report_venv
 report dependencies OK: pydantic, numpy, pytest, fastapi, httpx
 ==> docker compose ps
-NAME                    IMAGE                                         COMMAND                  SERVICE                 CREATED         STATUS                            PORTS
-hermes-trading-engine   hermes-trading-engine-hermes-trading-engine   "uvicorn engine.app:…"   hermes-trading-engine   3 seconds ago   Up 2 seconds (health: starting)   0.0.0.0:8800->8800/tcp, [::]:8800->8800/tcp
-hermes-training         hermes-trading-engine-hermes-training         "python scripts/star…"   hermes-training         3 seconds ago   Up 2 seconds (health: starting)   8800/tcp
+NAME                    IMAGE                                         COMMAND                  SERVICE                 CREATED       STATUS                 PORTS
+hermes-trading-engine   hermes-trading-engine-hermes-trading-engine   "uvicorn engine.app:…"   hermes-trading-engine   2 hours ago   Up 2 hours (healthy)   0.0.0.0:8800->8800/tcp, [::]:8800->8800/tcp
+hermes-training         hermes-trading-engine-hermes-training         "python scripts/star…"   hermes-training         2 hours ago   Up 2 hours (healthy)   8800/tcp
 ==> hermes-training recent logs (tail)
-2026-06-18 00:07:51,501 INFO hte.feeds.btc_fast_price BTC fast price provider initialized provider=coinbase_readonly symbol=BTC-USD max_age_seconds=10
-2026-06-18 00:07:51,505 INFO hte.training.features News scanner initialized provider_mode=live_read_only
-2026-06-18 00:07:51,505 INFO hte.training.features Grok research evidence packet enabled
-2026-06-18 00:07:51,505 INFO hte.training.features Bregman scanner initialized
-2026-06-18 00:07:51,505 INFO hte.training.features Paper training strategy attribution enabled
-mode: paper_train (PAPER ONLY) · profile: aggressive
-2026-06-18 00:07:51,522 INFO hte.training.start bregman CLOB order-book hydration: enabled=True (read-only /book per token; real NO ask preferred; synthetic stays diagnostic only)
-2026-06-18 00:07:51,546 INFO hte.training.start bregman paper scanner: enabled=True reason=None (independent of pulse/grok/news)
-artifact_dirs:
-  metrics=/data/metrics exists=true writable=true
-  reports=/data/reports exists=true writable=true
-  training_data=/data/training exists=true writable=true
-  event_stream=/data/training/events.jsonl
-2026-06-18 00:07:51,649 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=0&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:51,693 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=100&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:51,733 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=200&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:51,938 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=300&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:51,985 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=400&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,022 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=500&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,061 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=600&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,103 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=700&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,145 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=800&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,188 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=900&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,234 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1000&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,279 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1100&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,319 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1200&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,366 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1300&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,411 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1400&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,464 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1500&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,509 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1600&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,552 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1700&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,597 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1800&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,644 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1900&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,684 INFO hte.arbitrage.discovery constraint discovery: discovered=857 scanned=857 malformed=226 metadata_cov=0.43 book_cov=0.43
-2026-06-18 00:07:52,714 INFO hte.arbitrage.candidate candidate generation: groups=857 candidates=0
-2026-06-18 00:07:52,714 INFO hte.strategies.bregman bregman eval: candidates=0 certified=0 profit=0.0000 false_positives=0 fill_feasible=0 max_violation=0
-2026-06-18 00:07:52,715 INFO hte.strategies.bregman_scanner bregman scan: scanned=857 skipped=1369 candidates=0 certified=0
-2026-06-18 00:07:52,889 INFO httpx HTTP Request: POST https://ethereum-rpc.publicnode.com "HTTP/1.1 200 OK"
-2026-06-18 00:07:52,981 INFO httpx HTTP Request: POST https://ethereum-rpc.publicnode.com "HTTP/1.1 200 OK"
-2026-06-18 00:07:53,099 INFO httpx HTTP Request: POST https://ethereum-rpc.publicnode.com "HTTP/1.1 200 OK"
-==> hermes-training: state=running health=starting
+2026-06-18 02:11:16,489 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=703229116919803457142440034780425874346022451261358752931225117413237404457 "HTTP/1.1 200 OK"
+2026-06-18 02:11:16,655 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=71144742975537017512904527392353107518472601816123355990566837993879064231255 "HTTP/1.1 200 OK"
+2026-06-18 02:11:16,799 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=71121816941020761461727818781154529900326767201893872929011149644403465115505 "HTTP/1.1 200 OK"
+2026-06-18 02:11:16,945 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=42043768793357493014677527887847993922600382916936993218789854802528096675284 "HTTP/1.1 200 OK"
+2026-06-18 02:11:17,089 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=24413148483960211364982088730164002254874977003659670603151187226946621811933 "HTTP/1.1 200 OK"
+2026-06-18 02:11:17,245 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=7489861225632839188526562467659298180846957305449964444627619229831409582304 "HTTP/1.1 200 OK"
+2026-06-18 02:11:17,387 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=20206262413317805354044164780650150299178310373754719434475277821055325173877 "HTTP/1.1 200 OK"
+2026-06-18 02:11:17,536 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=62128256989742855343292430517108013606703652609597630287806933100209202797196 "HTTP/1.1 200 OK"
+2026-06-18 02:11:17,684 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=80671065454402118534970441822834492766941556283670671337094578358747393423487 "HTTP/1.1 200 OK"
+2026-06-18 02:11:17,830 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=97725463464398783289601242767642888481974268800885687422778902740478294103024 "HTTP/1.1 200 OK"
+2026-06-18 02:11:17,972 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=22525957195710842754978377740580292436538325789934465295722989198544563125458 "HTTP/1.1 200 OK"
+2026-06-18 02:11:18,115 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=31227019298603318239436832653061533073850840632157772412594305104814877127741 "HTTP/1.1 200 OK"
+2026-06-18 02:11:18,309 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=79785869153488116125585882351533672227064414203253987761686968264163478391224 "HTTP/1.1 200 OK"
+2026-06-18 02:11:18,454 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=836695866229571122409227239868799635243790444165979077524740830128743370486 "HTTP/1.1 200 OK"
+2026-06-18 02:11:18,595 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=107695993624925821118492288099166196746925552704590535397101229736666098667264 "HTTP/1.1 200 OK"
+2026-06-18 02:11:18,749 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=47242021042634242898271593296081702552506522984095597295031095083693362778303 "HTTP/1.1 200 OK"
+2026-06-18 02:11:18,893 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=24111870927877758698284966853557488045339979958472930930747228063824461306531 "HTTP/1.1 200 OK"
+2026-06-18 02:11:19,075 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=109630128636635454072481618725431826978361955313239800070423214769361012384536 "HTTP/1.1 200 OK"
+2026-06-18 02:11:19,248 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=56615676606297588259337956203332341775475048285080710344367729433788967812170 "HTTP/1.1 200 OK"
+2026-06-18 02:11:19,393 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=8070607953656787024050950499598687532281829563384949938603247089607814583142 "HTTP/1.1 200 OK"
+2026-06-18 02:11:19,591 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=104812032440315568595318241870590180481232715981192720184511444933968102038477 "HTTP/1.1 200 OK"
+2026-06-18 02:11:19,784 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=50488227317031565004575684525878022626020008256198844799050708993499540064859 "HTTP/1.1 200 OK"
+2026-06-18 02:11:19,927 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=57073863691050176858693353000197608096498121614576538982509295418934497382921 "HTTP/1.1 200 OK"
+2026-06-18 02:11:20,067 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=8786566038915392046446786086504563210301842572125705765733243466035321540191 "HTTP/1.1 200 OK"
+2026-06-18 02:11:20,208 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=89033597404049535329336367676897002196779443515433514040396661411543836790585 "HTTP/1.1 200 OK"
+2026-06-18 02:11:20,371 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=111699204507563543490907649828278526762321026750976872427871357593788391327392 "HTTP/1.1 200 OK"
+2026-06-18 02:11:20,539 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=47570952328015521063725738389770619028426440846018263090587724857086559216907 "HTTP/1.1 200 OK"
+2026-06-18 02:11:20,685 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=92964922068448076685705505023885136227691944775418754306714185814902776371957 "HTTP/1.1 200 OK"
+2026-06-18 02:11:20,832 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=22094182676612877581056034720566110371610082057092726094559729674155018648896 "HTTP/1.1 200 OK"
+2026-06-18 02:11:20,993 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=78473141615408645278260621827323903204731180016962666262959632385172645644801 "HTTP/1.1 200 OK"
+2026-06-18 02:11:21,138 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=25008791305942260763315945325578111861295232893525817968684747264190717299294 "HTTP/1.1 200 OK"
+2026-06-18 02:11:21,280 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=22428946627653133982291287004460487582911115960107826719390250432569725092339 "HTTP/1.1 200 OK"
+2026-06-18 02:11:21,427 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=112654329027460382495493948748944474382281474977326867020274757386553176815499 "HTTP/1.1 200 OK"
+2026-06-18 02:11:21,613 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=6972276593349646828197269417064911277629840445747607779915488211369126207247 "HTTP/1.1 200 OK"
+2026-06-18 02:11:21,806 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=25268908008701121452317231817490018553351979934211335403090344421422875918470 "HTTP/1.1 200 OK"
+2026-06-18 02:11:21,951 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=89985888339089124030940146697377466057400325127482903127778056937557808827247 "HTTP/1.1 200 OK"
+2026-06-18 02:11:22,097 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=101875823140006516334184998807968831945560574073705684288246718096482950445862 "HTTP/1.1 200 OK"
+2026-06-18 02:11:22,242 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=5703463840747561554689698261784702078295459078948970627441293104519365999938 "HTTP/1.1 200 OK"
+2026-06-18 02:11:22,405 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=14185680941579443056237684491010426730675986729145855124291514790811661286698 "HTTP/1.1 200 OK"
+2026-06-18 02:11:22,551 INFO httpx HTTP Request: GET https://clob.polymarket.com/book?token_id=14260757170612701692874837166889379200813559128685649449072974935276736167516 "HTTP/1.1 200 OK"
+==> hermes-training: state=running health=healthy
 ==> refreshing runtime_data from hermes-training:/data
 ==> deleting old inspection_reports
 ==> removing stale vps_light_report_latest.zip (rewritten only after a complete bundle)
 ==> generating light-mode inspection report (.report_venv python)
-Classification : FAIL_NOT_RUN_READY
+Classification : PASS_RUN_READY
 Health score   : 79.0/100
-Bundle folder  : inspection_reports/bot_inspection_20260618_000800
-Zip bundle     : inspection_reports/bot_inspection_20260618_000800.zip
+Bundle folder  : inspection_reports/bot_inspection_20260618_021129
+Zip bundle     : inspection_reports/bot_inspection_20260618_021129.zip
 Bundle mode    : light
 Full JSONL     : omitted intentionally
 Samples        : tail 500 rows each
 Source events  : verified from runtime_data
-Zip size       : 3.97 MB
+Zip size       : 4.11 MB
 Edge audit     : PASS
-Run-ready      : run_ready_for_hours=False (max_safe_runtime_minutes=10)
+Run-ready      : run_ready_for_hours=True (max_safe_runtime_minutes=None)
 Grok brain     : grok_brain_ready=True
-Grok advisory  : calls=2 with_news=2 near_misses_analyzed=1 news_linked=2 advisory_only=2
-Bregman near   : total=528 one_fix_away=139 depth_only=135 not_exhaustive=244 | no-bundle blocker=incomplete_event_families
-Blocking       : stale_or_mixed_training_tail_samples: decision_records.jsonl: last_run_id=pmtrain-1781739918 != events run_id=pmtrain-1781741271; no_trade_labels.jsonl: last_run_id=pmtrain-1781739918 != events run_id=pmtrain-1781741271; pending_labels.jsonl: last_run_id=pmtrain-1781739918 != events run_id=pmtrain-1781741271
+Grok advisory  : calls=5 with_news=5 near_misses_analyzed=4 news_linked=5 advisory_only=5
+Bregman near   : total=682 one_fix_away=143 depth_only=130 not_exhaustive=251 | no-bundle blocker=incomplete_event_families
 Artifact paths :
    runtime_training_data_dir=runtime_data/training exists=True
    runtime_metrics_dir=runtime_data/metrics exists=True
    runtime_reports_dir=runtime_data/reports exists=True
-   inspection_bundle_dir=inspection_reports/bot_inspection_20260618_000800
-Warnings       : safety audit raised warnings; NOT RUN-READY: stale_or_mixed_training_tail_samples: decision_records.jsonl: last_run_id=pmtrain-1781739918 != events run_id=pmtrain-1781741271; no_trade_labels.jsonl: last_run_id=pmtrain-1781739918 != events run_id=pmtrain-1781741271; pending_labels.jsonl: last_run_id=pmtrain-1781739918 != events run_id=pmtrain-1781741271; No certified Bregman opportunities found yet; continue paper training.
+   inspection_bundle_dir=inspection_reports/bot_inspection_20260618_021129
+Warnings       : safety audit raised warnings; 1 benchmark(s) failing; No certified Bregman opportunities found yet; continue paper training.
 ==> running training-runtime validation (.report_venv python)
   [PASS] paper_training_running: mode=paper_train
-  [PASS] status_fresh: age=220.7s
+  [PASS] status_fresh: age=261.1s
   [PASS] live_trading_disabled: paper-only build
   [PASS] strict_paper_realism: reference fills off
   [PASS] core_metrics_non_null: {"after_cost_pnl": 0, "fill_realism_enabled": true, "fantasy_fill_rejections": 0}
   [PASS] closed_loop_metrics_present: status=collecting
-  [PASS] closed_loop_records_positive: records=960 considered=960
-  [PASS] decision_count_reconciles_with_events: events=960
-  [PASS] rejection_becomes_learning_object: no_trade+shadow=1075 diagnostic=0
-  [PASS] pending_labels_or_diagnostic_without_target: pending=960 diag_no_label=0
-  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=1075 diagnostic=0
-  [PASS] active_learning_selection_or_reason_present: selected=960 zero_reason=None
+  [PASS] closed_loop_records_positive: records=5279 considered=5280
+  [PASS] decision_count_reconciles_with_events: events=5279
+  [PASS] rejection_becomes_learning_object: no_trade+shadow=4453 diagnostic=960
+  [PASS] pending_labels_or_diagnostic_without_target: pending=4319 diag_no_label=960
+  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=4453 diagnostic=960
+  [PASS] active_learning_selection_or_reason_present: selected=5279 zero_reason=None
   [PASS] pending_label_store_present: 
   [PASS] learning_state_saved: 
-  [PASS] bregman_metrics_consistent: discovered=491 certified=0 opened=0
-  [PASS] bregman_funnel_non_silent: detected=491 scanned=491 adapter_failed=0
-  [PASS] ledger_records_decisions: ledger.decisions=584788 decision_count=960
+  [PASS] bregman_metrics_consistent: discovered=60 certified=0 opened=0
+  [PASS] bregman_funnel_non_silent: detected=60 scanned=60 adapter_failed=0
+  [PASS] ledger_records_decisions: ledger.decisions=590067 decision_count=5280
   [PASS] audit_win_rate_known: 
   [PASS] audit_clob_v2_executable_known: 
   [PASS] audit_production_readiness_score_known: 
   [PASS] run_ready_for_hours: blocking=[]
   [PASS] active_learning_config_consistent: config_source=aggressive_paper_profile runtime_enabled=True — aggressive_paper profile ALWAYS enables active learning; mismatch => container STALE, rebuild (mission-control --mode proof2h --approved-paper-run)
-  [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=4 blocked_by_reason={} — a selected candidate must open a <=$1 paper trade or record an exact blocker
+  [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=6 blocked_by_reason={'collision_blocked': 1} — a selected candidate must open a <=$1 paper trade or record an exact blocker
   [PASS] inspection_collector_includes_artifacts: 
   [PASS] inspection_artifacts_present: all present
-  [PASS] decision_count_has_event_file_rows: decision_count=960 events.jsonl_rows=3661152
-  [PASS] decision_records_counter_matches_file: counter=960 decision_records.jsonl_rows=584788
-  [PASS] pending_labels_counter_matches_file: counter=960 pending_labels.jsonl_rows=584621
-  [FAIL] training_tail_streams_same_run: events_run_id=pmtrain-1781741271 stale=['decision_records.jsonl=pmtrain-1781739918', 'no_trade_labels.jsonl=pmtrain-1781739918', 'pending_labels.jsonl=pmtrain-1781739918']
+  [PASS] decision_count_has_event_file_rows: decision_count=5280 events.jsonl_rows=3681495
+  [PASS] decision_records_counter_matches_file: counter=5279 decision_records.jsonl_rows=590067
+  [PASS] pending_labels_counter_matches_file: counter=4319 pending_labels.jsonl_rows=588940
+  [PASS] training_tail_streams_same_run: same run
   [PASS] training_tail_streams_fresh_window: within freshness window
   [PASS] artifact_present:training_reconciliation.json: metrics/training_reconciliation.json
   [PASS] artifact_present:inspection_summary.json: metrics/inspection_summary.json
   [PASS] artifact_present:run_ready.json: metrics/run_ready.json
 
-SAFE TO RUN: False
-BLOCKING: ['training_tail_streams_same_run']
-report_rc=6 validate_rc=1
-==> packaging vps_light_report_20260618_000752.zip (complete light bundle + git proof)
-report bundle OK: 5525 files, 16850996 bytes -> vps_light_report_20260618_000752.zip
+SAFE TO RUN: True
+report_rc=0 validate_rc=0
+==> packaging vps_light_report_20260618_021121.zip (complete light bundle + git proof)
+report bundle OK: 5733 files, 17220066 bytes -> vps_light_report_20260618_021121.zip
 ==> DONE
-    report_rc=6 validate_rc=1
-    unique zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_20260618_000752.zip (16850996 bytes)
+    report_rc=0 validate_rc=0
+    unique zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_20260618_021121.zip (17220066 bytes)
     latest zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_latest.zip
     upload vps_light_report_latest.zip to ChatGPT for inspection.
-light_report_rc=6
+light_report_rc=0
