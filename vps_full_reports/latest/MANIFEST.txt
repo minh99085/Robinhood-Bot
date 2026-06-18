@@ -1,7 +1,7 @@
 # VPS full report — extracted for ChatGPT inspection
-generated_utc: 2026-06-17 23:48:09 UTC
+generated_utc: 2026-06-18 00:10:43 UTC
 source_zip: vps_full_report_latest.zip
-source_commit: b87241d9b07a2296a4619a183eb927df812993c5
+source_commit: a84bac1bb00450517c9ec13b803ae408349c42b9
 files_captured: 31
 
 ## captured
@@ -38,4 +38,4 @@ files_captured: 31
 - validation_light.txt
 
 ## skipped (too large / raw stream)
-- runtime_metrics/paper_relaxed_candidates.jsonl (74080436B)
+- runtime_metrics/paper_relaxed_candidates.jsonl (74371447B)
