@@ -30,3 +30,5 @@ validation_light_latest.txt
 # patterns above (extracted text/JSON, not binary zips). See vps_full_reports/README.md.
 !vps_full_reports/
 !vps_full_reports/**
+
+vps_full_reports/baseline_p1/

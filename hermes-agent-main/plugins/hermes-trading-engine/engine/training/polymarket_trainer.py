@@ -959,6 +959,23 @@ class PolymarketPaperTrainer:
         if not records or not getattr(self.cfg, "bregman_enabled", True):
             self.bregman_log = []
             return []
+        # Priority-1: targeted event-family completion. Append authoritative missing
+        # sibling records (from embedded event metadata) so multi-outcome MECE families
+        # ASSEMBLE and 1-2-leg-short families stop being rejected not_exhaustive. Read-
+        # only, no fabricated prices — the missing legs get REAL books from the hydrator
+        # below and completeness is still PROVEN by the unchanged certifier.
+        family_tel = {"family_completion_enabled": False}
+        if getattr(self.cfg, "family_completion_enabled", True):
+            try:
+                from engine.training.family_completion import expand_event_families
+                records, family_tel = expand_event_families(
+                    records, now=now,
+                    max_total_new=int(getattr(self.cfg, "family_completion_max_new_records", 40)),
+                    max_per_family=int(getattr(self.cfg, "family_completion_max_per_family", 8)),
+                    min_family_liquidity_usd=float(
+                        getattr(self.cfg, "family_completion_min_family_liquidity_usd", 0.0)))
+            except Exception:  # noqa: BLE001 — completion must never break a tick
+                family_tel = {"family_completion_enabled": True, "family_completion_error": True}
         try:
             groups = group_markets(records, chainlink=self.chainlink, now=now)
         except Exception:  # noqa: BLE001 — Bregman must never break a training tick
@@ -1126,6 +1143,7 @@ class PolymarketPaperTrainer:
             **targeted_tel,
             **nx_tel,
             **hydration_tel,
+            **family_tel,
             **self._bregman_family_completeness_telemetry(groups, certs),
             **self._accelerated_discovery_telemetry(records, groups, certs, all_near),
         }

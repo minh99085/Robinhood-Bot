@@ -130,6 +130,15 @@ class TrainingConfig:
     cost_model_size_aware: bool = True
     paper_impact_coeff: float = 0.5          # market-impact ~ coeff * (order/depth share)
     paper_slippage_error_coeff: float = 50.0  # 1σ forecast-error band (bps) per depth share
+    # Priority-1 targeted event-family completion. Append authoritative MISSING sibling
+    # records (from embedded Polymarket event metadata) before grouping so multi-outcome
+    # MECE families assemble and 1-2-leg-short families stop being rejected not_exhaustive.
+    # Read-only; the missing legs get REAL books from the CLOB hydrator and completeness is
+    # still PROVEN by the unchanged certifier. Bounded by the caps below. Env-tunable.
+    family_completion_enabled: bool = True
+    family_completion_max_new_records: int = 40
+    family_completion_max_per_family: int = 8
+    family_completion_min_family_liquidity_usd: float = 0.0
     # ---- paper policy / sizing ----
     # Minimum paper order/probe size (USD). Orders never open below this (no sub-$1
     # probes); a book that cannot support the floor is rejected by realism, not shrunk
@@ -995,6 +1004,14 @@ class TrainingConfig:
             cost_model_size_aware=_envb("PAPER_COST_MODEL_SIZE_AWARE", True),
             paper_impact_coeff=_envf("PAPER_IMPACT_COEFF", 0.5),
             paper_slippage_error_coeff=_envf("PAPER_SLIPPAGE_ERROR_COEFF", 50.0),
+            # Priority-1 targeted event-family completion (env-tunable; read-only).
+            family_completion_enabled=_envb("POLYMARKET_FAMILY_COMPLETION_ENABLED", True),
+            family_completion_max_new_records=_envi(
+                "POLYMARKET_FAMILY_COMPLETION_MAX_NEW_RECORDS", 40),
+            family_completion_max_per_family=_envi(
+                "POLYMARKET_FAMILY_COMPLETION_MAX_PER_FAMILY", 8),
+            family_completion_min_family_liquidity_usd=_envf(
+                "POLYMARKET_FAMILY_COMPLETION_MIN_FAMILY_LIQUIDITY_USD", 0.0),
             max_fill_depth_fraction=_envf("PAPER_MAX_FILL_DEPTH_FRACTION", 0.35),
             fixed_notional_usd=_envf("POLYMARKET_PAPER_FIXED_NOTIONAL_USD", 5.0),
             min_order_notional_usd=_envf("POLYMARKET_MIN_ORDER_NOTIONAL_USD", 1.0),

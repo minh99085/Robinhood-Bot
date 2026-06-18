@@ -149,6 +149,11 @@ class BregmanClobHydrator:
         deep = all(_depth(l) >= cls.HIGH_LIQUIDITY_DEPTH_USD for l in legs)
         fresh = all(_fresh(l) for l in legs)
         tight = all(_tight(l) for l in legs)
+        # Priority-1: a COMPLETE multi-outcome MECE family (the prize — complete-set
+        # arbitrage) is hydrated FIRST so a freshly-assembled family is never starved by
+        # the per-tick cap. Selection-only; no depth/spread/freshness gate is changed.
+        if (not is_binary) and bool(getattr(group, "exhaustive", False)) and len(legs) >= 2:
+            return 0                              # complete multi-outcome event family
         if is_binary and deep and fresh and tight:
             return 0                              # high_liquidity_binary
         if (is_binary or gtype in ("yes_no", "event_complete")) and tight and fresh:
