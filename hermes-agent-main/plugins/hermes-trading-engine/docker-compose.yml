@@ -545,6 +545,19 @@ services:
       POLYMARKET_FAMILY_COMPLETION_ENABLED: "1"
       POLYMARKET_FAMILY_COMPLETION_MAX_EVENTS_PER_TICK: "20"
       POLYMARKET_FAMILY_COMPLETION_MAX_NEW_RECORDS: "120"
+      # ---- Priority-B universe widening toward LIQUIDITY (selection only) ----
+      # Scan the full 2000-market cap and blend a liquidity-ordered fetch (deepest books)
+      # with the volume-ranked fetch so the millions-in-liquidity markets that carry real
+      # Bregman depth are actually scanned (the 2h report showed only 0.47% of the
+      # volume-ranked universe cleared the depth gate). Never sizes/places an order.
+      MARKET_SCAN_LIMIT: "2000"
+      MARKET_LIQUIDITY_BLEND_FRACTION: "0.5"
+      # ---- Priority-C maker/passive-fill model (paper-realistic; conservative) ----
+      # A patient passive entry is credited with capturing this fraction of the spread vs
+      # crossing it, floored at the real bid and gated to fresh/deep/tight books. Lowers
+      # after-cost entry cost so more directional candidates clear the credible-edge gate.
+      # Uses REAL CLOB bid/ask — never a fabricated/reference fill.
+      PAPER_MAKER_CAPTURE_FRACTION: "0.3"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----
       # Live Chainlink mainnet aggregator reads (latestRoundData over JSON-RPC),
       # used ONLY as a probability/edge input feature for crypto-linked markets.

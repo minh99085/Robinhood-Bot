@@ -128,6 +128,11 @@ class TrainingConfig:
     # is a TAKER fill; a passive/resting fill would be a maker. PAPER ONLY; env-tunable.
     maker_fee_bps: float = 0.0
     cost_model_size_aware: bool = True
+    # Priority-C maker/passive-fill model: fraction of the spread a patient passive entry
+    # is credited with capturing (vs crossing it), floored at the real bid and gated to
+    # fresh/deep/tight books. 0 = taker-only (legacy); aggressive_paper turns it on. Never
+    # assumes a better-than-maker fill — no fabricated/reference fills.
+    maker_capture_fraction: float = 0.0
     paper_impact_coeff: float = 0.5          # market-impact ~ coeff * (order/depth share)
     paper_slippage_error_coeff: float = 50.0  # 1σ forecast-error band (bps) per depth share
     # Priority-1 targeted event-family completion. Append authoritative MISSING sibling
@@ -1007,6 +1012,7 @@ class TrainingConfig:
             maker_fee_bps=_envf("PAPER_MAKER_FEE_BPS", 0.0),
             slippage_bps=_envf("PAPER_SLIPPAGE_BPS", 25.0),
             cost_model_size_aware=_envb("PAPER_COST_MODEL_SIZE_AWARE", True),
+            maker_capture_fraction=_envf("PAPER_MAKER_CAPTURE_FRACTION", 0.0),
             paper_impact_coeff=_envf("PAPER_IMPACT_COEFF", 0.5),
             paper_slippage_error_coeff=_envf("PAPER_SLIPPAGE_ERROR_COEFF", 50.0),
             # Priority-1 targeted event-family completion (env-tunable; read-only).
@@ -1474,6 +1480,9 @@ class TrainingConfig:
                 "POLYMARKET_REQUIRE_CREDIBLE_AFTER_COST_EDGE", True),
             min_credible_after_cost_edge=_envf(
                 "POLYMARKET_MIN_CREDIBLE_AFTER_COST_EDGE", 0.0),
+            # Priority-C maker/passive-fill model ON for the live aggressive profile
+            # (conservative spread capture; env-tunable).
+            maker_capture_fraction=_envf("PAPER_MAKER_CAPTURE_FRACTION", 0.3),
             # calibration-weighted ensemble (advisory-only); env-tunable.
             probability_ensemble_enabled=_envb("POLYMARKET_PROBABILITY_ENSEMBLE_ENABLED", True),
             ensemble_base_weight_market=_envf("POLYMARKET_ENSEMBLE_W_MARKET", 1.0),

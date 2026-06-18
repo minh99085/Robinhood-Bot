@@ -90,6 +90,12 @@ class UniverseConfig:
     min_volume_24h_usd: float = 500.0
     max_allowed_spread: float = 0.04
     min_top_of_book_depth_usd: float = 100.0
+    # Priority-B universe widening: fraction of the catalog fetched ordered by LIQUIDITY
+    # (deepest books) and merged liquidity-first with the volume-ranked fetch. The 2h
+    # report showed only 0.47% of the volume-ranked universe cleared the depth gate; the
+    # deepest Polymarket markets (millions in liquidity) are mostly LOW-24h-volume and were
+    # never scanned. 0 disables the blend (volume-only, legacy behaviour).
+    liquidity_blend_fraction: float = 0.5
 
     # refresh cadence (seconds)
     catalog_refresh_seconds: int = 600
@@ -120,6 +126,7 @@ class UniverseConfig:
             trade_candidate_limit=_env_int("MARKET_TRADE_CANDIDATE_LIMIT", 20),
             max_open_polymarket_trades=_env_int("MAX_OPEN_POLYMARKET_TRADES", 3),
             max_open_trades_hard_cap=_env_int("MAX_OPEN_TRADES_HARD_CAP", MAX_OPEN_TRADES_HARD_CAP),
+            liquidity_blend_fraction=_env_float("MARKET_LIQUIDITY_BLEND_FRACTION", 0.5),
             min_liquidity_usd=_env_float("MIN_MARKET_LIQUIDITY_USD", 1000.0),
             min_volume_24h_usd=_env_float("MIN_MARKET_VOLUME_24H_USD", 500.0),
             max_allowed_spread=_env_float("MAX_ALLOWED_SPREAD", 0.04),
@@ -718,30 +725,52 @@ def fetch_catalog(cfg: Optional[UniverseConfig] = None, client=None) -> list:
     cfg = cfg or UniverseConfig()
     own = client is None
     client = client or httpx.Client(timeout=15.0)
-    out: list[dict] = []
-    try:
+
+    def _fetch_ordered(order: str, limit: int) -> list:
+        rows: list[dict] = []
         offset = 0
         page = 100
-        while len(out) < cfg.scan_limit:
-            want = min(page, cfg.scan_limit - len(out))
+        while len(rows) < limit:
+            want = min(page, limit - len(rows))
             r = client.get(
                 f"{_GAMMA}/markets",
                 params={"active": "true", "closed": "false", "archived": "false",
                         "limit": want, "offset": offset,
-                        "order": "volume24hr", "ascending": "false"},
+                        "order": order, "ascending": "false"},
             )
             r.raise_for_status()
             batch = r.json()
             if not isinstance(batch, list) or not batch:
                 break
-            out.extend(batch)
+            rows.extend(batch)
             if len(batch) < want:
                 break
             offset += len(batch)
+        return rows
+
+    try:
+        volume_rows = _fetch_ordered("volume24hr", cfg.scan_limit)
+        blend = float(getattr(cfg, "liquidity_blend_fraction", 0.0) or 0.0)
+        if blend <= 0.0:
+            merged = volume_rows
+        else:
+            # Priority-B: also pull the DEEPEST books (order by liquidity) and merge them
+            # FIRST so the most-liquid markets are guaranteed into the scan slice even when
+            # they have low 24h volume — that is where Bregman depth actually exists.
+            liq_n = max(1, int(cfg.scan_limit * min(1.0, blend)))
+            liquidity_rows = _fetch_ordered("liquidityNum", liq_n)
+            seen: set = set()
+            merged = []
+            for m in list(liquidity_rows) + list(volume_rows):
+                mid = str(m.get("id") or m.get("slug") or "")
+                if not mid or mid in seen:
+                    continue
+                seen.add(mid)
+                merged.append(m)
     finally:
         if own:
             client.close()
-    return out[: cfg.scan_limit]
+    return merged[: cfg.scan_limit]
 
 
 # ---------------------------------------------------------------------------

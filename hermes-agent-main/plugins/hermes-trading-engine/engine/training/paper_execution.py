@@ -83,6 +83,9 @@ class PaperExecutionDecision:
     depth_share: float = 0.0
     fillable_fraction: float = 1.0
     partial_fill_expected: bool = False
+    maker_capture_fraction: float = 0.0
+    maker_spread_savings: float = 0.0
+    taker_after_cost_edge: Optional[float] = None
     after_cost_edge: Optional[float] = None
     after_cost_roi: Optional[float] = None
     fill_source: str = SRC_LIVE_CLOB
@@ -154,6 +157,26 @@ class PaperExecutionPolicy:
         self.impact_coeff = g("paper_impact_coeff", 0.5) if self.cost_model_size_aware else 0.0
         self.slippage_error_coeff = g("paper_slippage_error_coeff", 50.0) \
             if self.cost_model_size_aware else 0.0
+        # Priority-C maker/passive-fill model. A patient passive entry (resting at the bid)
+        # recovers a FRACTION of the spread vs crossing it. We credit only this conservative
+        # fraction, floored at the real bid (never assume a better-than-maker fill), and
+        # ONLY on fresh/deep/tight books where a passive fill is realistic. Uses REAL CLOB
+        # bid/ask — no fabricated/reference fills. Disabled (fraction 0) reproduces the
+        # taker-only model exactly.
+        self.maker_capture_fraction = max(0.0, min(1.0, g("maker_capture_fraction", 0.0)))
+        self.maker_model_enabled = self.maker_capture_fraction > 0.0
+
+    def _maker_capture_fraction(self, ctx: PaperExecutionContext) -> float:
+        """Conservative fraction of the spread a passive entry can realistically capture
+        for THIS book. 0 unless the maker model is enabled AND the book is fresh, deep, and
+        tight (where a resting bid plausibly fills); never assumes certainty."""
+        if not self.maker_model_enabled or ctx.bid is None:
+            return 0.0
+        fresh = bool(ctx.fresh_book) and (ctx.book_age_sec is None
+                                          or float(ctx.book_age_sec) <= self.max_book_age_sec)
+        deep = float(ctx.depth_usd or 0.0) >= self.min_depth_usd
+        tight = ctx.spread is None or float(ctx.spread) <= self.max_spread
+        return self.maker_capture_fraction if (fresh and deep and tight) else 0.0
 
     # -- after-cost economics (conservative; rounds against us) --------------
     def _after_cost(self, ctx: PaperExecutionContext) -> dict:
@@ -165,18 +188,37 @@ class PaperExecutionPolicy:
                            depth_usd=float(getattr(ctx, "depth_usd", 0.0) or 0.0),
                            impact_coeff=self.impact_coeff,
                            error_coeff=self.slippage_error_coeff)
-        exec_price = float(b["exec_price"])
+        taker_price = float(b["exec_price"])
         drag = (float(b["tick_rounding"]) + float(b["slippage"])
                 + float(b["fee"]) + float(b["half_spread"])
                 + float(b.get("market_impact", 0.0))
                 + float(b.get("slippage_error_band", 0.0)))
+        # Priority-C: credit a conservative fraction of the spread for a passive entry,
+        # floored at the real bid so we never assume a better-than-maker fill.
+        cf = self._maker_capture_fraction(ctx)
+        sp = float(ctx.spread) if ctx.spread is not None else (
+            (ask - float(ctx.bid)) if ctx.bid is not None else 0.0)
+        sp = max(0.0, sp)
+        desired_savings = cf * sp
+        bid_floor = float(ctx.bid) if ctx.bid is not None else taker_price
+        effective_price = max(taker_price - desired_savings, bid_floor)
+        applied_savings = max(0.0, taker_price - effective_price)
+        exec_price = effective_price
+        effective_drag = max(0.0, drag - applied_savings)
         after_cost_edge = None
         after_cost_roi = None
+        taker_after_cost_edge = None
         if ctx.gross_edge is not None:
-            after_cost_edge = round(float(ctx.gross_edge) - drag, 6)
+            after_cost_edge = round(float(ctx.gross_edge) - effective_drag, 6)
+            taker_after_cost_edge = round(float(ctx.gross_edge) - drag, 6)
             after_cost_roi = round(after_cost_edge / exec_price, 6) if exec_price > 0 else 0.0
-        return {"exec_price": exec_price, "drag": b, "total_drag": round(drag, 6),
-                "after_cost_edge": after_cost_edge, "after_cost_roi": after_cost_roi}
+        return {"exec_price": exec_price, "drag": b, "total_drag": round(effective_drag, 6),
+                "taker_total_drag": round(drag, 6), "taker_exec_price": round(taker_price, 6),
+                "maker_capture_fraction": round(cf, 4),
+                "maker_spread_savings": round(applied_savings, 6),
+                "after_cost_edge": after_cost_edge,
+                "taker_after_cost_edge": taker_after_cost_edge,
+                "after_cost_roi": after_cost_roi}
 
     def _decision(self, ctx, mode, reason, status, *, ac, would_if="") -> PaperExecutionDecision:
         src = ctx.fill_source
@@ -196,6 +238,9 @@ class PaperExecutionPolicy:
             depth_share=float(ac["drag"].get("depth_share", 0.0)),
             fillable_fraction=float(ac["drag"].get("fillable_fraction", 1.0)),
             partial_fill_expected=bool(ac["drag"].get("partial_fill_expected", False)),
+            maker_capture_fraction=float(ac.get("maker_capture_fraction", 0.0)),
+            maker_spread_savings=float(ac.get("maker_spread_savings", 0.0)),
+            taker_after_cost_edge=ac.get("taker_after_cost_edge"),
             after_cost_edge=ac["after_cost_edge"], after_cost_roi=ac["after_cost_roi"],
             fill_source=src, book_source=src, price_source=src,
             was_reference_price_fill=(src == SRC_REFERENCE),
