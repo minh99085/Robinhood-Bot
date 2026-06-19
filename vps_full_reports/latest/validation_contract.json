@@ -14,7 +14,7 @@
       {
         "name": "groups_scanned_positive",
         "passed": true,
-        "detail": "constraint_groups_scanned=482.0"
+        "detail": "constraint_groups_scanned=468.0"
       },
       {
         "name": "fill_realism_enabled",
@@ -53,7 +53,7 @@
     "point": null,
     "lo": null,
     "hi": null,
-    "n": 1,
+    "n": 0,
     "credible_positive": false,
     "reason": "insufficient_samples"
   },
