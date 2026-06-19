@@ -626,6 +626,13 @@ services:
       PORTFOLIO_MAX_EXPOSURE_FRAC: "0.80"
       CONFIDENCE_KELLY_ENABLED: "1"
       REGIME_AWARE_SIZING_ENABLED: "1"
+      # ---- Tier 4: cross-market relative-value detector (advisory/telemetry-only) ----
+      # New alpha SOURCE: flags families whose prices are inconsistent (over/under-round).
+      # Shadow-first — never opens a trade; surfaces RV candidates in metrics/relative_value.
+      RELATIVE_VALUE_ENABLED: "1"
+      RV_MIN_MISPRICING: "0.03"
+      # Research stays OFF the hot path (definitive loop-stall fix); advisory scheduler only.
+      RESEARCH_HOT_PATH_LIVE: "0"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----
       # Live Chainlink mainnet aggregator reads (latestRoundData over JSON-RPC),
       # used ONLY as a probability/edge input feature for crypto-linked markets.

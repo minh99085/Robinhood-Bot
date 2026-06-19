@@ -385,6 +385,9 @@ class TrainingConfig:
     max_kelly_fraction: float = 0.05
     kelly_ci_width_max: float = 0.5
     regime_aggression_floor: float = 0.25
+    # Tier-4 cross-market relative-value detector (advisory/telemetry-first; never trades).
+    relative_value_enabled: bool = False
+    rv_min_mispricing: float = 0.03
     active_learning_require_realistic_fill_for_trade: bool = True
     active_learning_allow_shadow_without_fill: bool = True
     # ---- Pass-7: cluster/correlation risk is an ACTIVE hard gate + allocator ----
@@ -1568,6 +1571,9 @@ class TrainingConfig:
             portfolio_cvar_limit_frac=_envf("PORTFOLIO_CVAR_LIMIT_FRAC", 0.0),
             confidence_kelly_enabled=_envb("CONFIDENCE_KELLY_ENABLED", True),
             regime_aware_sizing_enabled=_envb("REGIME_AWARE_SIZING_ENABLED", True),
+            # Tier-4 relative-value detector ON for the aggressive profile (advisory only).
+            relative_value_enabled=_envb("RELATIVE_VALUE_ENABLED", True),
+            rv_min_mispricing=_envf("RV_MIN_MISPRICING", 0.03),
             # Option 2 broaden Grok directional coverage (advisory-only research edge).
             grok_advisory_max_calls_per_hour=_envi("GROK_ADVISORY_MAX_CALLS_PER_HOUR", 60),
             grok_advisory_min_interval_seconds=_envi("GROK_ADVISORY_MIN_INTERVAL_SECONDS", 45),

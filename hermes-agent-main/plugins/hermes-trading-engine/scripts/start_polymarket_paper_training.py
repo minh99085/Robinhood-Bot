@@ -802,7 +802,8 @@ def run(argv=None) -> int:
             # Tier-3: governance/ops — alpha attribution, model registry, SLO monitor.
             for _name, _fn in (("alpha_attribution.json", trainer.alpha_attribution_report),
                                ("model_registry.json", trainer.model_registry_report),
-                               ("slo_monitor.json", trainer.slo_monitor_report)):
+                               ("slo_monitor.json", trainer.slo_monitor_report),
+                               ("relative_value.json", trainer.relative_value_report)):
                 try:
                     (metrics_dir / _name).write_text(
                         json.dumps(_fn(), default=str), encoding="utf-8")

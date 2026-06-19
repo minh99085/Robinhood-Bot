@@ -2865,6 +2865,21 @@ class PolymarketPaperTrainer:
         self.correlation_metrics["correlation_gate_enabled"] = bool(
             getattr(self.cfg, "correlation_gate_enabled", True))
 
+    def relative_value_report(self) -> dict:
+        """Tier-4: cross-market relative-value (RV) candidates from the already-fetched
+        eligible catalog (advisory/telemetry-only; never trades). Read-only, off-tick."""
+        if not bool(getattr(self.cfg, "relative_value_enabled", False)):
+            return {"schema": "relative_value/1.0", "enabled": False}
+        try:
+            from .relative_value import find_relative_value
+            rep = find_relative_value(
+                list(getattr(self, "_bregman_records", []) or []),
+                min_mispricing=float(getattr(self.cfg, "rv_min_mispricing", 0.03)))
+            rep["enabled"] = True
+            return rep
+        except Exception:  # noqa: BLE001
+            return {"schema": "relative_value/1.0", "enabled": True, "error": True}
+
     def alpha_attribution_report(self) -> dict:
         """Tier-3: realized-PnL attribution by strategy + signal source (read-only)."""
         try:
@@ -6142,6 +6157,7 @@ class PolymarketPaperTrainer:
             "alpha_attribution": self.alpha_attribution_report(),
             "model_registry": self.model_registry_report(),
             "slo_monitor": self.slo_monitor_report(),
+            "relative_value": self.relative_value_report(),
             "capital_allocation": self.capital_allocation_report(),
             "canary": self.canary_status(),
             "experiments": self.experiment_report(),
