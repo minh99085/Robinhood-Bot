@@ -1,25 +1,25 @@
 {
-  "raw_catalog_markets_scanned": 1982,
-  "eligible_raw_markets": 1982,
-  "raw_groups_discovered": 508,
+  "raw_catalog_markets_scanned": 1983,
+  "eligible_raw_markets": 1983,
+  "raw_groups_discovered": 519,
   "graph_groups_discovered": 0,
   "groups_from_graph_used": false,
   "duplicate_groups_dropped": 0,
-  "unique_groups_certified": 508,
+  "unique_groups_certified": 519,
   "certified_opportunities": 0,
   "bundles_opened": 0,
   "capital_committed": 0.0,
   "sees_full_raw_catalog": true,
   "evaluated_before_directional": true,
   "rejected_by_reason": {
-    "not_exhaustive": 36085,
-    "stale_book": 5329,
-    "no_positive_edge": 17254,
-    "depth_too_thin": 12253,
-    "spread_too_wide": 258,
-    "no_executable_price": 229
+    "not_exhaustive": 40629,
+    "stale_book": 5890,
+    "no_positive_edge": 19731,
+    "depth_too_thin": 13850,
+    "spread_too_wide": 260,
+    "no_executable_price": 255
   },
-  "bregman_near_misses_total": 791,
+  "bregman_near_misses_total": 829,
   "bregman_top_near_misses": [
     {
       "group_key": "binary:event:211827",
@@ -57,12 +57,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 80.4665,
-        "median_leg_depth_usd": 9748.4631,
-        "worst_leg_depth_usd": 80.4665,
+        "min_leg_depth_usd": 79.6105,
+        "median_leg_depth_usd": 9743.5576,
+        "worst_leg_depth_usd": 79.6105,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 19496.9263,
+        "executable_notional_usd": 19487.1153,
         "worst_leg_market_id": "1385754",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -70,7 +70,7 @@
       "freshness": {
         "stale_legs": 0,
         "total_legs": 2,
-        "worst_leg_age_s": 0.0,
+        "worst_leg_age_s": 4.634,
         "worst_leg_market_id": "1385754",
         "freshness_threshold_s": 20.0,
         "refresh_attempted": false,
@@ -139,7 +139,7 @@
         "implied_sum": 1.001,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
-        "stale_book_score": 0.0,
+        "stale_book_score": 0.154467,
         "rejection_stage": "edge",
         "failure_mode": "no_positive_edge",
         "rejection_reason": "no_positive_edge"
@@ -181,12 +181,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 81.8629,
-        "median_leg_depth_usd": 223413.5759,
-        "worst_leg_depth_usd": 81.8629,
+        "min_leg_depth_usd": 94.3359,
+        "median_leg_depth_usd": 223255.1424,
+        "worst_leg_depth_usd": 94.3359,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 446827.1518,
+        "executable_notional_usd": 446510.2848,
         "worst_leg_market_id": "958443",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -305,12 +305,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 1024.0163,
-        "median_leg_depth_usd": 23519.0603,
-        "worst_leg_depth_usd": 1024.0163,
+        "min_leg_depth_usd": 1023.6176,
+        "median_leg_depth_usd": 23515.375,
+        "worst_leg_depth_usd": 1023.6176,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 47038.1207,
+        "executable_notional_usd": 47030.75,
         "worst_leg_market_id": "956590",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -429,12 +429,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 313.8227,
-        "median_leg_depth_usd": 1218.1693,
-        "worst_leg_depth_usd": 313.8227,
+        "min_leg_depth_usd": 313.8416,
+        "median_leg_depth_usd": 1218.1787,
+        "worst_leg_depth_usd": 313.8416,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 2436.3385,
+        "executable_notional_usd": 2436.3574,
         "worst_leg_market_id": "1559394",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -442,7 +442,7 @@
       "freshness": {
         "stale_legs": 0,
         "total_legs": 2,
-        "worst_leg_age_s": 0.0,
+        "worst_leg_age_s": 0.756,
         "worst_leg_market_id": "1559394",
         "freshness_threshold_s": 20.0,
         "refresh_attempted": false,
@@ -511,7 +511,7 @@
         "implied_sum": 1.001,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
-        "stale_book_score": 0.0,
+        "stale_book_score": 0.0252,
         "rejection_stage": "edge",
         "failure_mode": "no_positive_edge",
         "rejection_reason": "no_positive_edge"
@@ -801,12 +801,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 328.2379,
-        "median_leg_depth_usd": 564.4202,
-        "worst_leg_depth_usd": 328.2379,
+        "min_leg_depth_usd": 266.5571,
+        "median_leg_depth_usd": 518.7552,
+        "worst_leg_depth_usd": 266.5571,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 1128.8403,
+        "executable_notional_usd": 1037.5105,
         "worst_leg_market_id": "2370154",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -881,6 +881,130 @@
         "projected_profit_lower_bound": -0.001,
         "all_legs_priced": true,
         "implied_sum": 1.001,
+        "max_ambiguity_score": 0.0,
+        "max_ambiguity_threshold": 0.45,
+        "stale_book_score": 0.0,
+        "rejection_stage": "edge",
+        "failure_mode": "no_positive_edge",
+        "rejection_reason": "no_positive_edge"
+      }
+    },
+    {
+      "group_key": "binary:event:107711",
+      "group_type": "binary_yes_no",
+      "market_ids": [
+        "956370"
+      ],
+      "token_ids": [
+        "31883462749119556388086799399919753637232555218950340228250860473714993542724",
+        "83880982683889885965133727500100095351145396204583518599800736520025739660868"
+      ],
+      "outcome_labels": [
+        "YES",
+        "NO"
+      ],
+      "outcome_prices": [
+        0.005,
+        0.997
+      ],
+      "token_ids_unavailable": false,
+      "single_market_binary": true,
+      "raw_market_ids": [
+        "956370"
+      ],
+      "reject_reason": "no_positive_edge",
+      "fix_category": "no_positive_edge",
+      "near_miss_score": 0.9,
+      "near_miss_tradeable": false,
+      "one_fix_away": false,
+      "remaining_blockers": [],
+      "learning_priority": "medium",
+      "learning_priority_score": 0.9,
+      "shadow_label_candidate": false,
+      "learning_label": "no_positive_after_cost_edge",
+      "would_trade_if": "after-cost edge turns positive (structure already valid)",
+      "primary_fix": null,
+      "depth_quality": {
+        "min_leg_depth_usd": 39.3072,
+        "median_leg_depth_usd": 2105.911,
+        "worst_leg_depth_usd": 39.3072,
+        "thin_legs": 0,
+        "total_legs": 2,
+        "executable_notional_usd": 4211.822,
+        "worst_leg_market_id": "956370",
+        "thin_cause": "none",
+        "required_depth_usd": 25.0
+      },
+      "freshness": {
+        "stale_legs": 0,
+        "total_legs": 2,
+        "worst_leg_age_s": 0.0,
+        "worst_leg_market_id": "956370",
+        "freshness_threshold_s": 20.0,
+        "refresh_attempted": false,
+        "refresh_ok": false,
+        "refresh_reason": null
+      },
+      "spread_quality": {
+        "max_leg_spread": 0.002,
+        "median_leg_spread": 0.002,
+        "spread_threshold": 0.12,
+        "wide_legs": 0
+      },
+      "simplex": {
+        "sum_of_probabilities": 1.002,
+        "payout": 1.0,
+        "leg_probabilities": [
+          0.005,
+          0.997
+        ],
+        "outcome_labels": [
+          "YES",
+          "NO"
+        ],
+        "priced_legs": 2,
+        "total_legs": 2,
+        "duplicate_outcomes": false,
+        "missing_complement": false,
+        "invalid_normalization": false,
+        "suspected_parsing_issue": false,
+        "true_invalid_economics": false
+      },
+      "completeness": {
+        "group_key": "binary:event:107711",
+        "expected_outcome_family": "xi jinping out june 30",
+        "market_kind": "binary",
+        "observed_outcomes": [
+          "YES",
+          "NO"
+        ],
+        "observed_count": 2,
+        "declared_expected_count": null,
+        "missing_or_unknown_outcomes": null,
+        "completeness_proven": true,
+        "reason_incomplete": null
+      },
+      "after_cost_lower_bound": -0.002,
+      "advisory_only": true,
+      "executed": false,
+      "trade_gate_bypassed": false,
+      "rejection_stage": "edge",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "divergence_gap": 2e-06,
+      "projected_profit_lower_bound": -0.002,
+      "certify_diagnostics": {
+        "group_id": "binary:event:107711",
+        "group_type": "binary_yes_no",
+        "n_legs": 2,
+        "exhaustive": true,
+        "mutually_exclusive": true,
+        "settlement_consistent": true,
+        "divergence_gap": 2e-06,
+        "profit_lower_bound": -0.002,
+        "projected_profit_lower_bound": -0.002,
+        "all_legs_priced": true,
+        "implied_sum": 1.002,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
         "stale_book_score": 0.0,
@@ -1028,8 +1152,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.88,
-        0.13
+        0.89,
+        0.12
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -1049,12 +1173,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 99.792,
-        "median_leg_depth_usd": 781.3351,
-        "worst_leg_depth_usd": 99.792,
+        "min_leg_depth_usd": 51.5784,
+        "median_leg_depth_usd": 21030.301,
+        "worst_leg_depth_usd": 51.5784,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 1562.6703,
+        "executable_notional_usd": 42060.6019,
         "worst_leg_market_id": "2587260",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -1079,8 +1203,8 @@
         "sum_of_probabilities": 1.01,
         "payout": 1.0,
         "leg_probabilities": [
-          0.88,
-          0.13
+          0.89,
+          0.12
         ],
         "outcome_labels": [
           "YES",
@@ -1174,11 +1298,11 @@
       "primary_fix": null,
       "depth_quality": {
         "min_leg_depth_usd": 119.8226,
-        "median_leg_depth_usd": 293.6413,
+        "median_leg_depth_usd": 174.3913,
         "worst_leg_depth_usd": 119.8226,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 587.2826,
+        "executable_notional_usd": 348.7826,
         "worst_leg_market_id": "2462884",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -1186,7 +1310,7 @@
       "freshness": {
         "stale_legs": 0,
         "total_legs": 2,
-        "worst_leg_age_s": 17.998,
+        "worst_leg_age_s": 0.0,
         "worst_leg_market_id": "2462884",
         "freshness_threshold_s": 20.0,
         "refresh_attempted": false,
@@ -1255,7 +1379,7 @@
         "implied_sum": 1.003,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
-        "stale_book_score": 0.599933,
+        "stale_book_score": 0.0,
         "rejection_stage": "edge",
         "failure_mode": "no_positive_edge",
         "rejection_reason": "no_positive_edge"
@@ -1298,11 +1422,11 @@
       "primary_fix": null,
       "depth_quality": {
         "min_leg_depth_usd": 49.0536,
-        "median_leg_depth_usd": 1040.8075,
+        "median_leg_depth_usd": 1050.6673,
         "worst_leg_depth_usd": 49.0536,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 2081.6149,
+        "executable_notional_usd": 2101.3346,
         "worst_leg_market_id": "2477200",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -1545,12 +1669,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 4805.92,
-        "median_leg_depth_usd": 5590.5054,
-        "worst_leg_depth_usd": 4805.92,
+        "min_leg_depth_usd": 3890.404,
+        "median_leg_depth_usd": 4497.0474,
+        "worst_leg_depth_usd": 3890.404,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 11181.0108,
+        "executable_notional_usd": 8994.0948,
         "worst_leg_market_id": "2324033",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -1669,12 +1793,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 517.5208,
-        "median_leg_depth_usd": 5643.677,
-        "worst_leg_depth_usd": 517.5208,
+        "min_leg_depth_usd": 251.9332,
+        "median_leg_depth_usd": 2084.1032,
+        "worst_leg_depth_usd": 251.9332,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 11287.354,
+        "executable_notional_usd": 4168.2064,
         "worst_leg_market_id": "2587348",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -2042,11 +2166,11 @@
       "primary_fix": null,
       "depth_quality": {
         "min_leg_depth_usd": 407.64,
-        "median_leg_depth_usd": 459.5514,
+        "median_leg_depth_usd": 458.6024,
         "worst_leg_depth_usd": 407.64,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 919.1028,
+        "executable_notional_usd": 917.2048,
         "worst_leg_market_id": "1302038",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -2144,8 +2268,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.44,
-        0.57
+        0.45,
+        0.58
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -2165,12 +2289,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 168.9651,
-        "median_leg_depth_usd": 872.0166,
-        "worst_leg_depth_usd": 168.9651,
+        "min_leg_depth_usd": 2235.87,
+        "median_leg_depth_usd": 2400.5209,
+        "worst_leg_depth_usd": 2235.87,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 1744.0331,
+        "executable_notional_usd": 4801.0418,
         "worst_leg_market_id": "2571188",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -2186,17 +2310,17 @@
         "refresh_reason": null
       },
       "spread_quality": {
-        "max_leg_spread": 0.01,
-        "median_leg_spread": 0.01,
+        "max_leg_spread": 0.03,
+        "median_leg_spread": 0.03,
         "spread_threshold": 0.12,
         "wide_legs": 0
       },
       "simplex": {
-        "sum_of_probabilities": 1.01,
+        "sum_of_probabilities": 1.03,
         "payout": 1.0,
         "leg_probabilities": [
-          0.44,
-          0.57
+          0.45,
+          0.58
         ],
         "outcome_labels": [
           "YES",
@@ -2224,15 +2348,15 @@
         "completeness_proven": true,
         "reason_incomplete": null
       },
-      "after_cost_lower_bound": -0.01,
+      "after_cost_lower_bound": -0.03,
       "advisory_only": true,
       "executed": false,
       "trade_gate_bypassed": false,
       "rejection_stage": "edge",
       "exhaustive": true,
       "settlement_consistent": true,
-      "divergence_gap": 5e-05,
-      "projected_profit_lower_bound": -0.01,
+      "divergence_gap": 0.00045,
+      "projected_profit_lower_bound": -0.03,
       "certify_diagnostics": {
         "group_id": "binary:event:602609",
         "group_type": "binary_yes_no",
@@ -2240,11 +2364,11 @@
         "exhaustive": true,
         "mutually_exclusive": true,
         "settlement_consistent": true,
-        "divergence_gap": 5e-05,
-        "profit_lower_bound": -0.01,
-        "projected_profit_lower_bound": -0.01,
+        "divergence_gap": 0.00045,
+        "profit_lower_bound": -0.03,
+        "projected_profit_lower_bound": -0.03,
         "all_legs_priced": true,
-        "implied_sum": 1.01,
+        "implied_sum": 1.03,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
         "stale_book_score": 0.0,
@@ -2268,8 +2392,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.09,
-        0.92
+        0.08,
+        0.93
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -2289,12 +2413,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 164.268,
-        "median_leg_depth_usd": 7478.8558,
-        "worst_leg_depth_usd": 164.268,
+        "min_leg_depth_usd": 1711.4696,
+        "median_leg_depth_usd": 57415.1496,
+        "worst_leg_depth_usd": 1711.4696,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 14957.7116,
+        "executable_notional_usd": 114830.2991,
         "worst_leg_market_id": "1971905",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -2319,8 +2443,8 @@
         "sum_of_probabilities": 1.01,
         "payout": 1.0,
         "leg_probabilities": [
-          0.09,
-          0.92
+          0.08,
+          0.93
         ],
         "outcome_labels": [
           "YES",
@@ -2392,8 +2516,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.54,
-        0.47
+        0.55,
+        0.46
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -2413,12 +2537,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 275.7078,
-        "median_leg_depth_usd": 6543.2066,
-        "worst_leg_depth_usd": 275.7078,
+        "min_leg_depth_usd": 413.7562,
+        "median_leg_depth_usd": 2347.5468,
+        "worst_leg_depth_usd": 413.7562,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 13086.4132,
+        "executable_notional_usd": 4695.0937,
         "worst_leg_market_id": "1370652",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -2443,8 +2567,8 @@
         "sum_of_probabilities": 1.01,
         "payout": 1.0,
         "leg_probabilities": [
-          0.54,
-          0.47
+          0.55,
+          0.46
         ],
         "outcome_labels": [
           "YES",
@@ -2516,8 +2640,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.44,
-        0.57
+        0.42,
+        0.59
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -2537,12 +2661,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 47.9336,
-        "median_leg_depth_usd": 877.8667,
-        "worst_leg_depth_usd": 47.9336,
+        "min_leg_depth_usd": 1265.376,
+        "median_leg_depth_usd": 1523.0039,
+        "worst_leg_depth_usd": 1265.376,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 1755.7334,
+        "executable_notional_usd": 3046.0078,
         "worst_leg_market_id": "2176262",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -2567,8 +2691,8 @@
         "sum_of_probabilities": 1.01,
         "payout": 1.0,
         "leg_probabilities": [
-          0.44,
-          0.57
+          0.42,
+          0.59
         ],
         "outcome_labels": [
           "YES",
@@ -2661,12 +2785,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 268.7791,
-        "median_leg_depth_usd": 425.7495,
-        "worst_leg_depth_usd": 268.7791,
+        "min_leg_depth_usd": 270.6291,
+        "median_leg_depth_usd": 1857.1098,
+        "worst_leg_depth_usd": 270.6291,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 851.4991,
+        "executable_notional_usd": 3714.2195,
         "worst_leg_market_id": "2599675",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -2785,12 +2909,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 1211.4112,
-        "median_leg_depth_usd": 2904.7316,
-        "worst_leg_depth_usd": 1211.4112,
+        "min_leg_depth_usd": 1202.8102,
+        "median_leg_depth_usd": 2996.9611,
+        "worst_leg_depth_usd": 1202.8102,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 5809.4632,
+        "executable_notional_usd": 5993.9222,
         "worst_leg_market_id": "2587340",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -2888,8 +3012,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.75,
-        0.26
+        0.9,
+        0.11
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -2909,12 +3033,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 3373.8666,
-        "median_leg_depth_usd": 3531.1833,
-        "worst_leg_depth_usd": 3373.8666,
+        "min_leg_depth_usd": 512.655,
+        "median_leg_depth_usd": 1687.746,
+        "worst_leg_depth_usd": 512.655,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 7062.3666,
+        "executable_notional_usd": 3375.492,
         "worst_leg_market_id": "2596514",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -2939,8 +3063,8 @@
         "sum_of_probabilities": 1.01,
         "payout": 1.0,
         "leg_probabilities": [
-          0.75,
-          0.26
+          0.9,
+          0.11
         ],
         "outcome_labels": [
           "YES",
@@ -3136,8 +3260,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.063,
-        0.938
+        0.064,
+        0.937
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -3157,12 +3281,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 34.3098,
-        "median_leg_depth_usd": 71779.5531,
-        "worst_leg_depth_usd": 34.3098,
+        "min_leg_depth_usd": 672.9159,
+        "median_leg_depth_usd": 771.0727,
+        "worst_leg_depth_usd": 672.9159,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 143559.1062,
+        "executable_notional_usd": 1542.1453,
         "worst_leg_market_id": "567621",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -3187,8 +3311,8 @@
         "sum_of_probabilities": 1.001,
         "payout": 1.0,
         "leg_probabilities": [
-          0.063,
-          0.938
+          0.064,
+          0.937
         ],
         "outcome_labels": [
           "YES",
@@ -3281,12 +3405,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 827.8875,
-        "median_leg_depth_usd": 2224.2834,
-        "worst_leg_depth_usd": 827.8875,
+        "min_leg_depth_usd": 1056.8925,
+        "median_leg_depth_usd": 3119.3814,
+        "worst_leg_depth_usd": 1056.8925,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 4448.5669,
+        "executable_notional_usd": 6238.7627,
         "worst_leg_market_id": "2557214",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -3406,11 +3530,11 @@
       "primary_fix": null,
       "depth_quality": {
         "min_leg_depth_usd": 36.889,
-        "median_leg_depth_usd": 408.4379,
+        "median_leg_depth_usd": 408.6755,
         "worst_leg_depth_usd": 36.889,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 816.8757,
+        "executable_notional_usd": 817.351,
         "worst_leg_market_id": "1106634",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -3529,12 +3653,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 1836.1317,
-        "median_leg_depth_usd": 2350.0288,
-        "worst_leg_depth_usd": 1836.1317,
+        "min_leg_depth_usd": 977.742,
+        "median_leg_depth_usd": 1556.0784,
+        "worst_leg_depth_usd": 977.742,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 4700.0577,
+        "executable_notional_usd": 3112.1569,
         "worst_leg_market_id": "2587344",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -3653,12 +3777,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 3837.804,
-        "median_leg_depth_usd": 6953.1286,
-        "worst_leg_depth_usd": 3837.804,
+        "min_leg_depth_usd": 3269.682,
+        "median_leg_depth_usd": 13405.5973,
+        "worst_leg_depth_usd": 3269.682,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 13906.2572,
+        "executable_notional_usd": 26811.1946,
         "worst_leg_market_id": "2596484",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -4025,12 +4149,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 129.812,
-        "median_leg_depth_usd": 331.4788,
-        "worst_leg_depth_usd": 129.812,
+        "min_leg_depth_usd": 128.662,
+        "median_leg_depth_usd": 330.9038,
+        "worst_leg_depth_usd": 128.662,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 662.9576,
+        "executable_notional_usd": 661.8076,
         "worst_leg_market_id": "677408",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -4150,11 +4274,11 @@
       "primary_fix": null,
       "depth_quality": {
         "min_leg_depth_usd": 480.6061,
-        "median_leg_depth_usd": 4018.3948,
+        "median_leg_depth_usd": 3971.5448,
         "worst_leg_depth_usd": 480.6061,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 8036.7896,
+        "executable_notional_usd": 7943.0896,
         "worst_leg_market_id": "559651",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -4273,12 +4397,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 186.978,
-        "median_leg_depth_usd": 351.209,
-        "worst_leg_depth_usd": 186.978,
+        "min_leg_depth_usd": 185.328,
+        "median_leg_depth_usd": 370.784,
+        "worst_leg_depth_usd": 185.328,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 702.418,
+        "executable_notional_usd": 741.568,
         "worst_leg_market_id": "2350594",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -4397,12 +4521,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 89.0816,
-        "median_leg_depth_usd": 1994.8581,
-        "worst_leg_depth_usd": 89.0816,
+        "min_leg_depth_usd": 57.2454,
+        "median_leg_depth_usd": 1931.559,
+        "worst_leg_depth_usd": 57.2454,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 3989.7162,
+        "executable_notional_usd": 3863.118,
         "worst_leg_market_id": "997488",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -4645,12 +4769,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 5216.8236,
-        "median_leg_depth_usd": 5702.9988,
-        "worst_leg_depth_usd": 5216.8236,
+        "min_leg_depth_usd": 7566.936,
+        "median_leg_depth_usd": 8617.4049,
+        "worst_leg_depth_usd": 7566.936,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 11405.9976,
+        "executable_notional_usd": 17234.8098,
         "worst_leg_market_id": "2596451",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -4748,8 +4872,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.69,
-        0.32
+        0.65,
+        0.36
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -4769,12 +4893,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 513.6498,
-        "median_leg_depth_usd": 1038.8393,
-        "worst_leg_depth_usd": 513.6498,
+        "min_leg_depth_usd": 6549.53,
+        "median_leg_depth_usd": 6652.9582,
+        "worst_leg_depth_usd": 6549.53,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 2077.6786,
+        "executable_notional_usd": 13305.9164,
         "worst_leg_market_id": "2583354",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -4799,8 +4923,8 @@
         "sum_of_probabilities": 1.01,
         "payout": 1.0,
         "leg_probabilities": [
-          0.69,
-          0.32
+          0.65,
+          0.36
         ],
         "outcome_labels": [
           "YES",
@@ -4893,12 +5017,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 62.2765,
-        "median_leg_depth_usd": 195.0778,
-        "worst_leg_depth_usd": 62.2765,
+        "min_leg_depth_usd": 83.3665,
+        "median_leg_depth_usd": 205.6139,
+        "worst_leg_depth_usd": 83.3665,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 390.1556,
+        "executable_notional_usd": 411.2278,
         "worst_leg_market_id": "2125369",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -4996,8 +5120,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.28,
-        0.74
+        0.21,
+        0.8
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -5017,12 +5141,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 1634.6988,
-        "median_leg_depth_usd": 4893.632,
-        "worst_leg_depth_usd": 1634.6988,
+        "min_leg_depth_usd": 522.9,
+        "median_leg_depth_usd": 2245.438,
+        "worst_leg_depth_usd": 522.9,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 9787.264,
+        "executable_notional_usd": 4490.876,
         "worst_leg_market_id": "2535468",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -5038,17 +5162,17 @@
         "refresh_reason": null
       },
       "spread_quality": {
-        "max_leg_spread": 0.02,
-        "median_leg_spread": 0.02,
+        "max_leg_spread": 0.01,
+        "median_leg_spread": 0.01,
         "spread_threshold": 0.12,
         "wide_legs": 0
       },
       "simplex": {
-        "sum_of_probabilities": 1.02,
+        "sum_of_probabilities": 1.01,
         "payout": 1.0,
         "leg_probabilities": [
-          0.28,
-          0.74
+          0.21,
+          0.8
         ],
         "outcome_labels": [
           "YES",
@@ -5076,15 +5200,15 @@
         "completeness_proven": true,
         "reason_incomplete": null
       },
-      "after_cost_lower_bound": -0.02,
+      "after_cost_lower_bound": -0.01,
       "advisory_only": true,
       "executed": false,
       "trade_gate_bypassed": false,
       "rejection_stage": "edge",
       "exhaustive": true,
       "settlement_consistent": true,
-      "divergence_gap": 0.0002,
-      "projected_profit_lower_bound": -0.02,
+      "divergence_gap": 5e-05,
+      "projected_profit_lower_bound": -0.01,
       "certify_diagnostics": {
         "group_id": "binary:event:591973",
         "group_type": "binary_yes_no",
@@ -5092,11 +5216,11 @@
         "exhaustive": true,
         "mutually_exclusive": true,
         "settlement_consistent": true,
-        "divergence_gap": 0.0002,
-        "profit_lower_bound": -0.02,
-        "projected_profit_lower_bound": -0.02,
+        "divergence_gap": 5e-05,
+        "profit_lower_bound": -0.01,
+        "projected_profit_lower_bound": -0.01,
         "all_legs_priced": true,
-        "implied_sum": 1.02,
+        "implied_sum": 1.01,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
         "stale_book_score": 0.0,
@@ -5154,7 +5278,7 @@
       "freshness": {
         "stale_legs": 0,
         "total_legs": 2,
-        "worst_leg_age_s": 0.0,
+        "worst_leg_age_s": 6.556,
         "worst_leg_market_id": "2155000",
         "freshness_threshold_s": 20.0,
         "refresh_attempted": false,
@@ -5223,7 +5347,7 @@
         "implied_sum": 1.001,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
-        "stale_book_score": 0.0,
+        "stale_book_score": 0.218533,
         "rejection_stage": "edge",
         "failure_mode": "no_positive_edge",
         "rejection_reason": "no_positive_edge"
@@ -5265,12 +5389,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 72.6351,
-        "median_leg_depth_usd": 989.8855,
-        "worst_leg_depth_usd": 72.6351,
+        "min_leg_depth_usd": 49.5387,
+        "median_leg_depth_usd": 937.4063,
+        "worst_leg_depth_usd": 49.5387,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 1979.7711,
+        "executable_notional_usd": 1874.8127,
         "worst_leg_market_id": "2595076",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -5389,12 +5513,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 41.7424,
-        "median_leg_depth_usd": 666.4679,
-        "worst_leg_depth_usd": 41.7424,
+        "min_leg_depth_usd": 41.6992,
+        "median_leg_depth_usd": 665.9441,
+        "worst_leg_depth_usd": 41.6992,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 1332.9358,
+        "executable_notional_usd": 1331.8882,
         "worst_leg_market_id": "2436512",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -5513,12 +5637,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 576.0,
-        "median_leg_depth_usd": 595.02,
-        "worst_leg_depth_usd": 576.0,
+        "min_leg_depth_usd": 289.67,
+        "median_leg_depth_usd": 2792.4745,
+        "worst_leg_depth_usd": 289.67,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 1190.04,
+        "executable_notional_usd": 5584.949,
         "worst_leg_market_id": "2596521",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -5740,8 +5864,8 @@
         "NO"
       ],
       "outcome_prices": [
-        0.43,
-        0.59
+        0.07,
+        0.94
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -5761,12 +5885,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 44.5867,
-        "median_leg_depth_usd": 59.5548,
-        "worst_leg_depth_usd": 44.5867,
+        "min_leg_depth_usd": 34.1126,
+        "median_leg_depth_usd": 65.0472,
+        "worst_leg_depth_usd": 34.1126,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 119.1096,
+        "executable_notional_usd": 130.0945,
         "worst_leg_market_id": "2583491",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -5782,17 +5906,17 @@
         "refresh_reason": null
       },
       "spread_quality": {
-        "max_leg_spread": 0.02,
-        "median_leg_spread": 0.02,
+        "max_leg_spread": 0.01,
+        "median_leg_spread": 0.01,
         "spread_threshold": 0.12,
         "wide_legs": 0
       },
       "simplex": {
-        "sum_of_probabilities": 1.02,
+        "sum_of_probabilities": 1.01,
         "payout": 1.0,
         "leg_probabilities": [
-          0.43,
-          0.59
+          0.07,
+          0.94
         ],
         "outcome_labels": [
           "YES",
@@ -5820,15 +5944,15 @@
         "completeness_proven": true,
         "reason_incomplete": null
       },
-      "after_cost_lower_bound": -0.02,
+      "after_cost_lower_bound": -0.01,
       "advisory_only": true,
       "executed": false,
       "trade_gate_bypassed": false,
       "rejection_stage": "edge",
       "exhaustive": true,
       "settlement_consistent": true,
-      "divergence_gap": 0.0002,
-      "projected_profit_lower_bound": -0.02,
+      "divergence_gap": 5e-05,
+      "projected_profit_lower_bound": -0.01,
       "certify_diagnostics": {
         "group_id": "binary:event:605328",
         "group_type": "binary_yes_no",
@@ -5836,11 +5960,11 @@
         "exhaustive": true,
         "mutually_exclusive": true,
         "settlement_consistent": true,
-        "divergence_gap": 0.0002,
-        "profit_lower_bound": -0.02,
-        "projected_profit_lower_bound": -0.02,
+        "divergence_gap": 5e-05,
+        "profit_lower_bound": -0.01,
+        "projected_profit_lower_bound": -0.01,
         "all_legs_priced": true,
-        "implied_sum": 1.02,
+        "implied_sum": 1.01,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
         "stale_book_score": 0.0,
@@ -5885,12 +6009,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 552.9876,
-        "median_leg_depth_usd": 2265.6712,
-        "worst_leg_depth_usd": 552.9876,
+        "min_leg_depth_usd": 80.7444,
+        "median_leg_depth_usd": 928.4237,
+        "worst_leg_depth_usd": 80.7444,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 4531.3425,
+        "executable_notional_usd": 1856.8473,
         "worst_leg_market_id": "2323923",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -6009,12 +6133,12 @@
       "would_trade_if": "after-cost edge turns positive (structure already valid)",
       "primary_fix": null,
       "depth_quality": {
-        "min_leg_depth_usd": 25.922,
-        "median_leg_depth_usd": 238.6452,
-        "worst_leg_depth_usd": 25.922,
+        "min_leg_depth_usd": 347.5129,
+        "median_leg_depth_usd": 538.7808,
+        "worst_leg_depth_usd": 347.5129,
         "thin_legs": 0,
         "total_legs": 2,
-        "executable_notional_usd": 477.2904,
+        "executable_notional_usd": 1077.5617,
         "worst_leg_market_id": "2397774",
         "thin_cause": "none",
         "required_depth_usd": 25.0
@@ -6022,7 +6146,7 @@
       "freshness": {
         "stale_legs": 0,
         "total_legs": 2,
-        "worst_leg_age_s": 0.0,
+        "worst_leg_age_s": 16.547,
         "worst_leg_market_id": "2397774",
         "freshness_threshold_s": 20.0,
         "refresh_attempted": false,
@@ -6091,131 +6215,7 @@
         "implied_sum": 1.01,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
-        "stale_book_score": 0.0,
-        "rejection_stage": "edge",
-        "failure_mode": "no_positive_edge",
-        "rejection_reason": "no_positive_edge"
-      }
-    },
-    {
-      "group_key": "binary:event:238279",
-      "group_type": "binary_yes_no",
-      "market_ids": [
-        "1472548"
-      ],
-      "token_ids": [
-        "104932610032177696635191871147557737718087870958469629338467406422339967452218",
-        "96214953624495509683027302209340859673097705517450500531670409012928242777230"
-      ],
-      "outcome_labels": [
-        "YES",
-        "NO"
-      ],
-      "outcome_prices": [
-        0.048,
-        0.953
-      ],
-      "token_ids_unavailable": false,
-      "single_market_binary": true,
-      "raw_market_ids": [
-        "1472548"
-      ],
-      "reject_reason": "no_positive_edge",
-      "fix_category": "no_positive_edge",
-      "near_miss_score": 0.9,
-      "near_miss_tradeable": false,
-      "one_fix_away": false,
-      "remaining_blockers": [],
-      "learning_priority": "medium",
-      "learning_priority_score": 0.9,
-      "shadow_label_candidate": false,
-      "learning_label": "no_positive_after_cost_edge",
-      "would_trade_if": "after-cost edge turns positive (structure already valid)",
-      "primary_fix": null,
-      "depth_quality": {
-        "min_leg_depth_usd": 25.2187,
-        "median_leg_depth_usd": 341.1799,
-        "worst_leg_depth_usd": 25.2187,
-        "thin_legs": 0,
-        "total_legs": 2,
-        "executable_notional_usd": 682.3598,
-        "worst_leg_market_id": "1472548",
-        "thin_cause": "none",
-        "required_depth_usd": 25.0
-      },
-      "freshness": {
-        "stale_legs": 0,
-        "total_legs": 2,
-        "worst_leg_age_s": 0.0,
-        "worst_leg_market_id": "1472548",
-        "freshness_threshold_s": 20.0,
-        "refresh_attempted": false,
-        "refresh_ok": false,
-        "refresh_reason": null
-      },
-      "spread_quality": {
-        "max_leg_spread": 0.001,
-        "median_leg_spread": 0.001,
-        "spread_threshold": 0.12,
-        "wide_legs": 0
-      },
-      "simplex": {
-        "sum_of_probabilities": 1.001,
-        "payout": 1.0,
-        "leg_probabilities": [
-          0.048,
-          0.953
-        ],
-        "outcome_labels": [
-          "YES",
-          "NO"
-        ],
-        "priced_legs": 2,
-        "total_legs": 2,
-        "duplicate_outcomes": false,
-        "missing_complement": false,
-        "invalid_normalization": false,
-        "suspected_parsing_issue": false,
-        "true_invalid_economics": false
-      },
-      "completeness": {
-        "group_key": "binary:event:238279",
-        "expected_outcome_family": "reza pahlavi lead iran 2026",
-        "market_kind": "binary",
-        "observed_outcomes": [
-          "YES",
-          "NO"
-        ],
-        "observed_count": 2,
-        "declared_expected_count": null,
-        "missing_or_unknown_outcomes": null,
-        "completeness_proven": true,
-        "reason_incomplete": null
-      },
-      "after_cost_lower_bound": -0.001,
-      "advisory_only": true,
-      "executed": false,
-      "trade_gate_bypassed": false,
-      "rejection_stage": "edge",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "divergence_gap": 5e-07,
-      "projected_profit_lower_bound": -0.001,
-      "certify_diagnostics": {
-        "group_id": "binary:event:238279",
-        "group_type": "binary_yes_no",
-        "n_legs": 2,
-        "exhaustive": true,
-        "mutually_exclusive": true,
-        "settlement_consistent": true,
-        "divergence_gap": 5e-07,
-        "profit_lower_bound": -0.001,
-        "projected_profit_lower_bound": -0.001,
-        "all_legs_priced": true,
-        "implied_sum": 1.001,
-        "max_ambiguity_score": 0.0,
-        "max_ambiguity_threshold": 0.45,
-        "stale_book_score": 0.0,
+        "stale_book_score": 0.551567,
         "rejection_stage": "edge",
         "failure_mode": "no_positive_edge",
         "rejection_reason": "no_positive_edge"
@@ -6223,64 +6223,64 @@
     }
   ],
   "near_miss_by_rejection_reason": {
-    "depth_too_thin": 114,
-    "no_executable_price": 4,
-    "no_positive_edge": 328,
-    "not_exhaustive": 295,
+    "depth_too_thin": 112,
+    "no_executable_price": 7,
+    "no_positive_edge": 346,
+    "not_exhaustive": 301,
     "spread_too_wide": 5,
-    "stale_book": 45
+    "stale_book": 58
   },
   "near_miss_one_fix_away_count": 159,
   "near_miss_depth_only_count": 136,
-  "near_miss_not_exhaustive_count": 295,
+  "near_miss_not_exhaustive_count": 301,
   "near_miss_stale_refresh_failed_count": 0,
   "blocker_explanation": {
     "blocked": true,
     "primary_blocker": "incomplete_event_families",
     "dominant_rejection_reason": "not_exhaustive",
     "rejection_reason_counts": {
-      "not_exhaustive": 36085,
-      "stale_book": 5329,
-      "no_positive_edge": 17254,
-      "depth_too_thin": 12253,
-      "spread_too_wide": 258,
-      "no_executable_price": 229
+      "not_exhaustive": 40629,
+      "stale_book": 5890,
+      "no_positive_edge": 19731,
+      "depth_too_thin": 13850,
+      "spread_too_wide": 260,
+      "no_executable_price": 255
     },
     "detail": "groups reached the certifier but every one was rejected by a STRICT gate (not loosened); dominant reason above"
   },
-  "market_group_candidates": 508,
+  "market_group_candidates": 519,
   "profit_learning_status": "shadow_data_only",
-  "profit_data_sufficiency": "building",
+  "profit_data_sufficiency": "sufficient",
   "shadow_label_writer_blocker": null,
   "groups_rejected_pre_adapter": 0,
-  "groups_adapter_success": 508,
+  "groups_adapter_success": 519,
   "groups_adapter_failed": 0,
-  "groups_sent_to_certifier": 508,
-  "constraint_groups_scanned": 508,
+  "groups_sent_to_certifier": 519,
+  "constraint_groups_scanned": 519,
   "candidates_generated": 0,
   "certified": 0,
   "realistic_executable": 0,
   "skip_reasons": {
-    "not_exhaustive": 36085,
-    "stale_book": 5329,
-    "no_positive_edge": 17254,
-    "depth_too_thin": 12253,
-    "spread_too_wide": 258,
-    "no_executable_price": 229
+    "not_exhaustive": 40629,
+    "stale_book": 5890,
+    "no_positive_edge": 19731,
+    "depth_too_thin": 13850,
+    "spread_too_wide": 260,
+    "no_executable_price": 255
   },
   "adapter_missing_fields": {},
-  "diagnostic_events_written": 58630,
+  "diagnostic_events_written": 66010,
   "bregman_next_steps": {
     "best_complete_group_lower_bound": 0.9,
     "best_depth_sufficient_lower_bound": 0.938,
     "best_depth_sufficient_reject_reason": "not_exhaustive",
-    "groups_positive_lower_bound": 106,
-    "positive_projected_but_rejected_count": 106,
+    "groups_positive_lower_bound": 105,
+    "positive_projected_but_rejected_count": 105,
     "positive_projected_rejected_by_stage": {
-      "realism": 11,
-      "validate_simplex": 95
+      "realism": 16,
+      "validate_simplex": 89
     },
-    "rejected_by_realism_count": 11,
+    "rejected_by_realism_count": 16,
     "rejected_by_simplex_or_not_exhaustive_count": 390,
     "missing_fields_for_complete_family_proof": {},
     "missing_outcome_examples": [
@@ -6288,20 +6288,20 @@
         "group_id": "event:event:548786",
         "present_outcomes_sample": [
           "Will Donald Trump publicly insult someone on June 16, 2026?",
-          "Will Donald Trump publicly insult someone on June 19, 2026?",
           "Will Donald Trump publicly insult someone on June 2, 2026?",
           "Will Donald Trump publicly insult someone on June 29, 2026?",
           "Will Donald Trump publicly insult someone on June 3, 2026?",
-          "Will Donald Trump publicly insult someone on June 4, 2026?"
+          "Will Donald Trump publicly insult someone on June 4, 2026?",
+          "Will Donald Trump publicly insult someone on June 21, 2026?"
         ],
-        "missing_outcome_count": 19
+        "missing_outcome_count": 20
       },
       {
         "group_id": "event:event:577376",
         "present_outcomes_sample": [
+          "Will Iran close its airspace by December 31?",
           "Will Iran close its airspace by June 30?",
           "Will Iran close its airspace by July 31?",
-          "Will Iran close its airspace by December 31?",
           "Will Iran close its airspace by June 10?",
           "Will Iran close its airspace by June 12?",
           "Will Iran close its airspace by June 11?"
@@ -6312,33 +6312,33 @@
         "group_id": "event:negrisk:0x966a3221e05d8d0579854c4952085331da2a42989dee0fa033d24cada9dfca00",
         "present_outcomes_sample": [
           "Will Geraldo Alckmin win the 2026 Brazilian presidential election?",
-          "Will Michelle Bolsonaro win the 2026 Brazilian presidential election?",
           "Will Fl\u00e1vio Bolsonaro win the 2026 Brazilian presidential election?",
           "Will Renan Santos win the 2026 Brazilian presidential election?",
           "Will Ronaldo Caiado win the 2026 Brazilian presidential election?",
-          "Will Aldo Rebelo win the 2026 Brazilian presidential election?"
+          "Will Aldo Rebelo win the 2026 Brazilian presidential election?",
+          "Will Michelle Bolsonaro win the 2026 Brazilian presidential election?"
         ],
         "missing_outcome_count": 7
       },
       {
         "group_id": "event:event:511454",
         "present_outcomes_sample": [
-          "Spread: Haiti (-3.5)",
           "Spread: Haiti (-1.5)",
-          "Spread: Haiti (-2.5)",
+          "Spread: Haiti (-3.5)",
           "Brazil vs. Haiti: Both Teams to Score",
           "Brazil vs. Haiti: O/U 3.5",
-          "Spread: Brazil (-3.5)"
+          "Spread: Brazil (-3.5)",
+          "Spread: Brazil (-2.5)"
         ],
-        "missing_outcome_count": 15
+        "missing_outcome_count": 17
       },
       {
         "group_id": "event:negrisk:0x2e8ee0b78c06349677514c81455c1256e07e0b2cf4c9cde23fd23f65eda05200",
         "present_outcomes_sample": [
+          "Will Max Verstappen be the 2026 F1 Drivers' Champion?",
+          "Will Lance Stroll be the 2026 F1 Drivers' Champion?",
           "Will Valtteri Bottas be the 2026 F1 Drivers' Champion?",
           "Will Oscar Piastri be the 2026 F1 Drivers' Champion?",
-          "Will Lance Stroll be the 2026 F1 Drivers' Champion?",
-          "Will Gabriel Bortoleto be the 2026 F1 Drivers' Champion?",
           "Will Sergio P\u00e9rez be the 2026 F1 Drivers' Champion?",
           "Will Franco Colapinto be the 2026 F1 Drivers' Champion?"
         ],
@@ -6347,12 +6347,12 @@
       {
         "group_id": "event:event:511456",
         "present_outcomes_sample": [
-          "United States vs. Australia: Both Teams to Score in Second Half",
           "United States vs. Australia: O/U 5.5",
-          "United States vs. Australia: O/U 8.5",
           "Spread: Australia (-2.5)",
-          "United States vs. Australia: O/U 7.5",
-          "United States vs. Australia: Both Teams to Score"
+          "United States vs. Australia: Both Teams to Score",
+          "United States vs. Australia: O/U 4.5",
+          "United States vs. Australia: O/U 3.5",
+          "United States vs. Australia: O/U 2.5"
         ],
         "missing_outcome_count": 12
       },
@@ -6362,9 +6362,9 @@
           "Will Ted Cruz win the 2028 Republican presidential nomination?",
           "Will J.D. Vance win the 2028 Republican presidential nomination?",
           "Will Kristi Noem win the 2028 Republican presidential nomination?",
-          "Will Donald Trump win the 2028 Republican presidential nomination?",
-          "Will Ron DeSantis win the 2028 Republican presidential nomination?",
-          "Will Sarah Huckabee Sanders win the 2028 Republican presidential nomination?"
+          "Will Sarah Huckabee Sanders win the 2028 Republican presidential nomination?",
+          "Will Mike Pence win the 2028 Republican presidential nomination?",
+          "Will Tucker Carlson win the 2028 Republican presidential nomination?"
         ],
         "missing_outcome_count": 85
       },
@@ -6419,12 +6419,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 80.4665,
-          "median_leg_depth_usd": 9748.4631,
-          "worst_leg_depth_usd": 80.4665,
+          "min_leg_depth_usd": 79.6105,
+          "median_leg_depth_usd": 9743.5576,
+          "worst_leg_depth_usd": 79.6105,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 19496.9263,
+          "executable_notional_usd": 19487.1153,
           "worst_leg_market_id": "1385754",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -6432,7 +6432,7 @@
         "freshness": {
           "stale_legs": 0,
           "total_legs": 2,
-          "worst_leg_age_s": 0.0,
+          "worst_leg_age_s": 4.634,
           "worst_leg_market_id": "1385754",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
@@ -6501,7 +6501,7 @@
           "implied_sum": 1.001,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
-          "stale_book_score": 0.0,
+          "stale_book_score": 0.154467,
           "rejection_stage": "edge",
           "failure_mode": "no_positive_edge",
           "rejection_reason": "no_positive_edge"
@@ -6543,12 +6543,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 81.8629,
-          "median_leg_depth_usd": 223413.5759,
-          "worst_leg_depth_usd": 81.8629,
+          "min_leg_depth_usd": 94.3359,
+          "median_leg_depth_usd": 223255.1424,
+          "worst_leg_depth_usd": 94.3359,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 446827.1518,
+          "executable_notional_usd": 446510.2848,
           "worst_leg_market_id": "958443",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -6667,12 +6667,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 1024.0163,
-          "median_leg_depth_usd": 23519.0603,
-          "worst_leg_depth_usd": 1024.0163,
+          "min_leg_depth_usd": 1023.6176,
+          "median_leg_depth_usd": 23515.375,
+          "worst_leg_depth_usd": 1023.6176,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 47038.1207,
+          "executable_notional_usd": 47030.75,
           "worst_leg_market_id": "956590",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -6791,12 +6791,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 313.8227,
-          "median_leg_depth_usd": 1218.1693,
-          "worst_leg_depth_usd": 313.8227,
+          "min_leg_depth_usd": 313.8416,
+          "median_leg_depth_usd": 1218.1787,
+          "worst_leg_depth_usd": 313.8416,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 2436.3385,
+          "executable_notional_usd": 2436.3574,
           "worst_leg_market_id": "1559394",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -6804,7 +6804,7 @@
         "freshness": {
           "stale_legs": 0,
           "total_legs": 2,
-          "worst_leg_age_s": 0.0,
+          "worst_leg_age_s": 0.756,
           "worst_leg_market_id": "1559394",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
@@ -6873,7 +6873,7 @@
           "implied_sum": 1.001,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
-          "stale_book_score": 0.0,
+          "stale_book_score": 0.0252,
           "rejection_stage": "edge",
           "failure_mode": "no_positive_edge",
           "rejection_reason": "no_positive_edge"
@@ -7039,12 +7039,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 328.2379,
-          "median_leg_depth_usd": 564.4202,
-          "worst_leg_depth_usd": 328.2379,
+          "min_leg_depth_usd": 266.5571,
+          "median_leg_depth_usd": 518.7552,
+          "worst_leg_depth_usd": 266.5571,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 1128.8403,
+          "executable_notional_usd": 1037.5105,
           "worst_leg_market_id": "2370154",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -7266,8 +7266,8 @@
           "NO"
         ],
         "outcome_prices": [
-          0.063,
-          0.938
+          0.064,
+          0.937
         ],
         "token_ids_unavailable": false,
         "single_market_binary": true,
@@ -7287,12 +7287,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 34.3098,
-          "median_leg_depth_usd": 71779.5531,
-          "worst_leg_depth_usd": 34.3098,
+          "min_leg_depth_usd": 672.9159,
+          "median_leg_depth_usd": 771.0727,
+          "worst_leg_depth_usd": 672.9159,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 143559.1062,
+          "executable_notional_usd": 1542.1453,
           "worst_leg_market_id": "567621",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -7317,8 +7317,8 @@
           "sum_of_probabilities": 1.001,
           "payout": 1.0,
           "leg_probabilities": [
-            0.063,
-            0.938
+            0.064,
+            0.937
           ],
           "outcome_labels": [
             "YES",
@@ -7412,11 +7412,11 @@
         "primary_fix": null,
         "depth_quality": {
           "min_leg_depth_usd": 480.6061,
-          "median_leg_depth_usd": 4018.3948,
+          "median_leg_depth_usd": 3971.5448,
           "worst_leg_depth_usd": 480.6061,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 8036.7896,
+          "executable_notional_usd": 7943.0896,
           "worst_leg_market_id": "559651",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -7535,12 +7535,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 89.0816,
-          "median_leg_depth_usd": 1994.8581,
-          "worst_leg_depth_usd": 89.0816,
+          "min_leg_depth_usd": 57.2454,
+          "median_leg_depth_usd": 1931.559,
+          "worst_leg_depth_usd": 57.2454,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 3989.7162,
+          "executable_notional_usd": 3863.118,
           "worst_leg_market_id": "997488",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -7661,12 +7661,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 80.4665,
-          "median_leg_depth_usd": 9748.4631,
-          "worst_leg_depth_usd": 80.4665,
+          "min_leg_depth_usd": 79.6105,
+          "median_leg_depth_usd": 9743.5576,
+          "worst_leg_depth_usd": 79.6105,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 19496.9263,
+          "executable_notional_usd": 19487.1153,
           "worst_leg_market_id": "1385754",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -7674,7 +7674,7 @@
         "freshness": {
           "stale_legs": 0,
           "total_legs": 2,
-          "worst_leg_age_s": 0.0,
+          "worst_leg_age_s": 4.634,
           "worst_leg_market_id": "1385754",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
@@ -7743,7 +7743,7 @@
           "implied_sum": 1.001,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
-          "stale_book_score": 0.0,
+          "stale_book_score": 0.154467,
           "rejection_stage": "edge",
           "failure_mode": "no_positive_edge",
           "rejection_reason": "no_positive_edge"
@@ -7785,12 +7785,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 81.8629,
-          "median_leg_depth_usd": 223413.5759,
-          "worst_leg_depth_usd": 81.8629,
+          "min_leg_depth_usd": 94.3359,
+          "median_leg_depth_usd": 223255.1424,
+          "worst_leg_depth_usd": 94.3359,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 446827.1518,
+          "executable_notional_usd": 446510.2848,
           "worst_leg_market_id": "958443",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -7909,12 +7909,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 1024.0163,
-          "median_leg_depth_usd": 23519.0603,
-          "worst_leg_depth_usd": 1024.0163,
+          "min_leg_depth_usd": 1023.6176,
+          "median_leg_depth_usd": 23515.375,
+          "worst_leg_depth_usd": 1023.6176,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 47038.1207,
+          "executable_notional_usd": 47030.75,
           "worst_leg_market_id": "956590",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -8033,12 +8033,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 313.8227,
-          "median_leg_depth_usd": 1218.1693,
-          "worst_leg_depth_usd": 313.8227,
+          "min_leg_depth_usd": 313.8416,
+          "median_leg_depth_usd": 1218.1787,
+          "worst_leg_depth_usd": 313.8416,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 2436.3385,
+          "executable_notional_usd": 2436.3574,
           "worst_leg_market_id": "1559394",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -8046,7 +8046,7 @@
         "freshness": {
           "stale_legs": 0,
           "total_legs": 2,
-          "worst_leg_age_s": 0.0,
+          "worst_leg_age_s": 0.756,
           "worst_leg_market_id": "1559394",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
@@ -8115,7 +8115,7 @@
           "implied_sum": 1.001,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
-          "stale_book_score": 0.0,
+          "stale_book_score": 0.0252,
           "rejection_stage": "edge",
           "failure_mode": "no_positive_edge",
           "rejection_reason": "no_positive_edge"
@@ -8249,19 +8249,19 @@
     "top_groups_rejected_by_stale_book": [],
     "top_groups_rejected_by_thin_depth": [],
     "certified_executable_bundle_exists": false,
-    "certified_executable_bundle_reason": "dominant stage=validate_simplex: groups are structurally INCOMPLETE (exhaustive=False / not a provable complete set) \u2014 buying a partial set is not a guaranteed hedge, so it is correctly NOT certified (completeness is never fabricated); NOTE: 106 group(s) had POSITIVE raw projected profit (best=0.999) but were still rejected (realism=11, validate_simplex=95) \u2014 the raw mispricing is real, but the set is not a certifiable complete hedge",
-    "zero_certified_explanation": "dominant stage=validate_simplex: groups are structurally INCOMPLETE (exhaustive=False / not a provable complete set) \u2014 buying a partial set is not a guaranteed hedge, so it is correctly NOT certified (completeness is never fabricated); NOTE: 106 group(s) had POSITIVE raw projected profit (best=0.999) but were still rejected (realism=11, validate_simplex=95) \u2014 the raw mispricing is real, but the set is not a certifiable complete hedge",
+    "certified_executable_bundle_reason": "dominant stage=validate_simplex: groups are structurally INCOMPLETE (exhaustive=False / not a provable complete set) \u2014 buying a partial set is not a guaranteed hedge, so it is correctly NOT certified (completeness is never fabricated); NOTE: 105 group(s) had POSITIVE raw projected profit (best=0.999) but were still rejected (realism=16, validate_simplex=89) \u2014 the raw mispricing is real, but the set is not a certifiable complete hedge",
+    "zero_certified_explanation": "dominant stage=validate_simplex: groups are structurally INCOMPLETE (exhaustive=False / not a provable complete set) \u2014 buying a partial set is not a guaranteed hedge, so it is correctly NOT certified (completeness is never fabricated); NOTE: 105 group(s) had POSITIVE raw projected profit (best=0.999) but were still rejected (realism=16, validate_simplex=89) \u2014 the raw mispricing is real, but the set is not a certifiable complete hedge",
     "certification_strictness_preserved": true
   },
   "near_miss_learning_priority_counts": {
-    "high": 126,
-    "medium": 564,
+    "high": 127,
+    "medium": 601,
     "low": 101
   },
-  "near_miss_shadow_label_candidate_count": 126,
+  "near_miss_shadow_label_candidate_count": 127,
   "near_miss_learning_label_counts": {
-    "needs_multiple_fixes": 344,
-    "no_positive_after_cost_edge": 288,
+    "needs_multiple_fixes": 364,
+    "no_positive_after_cost_edge": 306,
     "would_certify_if_complete_set": 20,
     "would_certify_if_depth_sufficient": 136,
     "would_certify_if_spread_tightens": 3
@@ -9540,132 +9540,6 @@
       }
     },
     {
-      "group_key": "binary:event:107711",
-      "group_type": "binary_yes_no",
-      "market_ids": [
-        "956370"
-      ],
-      "token_ids": [
-        "31883462749119556388086799399919753637232555218950340228250860473714993542724",
-        "83880982683889885965133727500100095351145396204583518599800736520025739660868"
-      ],
-      "outcome_labels": [
-        "YES",
-        "NO"
-      ],
-      "outcome_prices": [
-        0.005,
-        0.997
-      ],
-      "token_ids_unavailable": false,
-      "single_market_binary": true,
-      "raw_market_ids": [
-        "956370"
-      ],
-      "reject_reason": "no_positive_edge",
-      "fix_category": "no_positive_edge",
-      "near_miss_score": 0.797565,
-      "near_miss_tradeable": false,
-      "one_fix_away": true,
-      "remaining_blockers": [
-        "depth"
-      ],
-      "learning_priority": "high",
-      "learning_priority_score": 1.0,
-      "shadow_label_candidate": true,
-      "learning_label": "would_certify_if_depth_sufficient",
-      "would_trade_if": "worst-leg depth $14.7565 reaches required $25.0 (thin legs=1)",
-      "primary_fix": "depth",
-      "depth_quality": {
-        "min_leg_depth_usd": 14.7565,
-        "median_leg_depth_usd": 2115.0961,
-        "worst_leg_depth_usd": 14.7565,
-        "thin_legs": 1,
-        "total_legs": 2,
-        "executable_notional_usd": 4230.1921,
-        "worst_leg_market_id": "956370",
-        "thin_cause": "one_leg",
-        "required_depth_usd": 25.0
-      },
-      "freshness": {
-        "stale_legs": 0,
-        "total_legs": 2,
-        "worst_leg_age_s": 0.0,
-        "worst_leg_market_id": "956370",
-        "freshness_threshold_s": 20.0,
-        "refresh_attempted": false,
-        "refresh_ok": false,
-        "refresh_reason": null
-      },
-      "spread_quality": {
-        "max_leg_spread": 0.002,
-        "median_leg_spread": 0.002,
-        "spread_threshold": 0.12,
-        "wide_legs": 0
-      },
-      "simplex": {
-        "sum_of_probabilities": 1.002,
-        "payout": 1.0,
-        "leg_probabilities": [
-          0.005,
-          0.997
-        ],
-        "outcome_labels": [
-          "YES",
-          "NO"
-        ],
-        "priced_legs": 2,
-        "total_legs": 2,
-        "duplicate_outcomes": false,
-        "missing_complement": false,
-        "invalid_normalization": false,
-        "suspected_parsing_issue": false,
-        "true_invalid_economics": false
-      },
-      "completeness": {
-        "group_key": "binary:event:107711",
-        "expected_outcome_family": "xi jinping out june 30",
-        "market_kind": "binary",
-        "observed_outcomes": [
-          "YES",
-          "NO"
-        ],
-        "observed_count": 2,
-        "declared_expected_count": null,
-        "missing_or_unknown_outcomes": null,
-        "completeness_proven": true,
-        "reason_incomplete": null
-      },
-      "after_cost_lower_bound": -0.002,
-      "advisory_only": true,
-      "executed": false,
-      "trade_gate_bypassed": false,
-      "rejection_stage": "edge",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "divergence_gap": 2e-06,
-      "projected_profit_lower_bound": -0.002,
-      "certify_diagnostics": {
-        "group_id": "binary:event:107711",
-        "group_type": "binary_yes_no",
-        "n_legs": 2,
-        "exhaustive": true,
-        "mutually_exclusive": true,
-        "settlement_consistent": true,
-        "divergence_gap": 2e-06,
-        "profit_lower_bound": -0.002,
-        "projected_profit_lower_bound": -0.002,
-        "all_legs_priced": true,
-        "implied_sum": 1.002,
-        "max_ambiguity_score": 0.0,
-        "max_ambiguity_threshold": 0.45,
-        "stale_book_score": 0.0,
-        "rejection_stage": "edge",
-        "failure_mode": "no_positive_edge",
-        "rejection_reason": "no_positive_edge"
-      }
-    },
-    {
       "group_key": "binary:event:96724",
       "group_type": "binary_yes_no",
       "market_ids": [
@@ -9942,7 +9816,7 @@
       ],
       "reject_reason": "no_positive_edge",
       "fix_category": "no_positive_edge",
-      "near_miss_score": 0.784237,
+      "near_miss_score": 0.784444,
       "near_miss_tradeable": false,
       "one_fix_away": true,
       "remaining_blockers": [
@@ -9952,15 +9826,15 @@
       "learning_priority_score": 1.0,
       "shadow_label_candidate": true,
       "learning_label": "would_certify_if_depth_sufficient",
-      "would_trade_if": "worst-leg depth $13.4237 reaches required $25.0 (thin legs=1)",
+      "would_trade_if": "worst-leg depth $13.4444 reaches required $25.0 (thin legs=1)",
       "primary_fix": "depth",
       "depth_quality": {
-        "min_leg_depth_usd": 13.4237,
-        "median_leg_depth_usd": 77929.9456,
-        "worst_leg_depth_usd": 13.4237,
+        "min_leg_depth_usd": 13.4444,
+        "median_leg_depth_usd": 77926.4895,
+        "worst_leg_depth_usd": 13.4444,
         "thin_legs": 1,
         "total_legs": 2,
-        "executable_notional_usd": 155859.8912,
+        "executable_notional_usd": 155852.9789,
         "worst_leg_market_id": "1992954",
         "thin_cause": "one_leg",
         "required_depth_usd": 25.0
@@ -10185,7 +10059,7 @@
       ],
       "outcome_prices": [
         0.006,
-        0.997
+        0.998
       ],
       "token_ids_unavailable": false,
       "single_market_binary": true,
@@ -10194,7 +10068,7 @@
       ],
       "reject_reason": "no_positive_edge",
       "fix_category": "no_positive_edge",
-      "near_miss_score": 0.76124,
+      "near_miss_score": 0.77138,
       "near_miss_tradeable": false,
       "one_fix_away": true,
       "remaining_blockers": [
@@ -10204,15 +10078,15 @@
       "learning_priority_score": 1.0,
       "shadow_label_candidate": true,
       "learning_label": "would_certify_if_depth_sufficient",
-      "would_trade_if": "worst-leg depth $11.124 reaches required $25.0 (thin legs=1)",
+      "would_trade_if": "worst-leg depth $12.138 reaches required $25.0 (thin legs=1)",
       "primary_fix": "depth",
       "depth_quality": {
-        "min_leg_depth_usd": 11.124,
-        "median_leg_depth_usd": 250.1261,
-        "worst_leg_depth_usd": 11.124,
+        "min_leg_depth_usd": 12.138,
+        "median_leg_depth_usd": 1858.5915,
+        "worst_leg_depth_usd": 12.138,
         "thin_legs": 1,
         "total_legs": 2,
-        "executable_notional_usd": 500.2522,
+        "executable_notional_usd": 3717.1831,
         "worst_leg_market_id": "1259129",
         "thin_cause": "one_leg",
         "required_depth_usd": 25.0
@@ -10228,17 +10102,17 @@
         "refresh_reason": null
       },
       "spread_quality": {
-        "max_leg_spread": 0.003,
-        "median_leg_spread": 0.003,
+        "max_leg_spread": 0.004,
+        "median_leg_spread": 0.004,
         "spread_threshold": 0.12,
         "wide_legs": 0
       },
       "simplex": {
-        "sum_of_probabilities": 1.003,
+        "sum_of_probabilities": 1.004,
         "payout": 1.0,
         "leg_probabilities": [
           0.006,
-          0.997
+          0.998
         ],
         "outcome_labels": [
           "YES",
@@ -10266,15 +10140,15 @@
         "completeness_proven": true,
         "reason_incomplete": null
       },
-      "after_cost_lower_bound": -0.003,
+      "after_cost_lower_bound": -0.004,
       "advisory_only": true,
       "executed": false,
       "trade_gate_bypassed": false,
       "rejection_stage": "edge",
       "exhaustive": true,
       "settlement_consistent": true,
-      "divergence_gap": 4.5e-06,
-      "projected_profit_lower_bound": -0.003,
+      "divergence_gap": 8e-06,
+      "projected_profit_lower_bound": -0.004,
       "certify_diagnostics": {
         "group_id": "binary:event:185883",
         "group_type": "binary_yes_no",
@@ -10282,11 +10156,11 @@
         "exhaustive": true,
         "mutually_exclusive": true,
         "settlement_consistent": true,
-        "divergence_gap": 4.5e-06,
-        "profit_lower_bound": -0.003,
-        "projected_profit_lower_bound": -0.003,
+        "divergence_gap": 8e-06,
+        "profit_lower_bound": -0.004,
+        "projected_profit_lower_bound": -0.004,
         "all_legs_priced": true,
-        "implied_sum": 1.003,
+        "implied_sum": 1.004,
         "max_ambiguity_score": 0.0,
         "max_ambiguity_threshold": 0.45,
         "stale_book_score": 0.0,
@@ -11838,7 +11712,7 @@
       ],
       "reject_reason": "no_positive_edge",
       "fix_category": "no_positive_edge",
-      "near_miss_score": 0.76,
+      "near_miss_score": 0.76286,
       "near_miss_tradeable": false,
       "one_fix_away": true,
       "remaining_blockers": [
@@ -11848,15 +11722,15 @@
       "learning_priority_score": 1.0,
       "shadow_label_candidate": true,
       "learning_label": "would_certify_if_depth_sufficient",
-      "would_trade_if": "worst-leg depth $11.0 reaches required $25.0 (thin legs=1)",
+      "would_trade_if": "worst-leg depth $11.286 reaches required $25.0 (thin legs=1)",
       "primary_fix": "depth",
       "depth_quality": {
-        "min_leg_depth_usd": 11.0,
-        "median_leg_depth_usd": 146.715,
-        "worst_leg_depth_usd": 11.0,
+        "min_leg_depth_usd": 11.286,
+        "median_leg_depth_usd": 146.858,
+        "worst_leg_depth_usd": 11.286,
         "thin_legs": 1,
         "total_legs": 2,
-        "executable_notional_usd": 293.43,
+        "executable_notional_usd": 293.716,
         "worst_leg_market_id": "2288598",
         "thin_cause": "one_leg",
         "required_depth_usd": 25.0
@@ -14594,88 +14468,214 @@
         "failure_mode": "depth_too_thin",
         "rejection_reason": "depth_too_thin"
       }
+    },
+    {
+      "group_key": "binary:event:607454",
+      "group_type": "binary_yes_no",
+      "market_ids": [
+        "2593443"
+      ],
+      "token_ids": [
+        "39903977041786105901006292162260875751915361262621711217724519422124667985994",
+        "103711516976774792323352032180449252431424286575587798476487889055882795885728"
+      ],
+      "outcome_labels": [
+        "YES",
+        "NO"
+      ],
+      "outcome_prices": [
+        0.46,
+        0.55
+      ],
+      "token_ids_unavailable": false,
+      "single_market_binary": true,
+      "raw_market_ids": [
+        "2593443"
+      ],
+      "reject_reason": "no_positive_edge",
+      "fix_category": "no_positive_edge",
+      "near_miss_score": 0.88749,
+      "near_miss_tradeable": false,
+      "one_fix_away": true,
+      "remaining_blockers": [
+        "depth"
+      ],
+      "learning_priority": "high",
+      "learning_priority_score": 1.0,
+      "shadow_label_candidate": true,
+      "learning_label": "would_certify_if_depth_sufficient",
+      "would_trade_if": "worst-leg depth $23.749 reaches required $25.0 (thin legs=1)",
+      "primary_fix": "depth",
+      "depth_quality": {
+        "min_leg_depth_usd": 23.749,
+        "median_leg_depth_usd": 120.8692,
+        "worst_leg_depth_usd": 23.749,
+        "thin_legs": 1,
+        "total_legs": 2,
+        "executable_notional_usd": 241.7384,
+        "worst_leg_market_id": "2593443",
+        "thin_cause": "one_leg",
+        "required_depth_usd": 25.0
+      },
+      "freshness": {
+        "stale_legs": 0,
+        "total_legs": 2,
+        "worst_leg_age_s": 0.0,
+        "worst_leg_market_id": "2593443",
+        "freshness_threshold_s": 20.0,
+        "refresh_attempted": false,
+        "refresh_ok": false,
+        "refresh_reason": null
+      },
+      "spread_quality": {
+        "max_leg_spread": 0.01,
+        "median_leg_spread": 0.01,
+        "spread_threshold": 0.12,
+        "wide_legs": 0
+      },
+      "simplex": {
+        "sum_of_probabilities": 1.01,
+        "payout": 1.0,
+        "leg_probabilities": [
+          0.46,
+          0.55
+        ],
+        "outcome_labels": [
+          "YES",
+          "NO"
+        ],
+        "priced_legs": 2,
+        "total_legs": 2,
+        "duplicate_outcomes": false,
+        "missing_complement": false,
+        "invalid_normalization": false,
+        "suspected_parsing_issue": false,
+        "true_invalid_economics": false
+      },
+      "completeness": {
+        "group_key": "binary:event:607454",
+        "expected_outcome_family": "bitcoin up or down june 19 2 10am 2 15am et",
+        "market_kind": "binary",
+        "observed_outcomes": [
+          "YES",
+          "NO"
+        ],
+        "observed_count": 2,
+        "declared_expected_count": null,
+        "missing_or_unknown_outcomes": null,
+        "completeness_proven": true,
+        "reason_incomplete": null
+      },
+      "after_cost_lower_bound": -0.01,
+      "advisory_only": true,
+      "executed": false,
+      "trade_gate_bypassed": false,
+      "rejection_stage": "edge",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "divergence_gap": 5e-05,
+      "projected_profit_lower_bound": -0.01,
+      "certify_diagnostics": {
+        "group_id": "binary:event:607454",
+        "group_type": "binary_yes_no",
+        "n_legs": 2,
+        "exhaustive": true,
+        "mutually_exclusive": true,
+        "settlement_consistent": true,
+        "divergence_gap": 5e-05,
+        "profit_lower_bound": -0.01,
+        "projected_profit_lower_bound": -0.01,
+        "all_legs_priced": true,
+        "implied_sum": 1.01,
+        "max_ambiguity_score": 0.0,
+        "max_ambiguity_threshold": 0.45,
+        "stale_book_score": 0.0,
+        "rejection_stage": "edge",
+        "failure_mode": "no_positive_edge",
+        "rejection_reason": "no_positive_edge"
+      }
     }
   ],
-  "bregman_shadow_label_candidates": 126,
-  "bregman_shadow_labels_written": 199,
-  "bregman_shadow_label_write_rate": 1.5794,
+  "bregman_shadow_label_candidates": 127,
+  "bregman_shadow_labels_written": 205,
+  "bregman_shadow_label_write_rate": 1.6142,
   "shadow_label_write_rejection_reasons": {
-    "already_written": 15029
+    "already_written": 17296
   },
-  "profit_discovery_queue_items": 791,
+  "profit_discovery_queue_items": 829,
   "profit_discovery_queue_by_priority": {
     "1": 14,
     "2": 136,
-    "3": 226,
-    "5": 415
+    "3": 248,
+    "5": 431
   },
   "profit_discovery_queue_actions": {
     "catalog_sibling_search": 14,
     "book_refresh_task": 136,
-    "shadow_label": 226,
-    "diagnostic_only_reject": 415
+    "shadow_label": 248,
+    "diagnostic_only_reject": 431
   },
   "bandit_router_enabled": true,
   "bandit_action_counts": {
-    "bregman_depth_watchlist": 46,
-    "bregman_not_exhaustive_completer": 46,
-    "bregman_rebalancing_watchlist": 46,
+    "bregman_depth_watchlist": 52,
+    "bregman_not_exhaustive_completer": 52,
+    "bregman_rebalancing_watchlist": 52,
     "grok_news_linked_near_miss": 1,
     "active_learning_shadow": 4
   },
   "bandit_action_rewards": {
-    "bregman_depth_watchlist": 138.0,
-    "bregman_not_exhaustive_completer": 138.0,
-    "bregman_rebalancing_watchlist": 138.0,
+    "bregman_depth_watchlist": 156.0,
+    "bregman_not_exhaustive_completer": 156.0,
+    "bregman_rebalancing_watchlist": 156.0,
     "grok_news_linked_near_miss": -1.0,
     "active_learning_shadow": 6.0
   },
   "bandit_selected_action": "bregman_rebalancing_watchlist",
   "bandit_no_gate_override": true,
   "targeted_market_scan_enabled": true,
-  "targeted_markets_scanned_total": 1982,
-  "targeted_scan_bregman_groups_seen": 791,
-  "targeted_scan_binary_groups_seen": 491,
-  "targeted_scan_yes_no_pairs_seen": 491,
-  "targeted_scan_binary_group_matches": 310,
-  "targeted_scan_raw_market_matches": 1919,
+  "targeted_markets_scanned_total": 1983,
+  "targeted_scan_bregman_groups_seen": 829,
+  "targeted_scan_binary_groups_seen": 523,
+  "targeted_scan_yes_no_pairs_seen": 523,
+  "targeted_scan_binary_group_matches": 323,
+  "targeted_scan_raw_market_matches": 1909,
   "targeted_scan_field_source": "bregman_normalized_groups+raw_records",
   "targeted_scan_bregman_categories": {
-    "complete_yes_no_tight_spread": 423,
-    "high_liquidity_binary": 290,
+    "complete_yes_no_tight_spread": 441,
+    "high_liquidity_binary": 308,
     "negative_risk_complete": 5,
     "complete_event_family": 5
   },
   "targeted_scan_raw_market_categories": {
-    "complete_yes_no_tight_spread": 12,
+    "complete_yes_no_tight_spread": 2,
     "negative_risk_complete": 88,
-    "short_resolution": 1241,
-    "btc_eth_chainlink": 151,
+    "short_resolution": 1256,
+    "btc_eth_chainlink": 146,
     "fed_macro_reference": 29,
     "high_volume_news_linked": 1,
     "complete_event_family": 88
   },
   "targeted_scan_normalized_reject_reasons": {
-    "not_exhaustive": 295,
-    "no_positive_edge": 328,
-    "stale_book": 45,
-    "depth_too_thin": 114,
-    "no_executable_price": 4,
+    "not_exhaustive": 301,
+    "no_positive_edge": 346,
+    "stale_book": 58,
+    "depth_too_thin": 112,
+    "no_executable_price": 7,
     "spread_too_wide": 5
   },
   "bregman_clob_hydration_enabled": true,
   "bregman_clob_hydration_attempted": 250,
-  "bregman_clob_hydration_success": 232,
-  "bregman_clob_hydration_failed": 18,
-  "bregman_real_yes_no_books_seen": 485,
-  "bregman_synthetic_no_diagnostic_only_count": 10,
+  "bregman_clob_hydration_success": 225,
+  "bregman_clob_hydration_failed": 25,
+  "bregman_real_yes_no_books_seen": 478,
+  "bregman_synthetic_no_diagnostic_only_count": 16,
   "bregman_certifier_used_real_clob_books": true,
   "bregman_hydration_failure_reasons": {
-    "no_book_or_no_ask": 24
+    "no_book_or_no_ask": 31
   },
-  "bregman_clob_hydration_eligible_groups": 508,
+  "bregman_clob_hydration_eligible_groups": 519,
   "bregman_clob_hydration_selected_groups": 250,
-  "bregman_clob_hydration_coverage_rate": 0.4921,
+  "bregman_clob_hydration_coverage_rate": 0.4817,
   "paper_trade_pressure_enabled": true,
   "paper_micro_exploration_enabled": true,
   "paper_micro_exploration_candidates": 0,
@@ -14692,20 +14692,20 @@
   "paper_relaxed_trades_opened": 0,
   "paper_relaxed_reject_reasons": {},
   "paper_relaxed_after_cost_positive_seen": 370,
-  "paper_relaxed_real_clob_book_seen": 33632,
+  "paper_relaxed_real_clob_book_seen": 37782,
   "paper_relaxed_readiness_pnl_excluded": true,
-  "paper_relaxed_pipeline_scanned": 71408,
+  "paper_relaxed_pipeline_scanned": 80615,
   "paper_relaxed_opened_trade_examples": [],
-  "paper_relaxed_real_book_candidates_seen": 33632,
+  "paper_relaxed_real_book_candidates_seen": 37782,
   "paper_relaxed_positive_real_book_candidates_seen": 370,
   "paper_relaxed_candidates_blocked_by_reason": {
-    "stale_book": 3972,
-    "negative_after_cost_edge": 25974,
-    "depth_insufficient_for_1usd": 3316,
+    "stale_book": 4226,
+    "negative_after_cost_edge": 29539,
+    "depth_insufficient_for_1usd": 3647,
     "incomplete_event_family": 370
   },
   "paper_relaxed_candidate_source_counts": {
-    "binary_yes_no": 32979,
+    "binary_yes_no": 37129,
     "mutually_exclusive": 652,
     "exhaustive_event": 1
   },
@@ -14728,7 +14728,7 @@
   "bregman_incomplete_family_examples": [
     {
       "group_id": "event:event:551781",
-      "n_legs_scanned": 8,
+      "n_legs_scanned": 7,
       "declared_outcome_count": null,
       "has_complete_marker": false,
       "missing_outcome_count": null
@@ -14748,28 +14748,7 @@
       "missing_outcome_count": null
     },
     {
-      "group_id": "event:event:386812",
-      "n_legs_scanned": 2,
-      "declared_outcome_count": null,
-      "has_complete_marker": false,
-      "missing_outcome_count": null
-    },
-    {
       "group_id": "event:event:329654",
-      "n_legs_scanned": 2,
-      "declared_outcome_count": null,
-      "has_complete_marker": false,
-      "missing_outcome_count": null
-    },
-    {
-      "group_id": "event:event:34051",
-      "n_legs_scanned": 2,
-      "declared_outcome_count": null,
-      "has_complete_marker": false,
-      "missing_outcome_count": null
-    },
-    {
-      "group_id": "event:event:255195",
       "n_legs_scanned": 2,
       "declared_outcome_count": null,
       "has_complete_marker": false,
@@ -14781,6 +14760,27 @@
       "declared_outcome_count": null,
       "has_complete_marker": false,
       "missing_outcome_count": null
+    },
+    {
+      "group_id": "event:event:608815",
+      "n_legs_scanned": 2,
+      "declared_outcome_count": null,
+      "has_complete_marker": false,
+      "missing_outcome_count": null
+    },
+    {
+      "group_id": "event:event:386812",
+      "n_legs_scanned": 2,
+      "declared_outcome_count": null,
+      "has_complete_marker": false,
+      "missing_outcome_count": null
+    },
+    {
+      "group_id": "event:negrisk:0xd6942a2a776414cc1c4a882865ba0963917c7742853467a6011c9db4ae652400",
+      "n_legs_scanned": 2,
+      "declared_outcome_count": null,
+      "has_complete_marker": false,
+      "missing_outcome_count": null
     }
   ],
   "bregman_missing_outcome_examples": [
@@ -14788,20 +14788,20 @@
       "group_id": "event:event:548786",
       "present_outcomes_sample": [
         "Will Donald Trump publicly insult someone on June 16, 2026?",
-        "Will Donald Trump publicly insult someone on June 19, 2026?",
         "Will Donald Trump publicly insult someone on June 2, 2026?",
         "Will Donald Trump publicly insult someone on June 29, 2026?",
         "Will Donald Trump publicly insult someone on June 3, 2026?",
-        "Will Donald Trump publicly insult someone on June 4, 2026?"
+        "Will Donald Trump publicly insult someone on June 4, 2026?",
+        "Will Donald Trump publicly insult someone on June 21, 2026?"
       ],
-      "missing_outcome_count": 19
+      "missing_outcome_count": 20
     },
     {
       "group_id": "event:event:577376",
       "present_outcomes_sample": [
+        "Will Iran close its airspace by December 31?",
         "Will Iran close its airspace by June 30?",
         "Will Iran close its airspace by July 31?",
-        "Will Iran close its airspace by December 31?",
         "Will Iran close its airspace by June 10?",
         "Will Iran close its airspace by June 12?",
         "Will Iran close its airspace by June 11?"
@@ -14812,33 +14812,33 @@
       "group_id": "event:negrisk:0x966a3221e05d8d0579854c4952085331da2a42989dee0fa033d24cada9dfca00",
       "present_outcomes_sample": [
         "Will Geraldo Alckmin win the 2026 Brazilian presidential election?",
-        "Will Michelle Bolsonaro win the 2026 Brazilian presidential election?",
         "Will Fl\u00e1vio Bolsonaro win the 2026 Brazilian presidential election?",
         "Will Renan Santos win the 2026 Brazilian presidential election?",
         "Will Ronaldo Caiado win the 2026 Brazilian presidential election?",
-        "Will Aldo Rebelo win the 2026 Brazilian presidential election?"
+        "Will Aldo Rebelo win the 2026 Brazilian presidential election?",
+        "Will Michelle Bolsonaro win the 2026 Brazilian presidential election?"
       ],
       "missing_outcome_count": 7
     },
     {
       "group_id": "event:event:511454",
       "present_outcomes_sample": [
-        "Spread: Haiti (-3.5)",
         "Spread: Haiti (-1.5)",
-        "Spread: Haiti (-2.5)",
+        "Spread: Haiti (-3.5)",
         "Brazil vs. Haiti: Both Teams to Score",
         "Brazil vs. Haiti: O/U 3.5",
-        "Spread: Brazil (-3.5)"
+        "Spread: Brazil (-3.5)",
+        "Spread: Brazil (-2.5)"
       ],
-      "missing_outcome_count": 15
+      "missing_outcome_count": 17
     },
     {
       "group_id": "event:negrisk:0x2e8ee0b78c06349677514c81455c1256e07e0b2cf4c9cde23fd23f65eda05200",
       "present_outcomes_sample": [
+        "Will Max Verstappen be the 2026 F1 Drivers' Champion?",
+        "Will Lance Stroll be the 2026 F1 Drivers' Champion?",
         "Will Valtteri Bottas be the 2026 F1 Drivers' Champion?",
         "Will Oscar Piastri be the 2026 F1 Drivers' Champion?",
-        "Will Lance Stroll be the 2026 F1 Drivers' Champion?",
-        "Will Gabriel Bortoleto be the 2026 F1 Drivers' Champion?",
         "Will Sergio P\u00e9rez be the 2026 F1 Drivers' Champion?",
         "Will Franco Colapinto be the 2026 F1 Drivers' Champion?"
       ],
@@ -14847,12 +14847,12 @@
     {
       "group_id": "event:event:511456",
       "present_outcomes_sample": [
-        "United States vs. Australia: Both Teams to Score in Second Half",
         "United States vs. Australia: O/U 5.5",
-        "United States vs. Australia: O/U 8.5",
         "Spread: Australia (-2.5)",
-        "United States vs. Australia: O/U 7.5",
-        "United States vs. Australia: Both Teams to Score"
+        "United States vs. Australia: Both Teams to Score",
+        "United States vs. Australia: O/U 4.5",
+        "United States vs. Australia: O/U 3.5",
+        "United States vs. Australia: O/U 2.5"
       ],
       "missing_outcome_count": 12
     },
@@ -14862,9 +14862,9 @@
         "Will Ted Cruz win the 2028 Republican presidential nomination?",
         "Will J.D. Vance win the 2028 Republican presidential nomination?",
         "Will Kristi Noem win the 2028 Republican presidential nomination?",
-        "Will Donald Trump win the 2028 Republican presidential nomination?",
-        "Will Ron DeSantis win the 2028 Republican presidential nomination?",
-        "Will Sarah Huckabee Sanders win the 2028 Republican presidential nomination?"
+        "Will Sarah Huckabee Sanders win the 2028 Republican presidential nomination?",
+        "Will Mike Pence win the 2028 Republican presidential nomination?",
+        "Will Tucker Carlson win the 2028 Republican presidential nomination?"
       ],
       "missing_outcome_count": 85
     },
@@ -14884,12 +14884,12 @@
   "bregman_false_incomplete_family_count": 0,
   "bregman_near_miss_promoted_to_candidate_count": 0,
   "accelerated_discovery_enabled": true,
-  "markets_scanned_per_tick": 1982,
-  "candidates_evaluated_per_tick": 508,
+  "markets_scanned_per_tick": 1983,
+  "candidates_evaluated_per_tick": 519,
   "shadow_labels_per_tick": 150,
-  "no_trade_labels_per_tick": 508,
-  "near_miss_records_written": 791,
-  "bregman_diagnostics_records_written": 71408,
+  "no_trade_labels_per_tick": 519,
+  "near_miss_records_written": 829,
+  "bregman_diagnostics_records_written": 80615,
   "top_near_miss_edges_after_cost": [
     0.999,
     0.999,
@@ -14905,27 +14905,27 @@
   "top_bregman_rejection_reasons": [
     {
       "reason": "not_exhaustive",
-      "count": 36085
+      "count": 40629
     },
     {
       "reason": "no_positive_edge",
-      "count": 17254
+      "count": 19731
     },
     {
       "reason": "depth_too_thin",
-      "count": 12253
+      "count": 13850
     },
     {
       "reason": "stale_book",
-      "count": 5329
+      "count": 5890
     },
     {
       "reason": "spread_too_wide",
-      "count": 258
+      "count": 260
     },
     {
       "reason": "no_executable_price",
-      "count": 229
+      "count": 255
     }
   ],
   "report_buckets": {
@@ -14933,8 +14933,8 @@
     "bregman_certified_bundles": 0,
     "directional_exploit_trades": 8,
     "shadow_exploration": 7,
-    "no_trade_labels": 508,
-    "near_miss_rejects": 791,
+    "no_trade_labels": 519,
+    "near_miss_rejects": 829,
     "paper_relaxed_exploration_trades": 0
   },
   "accelerated_discovery_knobs": {
@@ -14947,238 +14947,243 @@
     "scan_interval_seconds": 15.0
   },
   "targeted_scan_budget_by_category": {
-    "complete_yes_no_tight_spread": 16,
+    "complete_yes_no_tight_spread": 1,
     "negative_risk_complete": 16,
-    "short_resolution": 959,
-    "btc_eth_chainlink": 131,
-    "fed_macro_reference": 28,
-    "high_volume_news_linked": 3,
-    "complete_event_family": 16,
-    "broad_exploration": 587
-  },
-  "targeted_scan_hits_by_category": {
-    "complete_yes_no_tight_spread": 12,
-    "negative_risk_complete": 16,
-    "short_resolution": 955,
-    "btc_eth_chainlink": 127,
-    "fed_macro_reference": 28,
+    "short_resolution": 960,
+    "btc_eth_chainlink": 122,
+    "fed_macro_reference": 29,
     "high_volume_news_linked": 1,
     "complete_event_family": 16,
-    "broad_exploration": 587
+    "broad_exploration": 576
+  },
+  "targeted_scan_hits_by_category": {
+    "complete_yes_no_tight_spread": 1,
+    "negative_risk_complete": 16,
+    "short_resolution": 960,
+    "btc_eth_chainlink": 122,
+    "fed_macro_reference": 29,
+    "high_volume_news_linked": 1,
+    "complete_event_family": 16,
+    "broad_exploration": 576
   },
   "targeted_scan_markets_by_category": {
-    "complete_yes_no_tight_spread": 12,
+    "complete_yes_no_tight_spread": 2,
     "negative_risk_complete": 88,
-    "short_resolution": 1241,
-    "btc_eth_chainlink": 151,
+    "short_resolution": 1256,
+    "btc_eth_chainlink": 146,
     "fed_macro_reference": 29,
     "high_volume_news_linked": 1,
     "complete_event_family": 88,
-    "broad_exploration": 642
+    "broad_exploration": 627
   },
   "market_quality_tier_counts": {
     "gold": 0,
-    "silver": 3,
+    "silver": 0,
     "bronze": 830,
-    "watch": 758,
-    "reject_or_diagnostic": 391
+    "watch": 756,
+    "reject_or_diagnostic": 397
   },
   "market_quality_score_distribution": {
     "0.8+": 0,
-    "0.6-0.8": 3,
-    "0.4-0.6": 849,
-    "0.2-0.4": 1038,
-    "<0.2": 92
+    "0.6-0.8": 0,
+    "0.4-0.6": 847,
+    "0.2-0.4": 1049,
+    "<0.2": 87
   },
-  "high_liquidity_binary_markets_scanned": 290,
-  "complete_yes_no_tight_spread_markets_scanned": 435,
+  "high_liquidity_binary_markets_scanned": 308,
+  "complete_yes_no_tight_spread_markets_scanned": 443,
   "negative_risk_complete_events_scanned": 93,
-  "short_resolution_markets_scanned": 1241,
-  "btc_eth_chainlink_markets_scanned": 151,
+  "short_resolution_markets_scanned": 1256,
+  "btc_eth_chainlink_markets_scanned": 146,
   "fed_macro_reference_markets_scanned": 29,
   "high_volume_news_linked_markets_scanned": 1,
   "complete_event_families_scanned": 93,
-  "thin_depth_scan_waste_count": 1970,
-  "stale_book_scan_waste_count": 1938,
-  "invalid_simplex_scan_waste_count": 349,
+  "thin_depth_scan_waste_count": 1972,
+  "stale_book_scan_waste_count": 1970,
+  "invalid_simplex_scan_waste_count": 357,
   "targeted_scan_missing_data_counts": {
     "missing_book_timestamp": 0,
-    "missing_depth": 12,
-    "missing_volume": 4
+    "missing_depth": 11,
+    "missing_volume": 5
   },
   "missing_book_timestamp_count": 0,
-  "missing_depth_count": 12,
-  "missing_volume_count": 4,
-  "scan_deprioritized_groups": 1602,
+  "missing_depth_count": 11,
+  "missing_volume_count": 5,
+  "scan_deprioritized_groups": 13,
   "scan_deprioritized_by_reason": {
-    "thin_depth": 1598,
-    "invalid_simplex": 283,
-    "stale_book": 1564
+    "stale_book": 13,
+    "thin_depth": 13,
+    "invalid_simplex": 1
   },
-  "scan_cooldown_active_groups": 2031,
+  "scan_cooldown_active_groups": 2082,
   "scan_cooldown_reason_counts": {
-    "thin_depth": 1598,
-    "invalid_simplex": 283,
-    "stale_book": 1564
+    "stale_book": 13,
+    "thin_depth": 13,
+    "invalid_simplex": 1
   },
-  "scan_exploration_budget_used": 366,
+  "scan_exploration_budget_used": 1961,
   "targeted_scan_best_markets": [
     {
-      "market_id": "2532420",
-      "tier": "silver",
-      "score": 0.64196,
+      "market_id": "2410579",
+      "tier": "bronze",
+      "score": 0.519706,
       "categories": [
-        "complete_yes_no_tight_spread",
         "short_resolution",
         "btc_eth_chainlink",
         "high_volume_news_linked"
       ],
       "depth_usd": 5.0,
-      "spread": 0.004,
-      "on_cooldown": false,
-      "waste_reasons": [
-        "thin_depth"
-      ]
-    },
-    {
-      "market_id": "2532401",
-      "tier": "silver",
-      "score": 0.623477,
-      "categories": [
-        "complete_yes_no_tight_spread",
-        "short_resolution",
-        "btc_eth_chainlink"
-      ],
-      "depth_usd": 5.0,
       "spread": 0.001,
-      "on_cooldown": false,
-      "waste_reasons": [
-        "thin_depth"
-      ]
-    },
-    {
-      "market_id": "2549235",
-      "tier": "silver",
-      "score": 0.605992,
-      "categories": [
-        "complete_yes_no_tight_spread",
-        "short_resolution",
-        "btc_eth_chainlink"
-      ],
-      "depth_usd": 5.0,
-      "spread": 0.004,
       "on_cooldown": true,
       "waste_reasons": [
+        "stale_book",
         "thin_depth"
       ]
     },
     {
-      "market_id": "1144471",
+      "market_id": "2412402",
       "tier": "bronze",
-      "score": 0.563517,
+      "score": 0.516811,
       "categories": [
-        "complete_yes_no_tight_spread",
-        "btc_eth_chainlink"
-      ],
-      "depth_usd": 5.0,
-      "spread": 0.001,
-      "on_cooldown": false,
-      "waste_reasons": [
-        "thin_depth"
-      ]
-    },
-    {
-      "market_id": "2497026",
-      "tier": "bronze",
-      "score": 0.562321,
-      "categories": [
-        "complete_yes_no_tight_spread",
         "short_resolution"
       ],
-      "depth_usd": 5.0,
+      "depth_usd": 407.7121,
       "spread": 0.01,
-      "on_cooldown": false,
-      "waste_reasons": [
-        "thin_depth"
-      ]
-    },
-    {
-      "market_id": "2553312",
-      "tier": "bronze",
-      "score": 0.56168,
-      "categories": [
-        "short_resolution"
-      ],
-      "depth_usd": 5.0,
-      "spread": 0.002,
-      "on_cooldown": false,
-      "waste_reasons": [
-        "thin_depth"
-      ]
-    },
-    {
-      "market_id": "2412404",
-      "tier": "bronze",
-      "score": 0.546776,
-      "categories": [
-        "short_resolution"
-      ],
-      "depth_usd": 631.7128,
-      "spread": 0.01,
-      "on_cooldown": false,
+      "on_cooldown": true,
       "waste_reasons": [
         "stale_book"
       ]
     },
     {
-      "market_id": "2553249",
+      "market_id": "2412401",
       "tier": "bronze",
-      "score": 0.546229,
+      "score": 0.516806,
       "categories": [
-        "complete_yes_no_tight_spread",
         "short_resolution"
       ],
-      "depth_usd": 5.0,
-      "spread": 0.001,
-      "on_cooldown": false,
+      "depth_usd": 530.1707,
+      "spread": 0.02,
+      "on_cooldown": true,
       "waste_reasons": [
-        "thin_depth"
+        "stale_book"
       ]
     },
     {
-      "market_id": "2482974",
+      "market_id": "2518252",
       "tier": "bronze",
-      "score": 0.544716,
-      "categories": [
-        "complete_yes_no_tight_spread",
-        "short_resolution"
-      ],
-      "depth_usd": 5.0,
-      "spread": 0.008,
-      "on_cooldown": false,
-      "waste_reasons": [
-        "thin_depth"
-      ]
-    },
-    {
-      "market_id": "2532409",
-      "tier": "bronze",
-      "score": 0.541398,
+      "score": 0.511206,
       "categories": [
         "short_resolution",
         "btc_eth_chainlink"
       ],
       "depth_usd": 5.0,
       "spread": 0.001,
-      "on_cooldown": false,
+      "on_cooldown": true,
       "waste_reasons": [
+        "stale_book",
+        "thin_depth"
+      ]
+    },
+    {
+      "market_id": "2518256",
+      "tier": "bronze",
+      "score": 0.511206,
+      "categories": [
+        "short_resolution",
+        "btc_eth_chainlink"
+      ],
+      "depth_usd": 5.0,
+      "spread": 0.001,
+      "on_cooldown": true,
+      "waste_reasons": [
+        "stale_book",
+        "thin_depth"
+      ]
+    },
+    {
+      "market_id": "2532399",
+      "tier": "bronze",
+      "score": 0.510206,
+      "categories": [
+        "short_resolution",
+        "btc_eth_chainlink"
+      ],
+      "depth_usd": 5.0,
+      "spread": 0.001,
+      "on_cooldown": true,
+      "waste_reasons": [
+        "stale_book",
+        "thin_depth"
+      ]
+    },
+    {
+      "market_id": "2532393",
+      "tier": "bronze",
+      "score": 0.510206,
+      "categories": [
+        "short_resolution",
+        "btc_eth_chainlink"
+      ],
+      "depth_usd": 5.0,
+      "spread": 0.001,
+      "on_cooldown": true,
+      "waste_reasons": [
+        "stale_book",
+        "thin_depth"
+      ]
+    },
+    {
+      "market_id": "2532401",
+      "tier": "bronze",
+      "score": 0.50032,
+      "categories": [
+        "short_resolution",
+        "btc_eth_chainlink"
+      ],
+      "depth_usd": 5.0,
+      "spread": 0.001,
+      "on_cooldown": true,
+      "waste_reasons": [
+        "stale_book",
+        "thin_depth"
+      ]
+    },
+    {
+      "market_id": "2410560",
+      "tier": "bronze",
+      "score": 0.499706,
+      "categories": [
+        "short_resolution",
+        "btc_eth_chainlink"
+      ],
+      "depth_usd": 5.0,
+      "spread": 0.001,
+      "on_cooldown": true,
+      "waste_reasons": [
+        "stale_book",
+        "thin_depth"
+      ]
+    },
+    {
+      "market_id": "2410578",
+      "tier": "bronze",
+      "score": 0.499706,
+      "categories": [
+        "short_resolution",
+        "btc_eth_chainlink"
+      ],
+      "depth_usd": 5.0,
+      "spread": 0.001,
+      "on_cooldown": true,
+      "waste_reasons": [
+        "stale_book",
         "thin_depth"
       ]
     }
   ],
   "targeted_scan_noop_reasons": {
-    "thin_depth_deprioritized": "0/1982 markets matched thin_depth_deprioritized (binaries seen=491)",
-    "stale_book_refresh": "0/1982 markets matched stale_book_refresh (binaries seen=491)"
+    "thin_depth_deprioritized": "0/1983 markets matched thin_depth_deprioritized (binaries seen=523)",
+    "stale_book_refresh": "0/1983 markets matched stale_book_refresh (binaries seen=523)"
   },
   "not_exhaustive_high_quality_groups": 14,
   "not_exhaustive_sent_to_sibling_search": 14,
@@ -15322,27 +15327,27 @@
         }
       },
       {
-        "group_key": "binary:event:72347",
+        "group_key": "binary:event:590715",
         "group_type": "binary_yes_no",
         "market_ids": [
-          "663583"
+          "2531435"
         ],
         "token_ids": [
-          "10991849228756847439673778874175365458450913336396982752046655649803657501964",
-          "106181075047366745139197108801635573283215248045056329679360376976893016488727"
+          "83361602682249235046155605079837989653457010148414303532076107693849942886199",
+          "66410545086654879196400895081449568955608005597787692630531617345360982951344"
         ],
         "outcome_labels": [
           "YES",
           "NO"
         ],
         "outcome_prices": [
-          0.1,
-          0.91
+          0.47,
+          0.54
         ],
         "token_ids_unavailable": false,
         "single_market_binary": true,
         "raw_market_ids": [
-          "663583"
+          "2531435"
         ],
         "reject_reason": "no_positive_edge",
         "fix_category": "no_positive_edge",
@@ -15357,13 +15362,13 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 15058.38,
-          "median_leg_depth_usd": 78677.5855,
-          "worst_leg_depth_usd": 15058.38,
+          "min_leg_depth_usd": 21058.1949,
+          "median_leg_depth_usd": 21696.4648,
+          "worst_leg_depth_usd": 21058.1949,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 157355.171,
-          "worst_leg_market_id": "663583",
+          "executable_notional_usd": 43392.9297,
+          "worst_leg_market_id": "2531435",
           "thin_cause": "none",
           "required_depth_usd": 25.0
         },
@@ -15371,7 +15376,7 @@
           "stale_legs": 0,
           "total_legs": 2,
           "worst_leg_age_s": 0.0,
-          "worst_leg_market_id": "663583",
+          "worst_leg_market_id": "2531435",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
           "refresh_ok": false,
@@ -15387,8 +15392,8 @@
           "sum_of_probabilities": 1.01,
           "payout": 1.0,
           "leg_probabilities": [
-            0.1,
-            0.91
+            0.47,
+            0.54
           ],
           "outcome_labels": [
             "YES",
@@ -15403,8 +15408,8 @@
           "true_invalid_economics": false
         },
         "completeness": {
-          "group_key": "binary:event:72347",
-          "expected_outcome_family": "iranian regime fall 2027",
+          "group_key": "binary:event:590715",
+          "expected_outcome_family": "washington nationals vs tampa bay rays",
           "market_kind": "binary",
           "observed_outcomes": [
             "YES",
@@ -15426,7 +15431,131 @@
         "divergence_gap": 5e-05,
         "projected_profit_lower_bound": -0.01,
         "certify_diagnostics": {
-          "group_id": "binary:event:72347",
+          "group_id": "binary:event:590715",
+          "group_type": "binary_yes_no",
+          "n_legs": 2,
+          "exhaustive": true,
+          "mutually_exclusive": true,
+          "settlement_consistent": true,
+          "divergence_gap": 5e-05,
+          "profit_lower_bound": -0.01,
+          "projected_profit_lower_bound": -0.01,
+          "all_legs_priced": true,
+          "implied_sum": 1.01,
+          "max_ambiguity_score": 0.0,
+          "max_ambiguity_threshold": 0.45,
+          "stale_book_score": 0.0,
+          "rejection_stage": "edge",
+          "failure_mode": "no_positive_edge",
+          "rejection_reason": "no_positive_edge"
+        }
+      },
+      {
+        "group_key": "binary:event:590723",
+        "group_type": "binary_yes_no",
+        "market_ids": [
+          "2531451"
+        ],
+        "token_ids": [
+          "71120961319698011883047545299899836220724825673322073741056226453605752991184",
+          "23537909921557585238898597106618125468166951764062838012393782454651250176226"
+        ],
+        "outcome_labels": [
+          "YES",
+          "NO"
+        ],
+        "outcome_prices": [
+          0.35,
+          0.66
+        ],
+        "token_ids_unavailable": false,
+        "single_market_binary": true,
+        "raw_market_ids": [
+          "2531451"
+        ],
+        "reject_reason": "no_positive_edge",
+        "fix_category": "no_positive_edge",
+        "near_miss_score": 0.9,
+        "near_miss_tradeable": false,
+        "one_fix_away": false,
+        "remaining_blockers": [],
+        "learning_priority": "medium",
+        "learning_priority_score": 0.9,
+        "shadow_label_candidate": false,
+        "learning_label": "no_positive_after_cost_edge",
+        "would_trade_if": "after-cost edge turns positive (structure already valid)",
+        "primary_fix": null,
+        "depth_quality": {
+          "min_leg_depth_usd": 15725.1732,
+          "median_leg_depth_usd": 26603.2159,
+          "worst_leg_depth_usd": 15725.1732,
+          "thin_legs": 0,
+          "total_legs": 2,
+          "executable_notional_usd": 53206.4317,
+          "worst_leg_market_id": "2531451",
+          "thin_cause": "none",
+          "required_depth_usd": 25.0
+        },
+        "freshness": {
+          "stale_legs": 0,
+          "total_legs": 2,
+          "worst_leg_age_s": 0.0,
+          "worst_leg_market_id": "2531451",
+          "freshness_threshold_s": 20.0,
+          "refresh_attempted": false,
+          "refresh_ok": false,
+          "refresh_reason": null
+        },
+        "spread_quality": {
+          "max_leg_spread": 0.01,
+          "median_leg_spread": 0.01,
+          "spread_threshold": 0.12,
+          "wide_legs": 0
+        },
+        "simplex": {
+          "sum_of_probabilities": 1.01,
+          "payout": 1.0,
+          "leg_probabilities": [
+            0.35,
+            0.66
+          ],
+          "outcome_labels": [
+            "YES",
+            "NO"
+          ],
+          "priced_legs": 2,
+          "total_legs": 2,
+          "duplicate_outcomes": false,
+          "missing_complement": false,
+          "invalid_normalization": false,
+          "suspected_parsing_issue": false,
+          "true_invalid_economics": false
+        },
+        "completeness": {
+          "group_key": "binary:event:590723",
+          "expected_outcome_family": "baltimore orioles vs los angeles dodgers",
+          "market_kind": "binary",
+          "observed_outcomes": [
+            "YES",
+            "NO"
+          ],
+          "observed_count": 2,
+          "declared_expected_count": null,
+          "missing_or_unknown_outcomes": null,
+          "completeness_proven": true,
+          "reason_incomplete": null
+        },
+        "after_cost_lower_bound": -0.01,
+        "advisory_only": true,
+        "executed": false,
+        "trade_gate_bypassed": false,
+        "rejection_stage": "edge",
+        "exhaustive": true,
+        "settlement_consistent": true,
+        "divergence_gap": 5e-05,
+        "projected_profit_lower_bound": -0.01,
+        "certify_diagnostics": {
+          "group_id": "binary:event:590723",
           "group_type": "binary_yes_no",
           "n_legs": 2,
           "exhaustive": true,
@@ -15570,27 +15699,27 @@
         }
       },
       {
-        "group_key": "binary:event:590712",
+        "group_key": "binary:event:72347",
         "group_type": "binary_yes_no",
         "market_ids": [
-          "2531429"
+          "663583"
         ],
         "token_ids": [
-          "100480084857615847428292030582266059921015128440029169019491452394214969506414",
-          "12303907129357758616170700203509328042577471648793979097486443409893484053750"
+          "10991849228756847439673778874175365458450913336396982752046655649803657501964",
+          "106181075047366745139197108801635573283215248045056329679360376976893016488727"
         ],
         "outcome_labels": [
           "YES",
           "NO"
         ],
         "outcome_prices": [
-          0.33,
-          0.68
+          0.1,
+          0.91
         ],
         "token_ids_unavailable": false,
         "single_market_binary": true,
         "raw_market_ids": [
-          "2531429"
+          "663583"
         ],
         "reject_reason": "no_positive_edge",
         "fix_category": "no_positive_edge",
@@ -15605,13 +15734,13 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 7699.3026,
-          "median_leg_depth_usd": 8785.8087,
-          "worst_leg_depth_usd": 7699.3026,
+          "min_leg_depth_usd": 13135.134,
+          "median_leg_depth_usd": 77483.6304,
+          "worst_leg_depth_usd": 13135.134,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 17571.6174,
-          "worst_leg_market_id": "2531429",
+          "executable_notional_usd": 154967.2608,
+          "worst_leg_market_id": "663583",
           "thin_cause": "none",
           "required_depth_usd": 25.0
         },
@@ -15619,7 +15748,7 @@
           "stale_legs": 0,
           "total_legs": 2,
           "worst_leg_age_s": 0.0,
-          "worst_leg_market_id": "2531429",
+          "worst_leg_market_id": "663583",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
           "refresh_ok": false,
@@ -15635,8 +15764,8 @@
           "sum_of_probabilities": 1.01,
           "payout": 1.0,
           "leg_probabilities": [
-            0.33,
-            0.68
+            0.1,
+            0.91
           ],
           "outcome_labels": [
             "YES",
@@ -15651,8 +15780,8 @@
           "true_invalid_economics": false
         },
         "completeness": {
-          "group_key": "binary:event:590712",
-          "expected_outcome_family": "chicago white sox vs detroit tigers",
+          "group_key": "binary:event:72347",
+          "expected_outcome_family": "iranian regime fall 2027",
           "market_kind": "binary",
           "observed_outcomes": [
             "YES",
@@ -15674,131 +15803,7 @@
         "divergence_gap": 5e-05,
         "projected_profit_lower_bound": -0.01,
         "certify_diagnostics": {
-          "group_id": "binary:event:590712",
-          "group_type": "binary_yes_no",
-          "n_legs": 2,
-          "exhaustive": true,
-          "mutually_exclusive": true,
-          "settlement_consistent": true,
-          "divergence_gap": 5e-05,
-          "profit_lower_bound": -0.01,
-          "projected_profit_lower_bound": -0.01,
-          "all_legs_priced": true,
-          "implied_sum": 1.01,
-          "max_ambiguity_score": 0.0,
-          "max_ambiguity_threshold": 0.45,
-          "stale_book_score": 0.0,
-          "rejection_stage": "edge",
-          "failure_mode": "no_positive_edge",
-          "rejection_reason": "no_positive_edge"
-        }
-      },
-      {
-        "group_key": "binary:event:330223",
-        "group_type": "binary_yes_no",
-        "market_ids": [
-          "1811266"
-        ],
-        "token_ids": [
-          "29025488225813526669599040222477073683559999116743837274144475701987306415711",
-          "87850909193045738838122335421864882591058306864355996635087468790857601428462"
-        ],
-        "outcome_labels": [
-          "YES",
-          "NO"
-        ],
-        "outcome_prices": [
-          0.13,
-          0.88
-        ],
-        "token_ids_unavailable": false,
-        "single_market_binary": true,
-        "raw_market_ids": [
-          "1811266"
-        ],
-        "reject_reason": "no_positive_edge",
-        "fix_category": "no_positive_edge",
-        "near_miss_score": 0.9,
-        "near_miss_tradeable": false,
-        "one_fix_away": false,
-        "remaining_blockers": [],
-        "learning_priority": "medium",
-        "learning_priority_score": 0.9,
-        "shadow_label_candidate": false,
-        "learning_label": "no_positive_after_cost_edge",
-        "would_trade_if": "after-cost edge turns positive (structure already valid)",
-        "primary_fix": null,
-        "depth_quality": {
-          "min_leg_depth_usd": 7283.3722,
-          "median_leg_depth_usd": 47249.5185,
-          "worst_leg_depth_usd": 7283.3722,
-          "thin_legs": 0,
-          "total_legs": 2,
-          "executable_notional_usd": 94499.037,
-          "worst_leg_market_id": "1811266",
-          "thin_cause": "none",
-          "required_depth_usd": 25.0
-        },
-        "freshness": {
-          "stale_legs": 0,
-          "total_legs": 2,
-          "worst_leg_age_s": 0.0,
-          "worst_leg_market_id": "1811266",
-          "freshness_threshold_s": 20.0,
-          "refresh_attempted": false,
-          "refresh_ok": false,
-          "refresh_reason": null
-        },
-        "spread_quality": {
-          "max_leg_spread": 0.01,
-          "median_leg_spread": 0.01,
-          "spread_threshold": 0.12,
-          "wide_legs": 0
-        },
-        "simplex": {
-          "sum_of_probabilities": 1.01,
-          "payout": 1.0,
-          "leg_probabilities": [
-            0.13,
-            0.88
-          ],
-          "outcome_labels": [
-            "YES",
-            "NO"
-          ],
-          "priced_legs": 2,
-          "total_legs": 2,
-          "duplicate_outcomes": false,
-          "missing_complement": false,
-          "invalid_normalization": false,
-          "suspected_parsing_issue": false,
-          "true_invalid_economics": false
-        },
-        "completeness": {
-          "group_key": "binary:event:330223",
-          "expected_outcome_family": "china invade taiwan june 30 2027",
-          "market_kind": "binary",
-          "observed_outcomes": [
-            "YES",
-            "NO"
-          ],
-          "observed_count": 2,
-          "declared_expected_count": null,
-          "missing_or_unknown_outcomes": null,
-          "completeness_proven": true,
-          "reason_incomplete": null
-        },
-        "after_cost_lower_bound": -0.01,
-        "advisory_only": true,
-        "executed": false,
-        "trade_gate_bypassed": false,
-        "rejection_stage": "edge",
-        "exhaustive": true,
-        "settlement_consistent": true,
-        "divergence_gap": 5e-05,
-        "projected_profit_lower_bound": -0.01,
-        "certify_diagnostics": {
-          "group_id": "binary:event:330223",
+          "group_id": "binary:event:72347",
           "group_type": "binary_yes_no",
           "n_legs": 2,
           "exhaustive": true,
@@ -15981,12 +15986,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 80.4665,
-          "median_leg_depth_usd": 9748.4631,
-          "worst_leg_depth_usd": 80.4665,
+          "min_leg_depth_usd": 79.6105,
+          "median_leg_depth_usd": 9743.5576,
+          "worst_leg_depth_usd": 79.6105,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 19496.9263,
+          "executable_notional_usd": 19487.1153,
           "worst_leg_market_id": "1385754",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -15994,7 +15999,7 @@
         "freshness": {
           "stale_legs": 0,
           "total_legs": 2,
-          "worst_leg_age_s": 0.0,
+          "worst_leg_age_s": 4.634,
           "worst_leg_market_id": "1385754",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
@@ -16063,7 +16068,7 @@
           "implied_sum": 1.001,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
-          "stale_book_score": 0.0,
+          "stale_book_score": 0.154467,
           "rejection_stage": "edge",
           "failure_mode": "no_positive_edge",
           "rejection_reason": "no_positive_edge"
@@ -16232,12 +16237,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 81.8629,
-          "median_leg_depth_usd": 223413.5759,
-          "worst_leg_depth_usd": 81.8629,
+          "min_leg_depth_usd": 94.3359,
+          "median_leg_depth_usd": 223255.1424,
+          "worst_leg_depth_usd": 94.3359,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 446827.1518,
+          "executable_notional_usd": 446510.2848,
           "worst_leg_market_id": "958443",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -16356,12 +16361,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 1024.0163,
-          "median_leg_depth_usd": 23519.0603,
-          "worst_leg_depth_usd": 1024.0163,
+          "min_leg_depth_usd": 1023.6176,
+          "median_leg_depth_usd": 23515.375,
+          "worst_leg_depth_usd": 1023.6176,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 47038.1207,
+          "executable_notional_usd": 47030.75,
           "worst_leg_market_id": "956590",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -16631,8 +16636,8 @@
         "freshness": {
           "stale_legs": 2,
           "total_legs": 2,
-          "worst_leg_age_s": 157.1849,
-          "worst_leg_market_id": "2438579",
+          "worst_leg_age_s": 151.1208,
+          "worst_leg_market_id": "2438589",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
           "refresh_ok": false,
@@ -17021,8 +17026,8 @@
         "freshness": {
           "stale_legs": 2,
           "total_legs": 2,
-          "worst_leg_age_s": 202.5709,
-          "worst_leg_market_id": "2590646",
+          "worst_leg_age_s": 111.0166,
+          "worst_leg_market_id": "2590639",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
           "refresh_ok": false,
@@ -17098,132 +17103,6 @@
       }
     ],
     "top_by_one_fix_away": [
-      {
-        "group_key": "binary:event:192787",
-        "group_type": "binary_yes_no",
-        "market_ids": [
-          "1294368"
-        ],
-        "token_ids": [
-          "79773570476744632615747480307256906441402089435470166694872527952303027818942",
-          "57387274828031262660486557812863866267296282062465522136167391501230739962676"
-        ],
-        "outcome_labels": [
-          "YES",
-          "NO"
-        ],
-        "outcome_prices": [
-          0.13,
-          0.89
-        ],
-        "token_ids_unavailable": false,
-        "single_market_binary": true,
-        "raw_market_ids": [
-          "1294368"
-        ],
-        "reject_reason": "no_positive_edge",
-        "fix_category": "no_positive_edge",
-        "near_miss_score": 0.890734,
-        "near_miss_tradeable": false,
-        "one_fix_away": true,
-        "remaining_blockers": [
-          "depth"
-        ],
-        "learning_priority": "medium",
-        "learning_priority_score": 1.0,
-        "shadow_label_candidate": false,
-        "learning_label": "would_certify_if_depth_sufficient",
-        "would_trade_if": "worst-leg depth $24.0734 reaches required $25.0 (thin legs=1)",
-        "primary_fix": "depth",
-        "depth_quality": {
-          "min_leg_depth_usd": 24.0734,
-          "median_leg_depth_usd": 1269.2418,
-          "worst_leg_depth_usd": 24.0734,
-          "thin_legs": 1,
-          "total_legs": 2,
-          "executable_notional_usd": 2538.4836,
-          "worst_leg_market_id": "1294368",
-          "thin_cause": "one_leg",
-          "required_depth_usd": 25.0
-        },
-        "freshness": {
-          "stale_legs": 0,
-          "total_legs": 2,
-          "worst_leg_age_s": 0.0,
-          "worst_leg_market_id": "1294368",
-          "freshness_threshold_s": 20.0,
-          "refresh_attempted": false,
-          "refresh_ok": false,
-          "refresh_reason": null
-        },
-        "spread_quality": {
-          "max_leg_spread": 0.02,
-          "median_leg_spread": 0.02,
-          "spread_threshold": 0.12,
-          "wide_legs": 0
-        },
-        "simplex": {
-          "sum_of_probabilities": 1.02,
-          "payout": 1.0,
-          "leg_probabilities": [
-            0.13,
-            0.89
-          ],
-          "outcome_labels": [
-            "YES",
-            "NO"
-          ],
-          "priced_legs": 2,
-          "total_legs": 2,
-          "duplicate_outcomes": false,
-          "missing_complement": false,
-          "invalid_normalization": false,
-          "suspected_parsing_issue": false,
-          "true_invalid_economics": false
-        },
-        "completeness": {
-          "group_key": "binary:event:192787",
-          "expected_outcome_family": "gold gc high 6 000 end december",
-          "market_kind": "binary",
-          "observed_outcomes": [
-            "YES",
-            "NO"
-          ],
-          "observed_count": 2,
-          "declared_expected_count": null,
-          "missing_or_unknown_outcomes": null,
-          "completeness_proven": true,
-          "reason_incomplete": null
-        },
-        "after_cost_lower_bound": -0.02,
-        "advisory_only": true,
-        "executed": false,
-        "trade_gate_bypassed": false,
-        "rejection_stage": "edge",
-        "exhaustive": true,
-        "settlement_consistent": true,
-        "divergence_gap": 0.0002,
-        "projected_profit_lower_bound": -0.02,
-        "certify_diagnostics": {
-          "group_id": "binary:event:192787",
-          "group_type": "binary_yes_no",
-          "n_legs": 2,
-          "exhaustive": true,
-          "mutually_exclusive": true,
-          "settlement_consistent": true,
-          "divergence_gap": 0.0002,
-          "profit_lower_bound": -0.02,
-          "projected_profit_lower_bound": -0.02,
-          "all_legs_priced": true,
-          "implied_sum": 1.02,
-          "max_ambiguity_score": 0.0,
-          "max_ambiguity_threshold": 0.45,
-          "stale_book_score": 0.0,
-          "rejection_stage": "edge",
-          "failure_mode": "no_positive_edge",
-          "rejection_reason": "no_positive_edge"
-        }
-      },
       {
         "group_key": "binary:event:607454",
         "group_type": "binary_yes_no",
@@ -17727,6 +17606,132 @@
           "failure_mode": "no_positive_edge",
           "rejection_reason": "no_positive_edge"
         }
+      },
+      {
+        "group_key": "binary:event:79221",
+        "group_type": "binary_yes_no",
+        "market_ids": [
+          "677394"
+        ],
+        "token_ids": [
+          "16805695066265619926323278923957325119634887777056903298073798450898743181987",
+          "71264719114015266071637402830809405124603402253907140616711470734983209017068"
+        ],
+        "outcome_labels": [
+          "YES",
+          "NO"
+        ],
+        "outcome_prices": [
+          0.077,
+          0.935
+        ],
+        "token_ids_unavailable": false,
+        "single_market_binary": true,
+        "raw_market_ids": [
+          "677394"
+        ],
+        "reject_reason": "no_positive_edge",
+        "fix_category": "no_positive_edge",
+        "near_miss_score": 0.861665,
+        "near_miss_tradeable": false,
+        "one_fix_away": true,
+        "remaining_blockers": [
+          "depth"
+        ],
+        "learning_priority": "high",
+        "learning_priority_score": 1.0,
+        "shadow_label_candidate": true,
+        "learning_label": "would_certify_if_depth_sufficient",
+        "would_trade_if": "worst-leg depth $21.1665 reaches required $25.0 (thin legs=1)",
+        "primary_fix": "depth",
+        "depth_quality": {
+          "min_leg_depth_usd": 21.1665,
+          "median_leg_depth_usd": 30.1247,
+          "worst_leg_depth_usd": 21.1665,
+          "thin_legs": 1,
+          "total_legs": 2,
+          "executable_notional_usd": 60.2495,
+          "worst_leg_market_id": "677394",
+          "thin_cause": "one_leg",
+          "required_depth_usd": 25.0
+        },
+        "freshness": {
+          "stale_legs": 0,
+          "total_legs": 2,
+          "worst_leg_age_s": 0.0,
+          "worst_leg_market_id": "677394",
+          "freshness_threshold_s": 20.0,
+          "refresh_attempted": false,
+          "refresh_ok": false,
+          "refresh_reason": null
+        },
+        "spread_quality": {
+          "max_leg_spread": 0.012,
+          "median_leg_spread": 0.012,
+          "spread_threshold": 0.12,
+          "wide_legs": 0
+        },
+        "simplex": {
+          "sum_of_probabilities": 1.012,
+          "payout": 1.0,
+          "leg_probabilities": [
+            0.077,
+            0.935
+          ],
+          "outcome_labels": [
+            "YES",
+            "NO"
+          ],
+          "priced_legs": 2,
+          "total_legs": 2,
+          "duplicate_outcomes": false,
+          "missing_complement": false,
+          "invalid_normalization": false,
+          "suspected_parsing_issue": false,
+          "true_invalid_economics": false
+        },
+        "completeness": {
+          "group_key": "binary:event:79221",
+          "expected_outcome_family": "modi out december 31 2026",
+          "market_kind": "binary",
+          "observed_outcomes": [
+            "YES",
+            "NO"
+          ],
+          "observed_count": 2,
+          "declared_expected_count": null,
+          "missing_or_unknown_outcomes": null,
+          "completeness_proven": true,
+          "reason_incomplete": null
+        },
+        "after_cost_lower_bound": -0.012,
+        "advisory_only": true,
+        "executed": false,
+        "trade_gate_bypassed": false,
+        "rejection_stage": "edge",
+        "exhaustive": true,
+        "settlement_consistent": true,
+        "divergence_gap": 7.2e-05,
+        "projected_profit_lower_bound": -0.012,
+        "certify_diagnostics": {
+          "group_id": "binary:event:79221",
+          "group_type": "binary_yes_no",
+          "n_legs": 2,
+          "exhaustive": true,
+          "mutually_exclusive": true,
+          "settlement_consistent": true,
+          "divergence_gap": 7.2e-05,
+          "profit_lower_bound": -0.012,
+          "projected_profit_lower_bound": -0.012,
+          "all_legs_priced": true,
+          "implied_sum": 1.012,
+          "max_ambiguity_score": 0.0,
+          "max_ambiguity_threshold": 0.45,
+          "stale_book_score": 0.0,
+          "rejection_stage": "edge",
+          "failure_mode": "no_positive_edge",
+          "rejection_reason": "no_positive_edge"
+        }
       }
     ],
     "top_by_grok_news_relevance": [
@@ -17734,23 +17739,21 @@
         "group_key": "event:event:551781",
         "group_type": "mutually_exclusive",
         "market_ids": [
-          "2419320",
           "2419331",
           "2419341",
           "2419342",
           "2419348",
           "2419350",
           "2419351",
-          "2419367"
+          "2419355"
         ],
         "token_ids": [
           "51354126491646775604965624662332391851712736197313742839448233465451230568153",
-          "79662302913196017008860759363526936485934932022967495194576190174521819521615",
           "72190419269705822916555627988856801333341518778440955543214803954221135616098",
           "79641268021073965086751568688447244247833765922930567600573259501334271554017",
           "97234680044253973376263948383061418297938600359993778944021564667334174280443",
-          "68607651290168151368453183376710502157343015794642017963577806092095116237951",
           "47761296172301342198523745581970959650381127330467171781013158223569299308767",
+          "81853962611338704810427135817181576365960503651242412272489976341158587830699",
           "111647819143151504098117494939930742571907549091124854477300802261245027249476"
         ],
         "outcome_labels": [
@@ -17760,30 +17763,27 @@
           "YES",
           "YES",
           "YES",
-          "YES",
           "YES"
         ],
         "outcome_prices": [
-          0.02,
-          0.13,
+          0.023,
           0.057,
           0.28,
-          0.06,
-          0.024,
+          0.059,
           0.035,
-          0.042
+          0.035,
+          0.043
         ],
         "token_ids_unavailable": false,
         "single_market_binary": false,
         "raw_market_ids": [
-          "2419320",
           "2419331",
           "2419341",
           "2419342",
           "2419348",
           "2419350",
           "2419351",
-          "2419367"
+          "2419355"
         ],
         "reject_reason": "not_exhaustive",
         "fix_category": "not_exhaustive",
@@ -17801,44 +17801,43 @@
         "would_trade_if": "all 2 blockers are cleared: ['not_exhaustive', 'stale_book']",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 1724.4603,
-          "median_leg_depth_usd": 1780.3774,
-          "worst_leg_depth_usd": 1724.4603,
+          "min_leg_depth_usd": 1766.6558,
+          "median_leg_depth_usd": 1896.7693,
+          "worst_leg_depth_usd": 1766.6558,
           "thin_legs": 0,
-          "total_legs": 8,
-          "executable_notional_usd": 15147.6849,
-          "worst_leg_market_id": "2419367",
+          "total_legs": 7,
+          "executable_notional_usd": 13614.1996,
+          "worst_leg_market_id": "2419348",
           "thin_cause": "none",
           "required_depth_usd": 25.0
         },
         "freshness": {
-          "stale_legs": 8,
-          "total_legs": 8,
-          "worst_leg_age_s": 202.9341,
-          "worst_leg_market_id": "2419348",
+          "stale_legs": 7,
+          "total_legs": 7,
+          "worst_leg_age_s": 318.2882,
+          "worst_leg_market_id": "2419355",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
           "refresh_ok": false,
           "refresh_reason": null
         },
         "spread_quality": {
-          "max_leg_spread": 0.03,
-          "median_leg_spread": 0.0155,
+          "max_leg_spread": 0.031,
+          "median_leg_spread": 0.022,
           "spread_threshold": 0.12,
           "wide_legs": 0
         },
         "simplex": {
-          "sum_of_probabilities": 0.648,
+          "sum_of_probabilities": 0.532,
           "payout": 1.0,
           "leg_probabilities": [
-            0.02,
-            0.13,
+            0.023,
             0.057,
             0.28,
-            0.06,
-            0.024,
+            0.059,
             0.035,
-            0.042
+            0.035,
+            0.043
           ],
           "outcome_labels": [
             "YES",
@@ -17847,11 +17846,10 @@
             "YES",
             "YES",
             "YES",
-            "YES",
             "YES"
           ],
-          "priced_legs": 8,
-          "total_legs": 8,
+          "priced_legs": 7,
+          "total_legs": 7,
           "duplicate_outcomes": false,
           "missing_complement": false,
           "invalid_normalization": false,
@@ -17869,36 +17867,35 @@
             "YES",
             "YES",
             "YES",
-            "YES",
             "YES"
           ],
-          "observed_count": 8,
+          "observed_count": 7,
           "declared_expected_count": null,
           "missing_or_unknown_outcomes": null,
           "completeness_proven": false,
           "reason_incomplete": "no_explicit_completeness_marker_negRiskComplete_or_outcomeCount"
         },
-        "after_cost_lower_bound": 0.352,
+        "after_cost_lower_bound": 0.468,
         "advisory_only": true,
         "executed": false,
         "trade_gate_bypassed": false,
         "rejection_stage": "validate_simplex",
         "exhaustive": false,
         "settlement_consistent": false,
-        "divergence_gap": 0.015488,
-        "projected_profit_lower_bound": 0.352,
+        "divergence_gap": 0.03128914,
+        "projected_profit_lower_bound": 0.468,
         "certify_diagnostics": {
           "group_id": "event:event:551781",
           "group_type": "mutually_exclusive",
-          "n_legs": 8,
+          "n_legs": 7,
           "exhaustive": false,
           "mutually_exclusive": true,
           "settlement_consistent": false,
-          "divergence_gap": 0.015488,
-          "profit_lower_bound": 0.352,
-          "projected_profit_lower_bound": 0.352,
+          "divergence_gap": 0.03128914,
+          "profit_lower_bound": 0.468,
+          "projected_profit_lower_bound": 0.468,
           "all_legs_priced": true,
-          "implied_sum": 0.648,
+          "implied_sum": 0.532,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
           "stale_book_score": 1.0,
@@ -18325,12 +18322,12 @@
         "would_trade_if": "after-cost edge turns positive (structure already valid)",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 80.4665,
-          "median_leg_depth_usd": 9748.4631,
-          "worst_leg_depth_usd": 80.4665,
+          "min_leg_depth_usd": 79.6105,
+          "median_leg_depth_usd": 9743.5576,
+          "worst_leg_depth_usd": 79.6105,
           "thin_legs": 0,
           "total_legs": 2,
-          "executable_notional_usd": 19496.9263,
+          "executable_notional_usd": 19487.1153,
           "worst_leg_market_id": "1385754",
           "thin_cause": "none",
           "required_depth_usd": 25.0
@@ -18338,7 +18335,7 @@
         "freshness": {
           "stale_legs": 0,
           "total_legs": 2,
-          "worst_leg_age_s": 0.0,
+          "worst_leg_age_s": 4.634,
           "worst_leg_market_id": "1385754",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
@@ -18407,7 +18404,7 @@
           "implied_sum": 1.001,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
-          "stale_book_score": 0.0,
+          "stale_book_score": 0.154467,
           "rejection_stage": "edge",
           "failure_mode": "no_positive_edge",
           "rejection_reason": "no_positive_edge"
@@ -18472,15 +18469,15 @@
           "worst_leg_depth_usd": 5.0,
           "thin_legs": 3,
           "total_legs": 4,
-          "executable_notional_usd": 2039.2684,
+          "executable_notional_usd": 1894.5037,
           "worst_leg_market_id": "2557370",
           "thin_cause": "many_legs",
           "required_depth_usd": 25.0
         },
         "freshness": {
-          "stale_legs": 3,
+          "stale_legs": 4,
           "total_legs": 4,
-          "worst_leg_age_s": 53948.7705,
+          "worst_leg_age_s": 56585.1841,
           "worst_leg_market_id": "2557369",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
@@ -18562,6 +18559,153 @@
         }
       },
       {
+        "group_key": "event:event:601566",
+        "group_type": "mutually_exclusive",
+        "market_ids": [
+          "2566460",
+          "2566463",
+          "2566468",
+          "2566474"
+        ],
+        "token_ids": [
+          "103104140508611636878208998962538222660894436101319385881375927288932276078546",
+          "32013026946464920932732050762265106110428105472278620595485250796991750313572",
+          "91228418858515776333909499302819175361983659611801615451798481215577008271021",
+          "69225526190943150784076716800028792259803276591302906002963428768114960951149"
+        ],
+        "outcome_labels": [
+          "YES",
+          "YES",
+          "YES",
+          "YES"
+        ],
+        "outcome_prices": [
+          0.953,
+          0.984,
+          0.6,
+          0.841
+        ],
+        "token_ids_unavailable": false,
+        "single_market_binary": false,
+        "raw_market_ids": [
+          "2566460",
+          "2566463",
+          "2566468",
+          "2566474"
+        ],
+        "reject_reason": "not_exhaustive",
+        "fix_category": "not_exhaustive",
+        "near_miss_score": 0.31,
+        "near_miss_tradeable": false,
+        "one_fix_away": false,
+        "remaining_blockers": [
+          "not_exhaustive",
+          "invalid_simplex",
+          "depth",
+          "stale_book"
+        ],
+        "learning_priority": "low",
+        "learning_priority_score": 0.31,
+        "shadow_label_candidate": false,
+        "learning_label": "needs_multiple_fixes",
+        "would_trade_if": "all 4 blockers are cleared: ['not_exhaustive', 'invalid_simplex', 'depth', 'stale_book']",
+        "primary_fix": null,
+        "depth_quality": {
+          "min_leg_depth_usd": 5.0,
+          "median_leg_depth_usd": 5.0,
+          "worst_leg_depth_usd": 5.0,
+          "thin_legs": 4,
+          "total_legs": 4,
+          "executable_notional_usd": 20.0,
+          "worst_leg_market_id": "2566463",
+          "thin_cause": "many_legs",
+          "required_depth_usd": 25.0
+        },
+        "freshness": {
+          "stale_legs": 4,
+          "total_legs": 4,
+          "worst_leg_age_s": 175.4534,
+          "worst_leg_market_id": "2566463",
+          "freshness_threshold_s": 20.0,
+          "refresh_attempted": false,
+          "refresh_ok": false,
+          "refresh_reason": null
+        },
+        "spread_quality": {
+          "max_leg_spread": 0.018,
+          "median_leg_spread": 0.009,
+          "spread_threshold": 0.12,
+          "wide_legs": 0
+        },
+        "simplex": {
+          "sum_of_probabilities": 3.378,
+          "payout": 1.0,
+          "leg_probabilities": [
+            0.953,
+            0.984,
+            0.6,
+            0.841
+          ],
+          "outcome_labels": [
+            "YES",
+            "YES",
+            "YES",
+            "YES"
+          ],
+          "priced_legs": 4,
+          "total_legs": 4,
+          "duplicate_outcomes": false,
+          "missing_complement": false,
+          "invalid_normalization": true,
+          "suspected_parsing_issue": false,
+          "true_invalid_economics": true
+        },
+        "completeness": {
+          "group_key": "event:event:601566",
+          "expected_outcome_family": "price bitcoin above 58 000 june 23",
+          "market_kind": "range",
+          "observed_outcomes": [
+            "YES",
+            "YES",
+            "YES",
+            "YES"
+          ],
+          "observed_count": 4,
+          "declared_expected_count": null,
+          "missing_or_unknown_outcomes": null,
+          "completeness_proven": false,
+          "reason_incomplete": "no_explicit_completeness_marker_negRiskComplete_or_outcomeCount"
+        },
+        "after_cost_lower_bound": -2.378,
+        "advisory_only": true,
+        "executed": false,
+        "trade_gate_bypassed": false,
+        "rejection_stage": "validate_simplex",
+        "exhaustive": false,
+        "settlement_consistent": false,
+        "divergence_gap": 1.413721,
+        "projected_profit_lower_bound": -2.378,
+        "certify_diagnostics": {
+          "group_id": "event:event:601566",
+          "group_type": "mutually_exclusive",
+          "n_legs": 4,
+          "exhaustive": false,
+          "mutually_exclusive": true,
+          "settlement_consistent": false,
+          "divergence_gap": 1.413721,
+          "profit_lower_bound": -2.378,
+          "projected_profit_lower_bound": -2.378,
+          "all_legs_priced": true,
+          "implied_sum": 3.378,
+          "max_ambiguity_score": 0.0,
+          "max_ambiguity_threshold": 0.45,
+          "stale_book_score": 1.0,
+          "rejection_stage": "validate_simplex",
+          "failure_mode": "not_exhaustive",
+          "rejection_reason": "not_exhaustive"
+        }
+      },
+      {
         "group_key": "event:event:509893",
         "group_type": "exhaustive_event",
         "market_ids": [
@@ -18588,7 +18732,7 @@
         "outcome_prices": [
           1.0,
           0.076,
-          0.101,
+          0.099,
           0.996,
           1.0
         ],
@@ -18623,15 +18767,15 @@
           "worst_leg_depth_usd": 5.0,
           "thin_legs": 3,
           "total_legs": 5,
-          "executable_notional_usd": 146.9051,
+          "executable_notional_usd": 105.9204,
           "worst_leg_market_id": "2371796",
           "thin_cause": "many_legs",
           "required_depth_usd": 25.0
         },
         "freshness": {
-          "stale_legs": 3,
+          "stale_legs": 4,
           "total_legs": 5,
-          "worst_leg_age_s": 122596.6023,
+          "worst_leg_age_s": 124654.4385,
           "worst_leg_market_id": "2321466",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
@@ -18645,12 +18789,12 @@
           "wide_legs": 0
         },
         "simplex": {
-          "sum_of_probabilities": 3.173,
+          "sum_of_probabilities": 3.171,
           "payout": 1.0,
           "leg_probabilities": [
             1.0,
             0.076,
-            0.101,
+            0.099,
             0.996,
             1.0
           ],
@@ -18686,15 +18830,15 @@
           "completeness_proven": true,
           "reason_incomplete": null
         },
-        "after_cost_lower_bound": -2.173,
+        "after_cost_lower_bound": -2.171,
         "advisory_only": true,
         "executed": false,
         "trade_gate_bypassed": false,
         "rejection_stage": "realism",
         "exhaustive": true,
         "settlement_consistent": true,
-        "divergence_gap": 1.34398233,
-        "projected_profit_lower_bound": -2.173,
+        "divergence_gap": 1.34358233,
+        "projected_profit_lower_bound": -2.171,
         "certify_diagnostics": {
           "group_id": "event:event:509893",
           "group_type": "exhaustive_event",
@@ -18702,11 +18846,11 @@
           "exhaustive": true,
           "mutually_exclusive": true,
           "settlement_consistent": true,
-          "divergence_gap": 1.34398233,
-          "profit_lower_bound": -2.173,
-          "projected_profit_lower_bound": -2.173,
+          "divergence_gap": 1.34358233,
+          "profit_lower_bound": -2.171,
+          "projected_profit_lower_bound": -2.171,
           "all_legs_priced": true,
-          "implied_sum": 3.173,
+          "implied_sum": 3.171,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
           "stale_book_score": 1.0,
@@ -18726,11 +18870,11 @@
           "666655"
         ],
         "token_ids": [
-          "27357877897866246704108741817393548297190385468618028094122387972939664635133",
           "34554555827438551101000555305203609600029621153428996114009350892614396532498",
           "12316260208634619024419998059635392728148300786908961876402342801675280384721",
-          "29898512995670392293993526484890957432542085313598204647103555785760495657342",
-          "42498579290170525937803365597001189493798686141769429176410526295573824619073"
+          "27357877897866246704108741817393548297190385468618028094122387972939664635133",
+          "42498579290170525937803365597001189493798686141769429176410526295573824619073",
+          "29898512995670392293993526484890957432542085313598204647103555785760495657342"
         ],
         "outcome_labels": [
           "YES",
@@ -18740,11 +18884,11 @@
           "YES"
         ],
         "outcome_prices": [
-          0.91,
-          0.33,
+          0.34,
           0.62,
-          0.71,
-          0.92
+          0.9,
+          0.92,
+          0.71
         ],
         "token_ids_unavailable": false,
         "single_market_binary": false,
@@ -18779,15 +18923,15 @@
           "thin_legs": 5,
           "total_legs": 5,
           "executable_notional_usd": 25.0,
-          "worst_leg_market_id": "2481544",
+          "worst_leg_market_id": "597967",
           "thin_cause": "many_legs",
           "required_depth_usd": 25.0
         },
         "freshness": {
           "stale_legs": 5,
           "total_legs": 5,
-          "worst_leg_age_s": 180.791,
-          "worst_leg_market_id": "597967",
+          "worst_leg_age_s": 215.9659,
+          "worst_leg_market_id": "666655",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
           "refresh_ok": false,
@@ -18803,11 +18947,11 @@
           "sum_of_probabilities": 3.49,
           "payout": 1.0,
           "leg_probabilities": [
-            0.91,
-            0.33,
+            0.34,
             0.62,
-            0.71,
-            0.92
+            0.9,
+            0.92,
+            0.71
           ],
           "outcome_labels": [
             "YES",
@@ -18826,7 +18970,7 @@
         },
         "completeness": {
           "group_key": "event:event:17725",
-          "expected_outcome_family": "starmer out october 31 2026",
+          "expected_outcome_family": "starmer out june 30 2026",
           "market_kind": "multi_way",
           "observed_outcomes": [
             "YES",
@@ -18848,7 +18992,7 @@
         "rejection_stage": "validate_simplex",
         "exhaustive": false,
         "settlement_consistent": false,
-        "divergence_gap": 1.2753,
+        "divergence_gap": 1.271225,
         "projected_profit_lower_bound": -2.49,
         "certify_diagnostics": {
           "group_id": "event:event:17725",
@@ -18857,7 +19001,7 @@
           "exhaustive": false,
           "mutually_exclusive": true,
           "settlement_consistent": false,
-          "divergence_gap": 1.2753,
+          "divergence_gap": 1.271225,
           "profit_lower_bound": -2.49,
           "projected_profit_lower_bound": -2.49,
           "all_legs_priced": true,
@@ -18884,13 +19028,13 @@
           "2544125"
         ],
         "token_ids": [
-          "89251648783272081519389881674818403776849009271776971924459988499445723452924",
           "75894947715417374738422844931653892494226759451916770812806327058112158145634",
           "109480748391670869745259561770535666307021123043802950180743994235864942911829",
           "84130249030111164842478829178615529348815546947701101456330816938618653582477",
-          "3620183155479357795131229064264530544506134600317433032757509526824140040242",
-          "31523035862830990422997505014510594208345322337763097285653350891324681727411",
           "111448821570552840888671087336924566887006337585960284464218283130712079872974",
+          "89251648783272081519389881674818403776849009271776971924459988499445723452924",
+          "31523035862830990422997505014510594208345322337763097285653350891324681727411",
+          "3620183155479357795131229064264530544506134600317433032757509526824140040242",
           "90553791163011798692956747984397284107965699842863464593606388635203967826029"
         ],
         "outcome_labels": [
@@ -18904,13 +19048,13 @@
           "YES"
         ],
         "outcome_prices": [
-          0.998,
           0.001,
           0.001,
           0.979,
+          0.631,
+          0.999,
+          0.011,
           0.918,
-          0.01,
-          0.638,
           0.997
         ],
         "token_ids_unavailable": false,
@@ -18949,15 +19093,15 @@
           "thin_legs": 8,
           "total_legs": 8,
           "executable_notional_usd": 40.0,
-          "worst_leg_market_id": "2544089",
+          "worst_leg_market_id": "2544125",
           "thin_cause": "many_legs",
           "required_depth_usd": 25.0
         },
         "freshness": {
-          "stale_legs": 7,
+          "stale_legs": 8,
           "total_legs": 8,
-          "worst_leg_age_s": 171.9042,
-          "worst_leg_market_id": "2544092",
+          "worst_leg_age_s": 252.9166,
+          "worst_leg_market_id": "2544119",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
           "refresh_ok": false,
@@ -18965,21 +19109,21 @@
         },
         "spread_quality": {
           "max_leg_spread": 0.016,
-          "median_leg_spread": 0.008,
+          "median_leg_spread": 0.009,
           "spread_threshold": 0.12,
           "wide_legs": 0
         },
         "simplex": {
-          "sum_of_probabilities": 4.542,
+          "sum_of_probabilities": 4.537,
           "payout": 1.0,
           "leg_probabilities": [
-            0.998,
             0.001,
             0.001,
             0.979,
+            0.631,
+            0.999,
+            0.011,
             0.918,
-            0.01,
-            0.638,
             0.997
           ],
           "outcome_labels": [
@@ -19002,7 +19146,7 @@
         },
         "completeness": {
           "group_key": "event:event:594599",
-          "expected_outcome_family": "price bitcoin above 54 000 june 21",
+          "expected_outcome_family": "price bitcoin above 74 000 june 21",
           "market_kind": "range",
           "observed_outcomes": [
             "YES",
@@ -19020,15 +19164,15 @@
           "completeness_proven": false,
           "reason_incomplete": "no_explicit_completeness_marker_negRiskComplete_or_outcomeCount"
         },
-        "after_cost_lower_bound": -3.542,
+        "after_cost_lower_bound": -3.537,
         "advisory_only": true,
         "executed": false,
         "trade_gate_bypassed": false,
         "rejection_stage": "validate_simplex",
         "exhaustive": false,
         "settlement_consistent": false,
-        "divergence_gap": 2.498062,
-        "projected_profit_lower_bound": -3.542,
+        "divergence_gap": 2.49064625,
+        "projected_profit_lower_bound": -3.537,
         "certify_diagnostics": {
           "group_id": "event:event:594599",
           "group_type": "mutually_exclusive",
@@ -19036,246 +19180,11 @@
           "exhaustive": false,
           "mutually_exclusive": true,
           "settlement_consistent": false,
-          "divergence_gap": 2.498062,
-          "profit_lower_bound": -3.542,
-          "projected_profit_lower_bound": -3.542,
+          "divergence_gap": 2.49064625,
+          "profit_lower_bound": -3.537,
+          "projected_profit_lower_bound": -3.537,
           "all_legs_priced": true,
-          "implied_sum": 4.542,
-          "max_ambiguity_score": 0.0,
-          "max_ambiguity_threshold": 0.45,
-          "stale_book_score": 1.0,
-          "rejection_stage": "validate_simplex",
-          "failure_mode": "not_exhaustive",
-          "rejection_reason": "not_exhaustive"
-        }
-      },
-      {
-        "group_key": "event:event:511453",
-        "group_type": "mutually_exclusive",
-        "market_ids": [
-          "2326498",
-          "2326499",
-          "2326500",
-          "2326501",
-          "2326503",
-          "2326504",
-          "2326505",
-          "2326506",
-          "2326507",
-          "2326508",
-          "2481403",
-          "2481404",
-          "2481405",
-          "2585465",
-          "2585466"
-        ],
-        "token_ids": [
-          "1442105941573020867186171602768367994122198308167800757029093837078790679619",
-          "30085314462651645014671523474586270346080991386985384768237741781580880165804",
-          "105926350620230920205607209468194637376668502147697551474878001141386354067033",
-          "13667304945725554183260178787709434136758434228059513314240083438464704592394",
-          "75552716999657172332061537631774113976696739539827773943644134327212143318833",
-          "1847035021647677925835421650544019425806769055092993341369853851696102091647",
-          "22052206508396802345807832564213299748015163503955583534831040422025613144765",
-          "36228669707248133931580947629082732160338961318409454215499649448353715467454",
-          "75116587436541135999066120773582267729781051376195965936826323894213519163596",
-          "36999279975637824786373114496144475063795301090133838979114615413334043134036",
-          "91058382689133544626092459502251222877668524733252429494799056425801977916112",
-          "112165694992465152825976367782626285296750074002949297663469291770986305606208",
-          "4694497583446434842205390664836863672994639906369842468398070927294231130027",
-          "39645419420718294581008534963142183261612393806471126365589993228399305966266",
-          "5415074988305228045585610923525359073278196326319305179493635375743567753050"
-        ],
-        "outcome_labels": [
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES",
-          "YES"
-        ],
-        "outcome_prices": [
-          0.023,
-          0.53,
-          0.24,
-          0.46,
-          0.05,
-          0.68,
-          0.11,
-          0.25,
-          0.09,
-          0.73,
-          0.02,
-          0.1,
-          0.1,
-          0.01,
-          0.31
-        ],
-        "token_ids_unavailable": false,
-        "single_market_binary": false,
-        "raw_market_ids": [
-          "2326498",
-          "2326499",
-          "2326500",
-          "2326501",
-          "2326503",
-          "2326504",
-          "2326505",
-          "2326506",
-          "2326507",
-          "2326508",
-          "2481403",
-          "2481404",
-          "2481405",
-          "2585465",
-          "2585466"
-        ],
-        "reject_reason": "not_exhaustive",
-        "fix_category": "not_exhaustive",
-        "near_miss_score": 0.31,
-        "near_miss_tradeable": false,
-        "one_fix_away": false,
-        "remaining_blockers": [
-          "not_exhaustive",
-          "invalid_simplex",
-          "depth",
-          "stale_book"
-        ],
-        "learning_priority": "low",
-        "learning_priority_score": 0.31,
-        "shadow_label_candidate": false,
-        "learning_label": "needs_multiple_fixes",
-        "would_trade_if": "all 4 blockers are cleared: ['not_exhaustive', 'invalid_simplex', 'depth', 'stale_book']",
-        "primary_fix": null,
-        "depth_quality": {
-          "min_leg_depth_usd": 5.0,
-          "median_leg_depth_usd": 5.0,
-          "worst_leg_depth_usd": 5.0,
-          "thin_legs": 15,
-          "total_legs": 15,
-          "executable_notional_usd": 75.0,
-          "worst_leg_market_id": "2326501",
-          "thin_cause": "many_legs",
-          "required_depth_usd": 25.0
-        },
-        "freshness": {
-          "stale_legs": 15,
-          "total_legs": 15,
-          "worst_leg_age_s": 330.6242,
-          "worst_leg_market_id": "2326500",
-          "freshness_threshold_s": 20.0,
-          "refresh_attempted": false,
-          "refresh_ok": false,
-          "refresh_reason": null
-        },
-        "spread_quality": {
-          "max_leg_spread": 0.02,
-          "median_leg_spread": 0.01,
-          "spread_threshold": 0.12,
-          "wide_legs": 0
-        },
-        "simplex": {
-          "sum_of_probabilities": 3.703,
-          "payout": 1.0,
-          "leg_probabilities": [
-            0.023,
-            0.53,
-            0.24,
-            0.46,
-            0.05,
-            0.68,
-            0.11,
-            0.25,
-            0.09,
-            0.73,
-            0.02,
-            0.1,
-            0.1,
-            0.01,
-            0.31
-          ],
-          "outcome_labels": [
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES"
-          ],
-          "priced_legs": 15,
-          "total_legs": 15,
-          "duplicate_outcomes": false,
-          "missing_complement": false,
-          "invalid_normalization": true,
-          "suspected_parsing_issue": false,
-          "true_invalid_economics": true
-        },
-        "completeness": {
-          "group_key": "event:event:511453",
-          "expected_outcome_family": "spread paraguay 2 5",
-          "market_kind": "multi_way",
-          "observed_outcomes": [
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES",
-            "YES"
-          ],
-          "observed_count": 15,
-          "declared_expected_count": null,
-          "missing_or_unknown_outcomes": null,
-          "completeness_proven": false,
-          "reason_incomplete": "no_explicit_completeness_marker_negRiskComplete_or_outcomeCount"
-        },
-        "after_cost_lower_bound": -2.703,
-        "advisory_only": true,
-        "executed": false,
-        "trade_gate_bypassed": false,
-        "rejection_stage": "validate_simplex",
-        "exhaustive": false,
-        "settlement_consistent": false,
-        "divergence_gap": 0.749929,
-        "projected_profit_lower_bound": -2.703,
-        "certify_diagnostics": {
-          "group_id": "event:event:511453",
-          "group_type": "mutually_exclusive",
-          "n_legs": 15,
-          "exhaustive": false,
-          "mutually_exclusive": true,
-          "settlement_consistent": false,
-          "divergence_gap": 0.749929,
-          "profit_lower_bound": -2.703,
-          "projected_profit_lower_bound": -2.703,
-          "all_legs_priced": true,
-          "implied_sum": 3.703,
+          "implied_sum": 4.537,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
           "stale_book_score": 1.0,
@@ -19546,23 +19455,21 @@
         "group_key": "event:event:551781",
         "group_type": "mutually_exclusive",
         "market_ids": [
-          "2419320",
           "2419331",
           "2419341",
           "2419342",
           "2419348",
           "2419350",
           "2419351",
-          "2419367"
+          "2419355"
         ],
         "token_ids": [
           "51354126491646775604965624662332391851712736197313742839448233465451230568153",
-          "79662302913196017008860759363526936485934932022967495194576190174521819521615",
           "72190419269705822916555627988856801333341518778440955543214803954221135616098",
           "79641268021073965086751568688447244247833765922930567600573259501334271554017",
           "97234680044253973376263948383061418297938600359993778944021564667334174280443",
-          "68607651290168151368453183376710502157343015794642017963577806092095116237951",
           "47761296172301342198523745581970959650381127330467171781013158223569299308767",
+          "81853962611338704810427135817181576365960503651242412272489976341158587830699",
           "111647819143151504098117494939930742571907549091124854477300802261245027249476"
         ],
         "outcome_labels": [
@@ -19572,30 +19479,27 @@
           "YES",
           "YES",
           "YES",
-          "YES",
           "YES"
         ],
         "outcome_prices": [
-          0.02,
-          0.13,
+          0.023,
           0.057,
           0.28,
-          0.06,
-          0.024,
+          0.059,
           0.035,
-          0.042
+          0.035,
+          0.043
         ],
         "token_ids_unavailable": false,
         "single_market_binary": false,
         "raw_market_ids": [
-          "2419320",
           "2419331",
           "2419341",
           "2419342",
           "2419348",
           "2419350",
           "2419351",
-          "2419367"
+          "2419355"
         ],
         "reject_reason": "not_exhaustive",
         "fix_category": "not_exhaustive",
@@ -19613,44 +19517,43 @@
         "would_trade_if": "all 2 blockers are cleared: ['not_exhaustive', 'stale_book']",
         "primary_fix": null,
         "depth_quality": {
-          "min_leg_depth_usd": 1724.4603,
-          "median_leg_depth_usd": 1780.3774,
-          "worst_leg_depth_usd": 1724.4603,
+          "min_leg_depth_usd": 1766.6558,
+          "median_leg_depth_usd": 1896.7693,
+          "worst_leg_depth_usd": 1766.6558,
           "thin_legs": 0,
-          "total_legs": 8,
-          "executable_notional_usd": 15147.6849,
-          "worst_leg_market_id": "2419367",
+          "total_legs": 7,
+          "executable_notional_usd": 13614.1996,
+          "worst_leg_market_id": "2419348",
           "thin_cause": "none",
           "required_depth_usd": 25.0
         },
         "freshness": {
-          "stale_legs": 8,
-          "total_legs": 8,
-          "worst_leg_age_s": 202.9341,
-          "worst_leg_market_id": "2419348",
+          "stale_legs": 7,
+          "total_legs": 7,
+          "worst_leg_age_s": 318.2882,
+          "worst_leg_market_id": "2419355",
           "freshness_threshold_s": 20.0,
           "refresh_attempted": false,
           "refresh_ok": false,
           "refresh_reason": null
         },
         "spread_quality": {
-          "max_leg_spread": 0.03,
-          "median_leg_spread": 0.0155,
+          "max_leg_spread": 0.031,
+          "median_leg_spread": 0.022,
           "spread_threshold": 0.12,
           "wide_legs": 0
         },
         "simplex": {
-          "sum_of_probabilities": 0.648,
+          "sum_of_probabilities": 0.532,
           "payout": 1.0,
           "leg_probabilities": [
-            0.02,
-            0.13,
+            0.023,
             0.057,
             0.28,
-            0.06,
-            0.024,
+            0.059,
             0.035,
-            0.042
+            0.035,
+            0.043
           ],
           "outcome_labels": [
             "YES",
@@ -19659,11 +19562,10 @@
             "YES",
             "YES",
             "YES",
-            "YES",
             "YES"
           ],
-          "priced_legs": 8,
-          "total_legs": 8,
+          "priced_legs": 7,
+          "total_legs": 7,
           "duplicate_outcomes": false,
           "missing_complement": false,
           "invalid_normalization": false,
@@ -19681,36 +19583,35 @@
             "YES",
             "YES",
             "YES",
-            "YES",
             "YES"
           ],
-          "observed_count": 8,
+          "observed_count": 7,
           "declared_expected_count": null,
           "missing_or_unknown_outcomes": null,
           "completeness_proven": false,
           "reason_incomplete": "no_explicit_completeness_marker_negRiskComplete_or_outcomeCount"
         },
-        "after_cost_lower_bound": 0.352,
+        "after_cost_lower_bound": 0.468,
         "advisory_only": true,
         "executed": false,
         "trade_gate_bypassed": false,
         "rejection_stage": "validate_simplex",
         "exhaustive": false,
         "settlement_consistent": false,
-        "divergence_gap": 0.015488,
-        "projected_profit_lower_bound": 0.352,
+        "divergence_gap": 0.03128914,
+        "projected_profit_lower_bound": 0.468,
         "certify_diagnostics": {
           "group_id": "event:event:551781",
           "group_type": "mutually_exclusive",
-          "n_legs": 8,
+          "n_legs": 7,
           "exhaustive": false,
           "mutually_exclusive": true,
           "settlement_consistent": false,
-          "divergence_gap": 0.015488,
-          "profit_lower_bound": 0.352,
-          "projected_profit_lower_bound": 0.352,
+          "divergence_gap": 0.03128914,
+          "profit_lower_bound": 0.468,
+          "projected_profit_lower_bound": 0.468,
           "all_legs_priced": true,
-          "implied_sum": 0.648,
+          "implied_sum": 0.532,
           "max_ambiguity_score": 0.0,
           "max_ambiguity_threshold": 0.45,
           "stale_book_score": 1.0,
@@ -19980,35 +19881,35 @@
   "near_miss_all_negative_after_cost_lower_bound": false,
   "near_miss_tradeable_count": 0,
   "bregman_required_depth_usd": 25.0,
-  "bregman_depth_sufficient_groups": 123,
-  "bregman_depth_insufficient_groups": 385,
-  "bregman_high_liquidity_groups_scanned": 83,
+  "bregman_depth_sufficient_groups": 125,
+  "bregman_depth_insufficient_groups": 394,
+  "bregman_high_liquidity_groups_scanned": 86,
   "bregman_all_groups_thin": false,
   "bregman_promising_groups_refreshed": 0,
   "bregman_refresh_success": 0,
   "bregman_refresh_failed": 0,
-  "bregman_stale_after_refresh": 10,
+  "bregman_stale_after_refresh": 6,
   "bregman_refresh_not_attempted_reason": "no_refresher_configured",
-  "bregman_worst_leg_depth_usd": 15058.38,
+  "bregman_worst_leg_depth_usd": 21058.1949,
   "bregman_best_depth_quality_score": 1.0,
   "bregman_all_groups_depth_insufficient": false,
-  "bregman_price_parse_attempts": 3964,
+  "bregman_price_parse_attempts": 3966,
   "bregman_price_parse_success": 3697,
-  "bregman_price_parse_failures": 267,
-  "bregman_price_parse_success_rate": 0.9326,
+  "bregman_price_parse_failures": 269,
+  "bregman_price_parse_success_rate": 0.9322,
   "bregman_non_numeric_price_count": 0,
   "bregman_non_numeric_price_examples": [],
-  "bregman_missing_price_count": 267,
+  "bregman_missing_price_count": 269,
   "bregman_malformed_price_count": 0,
-  "bregman_groups_entered_certifier": 508,
-  "bregman_groups_failed_before_candidate_generation": 252,
+  "bregman_groups_entered_certifier": 519,
+  "bregman_groups_failed_before_candidate_generation": 257,
   "bregman_candidate_generation_blocker": "no_positive_after_cost_lower_bound_among_depth_sufficient_groups",
   "bregman_candidate_generation_blocker_counts": {
-    "depth_too_thin": 91,
-    "no_executable_price": 1,
+    "depth_too_thin": 86,
+    "no_executable_price": 3,
     "no_positive_edge": 139,
-    "not_exhaustive": 251,
-    "stale_book": 26
+    "not_exhaustive": 254,
+    "stale_book": 37
   },
   "bregman_candidate_generation_blocker_samples": [
     {
@@ -20016,27 +19917,24 @@
       "reject_reason": "not_exhaustive",
       "depth_sufficient": true,
       "market_ids": [
-        "2419320",
         "2419331",
         "2419341",
         "2419342",
         "2419348",
         "2419350",
         "2419351",
-        "2419367"
+        "2419355"
       ],
       "token_ids": [
         "51354126491646775604965624662332391851712736197313742839448233465451230568153",
-        "79662302913196017008860759363526936485934932022967495194576190174521819521615",
         "72190419269705822916555627988856801333341518778440955543214803954221135616098",
         "79641268021073965086751568688447244247833765922930567600573259501334271554017",
         "97234680044253973376263948383061418297938600359993778944021564667334174280443",
-        "68607651290168151368453183376710502157343015794642017963577806092095116237951",
         "47761296172301342198523745581970959650381127330467171781013158223569299308767",
+        "81853962611338704810427135817181576365960503651242412272489976341158587830699",
         "111647819143151504098117494939930742571907549091124854477300802261245027249476"
       ],
       "outcome_labels": [
-        "YES",
         "YES",
         "YES",
         "YES",
@@ -20057,32 +19955,16 @@
         "2412404"
       ],
       "token_ids": [
-        "49177764125930439353870176407343774896592468056143713692878748723750348754820",
-        "110055634198836019282064984999510038099262932901449181983391865403423717757928",
+        "61717892394083219836689400209424109532469408967849095309345995471739434690672",
         "82123611163115756254129562775542524396260157014292645759077396435704555941552",
-        "61717892394083219836689400209424109532469408967849095309345995471739434690672"
+        "49177764125930439353870176407343774896592468056143713692878748723750348754820",
+        "110055634198836019282064984999510038099262932901449181983391865403423717757928"
       ],
       "outcome_labels": [
         "YES",
         "YES",
         "YES",
         "YES"
-      ]
-    },
-    {
-      "group_key": "binary:event:153719",
-      "reject_reason": "no_positive_edge",
-      "depth_sufficient": true,
-      "market_ids": [
-        "1144471"
-      ],
-      "token_ids": [
-        "112007327373263623178671509828927834172092799802464528122988153704237637965568",
-        "69471008782374192790909758203453762302247599306255707151301915677252063291760"
-      ],
-      "outcome_labels": [
-        "YES",
-        "NO"
       ]
     },
     {
@@ -20103,63 +19985,78 @@
       ]
     },
     {
-      "group_key": "binary:event:108639",
-      "reject_reason": "no_positive_edge",
+      "group_key": "event:event:329654",
+      "reject_reason": "not_exhaustive",
       "depth_sufficient": false,
       "market_ids": [
-        "958448"
+        "2183424",
+        "2492625"
       ],
       "token_ids": [
-        "61110221131780024146455604680603124331432024209700031479458348712198877498305",
-        "60985791378312580703709677518968676541826607237443929833288547454824613611581"
+        "107010784463622992347585756781888741119874289659386929971064211775896839258138",
+        "36146590157764268681634085928856537349789942828886863710234676538502719790403"
       ],
       "outcome_labels": [
         "YES",
-        "NO"
+        "YES"
+      ]
+    },
+    {
+      "group_key": "event:event:106811",
+      "reject_reason": "not_exhaustive",
+      "depth_sufficient": false,
+      "market_ids": [
+        "948956",
+        "948957"
+      ],
+      "token_ids": [
+        "110292533535693399659565556058999029770323124971784271457706580213101684204758",
+        "50388900663189748675936681554126016850520413670342348778716337126803310768728"
+      ],
+      "outcome_labels": [
+        "YES",
+        "YES"
       ]
     }
   ],
-  "bregman_depth_sufficient_but_negative_edge_count": 122,
-  "bregman_best_depth_sufficient_group_lower_bound": 0.352,
+  "bregman_depth_sufficient_but_negative_edge_count": 124,
+  "bregman_best_depth_sufficient_group_lower_bound": 0.468,
   "bregman_best_depth_sufficient_group_reject_reason": "not_exhaustive",
   "bregman_real_market_zero_candidate_reason": "no_positive_after_cost_lower_bound_among_depth_sufficient_groups",
   "bregman_real_market_zero_candidate_reason_counts": {
-    "depth_too_thin": 91,
-    "no_executable_price": 1,
+    "depth_too_thin": 86,
+    "no_executable_price": 3,
     "no_positive_edge": 139,
-    "not_exhaustive": 251,
-    "stale_book": 26
+    "not_exhaustive": 254,
+    "stale_book": 37
   },
   "bregman_best_real_group_summary": {
     "group_key": "event:event:551781",
     "group_type": "mutually_exclusive",
     "reject_reason": "not_exhaustive",
     "depth_sufficient": true,
-    "min_leg_depth_usd": 1724.4603,
+    "min_leg_depth_usd": 1766.6558,
     "required_depth_usd": 25.0,
-    "after_cost_lower_bound": 0.352,
+    "after_cost_lower_bound": 0.468,
     "market_ids": [
-      "2419320",
       "2419331",
       "2419341",
       "2419342",
       "2419348",
       "2419350",
       "2419351",
-      "2419367"
+      "2419355"
     ],
     "token_ids": [
       "51354126491646775604965624662332391851712736197313742839448233465451230568153",
-      "79662302913196017008860759363526936485934932022967495194576190174521819521615",
       "72190419269705822916555627988856801333341518778440955543214803954221135616098",
       "79641268021073965086751568688447244247833765922930567600573259501334271554017",
       "97234680044253973376263948383061418297938600359993778944021564667334174280443",
-      "68607651290168151368453183376710502157343015794642017963577806092095116237951",
       "47761296172301342198523745581970959650381127330467171781013158223569299308767",
+      "81853962611338704810427135817181576365960503651242412272489976341158587830699",
       "111647819143151504098117494939930742571907549091124854477300802261245027249476"
     ],
     "outcome_labels": [
-      "YES",
       "YES",
       "YES",
       "YES",
@@ -20171,24 +20068,24 @@
   },
   "bregman_rejection_stage_counts": {
     "edge": 139,
-    "realism": 118,
-    "validate_simplex": 251
+    "realism": 126,
+    "validate_simplex": 254
   },
-  "bregman_max_divergence_gap": 8.42247313,
+  "bregman_max_divergence_gap": 8.53284511,
   "bregman_best_projected_lower_bound": 0.999,
-  "bregman_positive_projected_but_rejected_count": 106,
+  "bregman_positive_projected_but_rejected_count": 105,
   "bregman_positive_projected_rejected_by_stage": {
-    "realism": 11,
-    "validate_simplex": 95
+    "realism": 16,
+    "validate_simplex": 89
   },
-  "bregman_zero_certified_explanation": "dominant stage=validate_simplex: groups are structurally INCOMPLETE (exhaustive=False / not a provable complete set) \u2014 buying a partial set is not a guaranteed hedge, so it is correctly NOT certified (completeness is never fabricated); NOTE: 106 group(s) had POSITIVE raw projected profit (best=0.999) but were still rejected (realism=11, validate_simplex=95) \u2014 the raw mispricing is real, but the set is not a certifiable complete hedge",
+  "bregman_zero_certified_explanation": "dominant stage=validate_simplex: groups are structurally INCOMPLETE (exhaustive=False / not a provable complete set) \u2014 buying a partial set is not a guaranteed hedge, so it is correctly NOT certified (completeness is never fabricated); NOTE: 105 group(s) had POSITIVE raw projected profit (best=0.999) but were still rejected (realism=16, validate_simplex=89) \u2014 the raw mispricing is real, but the set is not a certifiable complete hedge",
   "bregman_certify_diagnostics_sample": [
     {
       "group_id": "event:event:551781",
       "exhaustive": false,
       "settlement_consistent": false,
-      "profit_lower_bound": 0.352,
-      "divergence_gap": 0.015488,
+      "profit_lower_bound": 0.468,
+      "divergence_gap": 0.03128914,
       "rejection_stage": "validate_simplex",
       "rejection_reason": "not_exhaustive"
     },
@@ -20196,19 +20093,10 @@
       "group_id": "event:event:548813",
       "exhaustive": false,
       "settlement_consistent": false,
-      "profit_lower_bound": -0.78,
-      "divergence_gap": 0.1554,
+      "profit_lower_bound": -0.53,
+      "divergence_gap": 0.07043333,
       "rejection_stage": "validate_simplex",
       "rejection_reason": "not_exhaustive"
-    },
-    {
-      "group_id": "binary:event:153719",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "profit_lower_bound": -0.001,
-      "divergence_gap": 5e-07,
-      "rejection_stage": "edge",
-      "rejection_reason": "no_positive_edge"
     },
     {
       "group_id": "event:event:36173",
@@ -20220,22 +20108,31 @@
       "rejection_reason": "not_exhaustive"
     },
     {
-      "group_id": "binary:event:108639",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "profit_lower_bound": -0.001,
-      "divergence_gap": 5e-07,
-      "rejection_stage": "edge",
-      "rejection_reason": "no_positive_edge"
+      "group_id": "event:event:329654",
+      "exhaustive": false,
+      "settlement_consistent": false,
+      "profit_lower_bound": 0.966,
+      "divergence_gap": 0.466578,
+      "rejection_stage": "validate_simplex",
+      "rejection_reason": "not_exhaustive"
     },
     {
-      "group_id": "binary:event:608775",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "profit_lower_bound": -0.001,
-      "divergence_gap": 5e-07,
-      "rejection_stage": "realism",
-      "rejection_reason": "stale_book"
+      "group_id": "event:event:106811",
+      "exhaustive": false,
+      "settlement_consistent": false,
+      "profit_lower_bound": 0.964,
+      "divergence_gap": 0.464648,
+      "rejection_stage": "validate_simplex",
+      "rejection_reason": "not_exhaustive"
+    },
+    {
+      "group_id": "event:event:608815",
+      "exhaustive": false,
+      "settlement_consistent": false,
+      "profit_lower_bound": -1.0,
+      "divergence_gap": 0.5,
+      "rejection_stage": "validate_simplex",
+      "rejection_reason": "not_exhaustive"
     },
     {
       "group_id": "binary:event:108634",
@@ -20283,20 +20180,29 @@
       "rejection_reason": "not_exhaustive"
     },
     {
-      "group_id": "event:event:329654",
-      "exhaustive": false,
-      "settlement_consistent": false,
-      "profit_lower_bound": 0.965,
-      "divergence_gap": 0.4656125,
-      "rejection_stage": "validate_simplex",
-      "rejection_reason": "not_exhaustive"
+      "group_id": "binary:event:609820",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": -0.001,
+      "divergence_gap": 5e-07,
+      "rejection_stage": "realism",
+      "rejection_reason": "stale_book"
     },
     {
-      "group_id": "event:event:34051",
+      "group_id": "binary:event:108639",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": -0.001,
+      "divergence_gap": 5e-07,
+      "rejection_stage": "edge",
+      "rejection_reason": "no_positive_edge"
+    },
+    {
+      "group_id": "event:negrisk:0xd6942a2a776414cc1c4a882865ba0963917c7742853467a6011c9db4ae652400",
       "exhaustive": false,
       "settlement_consistent": false,
-      "profit_lower_bound": 0.354,
-      "divergence_gap": 0.062658,
+      "profit_lower_bound": 0.267,
+      "divergence_gap": 0.0356445,
       "rejection_stage": "validate_simplex",
       "rejection_reason": "not_exhaustive"
     },
@@ -20310,22 +20216,31 @@
       "rejection_reason": "not_exhaustive"
     },
     {
-      "group_id": "event:event:106811",
+      "group_id": "binary:event:107711",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": -0.002,
+      "divergence_gap": 2e-06,
+      "rejection_stage": "edge",
+      "rejection_reason": "no_positive_edge"
+    },
+    {
+      "group_id": "event:negrisk:0x0df2baa43cb5e23466b264ae86ccc4f0bf54845ce7b7812241d989f8e7946200",
       "exhaustive": false,
       "settlement_consistent": false,
-      "profit_lower_bound": 0.964,
-      "divergence_gap": 0.464648,
+      "profit_lower_bound": -0.01,
+      "divergence_gap": 5e-05,
       "rejection_stage": "validate_simplex",
       "rejection_reason": "not_exhaustive"
     },
     {
-      "group_id": "binary:event:107711",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "profit_lower_bound": -0.001,
-      "divergence_gap": 5e-07,
-      "rejection_stage": "realism",
-      "rejection_reason": "depth_too_thin"
+      "group_id": "event:event:386759",
+      "exhaustive": false,
+      "settlement_consistent": false,
+      "profit_lower_bound": 0.518,
+      "divergence_gap": 0.134162,
+      "rejection_stage": "validate_simplex",
+      "rejection_reason": "not_exhaustive"
     },
     {
       "group_id": "binary:event:211827",
@@ -20337,13 +20252,22 @@
       "rejection_reason": "no_positive_edge"
     },
     {
-      "group_id": "binary:event:609785",
+      "group_id": "binary:event:34051",
       "exhaustive": true,
       "settlement_consistent": true,
       "profit_lower_bound": -0.001,
       "divergence_gap": 5e-07,
-      "rejection_stage": "realism",
-      "rejection_reason": "stale_book"
+      "rejection_stage": "edge",
+      "rejection_reason": "no_positive_edge"
+    },
+    {
+      "group_id": "event:event:590724",
+      "exhaustive": false,
+      "settlement_consistent": false,
+      "profit_lower_bound": 0.0,
+      "divergence_gap": 0.0,
+      "rejection_stage": "validate_simplex",
+      "rejection_reason": "not_exhaustive"
     },
     {
       "group_id": "binary:event:46844",
@@ -20355,13 +20279,40 @@
       "rejection_reason": "depth_too_thin"
     },
     {
-      "group_id": "binary:event:609767",
+      "group_id": "binary:event:608823",
       "exhaustive": true,
       "settlement_consistent": true,
-      "profit_lower_bound": -0.001,
-      "divergence_gap": 5e-07,
+      "profit_lower_bound": -0.02,
+      "divergence_gap": 0.0002,
+      "rejection_stage": "edge",
+      "rejection_reason": "no_positive_edge"
+    },
+    {
+      "group_id": "event:event:139507",
+      "exhaustive": false,
+      "settlement_consistent": false,
+      "profit_lower_bound": 0.926,
+      "divergence_gap": 0.428738,
+      "rejection_stage": "validate_simplex",
+      "rejection_reason": "not_exhaustive"
+    },
+    {
+      "group_id": "binary:event:609796",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": 0.999,
+      "divergence_gap": 0.4990005,
       "rejection_stage": "realism",
-      "rejection_reason": "stale_book"
+      "rejection_reason": "no_executable_price"
+    },
+    {
+      "group_id": "binary:event:569695",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": -0.002,
+      "divergence_gap": 2e-06,
+      "rejection_stage": "realism",
+      "rejection_reason": "depth_too_thin"
     },
     {
       "group_id": "binary:event:73042",
@@ -20382,7 +20333,34 @@
       "rejection_reason": "no_positive_edge"
     },
     {
-      "group_id": "binary:event:609784",
+      "group_id": "binary:event:609821",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": 0.999,
+      "divergence_gap": 0.4990005,
+      "rejection_stage": "realism",
+      "rejection_reason": "stale_book"
+    },
+    {
+      "group_id": "binary:event:608785",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": -0.01,
+      "divergence_gap": 5e-05,
+      "rejection_stage": "edge",
+      "rejection_reason": "no_positive_edge"
+    },
+    {
+      "group_id": "binary:event:609774",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": 0.999,
+      "divergence_gap": 0.4990005,
+      "rejection_stage": "realism",
+      "rejection_reason": "stale_book"
+    },
+    {
+      "group_id": "binary:event:609811",
       "exhaustive": true,
       "settlement_consistent": true,
       "profit_lower_bound": -0.001,
@@ -20391,25 +20369,7 @@
       "rejection_reason": "stale_book"
     },
     {
-      "group_id": "event:event:139507",
-      "exhaustive": false,
-      "settlement_consistent": false,
-      "profit_lower_bound": 0.926,
-      "divergence_gap": 0.428738,
-      "rejection_stage": "validate_simplex",
-      "rejection_reason": "not_exhaustive"
-    },
-    {
-      "group_id": "binary:negrisk:0x67a6d7a570e44eb6a09a03d71e2b353821d51216a9796a6fe6029bc3961d8700",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "profit_lower_bound": -0.007,
-      "divergence_gap": 2.45e-05,
-      "rejection_stage": "realism",
-      "rejection_reason": "depth_too_thin"
-    },
-    {
-      "group_id": "binary:event:114072",
+      "group_id": "binary:event:169319",
       "exhaustive": true,
       "settlement_consistent": true,
       "profit_lower_bound": -0.001,
@@ -20418,20 +20378,11 @@
       "rejection_reason": "depth_too_thin"
     },
     {
-      "group_id": "binary:event:185883",
+      "group_id": "binary:event:609783",
       "exhaustive": true,
       "settlement_consistent": true,
-      "profit_lower_bound": -0.003,
-      "divergence_gap": 4.5e-06,
-      "rejection_stage": "realism",
-      "rejection_reason": "depth_too_thin"
-    },
-    {
-      "group_id": "binary:event:569695",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "profit_lower_bound": -0.003,
-      "divergence_gap": 4.5e-06,
+      "profit_lower_bound": -0.001,
+      "divergence_gap": 5e-07,
       "rejection_stage": "realism",
       "rejection_reason": "stale_book"
     },
@@ -20445,24 +20396,6 @@
       "rejection_reason": "no_positive_edge"
     },
     {
-      "group_id": "binary:event:496260",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "profit_lower_bound": -0.001,
-      "divergence_gap": 5e-07,
-      "rejection_stage": "realism",
-      "rejection_reason": "depth_too_thin"
-    },
-    {
-      "group_id": "event:negrisk:0xd6942a2a776414cc1c4a882865ba0963917c7742853467a6011c9db4ae652400",
-      "exhaustive": false,
-      "settlement_consistent": false,
-      "profit_lower_bound": 0.267,
-      "divergence_gap": 0.0356445,
-      "rejection_stage": "validate_simplex",
-      "rejection_reason": "not_exhaustive"
-    },
-    {
       "group_id": "event:event:44955",
       "exhaustive": false,
       "settlement_consistent": false,
@@ -20472,13 +20405,22 @@
       "rejection_reason": "not_exhaustive"
     },
     {
-      "group_id": "binary:event:169319",
+      "group_id": "binary:event:114072",
       "exhaustive": true,
       "settlement_consistent": true,
-      "profit_lower_bound": -0.002,
-      "divergence_gap": 2e-06,
+      "profit_lower_bound": -0.001,
+      "divergence_gap": 5e-07,
       "rejection_stage": "realism",
       "rejection_reason": "depth_too_thin"
+    },
+    {
+      "group_id": "binary:event:608125",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": -0.01,
+      "divergence_gap": 5e-05,
+      "rejection_stage": "edge",
+      "rejection_reason": "no_positive_edge"
     },
     {
       "group_id": "binary:event:143567",
@@ -20490,20 +20432,20 @@
       "rejection_reason": "no_positive_edge"
     },
     {
-      "group_id": "binary:event:304330",
+      "group_id": "binary:event:609795",
       "exhaustive": true,
       "settlement_consistent": true,
-      "profit_lower_bound": -0.001,
-      "divergence_gap": 5e-07,
-      "rejection_stage": "edge",
-      "rejection_reason": "no_positive_edge"
+      "profit_lower_bound": 0.999,
+      "divergence_gap": 0.4990005,
+      "rejection_stage": "realism",
+      "rejection_reason": "no_executable_price"
     },
     {
-      "group_id": "binary:event:281143",
+      "group_id": "binary:event:96724",
       "exhaustive": true,
       "settlement_consistent": true,
-      "profit_lower_bound": -0.001,
-      "divergence_gap": 5e-07,
+      "profit_lower_bound": -0.002,
+      "divergence_gap": 2e-06,
       "rejection_stage": "realism",
       "rejection_reason": "depth_too_thin"
     },
@@ -20517,22 +20459,13 @@
       "rejection_reason": "depth_too_thin"
     },
     {
-      "group_id": "binary:event:96724",
+      "group_id": "binary:event:609779",
       "exhaustive": true,
       "settlement_consistent": true,
-      "profit_lower_bound": -0.002,
-      "divergence_gap": 2e-06,
+      "profit_lower_bound": -0.001,
+      "divergence_gap": 5e-07,
       "rejection_stage": "realism",
-      "rejection_reason": "depth_too_thin"
-    },
-    {
-      "group_id": "binary:event:606184",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "profit_lower_bound": -0.01,
-      "divergence_gap": 5e-05,
-      "rejection_stage": "edge",
-      "rejection_reason": "no_positive_edge"
+      "rejection_reason": "stale_book"
     },
     {
       "group_id": "event:negrisk:0x986b6856bc6358fe07b2d9b0b65b03b712c778805e875ee14a597a7237a33100",
@@ -20544,88 +20477,52 @@
       "rejection_reason": "not_exhaustive"
     },
     {
-      "group_id": "event:negrisk:0x92950e73d71bf079c88e497cbb537c6787205aabb39971a16d5a4ebba6ad5b00",
-      "exhaustive": false,
-      "settlement_consistent": false,
-      "profit_lower_bound": 0.998,
-      "divergence_gap": 0.498002,
-      "rejection_stage": "validate_simplex",
-      "rejection_reason": "not_exhaustive"
-    },
-    {
-      "group_id": "event:event:386788",
-      "exhaustive": false,
-      "settlement_consistent": false,
-      "profit_lower_bound": 0.792,
-      "divergence_gap": 0.313632,
-      "rejection_stage": "validate_simplex",
-      "rejection_reason": "not_exhaustive"
-    },
-    {
-      "group_id": "event:event:192962",
-      "exhaustive": false,
-      "settlement_consistent": false,
-      "profit_lower_bound": 0.72,
-      "divergence_gap": 0.2592,
-      "rejection_stage": "validate_simplex",
-      "rejection_reason": "not_exhaustive"
-    },
-    {
-      "group_id": "event:event:510403",
-      "exhaustive": false,
-      "settlement_consistent": false,
-      "profit_lower_bound": 0.498,
-      "divergence_gap": 0.124002,
-      "rejection_stage": "validate_simplex",
-      "rejection_reason": "not_exhaustive"
-    },
-    {
-      "group_id": "binary:event:608801",
+      "group_id": "binary:event:609792",
       "exhaustive": true,
       "settlement_consistent": true,
-      "profit_lower_bound": -0.01,
-      "divergence_gap": 5e-05,
+      "profit_lower_bound": -0.001,
+      "divergence_gap": 5e-07,
+      "rejection_stage": "realism",
+      "rejection_reason": "stale_book"
+    },
+    {
+      "group_id": "event:event:605249",
+      "exhaustive": false,
+      "settlement_consistent": false,
+      "profit_lower_bound": -0.909,
+      "divergence_gap": 0.4131405,
+      "rejection_stage": "validate_simplex",
+      "rejection_reason": "not_exhaustive"
+    },
+    {
+      "group_id": "binary:event:185883",
+      "exhaustive": true,
+      "settlement_consistent": true,
+      "profit_lower_bound": -0.004,
+      "divergence_gap": 8e-06,
       "rejection_stage": "edge",
       "rejection_reason": "no_positive_edge"
     },
     {
-      "group_id": "binary:event:608815",
+      "group_id": "binary:event:281143",
       "exhaustive": true,
       "settlement_consistent": true,
-      "profit_lower_bound": -0.01,
-      "divergence_gap": 5e-05,
-      "rejection_stage": "edge",
-      "rejection_reason": "no_positive_edge"
-    },
-    {
-      "group_id": "event:negrisk:0x0df2baa43cb5e23466b264ae86ccc4f0bf54845ce7b7812241d989f8e7946200",
-      "exhaustive": false,
-      "settlement_consistent": false,
-      "profit_lower_bound": -0.01,
-      "divergence_gap": 5e-05,
-      "rejection_stage": "validate_simplex",
-      "rejection_reason": "not_exhaustive"
-    },
-    {
-      "group_id": "binary:event:48948",
-      "exhaustive": true,
-      "settlement_consistent": true,
-      "profit_lower_bound": -0.003,
-      "divergence_gap": 4.5e-06,
+      "profit_lower_bound": -0.002,
+      "divergence_gap": 2e-06,
       "rejection_stage": "realism",
       "rejection_reason": "depth_too_thin"
     },
     {
-      "group_id": "binary:event:605280",
+      "group_id": "binary:event:192962",
       "exhaustive": true,
       "settlement_consistent": true,
-      "profit_lower_bound": -0.01,
-      "divergence_gap": 5e-05,
+      "profit_lower_bound": -0.003,
+      "divergence_gap": 4.5e-06,
       "rejection_stage": "edge",
       "rejection_reason": "no_positive_edge"
     },
     {
-      "group_id": "binary:event:375597",
+      "group_id": "binary:event:606184",
       "exhaustive": true,
       "settlement_consistent": true,
       "profit_lower_bound": -0.01,
@@ -20634,12 +20531,12 @@
       "rejection_reason": "no_positive_edge"
     }
   ],
-  "bregman_profit_lower_bound_min": -11.725,
+  "bregman_profit_lower_bound_min": -12.028,
   "bregman_profit_lower_bound_max": 0.999,
-  "bregman_profit_lower_bound_mean": -0.189856,
-  "bregman_groups_negative_lower_bound": 399,
-  "bregman_groups_zero_lower_bound": 3,
-  "bregman_groups_positive_lower_bound": 106,
+  "bregman_profit_lower_bound_mean": -0.188461,
+  "bregman_groups_negative_lower_bound": 409,
+  "bregman_groups_zero_lower_bound": 5,
+  "bregman_groups_positive_lower_bound": 105,
   "bregman_certifier_exception": null,
   "best_after_cost_lower_bound": 0.998,
   "best_depth_sufficient_lower_bound": 0.938,

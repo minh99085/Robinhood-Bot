@@ -28,13 +28,13 @@
       "unrealized_pnl": 0.0
     },
     "bregman": {
-      "constraint_groups_scanned": 508.0,
-      "raw_groups_discovered": 508.0,
+      "constraint_groups_scanned": 519.0,
+      "raw_groups_discovered": 519.0,
       "incoherent_groups": 0.0,
       "candidate_arbitrages": 0.0,
       "certified_arbitrages": 0.0,
       "executable_depth_certified": 0.0,
-      "rejected_fees_spread_depth_slippage": 35094,
+      "rejected_fees_spread_depth_slippage": 39731,
       "expected_min_profit": 0.0,
       "worst_case_payoff": 0.0,
       "execution_atomicity_risk": false,
@@ -42,10 +42,10 @@
       "canonical_source": "metrics/bregman_funnel.json"
     },
     "btc_pulse": {
-      "chainlink_anchor_price": 62345.59793,
-      "fast_btc_price": 62389.915,
+      "chainlink_anchor_price": 62461.0780779,
+      "fast_btc_price": 62506.285,
       "feed_disagreement_bps": null,
-      "market_stale_time_s": 2081.705,
+      "market_stale_time_s": 1106.118,
       "volatility_regime": null,
       "trend_persistence": null,
       "trade_trigger_reason": null,
