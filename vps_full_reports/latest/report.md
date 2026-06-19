@@ -1,6 +1,6 @@
 # Hermes Polymarket Paper-Training — Bot Inspection Report
 
-_Generated: 2026-06-19T02:44:29.601430+00:00 · PAPER ONLY · inspection/reporting only_
+_Generated: 2026-06-19T02:55:57.839606+00:00 · PAPER ONLY · inspection/reporting only_
 
 ## 0. Algorithmic Edge Audit (MANDATORY)
 
@@ -280,15 +280,15 @@ No baseline provided — current-state key metrics:
 
 ### 11.0 ABCAS Certifier Funnel Diagnostics (read-only)
 
-- constraint_groups_scanned: 743
+- constraint_groups_scanned: 741
 - candidate_arbitrages: 0
 - certified_arbitrages: 0
 - best_projected_profit_per_set: 0.0
 - max_bregman_distance: 0.0
-- mean_cost_per_set: 1.01637
+- mean_cost_per_set: 1.012696
 - expected_min_profit: 0.0
 - near_miss_count: 10
-- stage_rejections: {'adapter_failed': 1499, 'certifier_no_positive_profit': 743, 'realism_fees_spread_depth': 0, 'other': 0}
+- stage_rejections: {'adapter_failed': 1496, 'certifier_no_positive_profit': 741, 'realism_fees_spread_depth': 0, 'other': 0}
   - near_miss(certifier_reached): legs=['<REDACTED>', '<REDACTED>'] D(mu*||theta)=0.0 projected_profit/set=0.0 cost/set=1.0 reason=no_positive_worst_case_profit tradeable=False
   - near_miss(certifier_reached): legs=['<REDACTED>', '<REDACTED>'] D(mu*||theta)=0.0 projected_profit/set=0.0 cost/set=1.0 reason=no_positive_worst_case_profit tradeable=False
   - near_miss(certifier_reached): legs=['<REDACTED>', '<REDACTED>'] D(mu*||theta)=0.0 projected_profit/set=0.0 cost/set=1.0 reason=no_positive_worst_case_profit tradeable=False
@@ -316,7 +316,7 @@ No baseline provided — current-state key metrics:
 
 - non_numeric_price_count: 0
 - insufficient_outcomes_count: 0
-- malformed_group_count: 314898
+- malformed_group_count: 314927
 - parsed_price_success_rate: 1.0
 - bregman_depth_sufficient_groups: 86
 - bregman_depth_insufficient_groups: 382
@@ -358,11 +358,11 @@ Top Bregman near-misses (diagnostic only — NOT executed):
 
 ### 11d. Malformed-Group Reconciliation (summary vs tail)
 
-- malformed_group_count (reconciled): 314898
+- malformed_group_count (reconciled): 314927
 - bregman_malformed_group_reported_count (trainer certifier): 0
-- bregman_malformed_group_runtime_count (ABCAS scanner): 484
-- bregman_malformed_group_tail_count (diagnostics tail): 314898
-- bregman_malformed_group_legacy_or_tail_only_count: 314414
+- bregman_malformed_group_runtime_count (ABCAS scanner): 474
+- bregman_malformed_group_tail_count (diagnostics tail): 314927
+- bregman_malformed_group_legacy_or_tail_only_count: 314453
 - source: abcas_scanner_path_real_rejects
 
 ### 11d-stage. Trainer Certifier Per-Stage Census (read-only)
@@ -401,7 +401,7 @@ Top Bregman near-misses (diagnostic only — NOT executed):
 - bregman_shadow_label_candidates: 111
 - bregman_shadow_labels_written: 151
 - bregman_shadow_label_write_rate: 1.3604
-- shadow_records_written: 26280
+- shadow_records_written: 26380
 - shadow_labels_tail_nonempty: True
 - shadow_label_write_rejection_reasons: {'already_written': 4096}
 - profit_discovery_queue_items: 569
@@ -710,10 +710,10 @@ Lane-specific zero-trade blockers (empty == lane opened >=1 paper trade):
 
 ## 19. Artifacts Included
 
-- metrics: present (not copied) (90358163 bytes)
+- metrics: present (not copied) (90394376 bytes)
 - reports: copied (14933 bytes)
-- training: present (not copied) (9524693044 bytes)
-- micro_live_artifacts: copied (6616488 bytes)
+- training: present (not copied) (9526215254 bytes)
+- micro_live_artifacts: copied (6705900 bytes)
 - Missing (recorded, not fatal): data, paper_artifacts, training_artifacts, shadow_artifacts, post_canary_artifacts, replay_artifacts, production_review_artifacts, guarded_live_artifacts
 
 ## 20. Missing Features / Missing Evidence
@@ -724,7 +724,7 @@ Lane-specific zero-trade blockers (empty == lane opened >=1 paper trade):
 
 - [WARN] safety audit raised warnings
 - [WARN] 1 benchmark(s) failing
-- [WARN] NOT RUN-READY: stale_or_mixed_training_tail_samples: decision_records.jsonl: last_run_id=pmtrain-1781835917 != events run_id=pmtrain-1781837059; no_trade_labels.jsonl: last_run_id=pmtrain-1781835917 != events run_id=pmtrain-1781837059; pending_labels.jsonl: last_run_id=pmtrain-1781835917 != events run_id=pmtrain-1781837059
+- [WARN] NOT RUN-READY: stale_or_mixed_training_tail_samples: decision_records.jsonl: last_run_id=pmtrain-1781837059 != events run_id=pmtrain-1781837747; no_trade_labels.jsonl: last_run_id=pmtrain-1781837059 != events run_id=pmtrain-1781837747; pending_labels.jsonl: last_run_id=pmtrain-1781837059 != events run_id=pmtrain-1781837747
 - [WARN] No certified Bregman opportunities found yet; continue paper training.
 
 ## 22. Recommended Next Fixes
