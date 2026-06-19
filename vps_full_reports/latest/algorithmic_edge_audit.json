@@ -23,18 +23,18 @@
       "avg_edge_at_entry": null,
       "avg_realized_edge": null,
       "rejected_trades": null,
-      "open_exposure": 0.0,
+      "open_exposure": 1.0,
       "realized_pnl": 0.0,
       "unrealized_pnl": 0.0
     },
     "bregman": {
-      "constraint_groups_scanned": 488.0,
-      "raw_groups_discovered": 488.0,
-      "incoherent_groups": 1.0,
+      "constraint_groups_scanned": 497.0,
+      "raw_groups_discovered": 497.0,
+      "incoherent_groups": 0.0,
       "candidate_arbitrages": 0.0,
       "certified_arbitrages": 0.0,
       "executable_depth_certified": 0.0,
-      "rejected_fees_spread_depth_slippage": 491,
+      "rejected_fees_spread_depth_slippage": 1977,
       "expected_min_profit": 0.0,
       "worst_case_payoff": 0.0,
       "execution_atomicity_risk": false,
@@ -42,10 +42,10 @@
       "canonical_source": "metrics/bregman_funnel.json"
     },
     "btc_pulse": {
-      "chainlink_anchor_price": 62815.92326051,
-      "fast_btc_price": 62672.015,
+      "chainlink_anchor_price": 62487.667,
+      "fast_btc_price": 62530.005,
       "feed_disagreement_bps": null,
-      "market_stale_time_s": 694.123,
+      "market_stale_time_s": 556.044,
       "volatility_regime": null,
       "trend_persistence": null,
       "trade_trigger_reason": null,
@@ -68,7 +68,7 @@
       "partial_fill_assumptions": null,
       "available_depth_at_decision": null,
       "fee_adjusted_ev": null,
-      "clob_v2_executable": false,
+      "clob_v2_executable": true,
       "fill_realism_rejection_rate": 0.0
     },
     "risk": {
@@ -85,7 +85,7 @@
       "kill_switch_triggers": null
     },
     "execution": {
-      "clob_v2_executable": false,
+      "clob_v2_executable": true,
       "execution_atomicity_risk": false,
       "latency_ms": null,
       "stale_data_events": null,

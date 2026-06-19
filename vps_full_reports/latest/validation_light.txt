@@ -1,35 +1,36 @@
   [PASS] paper_training_running: mode=paper_train
-  [PASS] status_fresh: age=179.1s
+  [PASS] status_fresh: age=193.8s
   [PASS] live_trading_disabled: paper-only build
   [PASS] strict_paper_realism: reference fills off
   [PASS] core_metrics_non_null: {"after_cost_pnl": 0, "fill_realism_enabled": true, "fantasy_fill_rejections": 0}
-  [PASS] closed_loop_metrics_present: status=collecting
-  [PASS] closed_loop_records_positive: records=360 considered=360
-  [PASS] decision_count_reconciles_with_events: events=360
-  [PASS] rejection_becomes_learning_object: no_trade+shadow=443 diagnostic=0
-  [PASS] pending_labels_or_diagnostic_without_target: pending=720 diag_no_label=0
-  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=443 diagnostic=0
-  [PASS] active_learning_selection_or_reason_present: selected=360 zero_reason=None
+  [PASS] closed_loop_metrics_present: status=growing
+  [PASS] closed_loop_records_positive: records=1080 considered=1080
+  [PASS] decision_count_reconciles_with_events: events=1080
+  [PASS] rejection_becomes_learning_object: no_trade+shadow=1253 diagnostic=0
+  [PASS] pending_labels_or_diagnostic_without_target: pending=1691 diag_no_label=0
+  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=1253 diagnostic=0
+  [PASS] active_learning_selection_or_reason_present: selected=1080 zero_reason=None
   [PASS] pending_label_store_present: 
   [PASS] learning_state_saved: 
-  [PASS] bregman_metrics_consistent: discovered=491 certified=0 opened=0
-  [PASS] bregman_funnel_non_silent: detected=491 scanned=491 adapter_failed=0
-  [PASS] ledger_records_decisions: ledger.decisions=656934 decision_count=360
+  [PASS] bregman_metrics_consistent: discovered=493 certified=0 opened=0
+  [PASS] bregman_funnel_non_silent: detected=493 scanned=493 adapter_failed=0
+  [PASS] ledger_records_decisions: ledger.decisions=657654 decision_count=1080
   [PASS] audit_win_rate_known: 
   [PASS] audit_clob_v2_executable_known: 
   [PASS] audit_production_readiness_score_known: 
   [PASS] run_ready_for_hours: blocking=[]
   [PASS] active_learning_config_consistent: config_source=aggressive_paper_profile runtime_enabled=True — aggressive_paper profile ALWAYS enables active learning; mismatch => container STALE, rebuild (mission-control --mode proof2h --approved-paper-run)
-  [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=0 blocked_by_reason={} — a selected candidate must open a <=$1 paper trade or record an exact blocker
+  [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=1 blocked_by_reason={} — a selected candidate must open a <=$1 paper trade or record an exact blocker
   [PASS] inspection_collector_includes_artifacts: 
   [PASS] inspection_artifacts_present: all present
-  [PASS] decision_count_has_event_file_rows: decision_count=360 events.jsonl_rows=3985129
-  [PASS] decision_records_counter_matches_file: counter=360 decision_records.jsonl_rows=656934
-  [PASS] pending_labels_counter_matches_file: counter=720 pending_labels.jsonl_rows=665793
-  [PASS] training_tail_streams_same_run: same run
+  [PASS] decision_count_has_event_file_rows: decision_count=1080 events.jsonl_rows=3988811
+  [PASS] decision_records_counter_matches_file: counter=1080 decision_records.jsonl_rows=657654
+  [PASS] pending_labels_counter_matches_file: counter=1691 pending_labels.jsonl_rows=667233
+  [FAIL] training_tail_streams_same_run: events_run_id=pmtrain-1781844354 stale=['decision_records.jsonl=pmtrain-1781843034', 'no_trade_labels.jsonl=pmtrain-1781843034', 'pending_labels.jsonl=pmtrain-1781843034']
   [PASS] training_tail_streams_fresh_window: within freshness window
   [PASS] artifact_present:training_reconciliation.json: metrics/training_reconciliation.json
   [PASS] artifact_present:inspection_summary.json: metrics/inspection_summary.json
   [PASS] artifact_present:run_ready.json: metrics/run_ready.json
 
-SAFE TO RUN: True
+SAFE TO RUN: False
+BLOCKING: ['training_tail_streams_same_run']
