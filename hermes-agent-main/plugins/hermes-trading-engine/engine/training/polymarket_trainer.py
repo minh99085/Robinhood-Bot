@@ -675,6 +675,13 @@ class PolymarketPaperTrainer:
         self.correlation_gate = CorrelationRiskGate(self.cfg)
         self._open_exposure_index = OpenExposureIndex()
         self.correlation_metrics: dict = self._fresh_corr_metrics()
+        # Tier-2 institutional portfolio-risk engine (concentration/VaR/CVaR; tighten-only).
+        from .portfolio_risk import PortfolioRiskEngine
+        self.portfolio_risk = PortfolioRiskEngine(self.cfg)
+        self._risk_recent_returns: list = []
+        self._risk_regime = None
+        self._tier2_metrics: dict = {"size_tightened": 0, "blocked_by_concentration": 0,
+                                     "concentration_capped": 0}
         # P0 closed-loop learning: turn EVERY evaluated candidate (incl. rejects)
         # into a structured training record + pending label + feedback. PAPER ONLY.
         from .closed_loop import ClosedLoopLearning
@@ -879,6 +886,7 @@ class PolymarketPaperTrainer:
         # PASS-7: rebuild the open-exposure index (cluster/event/market/group) from
         # current open positions BEFORE any strategy evaluates candidates this tick.
         self._begin_correlation_phase()
+        self._begin_risk_phase()
         # PASS-4: directional open-slots available at tick start (before Bregman).
         dir_slots_before = max(0, int(self.cfg.max_open_trades) - len(self.open_positions()))
         # FLAGSHIP PRIORITY: certified Bregman arbitrage is evaluated + opened
@@ -2853,6 +2861,108 @@ class PolymarketPaperTrainer:
         self.correlation_metrics["correlation_gate_enabled"] = bool(
             getattr(self.cfg, "correlation_gate_enabled", True))
 
+    def portfolio_risk_report(self) -> dict:
+        """Tier-2 read-only portfolio-risk telemetry: VaR/CVaR + concentration (event/
+        category HHI, max exposures) + the live regime + tighten-only gate counters."""
+        try:
+            rep = self.portfolio_risk.report(
+                positions=self.open_positions(), bankroll=float(self.equity()),
+                recent_returns=getattr(self, "_risk_recent_returns", []))
+        except Exception:  # noqa: BLE001
+            rep = {"schema": "portfolio_risk/1.0", "error": True}
+        rep["enabled"] = bool(getattr(self.cfg, "portfolio_risk_enabled", False))
+        rep["regime"] = (self._risk_regime.to_dict() if self._risk_regime is not None
+                         else {"regime": "unknown", "aggression_multiplier": 1.0})
+        rep["tighten_only_counters"] = dict(getattr(self, "_tier2_metrics", {}))
+        rep["confidence_kelly_enabled"] = bool(getattr(self.cfg, "confidence_kelly_enabled", True))
+        rep["regime_aware_sizing_enabled"] = bool(
+            getattr(self.cfg, "regime_aware_sizing_enabled", True))
+        return rep
+
+    def _begin_risk_phase(self) -> None:
+        """Tier-2: precompute ONCE per tick (zero per-candidate cost) the recent realized-
+        return series + the market-regime aggression multiplier used by confidence-Kelly
+        sizing and the portfolio-risk gate. Pure/local; never blocks a tick."""
+        if not bool(getattr(self.cfg, "portfolio_risk_enabled", False)):
+            return
+        try:
+            closed = [p for p in self.positions if getattr(p, "closed", False)]
+            rets = [round(p.realized_pnl / p.cost, 6)
+                    for p in closed if getattr(p, "cost", 0.0)][-200:]
+            self._risk_recent_returns = rets
+            from engine.training.regime import detect_regime
+            dd = self._drawdown()
+            dd_frac = abs(float(dd[0])) if isinstance(dd, (tuple, list)) else abs(float(dd or 0.0))
+            streak = 0
+            for p in reversed(closed):
+                if float(getattr(p, "realized_pnl", 0.0)) < 0:
+                    streak += 1
+                else:
+                    break
+            self._risk_regime = detect_regime(
+                recent_returns=rets, drawdown_pct=dd_frac, stale_rate=0.0, loss_streak=streak,
+                floor=float(getattr(self.cfg, "regime_aggression_floor", 0.25)))
+        except Exception:  # noqa: BLE001 — risk precompute must never break a tick
+            self._risk_regime = None
+
+    def _apply_tier2_risk(self, rec, est, edge, proposal, *, exploratory: bool):
+        """Tier-2 sizing + portfolio gate (TIGHTEN-ONLY). Scales the proposal notional by the
+        regime multiplier + (readiness only) confidence-aware fractional Kelly, then caps it
+        to portfolio concentration limits. Returns a shadow-dict if blocked, else None
+        (proposal mutated in place, never enlarged). Never enables live trading."""
+        cur = float(getattr(proposal, "notional_usd", 0.0) or 0.0)
+        if cur <= 0.0:
+            return None
+        regime = self._risk_regime
+        mult = float(getattr(regime, "aggression_multiplier", 1.0)) if (
+            regime is not None and bool(getattr(self.cfg, "regime_aware_sizing_enabled", True))) else 1.0
+        sized = cur * mult
+        if (not exploratory) and bool(getattr(self.cfg, "confidence_kelly_enabled", True)):
+            from engine.training.kelly_sizing import confidence_kelly_size_usd
+            price = float(getattr(proposal, "price", 0.0)
+                          or getattr(edge, "executable_price", 0.0) or 0.0)
+            ci_w = abs(float(getattr(est, "confidence_interval_high", 0.0) or 0.0)
+                       - float(getattr(est, "confidence_interval_low", 0.0) or 0.0))
+            if price > 0.0:
+                ksize, _comp = confidence_kelly_size_usd(
+                    float(getattr(est, "p_final", 0.5) or 0.5), price,
+                    bankroll=float(self.equity()), ci_width=ci_w,
+                    kelly_fraction=float(getattr(self.cfg, "kelly_fraction", 0.25)),
+                    max_fraction=float(getattr(self.cfg, "max_kelly_fraction", 0.05)),
+                    max_size_usd=cur,
+                    floor_usd=float(getattr(self.cfg, "min_order_notional_usd", 1.0)),
+                    regime_multiplier=mult,
+                    ci_width_max=float(getattr(self.cfg, "kelly_ci_width_max", 0.5)))
+                if ksize > 0.0:
+                    sized = min(sized, ksize)
+        dec = self.portfolio_risk.check_candidate(
+            notional_usd=sized, event_key=getattr(rec, "group_key", ""),
+            category=getattr(rec, "category", ""), positions=self.open_positions(),
+            bankroll=float(self.equity()), recent_returns=self._risk_recent_returns)
+        capped = min(sized, float(dec.capped_notional_usd))
+        floor = float(getattr(self.cfg, "min_order_notional_usd", 1.0))
+        if (not dec.allow) or capped < floor:
+            self._tier2_metrics["blocked_by_concentration"] += 1
+            self._record_shadow(rec, est, edge, SimpleNamespace(
+                execution_realism_status="shadow_only_portfolio_risk",
+                reason="portfolio_risk_concentration", would_be_executable_if="portfolio headroom",
+                spread=float(getattr(est, "spread", 0.0) or 0.0),
+                depth_at_price=float(getattr(rec, "top_depth_usd", 0.0) or 0.0),
+                book_age_sec=0.0, fill_source="live_clob",
+                after_cost_edge=float(getattr(edge, "net_edge", 0.0) or 0.0)),
+                exploratory=exploratory)
+            self.learner.record_decision(traded=False, reason="portfolio_risk_concentration")
+            return {"opened": False, "shadow_only": True, "reason": "portfolio_risk_concentration",
+                    "portfolio_risk_reasons": dec.reasons}
+        if capped < cur - 1e-9:
+            self._tier2_metrics["size_tightened"] += 1
+            if dec.reasons:
+                self._tier2_metrics["concentration_capped"] += 1
+            proposal.notional_usd = round(capped, 2)
+            proposal.qty = (round(capped / proposal.price, 4)
+                            if getattr(proposal, "price", 0.0) else proposal.qty)
+        return None
+
     def _correlation_decide(self, rec, *, strategy: str, size_usd: float):
         """Run the CorrelationRiskGate for a candidate; update funnel metrics."""
         from .correlation_risk import (correlation_keys, ALLOW_WITH_SIZE_CAP, REJECT,
@@ -3796,6 +3906,13 @@ class PolymarketPaperTrainer:
             proposal.qty = round(notional / proposal.price, 4) if proposal.price > 0 else 0.0
             proposal.sizing_method = "exploration"
             self.exploration_count += 1
+        # TIER-2 institutional risk layer (PAPER ONLY; tighten-only): regime + confidence-
+        # Kelly size scaling, then portfolio concentration cap/block. Runs before the
+        # correlation + risk gates so they tighten further. Never enlarges; never live.
+        if bool(getattr(self.cfg, "portfolio_risk_enabled", False)):
+            t2 = self._apply_tier2_risk(rec, est, edge, proposal, exploratory=exploratory)
+            if t2 is not None:
+                return t2
         # PASS-4: directional must not spend Bregman-reserved capital. The effective
         # directional exposure ceiling is tightened by the reserved capital so a
         # pending certified Bregman bundle keeps its budget.
@@ -5938,6 +6055,7 @@ class PolymarketPaperTrainer:
                           else {"enabled": False}),
             "bregman": self.bregman_summary(),
             "portfolio": self.portfolio_report(),
+            "portfolio_risk": self.portfolio_risk_report(),
             "capital_allocation": self.capital_allocation_report(),
             "canary": self.canary_status(),
             "experiments": self.experiment_report(),

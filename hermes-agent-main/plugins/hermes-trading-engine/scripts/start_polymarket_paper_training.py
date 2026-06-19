@@ -793,6 +793,12 @@ def run(argv=None) -> int:
             # Pass-7: cluster/correlation risk funnel.
             (metrics_dir / "correlation_risk.json").write_text(
                 json.dumps(trainer.correlation_risk_report(), default=str), encoding="utf-8")
+            # Tier-2: institutional portfolio-risk funnel (VaR/CVaR + concentration + regime).
+            try:
+                (metrics_dir / "portfolio_risk.json").write_text(
+                    json.dumps(trainer.portfolio_risk_report(), default=str), encoding="utf-8")
+            except Exception:  # noqa: BLE001 — telemetry write never blocks the loop
+                pass
             # Pass-8: unified inspection summary (machine + human readable) written to
             # the RESOLVED absolute metrics/reports dirs.
             _insp = trainer.write_inspection_artifacts(

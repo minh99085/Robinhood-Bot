@@ -371,6 +371,20 @@ class TrainingConfig:
     # poisoning); the 6C out-of-sample SETTLEMENT gate remains the promotion authority.
     closed_loop_fast_proxy_enabled: bool = False   # base off; aggressive_paper turns ON
     closed_loop_proxy_horizon_s: float = 600.0
+    # Tier-2 institutional risk layer (PAPER ONLY; tighten-only). Portfolio concentration
+    # limits (VaR/CVaR + event/category/total exposure caps), confidence-aware fractional
+    # Kelly sizing, and a regime aggression multiplier. base OFF; aggressive_paper turns ON.
+    portfolio_risk_enabled: bool = False
+    max_event_exposure_frac: float = 0.20
+    max_category_exposure_frac: float = 0.40
+    max_portfolio_exposure_frac: float = 0.80
+    portfolio_cvar_limit_frac: float = 0.0          # 0 = CVaR throttle off
+    confidence_kelly_enabled: bool = True
+    regime_aware_sizing_enabled: bool = True
+    kelly_fraction: float = 0.25
+    max_kelly_fraction: float = 0.05
+    kelly_ci_width_max: float = 0.5
+    regime_aggression_floor: float = 0.25
     active_learning_require_realistic_fill_for_trade: bool = True
     active_learning_allow_shadow_without_fill: bool = True
     # ---- Pass-7: cluster/correlation risk is an ACTIVE hard gate + allocator ----
@@ -1546,6 +1560,14 @@ class TrainingConfig:
             # Option 1 fast proxy labels (discovery feedback; never feeds settlement calib).
             closed_loop_fast_proxy_enabled=_envb("CLOSED_LOOP_FAST_PROXY_ENABLED", True),
             closed_loop_proxy_horizon_s=_envf("CLOSED_LOOP_PROXY_HORIZON_S", 600.0),
+            # Tier-2 institutional risk layer ON for the aggressive profile (tighten-only).
+            portfolio_risk_enabled=_envb("PORTFOLIO_RISK_ENABLED", True),
+            max_event_exposure_frac=_envf("PORTFOLIO_MAX_EVENT_EXPOSURE_FRAC", 0.20),
+            max_category_exposure_frac=_envf("PORTFOLIO_MAX_CATEGORY_EXPOSURE_FRAC", 0.40),
+            max_portfolio_exposure_frac=_envf("PORTFOLIO_MAX_EXPOSURE_FRAC", 0.80),
+            portfolio_cvar_limit_frac=_envf("PORTFOLIO_CVAR_LIMIT_FRAC", 0.0),
+            confidence_kelly_enabled=_envb("CONFIDENCE_KELLY_ENABLED", True),
+            regime_aware_sizing_enabled=_envb("REGIME_AWARE_SIZING_ENABLED", True),
             # Option 2 broaden Grok directional coverage (advisory-only research edge).
             grok_advisory_max_calls_per_hour=_envi("GROK_ADVISORY_MAX_CALLS_PER_HOUR", 60),
             grok_advisory_min_interval_seconds=_envi("GROK_ADVISORY_MIN_INTERVAL_SECONDS", 45),

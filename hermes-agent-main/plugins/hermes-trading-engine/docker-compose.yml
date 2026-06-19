@@ -615,6 +615,17 @@ services:
       BACKTEST_WARM_START_ENABLED: "1"
       BACKTEST_RESOLVED_LIMIT: "3000"
       BACKTEST_COST_PER_TRADE: "0.01"
+      # ---- Tier 2: institutional portfolio-risk layer (PAPER ONLY; tighten-only) ----
+      # Portfolio concentration limits (event/category/total exposure caps + VaR/CVaR),
+      # confidence-aware fractional-Kelly sizing, and a regime aggression multiplier. Pure/
+      # read-only on the hot path; can only SHRINK or block a paper trade, never enlarge one;
+      # never enables live trading.
+      PORTFOLIO_RISK_ENABLED: "1"
+      PORTFOLIO_MAX_EVENT_EXPOSURE_FRAC: "0.20"
+      PORTFOLIO_MAX_CATEGORY_EXPOSURE_FRAC: "0.40"
+      PORTFOLIO_MAX_EXPOSURE_FRAC: "0.80"
+      CONFIDENCE_KELLY_ENABLED: "1"
+      REGIME_AWARE_SIZING_ENABLED: "1"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----
       # Live Chainlink mainnet aggregator reads (latestRoundData over JSON-RPC),
       # used ONLY as a probability/edge input feature for crypto-linked markets.
