@@ -385,6 +385,10 @@ class TrainingConfig:
     max_kelly_fraction: float = 0.05
     kelly_ci_width_max: float = 0.5
     regime_aggression_floor: float = 0.25
+    # Regime dead-zones: trivial readiness drawdown / short loss streaks (expected during
+    # profit-discovery exploration) must NOT trip risk-off; only MATERIAL stress de-risks.
+    regime_min_drawdown_pct: float = 0.01
+    regime_min_loss_streak: int = 3
     # Tier-4 cross-market relative-value detector (advisory/telemetry-first; never trades).
     relative_value_enabled: bool = False
     rv_min_mispricing: float = 0.03
@@ -1575,6 +1579,8 @@ class TrainingConfig:
             portfolio_cvar_limit_frac=_envf("PORTFOLIO_CVAR_LIMIT_FRAC", 0.0),
             confidence_kelly_enabled=_envb("CONFIDENCE_KELLY_ENABLED", True),
             regime_aware_sizing_enabled=_envb("REGIME_AWARE_SIZING_ENABLED", True),
+            regime_min_drawdown_pct=_envf("REGIME_MIN_DRAWDOWN_PCT", 0.01),
+            regime_min_loss_streak=_envi("REGIME_MIN_LOSS_STREAK", 3),
             # Tier-4 relative-value detector ON for the aggressive profile (advisory only).
             relative_value_enabled=_envb("RELATIVE_VALUE_ENABLED", True),
             rv_min_mispricing=_envf("RV_MIN_MISPRICING", 0.03),
@@ -1599,12 +1605,15 @@ class TrainingConfig:
                 "POLYMARKET_EXPLORATION_MIN_EXECUTION_QUALITY", 0.18),
             exploration_min_information_value=_envf(
                 "POLYMARKET_EXPLORATION_MIN_INFORMATION_VALUE", 0.08),
+            # PROFIT-DISCOVERY breadth: probe MORE distinct markets/families per run (still
+            # $1-$10 paper probes; every hard realism/depth/spread/stale/after-cost gate is
+            # unchanged). These are discovery diversity caps, not safety gates.
             exploration_max_probes_per_market_run=_envi(
                 "POLYMARKET_EXPLORATION_MAX_PROBES_PER_MARKET_RUN", 1),
             exploration_max_probes_per_event_run=_envi(
-                "POLYMARKET_EXPLORATION_MAX_PROBES_PER_EVENT_RUN", 2),
+                "POLYMARKET_EXPLORATION_MAX_PROBES_PER_EVENT_RUN", 4),
             exploration_max_probes_per_cluster_run=_envi(
-                "POLYMARKET_EXPLORATION_MAX_PROBES_PER_CLUSTER_RUN", 3),
+                "POLYMARKET_EXPLORATION_MAX_PROBES_PER_CLUSTER_RUN", 6),
             # loss-aware learning throttle: when recent probe outcomes are poor, raise
             # the quality bar, reduce probe frequency, and shadow marginal/negative-EV
             # probes (labels still collected). Selection-only; env-tunable. PAPER ONLY.
@@ -1614,8 +1623,11 @@ class TrainingConfig:
                 "POLYMARKET_LEARNING_THROTTLE_MIN_SAMPLES", 5),
             learning_throttle_winrate_floor=_envf(
                 "POLYMARKET_LEARNING_THROTTLE_WINRATE_FLOOR", 0.35),
+            # Profit-discovery: tolerate the BY-DESIGN tiny exploration learning cost — a
+            # slightly-negative recent probe PnL is the price of discovery and must not
+            # throttle probing. Throttle only on MATERIAL bleed. Not a hard gate.
             learning_throttle_pnl_floor=_envf(
-                "POLYMARKET_LEARNING_THROTTLE_PNL_FLOOR", 0.0),
+                "POLYMARKET_LEARNING_THROTTLE_PNL_FLOOR", -0.05),
             learning_throttle_quality_bump=_envf(
                 "POLYMARKET_LEARNING_THROTTLE_QUALITY_BUMP", 0.25),
             exploration_max_negative_ev_probes_per_tick=_envi(

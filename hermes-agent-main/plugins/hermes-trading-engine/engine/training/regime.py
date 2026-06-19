@@ -53,12 +53,19 @@ def detect_regime(*, recent_returns: list, drawdown_pct: float = 0.0,
                   stale_rate: float = 0.0, loss_streak: int = 0,
                   vol_normal: float = 0.10, vol_stressed: float = 0.25,
                   drawdown_stressed: float = 0.10, stale_stressed: float = 0.10,
-                  loss_streak_stressed: int = 5, floor: float = 0.25) -> RegimeState:
+                  loss_streak_stressed: int = 5, floor: float = 0.25,
+                  min_drawdown_to_stress: float = 0.0,
+                  min_loss_streak: int = 0) -> RegimeState:
     """Classify regime + aggression multiplier from recent risk signals.
 
     Each stress channel (return volatility, drawdown, stale-data rate, loss streak) applies a
     multiplicative haircut; the worst channels dominate. ``calm`` (mult ~1.0) when all are
-    benign; ``stressed`` (mult -> ``floor``) when any breaches its stressed threshold."""
+    benign; ``stressed`` (mult -> ``floor``) when any breaches its stressed threshold.
+
+    ``min_drawdown_to_stress`` / ``min_loss_streak`` are DEAD-ZONES: trivial drawdown or a
+    short loss streak (expected during profit-discovery exploration) never trip risk-off —
+    only MATERIAL stress reduces aggression. This keeps discovery at full size while still
+    de-risking on real adverse moves."""
     vol = _stdev(recent_returns)
     dd = abs(float(drawdown_pct or 0.0))
     stale = max(0.0, float(stale_rate or 0.0))
@@ -73,8 +80,8 @@ def detect_regime(*, recent_returns: list, drawdown_pct: float = 0.0,
         mult = min(mult, hv)
         if vol >= vol_stressed:
             reasons.append("high_return_volatility")
-    # drawdown haircut
-    if dd > 0.0:
+    # drawdown haircut (only above the material dead-zone)
+    if dd > max(0.0, float(min_drawdown_to_stress)):
         hd = _clamp(1.0 - dd / max(1e-9, drawdown_stressed), floor, 1.0)
         mult = min(mult, hd)
         if dd >= drawdown_stressed:
@@ -85,8 +92,8 @@ def detect_regime(*, recent_returns: list, drawdown_pct: float = 0.0,
         mult = min(mult, hs)
         if stale >= stale_stressed:
             reasons.append("stale_data")
-    # loss-streak haircut
-    if streak > 0:
+    # loss-streak haircut (only beyond the material dead-zone)
+    if streak > max(0, int(min_loss_streak)):
         hl = _clamp(1.0 - streak / max(1, loss_streak_stressed), floor, 1.0)
         mult = min(mult, hl)
         if streak >= loss_streak_stressed:

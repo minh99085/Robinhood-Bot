@@ -631,6 +631,17 @@ services:
       # Shadow-first — never opens a trade; surfaces RV candidates in metrics/relative_value.
       RELATIVE_VALUE_ENABLED: "1"
       RV_MIN_MISPRICING: "0.03"
+      # ---- PROFIT-DISCOVERY tuning (NO hard gate loosened) ----
+      # Stop the risk multipliers + learning throttle from self-suppressing discovery on the
+      # BY-DESIGN tiny exploration learning cost: regime risk-off only on MATERIAL readiness
+      # drawdown / loss-streak, and the learning throttle tolerates a small negative probe
+      # PnL. Widen exploration BREADTH (more distinct families). All hard realism/depth/
+      # spread/stale/after-cost/credible/OOS/Bregman gates remain UNCHANGED.
+      REGIME_MIN_DRAWDOWN_PCT: "0.01"
+      REGIME_MIN_LOSS_STREAK: "3"
+      POLYMARKET_LEARNING_THROTTLE_PNL_FLOOR: "-0.05"
+      POLYMARKET_EXPLORATION_MAX_PROBES_PER_EVENT_RUN: "4"
+      POLYMARKET_EXPLORATION_MAX_PROBES_PER_CLUSTER_RUN: "6"
       # ---- Tier 2 #5: maker/passive-fill SHADOW simulator (shadow-only; never trades) ----
       # Simulates resting a passive buy at the bid using real cross-tick book evolution +
       # queue model + adverse-selection markout, to prove maker fills before wiring them into

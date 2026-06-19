@@ -64,6 +64,21 @@ def test_regime_multiplier_never_above_one():
     assert 0.0 < r.aggression_multiplier <= 1.0
 
 
+def test_regime_deadzones_ignore_trivial_signals():
+    # profit-discovery: trivial drawdown + short loss streak must NOT trip risk-off
+    r = detect_regime(recent_returns=[0.0], drawdown_pct=0.0005, loss_streak=2,
+                      min_drawdown_to_stress=0.01, min_loss_streak=3)
+    assert r.regime == "calm" and r.aggression_multiplier == 1.0
+    # but a MATERIAL drawdown past the dead-zone still de-risks
+    r2 = detect_regime(recent_returns=[0.0], drawdown_pct=0.12, loss_streak=2,
+                       min_drawdown_to_stress=0.01, min_loss_streak=3)
+    assert r2.aggression_multiplier < 1.0 and "drawdown_breach" in r2.reasons
+    # a long loss streak past the dead-zone still de-risks
+    r3 = detect_regime(recent_returns=[0.0], drawdown_pct=0.0, loss_streak=6,
+                       min_drawdown_to_stress=0.01, min_loss_streak=3)
+    assert r3.aggression_multiplier < 1.0 and "loss_streak" in r3.reasons
+
+
 # ---------------- VaR / CVaR ----------------
 
 def test_var_cvar_tail():

@@ -2898,6 +2898,10 @@ class PolymarketPaperTrainer:
         eligible catalog (advisory/telemetry-only; never trades). Read-only, off-tick."""
         if not bool(getattr(self.cfg, "relative_value_enabled", False)):
             return {"schema": "relative_value/1.0", "enabled": False}
+        cached = getattr(self, "_rv_cache", None)
+        if cached:                                  # reuse the per-tick cache (no recompute)
+            rep = dict(cached); rep["enabled"] = True
+            return rep
         try:
             from .relative_value import find_relative_value
             rep = find_relative_value(
@@ -2907,6 +2911,32 @@ class PolymarketPaperTrainer:
             return rep
         except Exception:  # noqa: BLE001
             return {"schema": "relative_value/1.0", "enabled": True, "error": True}
+
+    def profit_discovery_report(self) -> dict:
+        """PROFIT-DISCOVERY summary: the rate at which the bot is discovering + evaluating
+        opportunities (probes, distinct markets, regime aggression, throttle state, RV
+        candidates routed to research, certified Bregman). Read-only; all hard gates intact."""
+        try:
+            pr = self.profitability_ranking_report()
+        except Exception:  # noqa: BLE001
+            pr = {}
+        regime = getattr(self, "_risk_regime", None)
+        rvc = getattr(self, "_rv_cache", None) or {}
+        return {
+            "schema": "profit_discovery/1.0", "paper_only": True,
+            "live_trading_enabled": False, "hard_gates_intact": True,
+            "exploration_probes_opened": int(pr.get("opened_learning_probes_count", 0) or 0),
+            "exploration_probes_rejected": int(pr.get("rejected_learning_probes_count", 0) or 0),
+            "learning_probe_throttle_active": bool(
+                (pr.get("learning_probe_throttle", {}) or {}).get("active", False)),
+            "regime": (regime.regime if regime is not None else "unknown"),
+            "regime_aggression_multiplier": (
+                round(regime.aggression_multiplier, 4) if regime is not None else 1.0),
+            "rv_candidates": int(rvc.get("rv_candidates_found", 0) or 0),
+            "rv_routed_to_research": len(self._rv_research_targets()),
+            "bregman_certified": int(getattr(self, "bregman_sets_opened", 0) or 0),
+            "readiness_credible_trades": int(pr.get("readiness_credible_trades", 0) or 0),
+        }
 
     def alpha_attribution_report(self) -> dict:
         """Tier-3: realized-PnL attribution by strategy + signal source (read-only)."""
@@ -3012,13 +3042,27 @@ class PolymarketPaperTrainer:
         if not bool(getattr(self.cfg, "portfolio_risk_enabled", False)):
             return
         try:
-            closed = [p for p in self.positions if getattr(p, "closed", False)]
+            # READINESS-ONLY regime signals: tiny exploration probes are DESIGNED to lose a
+            # little (learning cost) — they must NOT trip the regime risk-off, which would
+            # choke profit discovery. Use settlement-grounded readiness trades for the
+            # volatility / drawdown / loss-streak signals.
+            closed = [p for p in self.positions if getattr(p, "closed", False)
+                      and not getattr(p, "exploration", False)]
             rets = [round(p.realized_pnl / p.cost, 6)
                     for p in closed if getattr(p, "cost", 0.0)][-200:]
             self._risk_recent_returns = rets
             from engine.training.regime import detect_regime
-            dd = self._drawdown()
-            dd_frac = abs(float(dd[0])) if isinstance(dd, (tuple, list)) else abs(float(dd or 0.0))
+            # bankroll-relative readiness drawdown (NOT the all-paper equity curve that
+            # includes exploration learning cost).
+            start = max(1e-9, float(self.cfg.starting_bankroll))
+            cum = 0.0
+            peak = 0.0
+            dd_usd = 0.0
+            for p in closed:
+                cum += float(getattr(p, "realized_pnl", 0.0))
+                peak = max(peak, cum)
+                dd_usd = max(dd_usd, peak - cum)
+            dd_frac = dd_usd / start
             streak = 0
             for p in reversed(closed):
                 if float(getattr(p, "realized_pnl", 0.0)) < 0:
@@ -3027,10 +3071,38 @@ class PolymarketPaperTrainer:
                     break
             self._risk_regime = detect_regime(
                 recent_returns=rets, drawdown_pct=dd_frac, stale_rate=0.0, loss_streak=streak,
-                floor=float(getattr(self.cfg, "regime_aggression_floor", 0.25)))
+                floor=float(getattr(self.cfg, "regime_aggression_floor", 0.25)),
+                min_drawdown_to_stress=float(
+                    getattr(self.cfg, "regime_min_drawdown_pct", 0.01)),
+                min_loss_streak=int(getattr(self.cfg, "regime_min_loss_streak", 3)))
         except Exception:  # noqa: BLE001 — risk precompute must never break a tick
             self._risk_regime = None
+        # PROFIT-DISCOVERY: cache this tick's relative-value candidates once (cheap; reused by
+        # the RV report AND to direct bounded research at the most-mispriced families).
+        if bool(getattr(self.cfg, "relative_value_enabled", False)):
+            try:
+                from engine.training.relative_value import find_relative_value
+                self._rv_cache = find_relative_value(
+                    list(getattr(self, "_bregman_records", []) or []),
+                    min_mispricing=float(getattr(self.cfg, "rv_min_mispricing", 0.03)))
+            except Exception:  # noqa: BLE001
+                self._rv_cache = None
         self._update_maker_sim()
+
+    def _rv_research_targets(self) -> list:
+        """PROFIT-DISCOVERY: top relative-value families as advisory research targets so the
+        BOUNDED Grok scheduler studies the most-mispriced markets. Read-only; advisory-only."""
+        cache = getattr(self, "_rv_cache", None)
+        if not cache:
+            return []
+        out = []
+        for c in (cache.get("top_candidates", []) or [])[:10]:
+            mids = c.get("market_ids") or []
+            if mids:
+                out.append({"market_id": str(mids[0]),
+                            "voi": float(c.get("score", 0.0) or 0.0),
+                            "source": "relative_value", "rv_kind": c.get("kind")})
+        return out
 
     def _update_maker_sim(self) -> None:
         """Tier-2 #5: advance the maker SHADOW ledger from this tick's live-watch books and
@@ -5776,7 +5848,8 @@ class PolymarketPaperTrainer:
         sel = select_advisory_target(
             near_misses=list(getattr(self, "_bregman_near_miss_best", {}).values()),
             news_packet=news_packet, watch_markets=getattr(self, "_watch_sample", []),
-            grok_candidates=gc_ranked, voi_targets=self._voi_targets(),
+            grok_candidates=gc_ranked,
+            voi_targets=(self._voi_targets() + self._rv_research_targets()),
             exclude_market_ids=exclude)
         target_ctx = market_ctx or sel.get("market_ctx")
         # record the selected target so the next call rotates to a fresh market
@@ -6221,6 +6294,7 @@ class PolymarketPaperTrainer:
             "relative_value": self.relative_value_report(),
             "execution_attribution": self.execution_attribution_report(),
             "maker_fill_sim": self.maker_fill_report(),
+            "profit_discovery": self.profit_discovery_report(),
             "capital_allocation": self.capital_allocation_report(),
             "canary": self.canary_status(),
             "experiments": self.experiment_report(),
