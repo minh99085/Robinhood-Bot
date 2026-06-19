@@ -58,46 +58,46 @@ NAME                    IMAGE                                         COMMAND   
 hermes-trading-engine   hermes-trading-engine-hermes-trading-engine   "uvicorn engine.app:…"   hermes-trading-engine   3 seconds ago   Up 2 seconds (health: starting)   0.0.0.0:8800->8800/tcp, [::]:8800->8800/tcp
 hermes-training         hermes-trading-engine-hermes-training         "python scripts/star…"   hermes-training         3 seconds ago   Up 2 seconds (health: starting)   8800/tcp
 ==> hermes-training recent logs (tail)
-2026-06-19 04:10:47,121 INFO hte.chainlink.oracle ChainlinkFeedProvider initialized symbol=BTC/USD heartbeat_seconds=3600 max_age_seconds=7200
-2026-06-19 04:10:47,122 INFO hte.feeds.btc_fast_price BTC fast price provider initialized provider=coinbase_readonly symbol=BTC-USD max_age_seconds=10
-2026-06-19 04:10:47,127 INFO hte.training.features News scanner initialized provider_mode=live_read_only
-2026-06-19 04:10:47,127 INFO hte.training.features Grok research evidence packet enabled
-2026-06-19 04:10:47,127 INFO hte.training.features Bregman scanner initialized
-2026-06-19 04:10:47,127 INFO hte.training.features Paper training strategy attribution enabled
-2026-06-19 04:10:47,146 INFO hte.training.start bregman CLOB order-book hydration: enabled=True (read-only /book per token; real NO ask preferred; synthetic stays diagnostic only)
+2026-06-19 04:23:54,234 INFO hte.training.start algorithmic edge audit: generated reports include a mandatory decision-grade audit (strategy attribution, Bregman/BTC-Pulse/calibration/fill-realism/risk diagnostics, readiness) that fails loudly on missing/stale core fields
+2026-06-19 04:23:54,235 INFO hte.training.start modeling config: probability_ensemble=off bregman_primary=off strategy_router=off calibration=auto(Platt/isotonic/temperature/shrink) rollback_guard=available conformal_bands=available grok_news=evidence_only bregman=certify_before_trade
+2026-06-19 04:23:54,243 INFO hte.chainlink.oracle ChainlinkFeedProvider initialized symbol=BTC/USD heartbeat_seconds=3600 max_age_seconds=7200
+2026-06-19 04:23:54,244 INFO hte.feeds.btc_fast_price BTC fast price provider initialized provider=coinbase_readonly symbol=BTC-USD max_age_seconds=10
+2026-06-19 04:23:54,248 INFO hte.training.features News scanner initialized provider_mode=live_read_only
+2026-06-19 04:23:54,248 INFO hte.training.features Grok research evidence packet enabled
+2026-06-19 04:23:54,248 INFO hte.training.features Bregman scanner initialized
+2026-06-19 04:23:54,248 INFO hte.training.features Paper training strategy attribution enabled
+2026-06-19 04:23:54,268 INFO hte.training.start bregman CLOB order-book hydration: enabled=True (read-only /book per token; real NO ask preferred; synthetic stays diagnostic only)
 mode: paper_train (PAPER ONLY) · profile: aggressive
-2026-06-19 04:10:47,174 INFO hte.training.start bregman paper scanner: enabled=True reason=None (independent of pulse/grok/news)
+2026-06-19 04:23:54,296 INFO hte.training.start bregman paper scanner: enabled=True reason=None (independent of pulse/grok/news)
 artifact_dirs:
   metrics=/data/metrics exists=true writable=true
   reports=/data/reports exists=true writable=true
   training_data=/data/training exists=true writable=true
   event_stream=/data/training/events.jsonl
-2026-06-19 04:10:47,300 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=0&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:47,340 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=100&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:47,438 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=200&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:47,653 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=300&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:47,698 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=400&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:47,748 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=500&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:47,797 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=600&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:47,842 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=700&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,046 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=800&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,293 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=900&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,346 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1000&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,399 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1100&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,449 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1200&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,494 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1300&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,537 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1400&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,814 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1500&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,898 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1600&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,944 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1700&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:48,988 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1800&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:49,037 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1900&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:49,081 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=0&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:49,117 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=100&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:49,166 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=200&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:49,208 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=300&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:49,254 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=400&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
-2026-06-19 04:10:49,301 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=500&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:54,407 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=0&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:54,461 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=100&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:54,511 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=200&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:54,559 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=300&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:54,610 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=400&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:54,830 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=500&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:54,882 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=600&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:54,932 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=700&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:54,982 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=800&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,029 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=900&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,097 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1000&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,153 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1100&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,208 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1200&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,284 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1300&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,335 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1400&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,396 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1500&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,641 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1600&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,719 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1700&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:55,801 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1800&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:56,023 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=1900&order=volume24hr&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:56,061 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=0&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:56,100 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=100&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:56,154 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=200&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
+2026-06-19 04:23:56,365 INFO httpx HTTP Request: GET https://gamma-api.polymarket.com/markets?active=true&closed=false&archived=false&limit=100&offset=300&order=liquidityNum&ascending=false "HTTP/1.1 200 OK"
 ==> hermes-training: state=running health=starting
 ==> refreshing runtime_data from hermes-training:/data
 ==> deleting old inspection_reports
@@ -105,55 +105,55 @@ artifact_dirs:
 ==> generating light-mode inspection report (.report_venv python)
 Classification : FAIL_NOT_RUN_READY
 Health score   : 79.0/100
-Bundle folder  : inspection_reports/bot_inspection_20260619_041057
-Zip bundle     : inspection_reports/bot_inspection_20260619_041057.zip
+Bundle folder  : inspection_reports/bot_inspection_20260619_042404
+Zip bundle     : inspection_reports/bot_inspection_20260619_042404.zip
 Bundle mode    : light
 Full JSONL     : omitted intentionally
 Samples        : tail 500 rows each
 Source events  : verified from runtime_data
-Zip size       : 5.82 MB
+Zip size       : 5.88 MB
 Edge audit     : PASS
 Run-ready      : run_ready_for_hours=False (max_safe_runtime_minutes=10)
 Grok brain     : grok_brain_ready=True
 Grok advisory  : calls=1 with_news=1 near_misses_analyzed=0 news_linked=1 advisory_only=1
-Bregman near   : total=500 one_fix_away=128 depth_only=123 not_exhaustive=246 | no-bundle blocker=incomplete_event_families
-Blocking       : stale_or_mixed_training_tail_samples: decision_records.jsonl: last_run_id=pmtrain-1781841448 != events run_id=pmtrain-1781842247; no_trade_labels.jsonl: last_run_id=pmtrain-1781841448 != events run_id=pmtrain-1781842247; pending_labels.jsonl: last_run_id=pmtrain-1781841448 != events run_id=pmtrain-1781842247
+Bregman near   : total=505 one_fix_away=100 depth_only=0 not_exhaustive=245 | no-bundle blocker=stale_books
+Blocking       : stale_or_mixed_training_tail_samples: decision_records.jsonl: last_run_id=pmtrain-1781842247 != events run_id=pmtrain-1781843034; no_trade_labels.jsonl: last_run_id=pmtrain-1781842247 != events run_id=pmtrain-1781843034; pending_labels.jsonl: last_run_id=pmtrain-1781842247 != events run_id=pmtrain-1781843034
 Artifact paths :
    runtime_training_data_dir=runtime_data/training exists=True
    runtime_metrics_dir=runtime_data/metrics exists=True
    runtime_reports_dir=runtime_data/reports exists=True
-   inspection_bundle_dir=inspection_reports/bot_inspection_20260619_041057
-Warnings       : safety audit raised warnings; NOT RUN-READY: stale_or_mixed_training_tail_samples: decision_records.jsonl: last_run_id=pmtrain-1781841448 != events run_id=pmtrain-1781842247; no_trade_labels.jsonl: last_run_id=pmtrain-1781841448 != events run_id=pmtrain-1781842247; pending_labels.jsonl: last_run_id=pmtrain-1781841448 != events run_id=pmtrain-1781842247; No certified Bregman opportunities found yet; continue paper training.
+   inspection_bundle_dir=inspection_reports/bot_inspection_20260619_042404
+Warnings       : safety audit raised warnings; NOT RUN-READY: stale_or_mixed_training_tail_samples: decision_records.jsonl: last_run_id=pmtrain-1781842247 != events run_id=pmtrain-1781843034; no_trade_labels.jsonl: last_run_id=pmtrain-1781842247 != events run_id=pmtrain-1781843034; pending_labels.jsonl: last_run_id=pmtrain-1781842247 != events run_id=pmtrain-1781843034; No certified Bregman opportunities found yet; continue paper training.
 ==> running training-runtime validation (.report_venv python)
   [PASS] paper_training_running: mode=paper_train
-  [PASS] status_fresh: age=287.4s
+  [PASS] status_fresh: age=225.4s
   [PASS] live_trading_disabled: paper-only build
   [PASS] strict_paper_realism: reference fills off
   [PASS] core_metrics_non_null: {"after_cost_pnl": 0, "fill_realism_enabled": true, "fantasy_fill_rejections": 0}
   [PASS] closed_loop_metrics_present: status=collecting
-  [PASS] closed_loop_records_positive: records=240 considered=240
-  [PASS] decision_count_reconciles_with_events: events=240
-  [PASS] rejection_becomes_learning_object: no_trade+shadow=344 diagnostic=0
-  [PASS] pending_labels_or_diagnostic_without_target: pending=480 diag_no_label=0
-  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=344 diagnostic=0
-  [PASS] active_learning_selection_or_reason_present: selected=240 zero_reason=None
+  [PASS] closed_loop_records_positive: records=600 considered=600
+  [PASS] decision_count_reconciles_with_events: events=600
+  [PASS] rejection_becomes_learning_object: no_trade+shadow=673 diagnostic=0
+  [PASS] pending_labels_or_diagnostic_without_target: pending=1200 diag_no_label=0
+  [PASS] no_trade_or_shadow_labels_positive: no_trade+shadow=673 diagnostic=0
+  [PASS] active_learning_selection_or_reason_present: selected=600 zero_reason=None
   [PASS] pending_label_store_present: 
   [PASS] learning_state_saved: 
-  [PASS] bregman_metrics_consistent: discovered=483 certified=0 opened=0
-  [PASS] bregman_funnel_non_silent: detected=483 scanned=483 adapter_failed=0
-  [PASS] ledger_records_decisions: ledger.decisions=655974 decision_count=240
+  [PASS] bregman_metrics_consistent: discovered=488 certified=0 opened=0
+  [PASS] bregman_funnel_non_silent: detected=488 scanned=488 adapter_failed=0
+  [PASS] ledger_records_decisions: ledger.decisions=656574 decision_count=600
   [PASS] audit_win_rate_known: 
   [PASS] audit_clob_v2_executable_known: 
   [PASS] audit_production_readiness_score_known: 
   [PASS] run_ready_for_hours: blocking=[]
   [PASS] active_learning_config_consistent: config_source=aggressive_paper_profile runtime_enabled=True — aggressive_paper profile ALWAYS enables active learning; mismatch => container STALE, rebuild (mission-control --mode proof2h --approved-paper-run)
-  [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=0 blocked_by_reason={} — a selected candidate must open a <=$1 paper trade or record an exact blocker
+  [PASS] active_learning_selected_candidates_accounted: explore_selected_not_evaluated=0 tiny_evaluator_called=1 blocked_by_reason={} — a selected candidate must open a <=$1 paper trade or record an exact blocker
   [PASS] inspection_collector_includes_artifacts: 
   [PASS] inspection_artifacts_present: all present
-  [PASS] decision_count_has_event_file_rows: decision_count=240 events.jsonl_rows=3980730
-  [PASS] decision_records_counter_matches_file: counter=240 decision_records.jsonl_rows=655974
-  [PASS] pending_labels_counter_matches_file: counter=480 pending_labels.jsonl_rows=663873
-  [FAIL] training_tail_streams_same_run: events_run_id=pmtrain-1781842247 stale=['decision_records.jsonl=pmtrain-1781841448', 'no_trade_labels.jsonl=pmtrain-1781841448', 'pending_labels.jsonl=pmtrain-1781841448']
+  [PASS] decision_count_has_event_file_rows: decision_count=600 events.jsonl_rows=3983865
+  [PASS] decision_records_counter_matches_file: counter=600 decision_records.jsonl_rows=656574
+  [PASS] pending_labels_counter_matches_file: counter=1200 pending_labels.jsonl_rows=665073
+  [FAIL] training_tail_streams_same_run: events_run_id=pmtrain-1781843034 stale=['decision_records.jsonl=pmtrain-1781842247', 'no_trade_labels.jsonl=pmtrain-1781842247', 'pending_labels.jsonl=pmtrain-1781842247']
   [PASS] training_tail_streams_fresh_window: within freshness window
   [PASS] artifact_present:training_reconciliation.json: metrics/training_reconciliation.json
   [PASS] artifact_present:inspection_summary.json: metrics/inspection_summary.json
@@ -162,11 +162,11 @@ Warnings       : safety audit raised warnings; NOT RUN-READY: stale_or_mixed_tra
 SAFE TO RUN: False
 BLOCKING: ['training_tail_streams_same_run']
 report_rc=6 validate_rc=1
-==> packaging vps_light_report_20260619_041048.zip (complete light bundle + git proof)
-report bundle OK: 8339 files, 21395812 bytes -> vps_light_report_20260619_041048.zip
+==> packaging vps_light_report_20260619_042355.zip (complete light bundle + git proof)
+report bundle OK: 8443 files, 21484475 bytes -> vps_light_report_20260619_042355.zip
 ==> DONE
     report_rc=6 validate_rc=1
-    unique zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_20260619_041048.zip (21395812 bytes)
+    unique zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_20260619_042355.zip (21484475 bytes)
     latest zip : /opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/vps_light_report_latest.zip
     upload vps_light_report_latest.zip to ChatGPT for inspection.
 light_report_rc=6

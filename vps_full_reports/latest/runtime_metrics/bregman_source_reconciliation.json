@@ -1,8 +1,8 @@
 {
   "canonical_source": "metrics/bregman_funnel.json",
   "legacy_source": "metrics/bregman.json",
-  "canonical_constraint_groups_scanned": 483,
-  "legacy_constraint_groups_scanned": 717,
+  "canonical_constraint_groups_scanned": 488,
+  "legacy_constraint_groups_scanned": 706,
   "canonical_controls_run_ready": true,
   "legacy_controls_run_ready": false,
   "sources_disagree": false,
