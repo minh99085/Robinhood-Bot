@@ -329,3 +329,99 @@ class BregmanSettlementValidator:
             realized_payout=payout, expected_lower_bound=bound, margin=margin,
             reasons=reasons or (["payout cleared certified lower bound"] if valid
                                 else ["payout below certified lower bound"]))
+
+
+DEFAULT_GAMMA_MARKETS_URL = "https://gamma-api.polymarket.com/markets"
+
+
+def _parse_json_list(v) -> list:
+    """Gamma returns ``outcomes``/``outcomePrices`` as a JSON-encoded string or a list."""
+    import json as _json
+    if isinstance(v, list):
+        return v
+    if isinstance(v, str):
+        try:
+            out = _json.loads(v)
+            return out if isinstance(out, list) else []
+        except (ValueError, TypeError):
+            return []
+    return []
+
+
+def gamma_settlement_fetcher(*, base_url: Optional[str] = None, timeout_s: float = 4.0):
+    """Build a READ-ONLY Polymarket ``/markets/{id}`` resolution fetcher (one GET per id) for
+    the closed-loop settlement labeler. Returns a raw resolution OBSERVATION dict suitable for
+    :meth:`SettlementTruthEngine.classify` — never a trade, never a write, never raises.
+
+    Observation contract: always carries ``closed`` so the caller can treat a closed market
+    as TERMINAL (resolve clean, or record dirty + drop) and an unclosed one as 'retry later'.
+    A clean binary resolution (``outcomePrices`` ~ [1,0]/[0,1]) yields ``winning_outcome``
+    YES/NO; a closed-but-not-clean market yields ``winning_outcome=None`` (classifier ->
+    non-trainable) so an ambiguous/void settlement never trains the model."""
+    import os
+    url = base_url or os.getenv("SETTLEMENT_MARKETS_URL", DEFAULT_GAMMA_MARKETS_URL)
+    _box: dict = {}
+
+    def _client():
+        c = _box.get("c")
+        if c is None:
+            import httpx
+            c = httpx.Client(timeout=timeout_s,
+                             headers={"User-Agent": "hermes-settlement/1.0"})
+            _box["c"] = c
+        return c
+
+    def _fetch(market_id, condition_id=None) -> Optional[dict]:
+        mid = str(market_id or condition_id or "").strip()
+        if not mid:
+            return None
+        try:
+            resp = _client().get(f"{url}/{mid}")
+            if resp.status_code != 200:
+                return None
+            d = resp.json()
+            if isinstance(d, list):
+                d = d[0] if d else {}
+        except Exception:  # noqa: BLE001 — read-only enrichment never breaks a tick
+            return None
+        if not isinstance(d, dict):
+            return None
+        closed = bool(d.get("closed")) or str(d.get("umaResolutionStatus") or "").lower() \
+            in ("resolved", "settled")
+        obs = {"market_id": mid, "settlement_source": "gamma", "closed": closed,
+               "resolved": False}
+        if not closed:
+            return obs
+        prices = []
+        for x in _parse_json_list(d.get("outcomePrices")):
+            try:
+                prices.append(float(x))
+            except (TypeError, ValueError):
+                prices.append(None)
+        outcomes = [str(x) for x in _parse_json_list(d.get("outcomes"))]
+        if len(prices) >= 2 and None not in prices[:2]:
+            hi, lo = max(prices[:2]), min(prices[:2])
+            if hi >= 0.99 and lo <= 0.01:
+                win_idx = prices.index(hi)
+                lbl = outcomes[win_idx].strip().lower() if win_idx < len(outcomes) else ""
+                winner = "YES" if (lbl in ("yes", "y", "true") or win_idx == 0) else "NO"
+                obs.update({"resolved": True, "winning_outcome": winner})
+                return obs
+        # closed but not an unambiguous 0/1 -> mark resolved with no clean winner +
+        # high ambiguity so the truth engine yields a non-trainable (ambiguous) label.
+        obs.update({"resolved": True, "winning_outcome": None, "ambiguity_score": 0.6})
+        return obs
+
+    return _fetch
+
+
+def default_settlement_fetcher():
+    """Constructor default: ON only when ``CLOSED_LOOP_SETTLEMENT_FETCH_ENABLED`` (or the
+    shared read-only CLOB hydration flag) is set, so offline/unit runs never hit the network."""
+    import os
+
+    def _on(name: str) -> bool:
+        return str(os.getenv(name, "")).strip().lower() in ("1", "true", "yes", "on")
+    if _on("CLOSED_LOOP_SETTLEMENT_FETCH_ENABLED") or _on("BREGMAN_CLOB_HYDRATION_ENABLED"):
+        return gamma_settlement_fetcher()
+    return None

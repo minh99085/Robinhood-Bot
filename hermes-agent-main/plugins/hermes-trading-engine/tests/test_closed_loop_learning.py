@@ -148,6 +148,76 @@ def test_proxy_label_resolves_into_completed_feedback(tmp_path):
     assert row["counts_for_calibration"] is False and row["metric_basis"] == "directional_proxy"
 
 
+def _settle_fetch(by_id):
+    def _f(market_id, condition_id=None):
+        return by_id.get(str(market_id))
+    return _f
+
+
+def test_final_settlement_resolves_real_outcome_and_trains_calibration(tmp_path):
+    cl = _cll(tmp_path)
+    cl.begin_tick()
+    # final_settlement label (end_ts in the past => due now); base cfg has fast_proxy OFF.
+    cl.record(_rec(end_ts=_NOW - 10), _est(0.30), _edge(), decision="no_trade_label",
+              reason="edge_too_low", tick=1, now=_NOW)
+    assert cl.counts["pending_labels_created"] == 1
+    fetch = _settle_fetch({"m0": {"market_id": "m0", "closed": True, "resolved": True,
+                                  "winning_outcome": "YES", "settlement_source": "gamma"}})
+    n = cl.resolve_labels({}, now=_NOW + 1, settlement_fetcher=fetch)
+    assert n == 1
+    m = cl.metrics()
+    assert m["brier_after"] is not None                  # REAL settlement Brier
+    assert m["settlement_calibration_samples"] == 1
+    assert m["proxy_directional_brier"] is None           # no momentum proxy here
+    comps = cl._settlement_completions
+    assert len(comps) == 1 and comps[0]["realized"] == 1  # market settled YES
+    assert not cl.pending                                 # terminal: dropped from pending
+
+
+def test_final_settlement_unresolved_market_stays_pending(tmp_path):
+    cl = _cll(tmp_path)
+    cl.begin_tick()
+    cl.record(_rec(end_ts=_NOW - 10), _est(), _edge(), decision="no_trade_label",
+              reason="x", tick=1, now=_NOW)
+    fetch = _settle_fetch({"m0": {"market_id": "m0", "closed": False, "resolved": False}})
+    n = cl.resolve_labels({}, now=_NOW + 1, settlement_fetcher=fetch)
+    assert n == 0 and len(cl.pending) == 1                # not closed yet -> retry later
+    assert cl.metrics()["settlement_calibration_samples"] == 0
+
+
+def test_final_settlement_dirty_is_dropped_not_trained(tmp_path):
+    cl = _cll(tmp_path)
+    cl.begin_tick()
+    cl.record(_rec(end_ts=_NOW - 10), _est(), _edge(), decision="no_trade_label",
+              reason="x", tick=1, now=_NOW)
+    # closed but ambiguous (no clean winner) -> non-trainable -> recorded + dropped
+    fetch = _settle_fetch({"m0": {"market_id": "m0", "closed": True, "resolved": True,
+                                  "winning_outcome": None, "ambiguity_score": 0.6}})
+    n = cl.resolve_labels({}, now=_NOW + 1, settlement_fetcher=fetch)
+    assert n == 1 and not cl.pending                      # terminal drop
+    assert cl.metrics()["settlement_calibration_samples"] == 0
+    assert not cl._settlement_completions
+
+
+def test_final_settlement_without_fetcher_stays_pending(tmp_path):
+    cl = _cll(tmp_path)
+    cl.begin_tick()
+    cl.record(_rec(end_ts=_NOW - 10), _est(), _edge(), decision="no_trade_label",
+              reason="x", tick=1, now=_NOW)
+    n = cl.resolve_labels({}, now=_NOW + 1, settlement_fetcher=None)
+    assert n == 0 and len(cl.pending) == 1                # never fabricated
+
+
+def test_learner_observe_settlement_updates_calibration(tmp_path):
+    from engine.training.online_learner import OnlineLearner
+    lr = OnlineLearner()
+    assert lr.observe_settlement(0.8, 1, category="crypto") is True
+    assert lr.observe_settlement(0.2, 0) is True
+    assert lr.live_settlement_samples == 2
+    assert lr.prob_buckets                                # calibration buckets populated
+    assert lr.observe_settlement("bad", 1) is False       # invalid input rejected
+
+
 def test_learning_state_persists(tmp_path):
     cl = _cll(tmp_path)
     cl.begin_tick()

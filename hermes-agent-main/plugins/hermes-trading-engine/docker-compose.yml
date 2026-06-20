@@ -662,6 +662,13 @@ services:
       MAKER_SIM_MAX_RESTING_TICKS: "20"
       # Research stays OFF the hot path (definitive loop-stall fix); advisory scheduler only.
       RESEARCH_HOT_PATH_LIVE: "0"
+      # ---- Ongoing REAL-settlement feedback (honest calibration over time) ----
+      # Resolve due final_settlement shadow labels against genuine Gamma resolutions (bounded
+      # fetch/tick) and train probability calibration on REAL outcomes — so the model's
+      # calibration improves from settled markets, not just the one-time warm-start. The
+      # short-horizon momentum proxy is reported separately and NEVER as calibration.
+      CLOSED_LOOP_SETTLEMENT_FETCH_ENABLED: "1"
+      CLOSED_LOOP_SETTLEMENT_MAX_FETCHES_PER_TICK: "30"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----
       # Live Chainlink mainnet aggregator reads (latestRoundData over JSON-RPC),
       # used ONLY as a probability/edge input feature for crypto-linked markets.

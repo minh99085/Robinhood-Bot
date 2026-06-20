@@ -196,6 +196,11 @@ class ClosedLoopLearning:
         self._proxy_brier_after: Optional[float] = None
         self._proxy_brier_samples: int = 0
         self.settlement_calibration_samples: int = 0
+        # deterministic settlement-truth classifier (no network) + queue of clean resolved
+        # completions for the trainer to train calibration on REAL outcomes.
+        from .settlement import SettlementTruthEngine
+        self._settlement_engine = SettlementTruthEngine()
+        self._settlement_completions: list = []
         self.state = {}
         self.state_loaded = self._load_state()
         self.state_saved = False
@@ -444,44 +449,85 @@ class ClosedLoopLearning:
 
     # -- resolve labels (final or proxy) -------------------------------------
     def resolve_labels(self, marks: dict, *, now: Optional[float] = None,
-                       proxy_ok: bool = True) -> int:
+                       proxy_ok: bool = True, settlement_fetcher=None,
+                       max_settlement_fetches: int = 30) -> int:
         """Resolve due pending labels into completed feedback. ``marks`` maps
-        market_id -> current mid price (proxy) or settlement (0/1). Returns count."""
+        market_id -> current mid price (used only for the short-horizon directional PROXY).
+
+        ``final_settlement`` labels resolve ONLY against REAL settlement truth fetched via
+        ``settlement_fetcher(market_id, condition_id) -> obs`` (bounded by
+        ``max_settlement_fetches`` per call); a clean resolved outcome trains calibration
+        (``counts_for_calibration=True``, settlement Brier) and is queued in
+        ``self._settlement_completions`` for the trainer to feed the calibrator/learner.
+        Resolved-but-dirty (void/ambiguous) markets are recorded and dropped (no training).
+        Without a fetcher, final-settlement labels simply stay pending (never fabricated)."""
         now = now or time.time()
         resolved = 0
         still_pending = []
         proxy_briers = []
+        settlement_briers = []
+        settlement_fetches = 0
+        self._settlement_completions = []
         for row in self.pending:
             due = float(row.get("label_due_at") or 0.0)
+            is_due = bool(due and now >= due)
+            lt = row.get("label_type")
+            p = float(row.get("model_probability") or row.get("market_probability") or 0.5)
+            if lt == "final_settlement":
+                # REAL settlement only. Not due, no fetcher, or fetch budget spent -> retry later.
+                if not is_due or settlement_fetcher is None \
+                        or settlement_fetches >= int(max_settlement_fetches):
+                    still_pending.append(row)
+                    continue
+                settlement_fetches += 1
+                try:
+                    obs = settlement_fetcher(row.get("market_id"), row.get("condition_id"))
+                except Exception:  # noqa: BLE001 — a settlement fetch never breaks a tick
+                    obs = None
+                if not obs or not obs.get("closed"):
+                    still_pending.append(row)        # not resolved yet -> retry next tick
+                    continue
+                # market is CLOSED -> terminal (drop from pending either way).
+                label = self._settlement_engine.classify(obs, now_ms=int(now * 1000))
+                realized = label.realized_for("YES") if label.trainable else None
+                if realized is None:
+                    self.counts["settlement_dirty_dropped"] = \
+                        self.counts.get("settlement_dirty_dropped", 0) + 1
+                    comp = {**row, "resolved_at": round(now, 3),
+                            "label_type": "final_settlement", "counts_for_calibration": False,
+                            "metric_basis": "settlement_dirty", "settlement_state": label.state}
+                else:
+                    brier = round((p - float(realized)) ** 2, 6)
+                    settlement_briers.append(brier)
+                    self.settlement_calibration_samples += 1
+                    comp = {**row, "resolved_at": round(now, 3), "outcome": float(realized),
+                            "brier_contribution": brier, "label_type": "final_settlement",
+                            "counts_for_calibration": True, "metric_basis": "settlement",
+                            "settlement_state": label.state, "settlement_source": label.source}
+                    # queue for the trainer to train calibration on the REAL outcome
+                    self._settlement_completions.append({
+                        "predicted_prob": p, "realized": int(realized),
+                        "market_id": row.get("market_id"),
+                        "category": row.get("category", "uncategorized"),
+                        "label_state": label.state, "confidence": label.confidence})
+                self.completed.append(comp)
+                self.counts["completed_labels_created"] += 1
+                self.counts["feedback_records_written"] += 1
+                self._append_jsonl("completed_labels.jsonl", comp)
+                resolved += 1
+                continue
+            # PROXY (short-horizon momentum) — needs a live mid; NEVER settlement calibration.
             mid = marks.get(row.get("market_id"))
-            is_due = due and now >= due
-            if mid is None or (row["label_type"] == "final_settlement" and not is_due):
+            if mid is None or not (proxy_ok and is_due):
                 still_pending.append(row)
                 continue
-            if row["label_type"] == "proxy" and not (proxy_ok and is_due):
-                still_pending.append(row)
-                continue
-            p = row.get("model_probability") or row.get("market_probability") or 0.5
-            # CALIBRATION-TRUTH: a mid at/after the end date is NOT the settlement truth
-            # (the market may not have actually resolved, and a resolved market drops out of
-            # the live scan so its real outcome is never seen here). Therefore NEITHER the
-            # short-horizon proxy NOR a mid-thresholded "final" label is settlement-grade —
-            # both are short-horizon DIRECTIONAL proxies and must NOT feed the settlement
-            # calibration Brier/ECE (doing so scored the model's settlement probability
-            # against momentum and produced a meaningless >0.5 Brier). Real settlement
-            # calibration comes only from genuinely-resolved outcomes (settlement fetcher).
-            if row["label_type"] == "final_settlement":
-                outcome = 1.0 if float(mid) >= 0.5 else 0.0
-            else:
-                start = row.get("market_probability") or 0.5
-                outcome = 1.0 if float(mid) >= float(start) else 0.0
-            counts_for_calibration = False     # directional proxy: never settlement calibration
-            brier = round((float(p) - outcome) ** 2, 6)
+            start = row.get("market_probability") or 0.5
+            outcome = 1.0 if float(mid) >= float(start) else 0.0
+            brier = round((p - outcome) ** 2, 6)
             proxy_briers.append(brier)
             comp = {**row, "resolved_at": round(now, 3), "outcome": outcome,
-                    "brier_contribution": brier, "label_type": row["label_type"],
-                    "counts_for_calibration": counts_for_calibration,
-                    "metric_basis": "directional_proxy",
+                    "brier_contribution": brier, "label_type": "proxy",
+                    "counts_for_calibration": False, "metric_basis": "directional_proxy",
                     "not_final_settlement": True}
             self.completed.append(comp)
             self.counts["completed_labels_created"] += 1
@@ -489,6 +535,12 @@ class ClosedLoopLearning:
             self._append_jsonl("completed_labels.jsonl", comp)
             resolved += 1
         self.pending = still_pending
+        if settlement_briers:
+            # REAL settlement calibration Brier (genuinely-resolved outcomes only).
+            self.brier_before = self.brier_after
+            self.brier_after = round(sum(settlement_briers) / len(settlement_briers), 6)
+            self.calibration_updates += 1
+            self.active_learning_used_feedback = True
         if proxy_briers:
             # short-horizon DIRECTIONAL-proxy Brier (momentum), reported separately and
             # CLEARLY NOT settlement calibration. The settlement Brier/ECE stay driven by

@@ -180,3 +180,27 @@ def test_model_skill_not_predictive_when_worse_than_base_rate(tmp_path, monkeypa
     t._oos_calibration = {"n": 100, "brier": 0.40, "base_rate": 0.5}   # baseline 0.25
     r = t.model_skill_report()
     assert r["predictive_vs_baseline"] is False
+
+
+# --------------------------------------------------------------------------- #
+# ongoing real-settlement feedback: resolved shadow labels train calibration
+# --------------------------------------------------------------------------- #
+def test_trainer_trains_calibration_from_resolved_settlements(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    before = int(getattr(t.learner, "live_settlement_samples", 0))
+    t.closed_loop._settlement_completions = [
+        {"predicted_prob": 0.7, "realized": 1, "category": "crypto"},
+        {"predicted_prob": 0.3, "realized": 0, "category": "crypto"},
+    ]
+    t._train_on_resolved_settlements()
+    assert t.learner.live_settlement_samples == before + 2
+    assert int(getattr(t, "_live_settlement_trained", 0)) >= 2
+    r = t.model_skill_report()
+    assert r["live_settlement_samples"] >= 2
+
+
+def test_settlement_fetcher_override_is_used(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    sentinel = lambda mid, cid=None: {"closed": True}    # noqa: E731
+    t._settlement_fetcher_override = sentinel
+    assert t._settlement_fetcher() is sentinel

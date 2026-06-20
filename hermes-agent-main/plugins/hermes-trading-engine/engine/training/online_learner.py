@@ -44,6 +44,8 @@ class OnlineLearner:
         # dirty labels (void/ambiguous/unresolved/partially_invalid/stale) are
         # counted here and otherwise ignored (no calibration/bucket pollution).
         self.suppressed_outcomes = 0
+        self.warm_start_samples = 0
+        self.live_settlement_samples = 0
         self.label_states: dict = {}
         self.no_trade_reasons: dict = {}
         self.variant_decisions: dict = {}   # variant -> {traded, no_trade}
@@ -85,6 +87,7 @@ class OnlineLearner:
         self.signal_strategies = dict(d.get("signal_strategies", {}))
         self.alpha_attribution = dict(d.get("alpha_attribution", {}))
         self.warm_start_samples = int(d.get("warm_start_samples", 0))
+        self.live_settlement_samples = int(d.get("live_settlement_samples", 0))
 
     def _load(self) -> None:
         if self.path and self.path.exists():
@@ -255,6 +258,32 @@ class OnlineLearner:
         self.warm_start_samples += ingested
         return ingested
 
+    def observe_settlement(self, predicted_prob: float, outcome,
+                           category: str = "uncategorized") -> bool:
+        """Ongoing CLEAN settlement-grounded calibration update from a genuinely-RESOLVED
+        market (predicted P(YES) vs realized 0/1). Updates the SAME probability-calibration
+        buckets + per-category reliability as warm-start / a closed clean trade — but does
+        NOT touch edge/PnL buckets (no trade occurred), so trade-edge stats stay clean.
+        Tallied separately as ``live_settlement_samples`` for auditability. Returns True iff
+        it trained calibration."""
+        try:
+            p = max(0.0, min(1.0, float(predicted_prob)))
+            w = 1 if int(outcome) == 1 else 0
+        except (TypeError, ValueError):
+            return False
+        b = self.prob_buckets.setdefault(prob_bucket(p), {"n": 0, "sum_pred": 0.0, "wins": 0})
+        b["n"] += 1
+        b["sum_pred"] += p
+        b["wins"] += w
+        cat = category or "uncategorized"
+        c = self.categories.setdefault(cat, {"n": 0, "wins": 0, "reliability": 0.5,
+                                             "ewma_capture": 0.0})
+        c["n"] += 1
+        c["wins"] += w
+        c["reliability"] = (1 - self.alpha) * c["reliability"] + self.alpha * w
+        self.live_settlement_samples = int(getattr(self, "live_settlement_samples", 0)) + 1
+        return True
+
     def label_quality(self) -> dict:
         """Settlement-label quality summary (coverage / suppression / states)."""
         terminal = self.closed + self.suppressed_outcomes
@@ -402,6 +431,7 @@ class OnlineLearner:
             "alpha_attribution": self.alpha_attribution,
             "rollbacks": self.rollbacks,
             "warm_start_samples": int(getattr(self, "warm_start_samples", 0)),
+            "live_settlement_samples": int(getattr(self, "live_settlement_samples", 0)),
         }
 
     def summary(self) -> dict:

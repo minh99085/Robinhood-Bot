@@ -849,7 +849,11 @@ class PolymarketPaperTrainer:
         # labels (final settlement or short-horizon proxy) into completed feedback.
         self.closed_loop.begin_tick()
         try:
-            self.closed_loop.resolve_labels(marks, now=now)
+            self.closed_loop.resolve_labels(
+                marks, now=now, settlement_fetcher=self._settlement_fetcher(),
+                max_settlement_fetches=int(getattr(
+                    self.cfg, "closed_loop_settlement_max_fetches_per_tick", 30)))
+            self._train_on_resolved_settlements()
         except Exception:  # noqa: BLE001 — learning must never break a tick
             pass
 
@@ -1093,6 +1097,50 @@ class PolymarketPaperTrainer:
             except Exception:  # noqa: BLE001 — never break a tick building a fetcher
                 self._family_event_fetcher_cached = None
         return self._family_event_fetcher_cached
+
+    def _settlement_fetcher(self):
+        """Lazily build (and cache) the READ-ONLY Polymarket settlement-resolution fetcher
+        used to resolve due ``final_settlement`` shadow labels against REAL outcomes. Returns
+        None when settlement fetch is disabled (offline/unit tests) so the loop never hits the
+        network. An injected override (``_settlement_fetcher_override``) wins (tests)."""
+        override = getattr(self, "_settlement_fetcher_override", None)
+        if override is not None:
+            return override
+        if not getattr(self.cfg, "closed_loop_settlement_fetch_enabled", False):
+            return None
+        if not hasattr(self, "_settlement_fetcher_cached"):
+            try:
+                from engine.training.settlement import default_settlement_fetcher
+                self._settlement_fetcher_cached = default_settlement_fetcher()
+            except Exception:  # noqa: BLE001 — never break a tick building a fetcher
+                self._settlement_fetcher_cached = None
+        return self._settlement_fetcher_cached
+
+    def _train_on_resolved_settlements(self) -> None:
+        """Feed the closed loop's clean, genuinely-RESOLVED settlement completions into the
+        learner's probability CALIBRATION (predicted P(YES) vs realized 0/1). This is the
+        ongoing real-settlement feedback loop: the model's calibration now improves from
+        actual resolved markets over time, not just the one-time warm-start. Calibration-only
+        (no trade) — never touches trade-edge/PnL stats. Best-effort; never breaks a tick."""
+        comps = list(getattr(self.closed_loop, "_settlement_completions", []) or [])
+        if not comps:
+            return
+        trained = 0
+        for c in comps:
+            try:
+                if self.learner.observe_settlement(
+                        float(c["predicted_prob"]), int(c["realized"]),
+                        category=c.get("category", "uncategorized") or "uncategorized"):
+                    trained += 1
+            except Exception:  # noqa: BLE001
+                continue
+        if trained:
+            self._live_settlement_trained = int(
+                getattr(self, "_live_settlement_trained", 0)) + trained
+            try:
+                self.learner.persist()
+            except Exception:  # noqa: BLE001 — persistence failure never breaks a tick
+                pass
 
     def scan_bregman(self, records: list, now: float) -> list:
         """Certify Bregman opportunities across the candidate set (read-only).
@@ -2963,6 +3011,16 @@ class PolymarketPaperTrainer:
                                   if (predictive or (isinstance(brier, (int, float))
                                       and baseline is not None)) else None),
             "predictive_vs_baseline": predictive,
+            # ongoing REAL-settlement calibration growth (live resolved shadow labels) +
+            # one-time warm-start, with the learner's current calibration error.
+            "warm_start_samples": int(getattr(self.learner, "warm_start_samples", 0) or 0),
+            "live_settlement_samples": int(
+                getattr(self.learner, "live_settlement_samples", 0) or 0),
+            "live_settlement_trained": int(getattr(self, "_live_settlement_trained", 0) or 0),
+            "settlement_fetch_enabled": bool(
+                getattr(self.cfg, "closed_loop_settlement_fetch_enabled", False)),
+            "learner_calibration_error": round(float(self.learner.calibration_error()), 6)
+            if self.learner is not None else None,
             "note": ("settlement-grade calibration on resolved markets; closed-loop"
                      " proxy_directional_brier is momentum, NOT calibration"),
         }

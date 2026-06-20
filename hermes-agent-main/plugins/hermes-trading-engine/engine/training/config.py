@@ -371,6 +371,11 @@ class TrainingConfig:
     # poisoning); the 6C out-of-sample SETTLEMENT gate remains the promotion authority.
     closed_loop_fast_proxy_enabled: bool = False   # base off; aggressive_paper turns ON
     closed_loop_proxy_horizon_s: float = 600.0
+    # ongoing REAL-settlement feedback: resolve due final_settlement shadow labels against
+    # genuine Gamma resolutions (bounded fetch) -> train probability calibration on real
+    # outcomes. base OFF (offline/unit safe); aggressive_paper turns ON.
+    closed_loop_settlement_fetch_enabled: bool = False
+    closed_loop_settlement_max_fetches_per_tick: int = 30
     # Tier-2 institutional risk layer (PAPER ONLY; tighten-only). Portfolio concentration
     # limits (VaR/CVaR + event/category/total exposure caps), confidence-aware fractional
     # Kelly sizing, and a regime aggression multiplier. base OFF; aggressive_paper turns ON.
@@ -1577,6 +1582,10 @@ class TrainingConfig:
             # Option 1 fast proxy labels (discovery feedback; never feeds settlement calib).
             closed_loop_fast_proxy_enabled=_envb("CLOSED_LOOP_FAST_PROXY_ENABLED", True),
             closed_loop_proxy_horizon_s=_envf("CLOSED_LOOP_PROXY_HORIZON_S", 600.0),
+            closed_loop_settlement_fetch_enabled=_envb(
+                "CLOSED_LOOP_SETTLEMENT_FETCH_ENABLED", True),
+            closed_loop_settlement_max_fetches_per_tick=_envi(
+                "CLOSED_LOOP_SETTLEMENT_MAX_FETCHES_PER_TICK", 30),
             # Tier-2 institutional risk layer ON for the aggressive profile (tighten-only).
             portfolio_risk_enabled=_envb("PORTFOLIO_RISK_ENABLED", True),
             max_event_exposure_frac=_envf("PORTFOLIO_MAX_EVENT_EXPOSURE_FRAC", 0.20),
