@@ -21,6 +21,39 @@ the Hermes Agent autonomous Polymarket paper-trading bot.
 When a change could touch architecture or a safety control, stop and surface it instead of
 doing it. Everything stays **PAPER ONLY**.
 
+## Deployment & sync directive (ALWAYS follow)
+
+**Keep GitHub `main` and the live VPS in lockstep.** Every time work is finished, land it on
+GitHub `main` **and** deploy the same commit to the VPS so `main` == VPS HEAD (SHA-for-SHA).
+Never leave the VPS running code that is not on `main`, and never advance `main` without
+deploying it to the VPS.
+
+VPS deploy procedure (proven; the VPS cannot `git fetch origin` — its deploy key is
+passphrase-protected, so use a git bundle):
+
+1. `git bundle create /tmp/u.bundle ^<vps_head_sha> <branch-or-commit>` then `scp` it over.
+2. On the VPS: `git -C /opt/hermes-agent-main fetch /tmp/u.bundle <ref>` then
+   `git -C /opt/hermes-agent-main merge --ff-only FETCH_HEAD`.
+3. If **code** changed (not just reports/docs): in
+   `/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine` run
+   `docker compose build && docker compose up -d`. Docs/report-only commits need no rebuild.
+4. Verify: both containers `healthy`, `/data/polymarket_training.json` fresh (< ~5 min),
+   and `git rev-parse HEAD` on the VPS equals `origin/main`. Clean up `/tmp/*.bundle`.
+
+### VPS access (so access is never lost)
+
+- Connection coordinates live in the repo-root `.laptop_agent.json` (gitignored): host
+  `45.32.227.242`, user `linuxuser`, port `22`, repo root `/opt/hermes-agent-main`, plugin
+  `/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine`, containers
+  `hermes-training` + `hermes-trading-engine`.
+- SSH key path on the agent VM: `/home/ubuntu/.ssh/cursor-temp-vps`. Connect with
+  `ssh -i /home/ubuntu/.ssh/cursor-temp-vps -o BatchMode=yes linuxuser@45.32.227.242`.
+- **Cross-run persistence:** cloud-agent VMs are ephemeral and the private key must NEVER be
+  committed to git. To retain VPS access on every future run, the key (and coordinates) must
+  be stored as **Cloud Agent secrets** in the Cursor Dashboard (Cloud Agents > Secrets) so
+  they are injected into new VMs — e.g. a secret holding the private key written to
+  `~/.ssh/cursor-temp-vps` at startup.
+
 ## Repo layout — IMPORTANT (read first)
 
 There are **two** Docker setups in this repo. They build **different apps**:
