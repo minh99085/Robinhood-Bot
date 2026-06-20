@@ -1137,6 +1137,18 @@ class PolymarketPaperTrainer:
                 self._settlement_fetcher_cached = None
         return self._settlement_fetcher_cached
 
+    import re as _re
+    _BTC_ETH_RE = _re.compile(r"\b(btc|bitcoin|eth|ether|ethereum)\b", _re.I)
+
+    @classmethod
+    def _is_btc_eth_market(cls, rec) -> bool:
+        """True when the market question references BTC/ETH (a Chainlink-priced market) —
+        the real fast-settling lane where the bot has a genuine independent signal. Mirrors
+        the targeted-scan `btc_eth_chainlink` text rule; read-only."""
+        raw = getattr(rec, "raw", {}) or {}
+        q = str(getattr(rec, "question", "") or raw.get("question") or raw.get("title") or "")
+        return bool(cls._BTC_ETH_RE.search(q))
+
     def _select_directional_candidates(self, pool: list, budget: int,
                                        *, fallback: Optional[list] = None) -> list:
         """Focus the directional lane's budget on MODEL-EDGE-ZONE markets instead of the
@@ -1154,8 +1166,14 @@ class PolymarketPaperTrainer:
         hi = float(getattr(self.cfg, "directional_max_prob", 0.90))
         min_depth = float(getattr(self.cfg, "directional_select_min_depth_usd", 50.0))
         max_spread = float(getattr(self.cfg, "directional_select_max_spread", 0.06))
+        # BTC/ETH-Chainlink FOCUS: concentrate the directional budget on the real, fast-
+        # settling BTC/ETH price markets (the one place the bot has a genuine independent
+        # signal: live Chainlink anchor + fast spot feed). Fast settlement tightens the
+        # calibration CI quickly -> the credible gate can close -> first readiness trades.
+        # Selection-only; the chainlink edge + every realism/credible gate apply downstream.
+        btc_focus = bool(getattr(self.cfg, "directional_btc_focus_enabled", False))
         scored: list = []
-        in_band = filt_prob = filt_depth = filt_spread = 0
+        in_band = filt_prob = filt_depth = filt_spread = filt_non_btc = btc_in_pool = 0
         # price histogram over the WHOLE pool (definitively shows whether the universe has
         # any mid-range markets, vs being all longshots/locks).
         hist = {"<0.05": 0, "0.05-0.10": 0, "0.10-0.90": 0, "0.90-0.95": 0, ">0.95": 0}
@@ -1164,6 +1182,12 @@ class PolymarketPaperTrainer:
             mv = float(mid) if mid is not None else 0.5
             hist["<0.05" if mv < 0.05 else "0.05-0.10" if mv < 0.10 else "0.10-0.90"
                  if mv <= 0.90 else "0.90-0.95" if mv <= 0.95 else ">0.95"] += 1
+            is_btc = self._is_btc_eth_market(rec)
+            if is_btc:
+                btc_in_pool += 1
+            if btc_focus and not is_btc:
+                filt_non_btc += 1
+                continue
             if mid is None or not (lo <= float(mid) <= hi):
                 filt_prob += 1
                 continue
@@ -1192,7 +1216,9 @@ class PolymarketPaperTrainer:
             "filtered_out_of_band_prob": filt_prob, "filtered_thin_depth": filt_depth,
             "filtered_wide_spread": filt_spread, "selected": len(selected),
             "prob_band": [lo, hi], "min_depth_usd": min_depth, "max_spread": max_spread,
-            "pool_mid_histogram": hist}
+            "pool_mid_histogram": hist,
+            "btc_focus_enabled": btc_focus, "btc_in_pool": btc_in_pool,
+            "filtered_non_btc": filt_non_btc}
         return selected
 
     def _hydrate_directional(self, candidates: list, now: float) -> dict:

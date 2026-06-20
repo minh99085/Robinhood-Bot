@@ -349,6 +349,49 @@ def test_directional_selection_disabled_is_passthrough(tmp_path, monkeypatch):
     assert t._select_directional_candidates(recs, budget=10) == recs[:10]
 
 
+def _q_rec(mid, question, *, depth=800.0, spread=0.02):
+    from engine.markets import universe_manager as um
+    bid = round(max(0.001, mid - spread / 2), 4)
+    ask = round(min(0.999, mid + spread / 2), 4)
+    raw = {"id": "q" + str(abs(hash(question)) % 9999), "clobTokenIds": ["a", "b"],
+           "question": question, "bestBid": bid, "bestAsk": ask,
+           "outcomePrices": [str(round(mid, 4)), str(round(1 - mid, 4))], "liquidityNum": depth}
+    r = um.MarketRecord.from_raw(raw, now=_NOW)
+    r.top_depth_usd = depth
+    return r
+
+
+def test_btc_focus_restricts_directional_to_btc_eth_markets(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch, directional_selection_enabled=True,
+                 directional_btc_focus_enabled=True, directional_select_min_depth_usd=50.0,
+                 directional_select_max_spread=0.08)
+    btc = _q_rec(0.5, "Will BTC be above $70,000 at 5pm ET?")
+    eth = _q_rec(0.45, "Will Ethereum close higher today?")
+    pol = _q_rec(0.5, "Will Candidate X win the election?")
+    sel = t._select_directional_candidates([btc, eth, pol], budget=10)
+    ids = {r.market_id for r in sel}
+    assert btc.market_id in ids and eth.market_id in ids
+    assert pol.market_id not in ids                      # non-BTC excluded under focus
+    tel = t._directional_selection_tel
+    assert tel["btc_focus_enabled"] is True and tel["btc_in_pool"] == 2
+    assert tel["filtered_non_btc"] == 1
+
+
+def test_btc_focus_off_keeps_non_btc(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch, directional_selection_enabled=True,
+                 directional_btc_focus_enabled=False, directional_select_min_depth_usd=50.0)
+    pol = _q_rec(0.5, "Will Candidate X win the election?")
+    sel = t._select_directional_candidates([pol], budget=10)
+    assert pol.market_id in {r.market_id for r in sel}   # not restricted when focus off
+
+
+def test_is_btc_eth_market_detection(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    assert t._is_btc_eth_market(_q_rec(0.5, "Will BTC hit 100k?"))
+    assert t._is_btc_eth_market(_q_rec(0.5, "ethereum above 4000?"))
+    assert not t._is_btc_eth_market(_q_rec(0.5, "Will the Fed cut rates?"))
+
+
 # --------------------------------------------------------------------------- #
 # #3 calibration-derived model edge (favorite-longshot / market-bias correction)
 # --------------------------------------------------------------------------- #

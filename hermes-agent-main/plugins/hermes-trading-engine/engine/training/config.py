@@ -385,6 +385,10 @@ class TrainingConfig:
     # liquid, tight spread) instead of volume-ranked longshots where model==market (no edge).
     # Selection-only; never loosens a gate. base OFF, aggressive_paper ON.
     directional_selection_enabled: bool = False
+    # BTC/ETH-Chainlink FOCUS: restrict the directional lane to real BTC/ETH price markets
+    # (fast settlement -> fast calibration -> credible gate closes -> first readiness trades;
+    # the one lane with a genuine independent signal). Selection-only. base OFF.
+    directional_btc_focus_enabled: bool = False
     directional_min_prob: float = 0.10
     directional_max_prob: float = 0.90
     directional_select_min_depth_usd: float = 50.0
@@ -1618,6 +1622,7 @@ class TrainingConfig:
             directional_hydration_max_per_tick=_envi(
                 "POLYMARKET_DIRECTIONAL_HYDRATION_MAX_PER_TICK", 40),
             directional_selection_enabled=_envb("POLYMARKET_DIRECTIONAL_SELECTION_ENABLED", True),
+            directional_btc_focus_enabled=_envb("POLYMARKET_DIRECTIONAL_BTC_FOCUS_ENABLED", False),
             directional_min_prob=_envf("POLYMARKET_DIRECTIONAL_MIN_PROB", 0.10),
             directional_max_prob=_envf("POLYMARKET_DIRECTIONAL_MAX_PROB", 0.90),
             directional_select_min_depth_usd=_envf(

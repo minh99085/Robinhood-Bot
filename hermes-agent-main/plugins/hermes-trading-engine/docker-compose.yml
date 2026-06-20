@@ -690,6 +690,11 @@ services:
       # tight spread) instead of volume-ranked longshots where model==market (no edge).
       # Selection-only; every realism/after-cost/credible/risk gate still applies downstream.
       POLYMARKET_DIRECTIONAL_SELECTION_ENABLED: "1"
+      # BTC/ETH-Chainlink FOCUS profile: concentrate the directional lane on the real,
+      # fast-settling BTC/ETH price markets (genuine independent signal: Chainlink anchor +
+      # fast spot feed). Fast settlement tightens calibration quickly -> credible gate closes
+      # -> first readiness trades. Selection-only; chainlink edge + all gates apply downstream.
+      POLYMARKET_DIRECTIONAL_BTC_FOCUS_ENABLED: "1"
       POLYMARKET_DIRECTIONAL_MIN_PROB: "0.10"
       POLYMARKET_DIRECTIONAL_MAX_PROB: "0.90"
       # depth pre-filter uses STALE scan depth (understates real book depth); lowered so it
