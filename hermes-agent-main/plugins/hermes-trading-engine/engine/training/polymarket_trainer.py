@@ -637,7 +637,7 @@ class PolymarketPaperTrainer:
         self._directional_funnel: dict = {
             "evaluated": 0, "after_cost_positive": 0, "credible_positive": 0,
             "net_edge_gt_0": 0, "net_edge_ge_threshold": 0, "max_net_edge": None,
-            "stage_counts": {}, "best_near_miss": None}
+            "shrink_relaxed": 0, "stage_counts": {}, "best_near_miss": None}
         # durable per-candidate audit log (git-ignored metrics dir)
         self._relaxed_candidates_path = self.data_dir / "metrics" / "paper_relaxed_candidates.jsonl"
         self._relaxed_records_written = 0
@@ -2858,10 +2858,12 @@ class PolymarketPaperTrainer:
         rep["profile"] = "aggressive" if self.cfg.exploration_enabled else "conservative"
         return rep
 
-    def _dir_funnel_eval(self, edge) -> None:
+    def _dir_funnel_eval(self, edge, est=None) -> None:
         """Count one directional candidate at the after-cost-edge stage (read-only)."""
         f = self._directional_funnel
         f["evaluated"] += 1
+        if est is not None and bool(getattr(est, "shrink_relaxed", False)):
+            f["shrink_relaxed"] = int(f.get("shrink_relaxed", 0)) + 1
         ne = float(getattr(edge, "net_edge", 0.0) or 0.0)
         thr = float(getattr(edge, "threshold", 0.0) or 0.0)
         if ne > 0.0:
@@ -2921,6 +2923,7 @@ class PolymarketPaperTrainer:
             "credible_positive": int(f.get("credible_positive", 0) or 0),
             "net_edge_ge_threshold": int(f.get("net_edge_ge_threshold", 0) or 0),
             "max_net_edge": f.get("max_net_edge"),
+            "shrink_relaxed": int(f.get("shrink_relaxed", 0) or 0),
             "opened_readiness": opened,
             "stage_counts": dict(f.get("stage_counts", {}) or {}),
             "best_near_miss": f.get("best_near_miss"),
@@ -2997,7 +3000,7 @@ class PolymarketPaperTrainer:
                 self._credible_gate_metrics.get("readiness_credible_trades", 0) + 1)
 
         # P2 directional funnel: count this candidate at the after-cost-edge stage.
-        self._dir_funnel_eval(edge)
+        self._dir_funnel_eval(edge, est)
 
         # #5 value-of-information: record where a bounded Grok call is worth the most
         # (high ensemble disagreement + near the trade threshold + liquid). Read-only;

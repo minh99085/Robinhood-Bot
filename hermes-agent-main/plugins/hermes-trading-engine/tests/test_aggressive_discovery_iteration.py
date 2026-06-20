@@ -383,3 +383,54 @@ def test_p_model_mid_anchored_when_calibration_edge_disabled(tmp_path, monkeypat
     rec = SimpleNamespace(category="crypto")
     pm = t.prob._p_model(rec, 0.20)
     assert abs(pm - 0.20) < 0.01                  # stays mid-anchored (no calibration nudge)
+
+
+# --------------------------------------------------------------------------- #
+# (A) bounded directional shrink relaxation — proven edge survives to p_final
+# --------------------------------------------------------------------------- #
+def _shrink_rec(mid, *, liquidity=50000.0, spread=0.02):
+    from engine.markets import universe_manager as um
+    bid = round(max(0.001, mid - spread / 2), 4)
+    ask = round(min(0.999, mid + spread / 2), 4)
+    raw = {"id": "sm", "clobTokenIds": ["t_yes", "t_no"], "question": "Q?",
+           "bestBid": bid, "bestAsk": ask, "description": "x" * 200,
+           "outcomePrices": [str(round(mid, 4)), str(round(1 - mid, 4))],
+           "liquidityNum": liquidity}
+    r = um.MarketRecord.from_raw(raw, now=_NOW)
+    r.top_depth_usd = 500.0
+    return r
+
+
+def test_shrink_relaxation_lets_calibration_edge_reach_p_final(tmp_path, monkeypatch):
+    # liquid + well-calibrated + calibration-backed market: with relaxation ON, p_final tracks
+    # the model edge much closer to the mid->model deviation than with it OFF.
+    base = dict(model_calibration_edge_enabled=True, model_calibration_min_bucket_samples=5,
+                model_calibration_edge_weight=1.0, shrink_relax_min_liquidity_usd=2000.0,
+                shrink_relax_max_calibration_error=0.95)
+    t_off = _trainer(tmp_path / "off", monkeypatch, directional_shrink_relax_enabled=False, **base)
+    t_on = _trainer(tmp_path / "on", monkeypatch, directional_shrink_relax_enabled=True,
+                    directional_shrink_relax_boost=0.6, directional_shrink_relax_max_factor=0.95,
+                    **base)
+    for t in (t_off, t_on):
+        for _ in range(9):
+            t.learner.observe_settlement(0.225, 1)     # bucket actual ~0.9 vs market 0.225
+        t.learner.observe_settlement(0.225, 0)
+    rec_off = _shrink_rec(0.225)
+    rec_on = _shrink_rec(0.225)
+    e_off = t_off.prob.estimate(rec_off, t_off.signal_model, now=_NOW)
+    e_on = t_on.prob.estimate(rec_on, t_on.signal_model, now=_NOW)
+    # model says well above mid; relaxation must push p_final closer to the model than baseline
+    assert e_on.p_final > e_off.p_final + 0.02
+    assert e_on.shrink_relaxed is True and e_off.shrink_relaxed is False
+
+
+def test_shrink_relaxation_skipped_when_illiquid(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch, directional_shrink_relax_enabled=True,
+                 model_calibration_edge_enabled=True, model_calibration_min_bucket_samples=5,
+                 shrink_relax_min_liquidity_usd=2000.0)
+    for _ in range(9):
+        t.learner.observe_settlement(0.225, 1)
+    t.learner.observe_settlement(0.225, 0)
+    rec = _shrink_rec(0.225, liquidity=100.0)          # below the liquidity floor
+    e = t.prob.estimate(rec, t.signal_model, now=_NOW)
+    assert e.shrink_relaxed is False                    # gated out (illiquid)

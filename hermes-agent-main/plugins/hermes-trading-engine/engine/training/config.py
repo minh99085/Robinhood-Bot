@@ -395,6 +395,15 @@ class TrainingConfig:
     model_calibration_edge_enabled: bool = False
     model_calibration_edge_weight: float = 0.5
     model_calibration_min_bucket_samples: int = 30
+    # (A) bounded directional shrink RELAXATION: for liquid + well-calibrated + research/
+    # calibration-backed + fresh/tight candidates, raise the shrink cap so a proven edge
+    # survives to the executable price. The credible after-cost CI gate is kept intact, so
+    # only statistically-positive edges can open a readiness trade. base OFF. (approved)
+    directional_shrink_relax_enabled: bool = False
+    directional_shrink_relax_boost: float = 0.40
+    directional_shrink_relax_max_factor: float = 0.90
+    shrink_relax_min_liquidity_usd: float = 2000.0
+    shrink_relax_max_calibration_error: float = 0.15
     # Tier-2 institutional risk layer (PAPER ONLY; tighten-only). Portfolio concentration
     # limits (VaR/CVaR + event/category/total exposure caps), confidence-aware fractional
     # Kelly sizing, and a regime aggression multiplier. base OFF; aggressive_paper turns ON.
@@ -1620,6 +1629,16 @@ class TrainingConfig:
             model_calibration_edge_weight=_envf("POLYMARKET_MODEL_CALIBRATION_EDGE_WEIGHT", 0.5),
             model_calibration_min_bucket_samples=_envi(
                 "POLYMARKET_MODEL_CALIBRATION_MIN_BUCKET_SAMPLES", 30),
+            directional_shrink_relax_enabled=_envb(
+                "POLYMARKET_DIRECTIONAL_SHRINK_RELAX_ENABLED", True),
+            directional_shrink_relax_boost=_envf(
+                "POLYMARKET_DIRECTIONAL_SHRINK_RELAX_BOOST", 0.40),
+            directional_shrink_relax_max_factor=_envf(
+                "POLYMARKET_DIRECTIONAL_SHRINK_RELAX_MAX_FACTOR", 0.90),
+            shrink_relax_min_liquidity_usd=_envf(
+                "POLYMARKET_SHRINK_RELAX_MIN_LIQUIDITY_USD", 2000.0),
+            shrink_relax_max_calibration_error=_envf(
+                "POLYMARKET_SHRINK_RELAX_MAX_CALIBRATION_ERROR", 0.15),
             # Tier-2 institutional risk layer ON for the aggressive profile (tighten-only).
             portfolio_risk_enabled=_envb("PORTFOLIO_RISK_ENABLED", True),
             max_event_exposure_frac=_envf("PORTFOLIO_MAX_EVENT_EXPOSURE_FRAC", 0.20),

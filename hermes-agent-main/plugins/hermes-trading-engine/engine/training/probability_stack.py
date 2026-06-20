@@ -102,6 +102,9 @@ class ProbabilityEstimate:
     # research-channel uncertainty (from the uncertainty decomposition); a more
     # uncertain research signal lowers trust + is a higher-value paper sample.
     research_uncertainty: float = 0.0
+    # (A) True when the bounded directional shrink-relaxation applied (liquid + well-calibrated
+    # + research/calibration-backed + fresh/tight) so p_final tracked the supported signal.
+    shrink_relaxed: bool = False
 
     def __post_init__(self) -> None:
         # Default the calibrated probability + interval to the executable fair
@@ -278,6 +281,29 @@ class ProbabilityStack:
             shrink += 0.15
         shrink = max(lo, min(hi, shrink))
 
+        # (A) BOUNDED shrink RELAXATION (config-gated): the default shrink pulls p_final so far
+        # back toward the market mid that a genuinely-edged signal (proven model calibration or
+        # trustworthy research) cannot survive to the executable price. For candidates that are
+        # liquid + well-calibrated + research/calibration-backed + fresh/tight, let p_final track
+        # the supported probability more closely (raise the shrink cap). STRICTLY GATED + bounded
+        # — and the downstream credible after-cost gate still requires a statistically-positive
+        # CI lower bound, so this can never fabricate edge or trade an uncertain signal.
+        shrink_relaxed = False
+        if bool(getattr(self.cfg, "directional_shrink_relax_enabled", False)):
+            liquid = float(rec.liquidity_usd or 0.0) >= float(getattr(
+                self.cfg, "shrink_relax_min_liquidity_usd", 2000.0))
+            well_cal = calib_err <= float(getattr(
+                self.cfg, "shrink_relax_max_calibration_error", 0.15))
+            backed = ((research_usable and evidence > 0.6 and ambiguity < 0.2)
+                      or model_has_edge)
+            fresh_tight = (stale_score < 0.1 and float(rec.spread or 0.0) <= max_spread)
+            if liquid and well_cal and backed and fresh_tight:
+                relax_hi = float(getattr(self.cfg, "directional_shrink_relax_max_factor", 0.90))
+                boost = float(getattr(self.cfg, "directional_shrink_relax_boost", 0.40))
+                new_shrink = min(relax_hi, shrink + boost)
+                shrink_relaxed = new_shrink > shrink
+                shrink = new_shrink
+
         p_final = max(0.02, min(0.98, mid + shrink * (p_raw - mid)))
 
         # Chainlink-conditioned adjustment (optional, additive). Only nudges the
@@ -341,6 +367,7 @@ class ProbabilityStack:
         return ProbabilityEstimate(
             market_id=rec.market_id, p_market_mid=mid, p_model=p_model,
             p_research=p_research, p_raw=p_raw, p_final=p_final, shrink=shrink,
+            shrink_relaxed=shrink_relaxed,
             confidence=confidence, research_source=source,
             research_usable=research_usable, model_has_edge=model_has_edge,
             ambiguity_score=ambiguity, evidence_score=evidence,

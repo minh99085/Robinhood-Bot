@@ -704,6 +704,15 @@ services:
       POLYMARKET_MODEL_CALIBRATION_EDGE_ENABLED: "1"
       POLYMARKET_MODEL_CALIBRATION_EDGE_WEIGHT: "0.5"
       POLYMARKET_MODEL_CALIBRATION_MIN_BUCKET_SAMPLES: "30"
+      # (A, approved) bounded directional shrink relaxation so a PROVEN edge survives to the
+      # executable price on liquid + well-calibrated + research/calibration-backed + fresh/
+      # tight candidates. The credible after-cost CI gate stays intact (only statistically-
+      # positive edges open a readiness trade) — this never fabricates edge or loosens realism.
+      POLYMARKET_DIRECTIONAL_SHRINK_RELAX_ENABLED: "1"
+      POLYMARKET_DIRECTIONAL_SHRINK_RELAX_BOOST: "0.40"
+      POLYMARKET_DIRECTIONAL_SHRINK_RELAX_MAX_FACTOR: "0.90"
+      POLYMARKET_SHRINK_RELAX_MIN_LIQUIDITY_USD: "2000"
+      POLYMARKET_SHRINK_RELAX_MAX_CALIBRATION_ERROR: "0.15"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----
       # Live Chainlink mainnet aggregator reads (latestRoundData over JSON-RPC),
       # used ONLY as a probability/edge input feature for crypto-linked markets.
