@@ -424,6 +424,27 @@ def test_attach_btc_signals_routes_to_per_asset_engine(tmp_path, monkeypatch):
     assert tel["btc_engines_ready"] == {"BTC": True, "ETH": True}
 
 
+def test_attach_btc_signals_populates_grok_focus_targets(tmp_path, monkeypatch):
+    # BTC/ETH directional candidates must be exposed as Grok BTC-pulse focus targets so the
+    # advisory scheduler steers its budget onto the traded lane.
+    t = _trainer(tmp_path, monkeypatch, btc_signal_enabled=True,
+                 grok_btc_focus_enabled=True)
+    for i in range(60):
+        t.btc_signal_engines["BTC"].observe(100_000 + i * 5, now=_NOW + i)
+        t.btc_signal_engines["ETH"].observe(3_000 + i * 0.2, now=_NOW + i)
+    btc = _q_rec(0.5, "Will Bitcoin be above $130,000 on date?", depth=8000.0)
+    eth = _q_rec(0.5, "Will Ethereum Up or Down today?", depth=5000.0)
+    nonc = _q_rec(0.5, "Will the Fed cut rates in July?", depth=9000.0)
+    for r in (btc, eth):
+        r.end_ts = _NOW + 60 + 600.0
+    t._attach_btc_signals([btc, eth, nonc], now=_NOW + 60)
+    ft = t._btc_focus_targets
+    mids = {f["market_id"] for f in ft}
+    assert btc.market_id in mids and eth.market_id in mids   # both crypto markets are targets
+    assert nonc.market_id not in mids                        # the non-crypto market is not
+    assert {f["asset"] for f in ft} <= {"BTC", "ETH"}
+
+
 # --------------------------------------------------------------------------- #
 # local BTC signal -> probability stack (model blend + evidence credit)
 # --------------------------------------------------------------------------- #

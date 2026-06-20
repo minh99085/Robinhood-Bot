@@ -116,6 +116,47 @@ def test_news_linked_market_chosen_when_no_near_misses():
     assert sel["news_linked_analyzed"] == 1
 
 
+# --- BTC-pulse focus -------------------------------------------------------- #
+def test_btc_focus_target_chosen_before_everything_else():
+    # a strong Bregman near-miss + news exist, but a BTC focus target outranks them all
+    nms = [{"group_key": "g1", "near_miss_score": 0.99, "raw_market_ids": ["a"],
+            "completeness": {"completeness_proven": False}, "simplex": {}}]
+    focus = [{"market_id": "btc-up-1", "question": "Bitcoin Up or Down 5pm?",
+              "asset": "BTC", "confidence": 0.6, "liquidity_usd": 8000.0},
+             {"market_id": "eth-up-1", "question": "Ethereum Up or Down 5pm?",
+              "asset": "ETH", "confidence": 0.3, "liquidity_usd": 5000.0}]
+    sel = select_advisory_target(near_misses=nms, news_packet=[{"market_id": "a"}],
+                                 grok_candidates=[{"group_id": "x", "candidate_score": 0.9,
+                                                   "market_ids": ["x"]}],
+                                 focus_targets=focus)
+    assert sel["target_kind"] == "btc_pulse_focus"
+    assert sel["market_ctx"]["market_id"] == "btc-up-1"          # highest confidence first
+    assert sel["advisory_features"]["asset"] == "BTC"
+    assert sel["advisory_features"]["affects_execution"] is False
+
+
+def test_btc_focus_strict_makes_no_call_when_focus_exhausted():
+    # focus_only + all focus targets on cooldown -> research NOTHING (don't drift off-lane)
+    focus = [{"market_id": "btc-up-1", "question": "BTC Up or Down?", "asset": "BTC",
+              "confidence": 0.6, "liquidity_usd": 8000.0}]
+    sel = select_advisory_target(
+        near_misses=[{"group_key": "g1", "near_miss_score": 0.9, "raw_market_ids": ["a"],
+                      "completeness": {}, "simplex": {}}],
+        focus_targets=focus, focus_only=True, exclude_market_ids={"btc-up-1"})
+    assert sel["market_ctx"] is None
+    assert sel["reason"] == "btc_focus_only_no_target"
+
+
+def test_btc_focus_respects_cooldown_rotation():
+    focus = [{"market_id": "btc-1", "question": "BTC Up?", "asset": "BTC",
+              "confidence": 0.6, "liquidity_usd": 9000.0},
+             {"market_id": "btc-2", "question": "BTC Down?", "asset": "BTC",
+              "confidence": 0.5, "liquidity_usd": 9000.0}]
+    sel = select_advisory_target(focus_targets=focus, exclude_market_ids={"btc-1"})
+    assert sel["target_kind"] == "btc_pulse_focus"
+    assert sel["market_ctx"]["market_id"] == "btc-2"            # rotated past the cooled one
+
+
 # --- advisory-only safety --------------------------------------------------- #
 def test_advisory_output_cannot_execute_or_size_or_lower_gates():
     written = []

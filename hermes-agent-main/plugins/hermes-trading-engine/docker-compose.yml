@@ -711,6 +711,11 @@ services:
       # ~3-min training tick. Read-only public price reads; never trades.
       POLYMARKET_BTC_SIGNAL_SAMPLER_ENABLED: "1"
       POLYMARKET_BTC_SIGNAL_SAMPLER_INTERVAL_S: "12"
+      # Grok BTC-pulse focus: steer the bounded advisory budget onto real BTC/ETH directional
+      # ("Up or Down" / short-horizon) markets FIRST. strict=1 -> Grok researches ONLY the
+      # BTC/ETH pulse universe (no fallback to arbitrary near-miss / liquidity targets).
+      GROK_BTC_FOCUS_ENABLED: "1"
+      GROK_BTC_FOCUS_STRICT: "1"
       POLYMARKET_DIRECTIONAL_MIN_PROB: "0.10"
       POLYMARKET_DIRECTIONAL_MAX_PROB: "0.90"
       # depth pre-filter uses STALE scan depth (understates real book depth); lowered so it

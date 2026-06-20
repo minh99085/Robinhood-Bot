@@ -379,6 +379,7 @@ class PolymarketPaperTrainer:
         # the slow ~3-min tick so the signal warms up in minutes with intraday granularity).
         self.btc_signal_engines: dict = {}
         self.crypto_price_sampler = None
+        self._btc_focus_targets: list = []
         if bool(getattr(self.cfg, "btc_signal_enabled", False)):
             try:
                 from engine.training.btc_signal import BtcSignalEngine, CryptoPriceSampler
@@ -1346,25 +1347,37 @@ class PolymarketPaperTrainer:
             return tel
         attached = confident = 0
         min_conf = float(getattr(self.cfg, "btc_signal_min_confidence", 0.25))
+        focus: list = []
         for rec in (candidates or []):
             try:
                 raw = getattr(rec, "raw", {}) or {}
                 q = str(getattr(rec, "question", "") or raw.get("question")
                         or raw.get("title") or "")
                 asset = self._market_asset(q)
-                eng = engines.get(asset) if asset else None
-                if eng is None or not eng.ready:
+                if asset is None:
                     continue
-                sig = eng.signal_for_market(q, end_ts=getattr(rec, "end_ts", None), now=now)
-                if sig is None:
-                    continue
-                raw["_btc_signal"] = sig.to_dict()
-                attached += 1
-                if sig.confidence >= min_conf:
-                    confident += 1
+                # this IS a BTC/ETH directional market — a Grok BTC-pulse focus target
+                # regardless of whether the local signal is ready (Grok adds news/sentiment).
+                conf = 0.0
+                eng = engines.get(asset)
+                if eng is not None and eng.ready:
+                    sig = eng.signal_for_market(q, end_ts=getattr(rec, "end_ts", None), now=now)
+                    if sig is not None:
+                        raw["_btc_signal"] = sig.to_dict()
+                        conf = float(sig.confidence)
+                        attached += 1
+                        if sig.confidence >= min_conf:
+                            confident += 1
+                focus.append({"market_id": str(getattr(rec, "market_id", "") or ""),
+                              "question": q[:120], "asset": asset, "confidence": conf,
+                              "liquidity_usd": float(getattr(rec, "liquidity_usd", 0.0) or 0.0)})
             except Exception:  # noqa: BLE001 — one bad market never breaks the pass
                 continue
-        tel.update({"btc_signal_attached": attached, "btc_signal_confident": confident})
+        # rank pulse targets (confident + liquid first) for the Grok advisory scheduler
+        focus.sort(key=lambda f: (f["confidence"], f["liquidity_usd"]), reverse=True)
+        self._btc_focus_targets = focus[:40]
+        tel.update({"btc_signal_attached": attached, "btc_signal_confident": confident,
+                    "btc_focus_targets": len(self._btc_focus_targets)})
         self._btc_signal_tel = tel
         return tel
 
@@ -6381,11 +6394,18 @@ class PolymarketPaperTrainer:
             researched = self._grok_researched_ts = {}
         exclude = {mid for mid, ts in researched.items() if (now_ts - ts) < cooldown} \
             if cooldown > 0 else set()
+        # BTC-pulse focus: steer Grok's bounded budget onto the traded BTC/ETH directional
+        # lane first (and ONLY, when strict). Read-only target steering; gates untouched.
+        btc_focus_on = bool(getattr(self.cfg, "grok_btc_focus_enabled", False))
+        focus_targets = (list(getattr(self, "_btc_focus_targets", []) or [])
+                         if btc_focus_on else [])
         sel = select_advisory_target(
             near_misses=list(getattr(self, "_bregman_near_miss_best", {}).values()),
             news_packet=news_packet, watch_markets=getattr(self, "_watch_sample", []),
             grok_candidates=gc_ranked,
             voi_targets=(self._voi_targets() + self._rv_research_targets()),
+            focus_targets=focus_targets,
+            focus_only=bool(btc_focus_on and getattr(self.cfg, "grok_btc_focus_strict", False)),
             exclude_market_ids=exclude)
         target_ctx = market_ctx or sel.get("market_ctx")
         # record the selected target so the next call rotates to a fresh market

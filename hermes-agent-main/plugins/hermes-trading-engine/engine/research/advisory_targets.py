@@ -80,6 +80,8 @@ def select_advisory_target(*, near_misses: Optional[list] = None, news_packet=No
                            watch_markets: Optional[list] = None,
                            grok_candidates: Optional[list] = None,
                            voi_targets: Optional[list] = None,
+                           focus_targets: Optional[list] = None,
+                           focus_only: bool = False,
                            min_candidate_score: float = 0.02,
                            min_voi: float = 0.05,
                            min_liquidity_usd: float = 0.0,
@@ -88,14 +90,21 @@ def select_advisory_target(*, near_misses: Optional[list] = None, news_packet=No
     plus ``target_kind``, ``reason``, the analyzed-counter increments, and advisory
     features. Read-only; never executes. Works even with zero executable trades.
 
+    ``focus_targets`` (e.g. the BTC/ETH directional "pulse" shortlist) are researched
+    ABSOLUTELY FIRST when present — this is how the operator steers Grok's bounded budget
+    onto the lane being traded. With ``focus_only`` set, NO other target kind is chosen
+    (Grok researches only the focus universe; it simply makes no call when all focus
+    targets are on cooldown).
+
     ``grok_candidates`` (from bregman_candidate_finder.rank_candidates) are STRONG
     Grok-flagged mispricings; when present and above ``min_candidate_score`` they are
-    researched FIRST (the tightest discovery loop: Grok studies what it itself
+    researched next (the tightest discovery loop: Grok studies what it itself
     flagged). Still research-only — the certifier remains the only trade gate."""
     near_misses = near_misses or []
     watch_markets = watch_markets or []
     grok_candidates = grok_candidates or []
     voi_targets = voi_targets or []
+    focus_targets = focus_targets or []
     # COVERAGE ROTATION (Option 2): drop targets already researched recently this run so
     # the scheduler advances to a FRESH market each call instead of re-picking the same
     # top target (which returns a cached result and wastes the budget). Read-only.
@@ -110,10 +119,40 @@ def select_advisory_target(*, near_misses: Optional[list] = None, news_packet=No
         voi_targets = [v for v in voi_targets if _keep(v.get("market_id"))]
         watch_markets = [w for w in watch_markets if _keep(w.get("market_id"))]
         grok_candidates = [c for c in grok_candidates if _keep(c.get("group_id"))]
+        focus_targets = [f for f in focus_targets if _keep(f.get("market_id"))]
     news_ids = set(_news_market_ids(news_packet))
     # eligible-target census (so "0 scheduled calls" is never implied without reason)
     eligible = (len(near_misses) + len(news_ids) + len(watch_markets)
-                + len(grok_candidates) + len(voi_targets))
+                + len(grok_candidates) + len(voi_targets) + len(focus_targets))
+
+    # 0a) BTC-PULSE FOCUS — steer the budget onto the traded directional lane first.
+    if focus_targets:
+        def _fscore(f):
+            return (float(f.get("confidence", 0.0) or 0.0),
+                    float(f.get("liquidity_usd", 0.0) or 0.0))
+        ft = sorted(focus_targets, key=_fscore, reverse=True)[0]
+        return {
+            "market_ctx": {"market_id": str(ft.get("market_id") or "btc_pulse_target"),
+                           "question": ft.get("question") or "btc_pulse_directional"},
+            "target_kind": "btc_pulse_focus", "reason": "btc_pulse_focus",
+            "eligible_targets": eligible,
+            "groups_analyzed": 1, "near_misses_analyzed": 0,
+            "incomplete_groups_analyzed": 0, "malformed_groups_analyzed": 0,
+            "news_linked_analyzed": 1 if str(ft.get("market_id")) in news_ids else 0,
+            "advisory_features": {"advisory_target_kind": "btc_pulse_focus",
+                                  "btc_signal_confidence": float(
+                                      ft.get("confidence", 0.0) or 0.0),
+                                  "asset": ft.get("asset"), "advisory_only": True,
+                                  "affects_execution": False},
+        }
+    if focus_only:
+        # focus mode + every focus target on cooldown (or none this tick): research NOTHING
+        # rather than spend the budget off the pulse lane.
+        return {"market_ctx": None, "target_kind": None,
+                "reason": "btc_focus_only_no_target", "eligible_targets": eligible,
+                "groups_analyzed": 0, "near_misses_analyzed": 0,
+                "incomplete_groups_analyzed": 0, "malformed_groups_analyzed": 0,
+                "news_linked_analyzed": 0, "advisory_features": {}}
 
     # 0) STRONGEST Grok-flagged Bregman candidate (research what Grok itself flagged).
     strong = [c for c in grok_candidates
