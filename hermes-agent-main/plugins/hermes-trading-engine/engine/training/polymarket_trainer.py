@@ -630,6 +630,14 @@ class PolymarketPaperTrainer:
         # 6A credible after-cost edge gate counters (readiness trades require a positive
         # CI-lower-bound after-cost edge). Run-cumulative.
         self._credible_gate_metrics: dict = {}
+        # P2 directional after-cost-edge FUNNEL (read-only): run-cumulative waterfall of where
+        # directional readiness candidates die (edge gate -> threshold -> credible -> open
+        # gates), how many have a positive after-cost edge / credible lower bound, and the
+        # single best near-miss. Decides whether the proven model edge survives costs.
+        self._directional_funnel: dict = {
+            "evaluated": 0, "after_cost_positive": 0, "credible_positive": 0,
+            "net_edge_gt_0": 0, "net_edge_ge_threshold": 0, "max_net_edge": None,
+            "stage_counts": {}, "best_near_miss": None}
         # durable per-candidate audit log (git-ignored metrics dir)
         self._relaxed_candidates_path = self.data_dir / "metrics" / "paper_relaxed_candidates.jsonl"
         self._relaxed_records_written = 0
@@ -2723,6 +2731,92 @@ class PolymarketPaperTrainer:
         rep["profile"] = "aggressive" if self.cfg.exploration_enabled else "conservative"
         return rep
 
+    def _dir_funnel_eval(self, edge) -> None:
+        """Count one directional candidate at the after-cost-edge stage (read-only)."""
+        f = self._directional_funnel
+        f["evaluated"] += 1
+        ne = float(getattr(edge, "net_edge", 0.0) or 0.0)
+        thr = float(getattr(edge, "threshold", 0.0) or 0.0)
+        if ne > 0.0:
+            f["net_edge_gt_0"] += 1
+            f["after_cost_positive"] += 1
+        if thr > 0.0 and ne >= thr:
+            f["net_edge_ge_threshold"] += 1
+        if f["max_net_edge"] is None or ne > float(f["max_net_edge"]):
+            f["max_net_edge"] = round(ne, 6)
+        if bool(getattr(edge, "credible_positive_expectancy", False)):
+            f["credible_positive"] += 1
+
+    def _dir_funnel_term(self, stage: str, edge, est, *, opened: bool) -> None:
+        """Record the TERMINAL stage of a directional candidate + track the best near-miss
+        (highest after-cost edge that did NOT open a readiness trade). Read-only."""
+        f = self._directional_funnel
+        f["stage_counts"][stage] = f["stage_counts"].get(stage, 0) + 1
+        if opened:
+            return
+        ne = float(getattr(edge, "net_edge", 0.0) or 0.0)
+        best = f["best_near_miss"]
+        if best is None or ne > float(best.get("net_edge", -9.0)):
+            f["best_near_miss"] = {
+                "net_edge": round(ne, 6),
+                "after_cost_lower_bound": round(
+                    float(getattr(edge, "after_cost_edge_lower_bound", 0.0) or 0.0), 6),
+                "gross_edge": round(float(getattr(edge, "gross_edge", 0.0) or 0.0), 6),
+                "cost_penalty": round(float(getattr(edge, "cost_penalty", 0.0) or 0.0), 6),
+                "credible_positive": bool(getattr(edge, "credible_positive_expectancy", False)),
+                "stage": stage,
+                "p_model": round(float(getattr(est, "p_model", 0.0) or 0.0), 4),
+                "p_market_mid": round(float(getattr(est, "p_market_mid", 0.0) or 0.0), 4),
+                "p_final": round(float(getattr(edge, "p_final", 0.0) or 0.0), 4),
+                "executable_price": round(
+                    float(getattr(edge, "executable_price", 0.0) or 0.0), 4),
+                "spread": round(float(getattr(est, "spread", 0.0) or 0.0), 4),
+                "liquidity_usd": round(float(getattr(est, "liquidity_usd", 0.0) or 0.0))}
+
+    def directional_funnel_report(self) -> dict:
+        """P2: where directional READINESS candidates die before opening a paper trade, and
+        whether the proven model edge survives costs. Read-only; all hard gates intact.
+
+        ``after_cost_positive`` / ``credible_positive`` answer 'does the edge survive costs?';
+        ``stage_counts`` is the ordered death waterfall; ``best_near_miss`` is the single
+        closest-to-tradeable candidate with its edge decomposition (so we can see whether the
+        wall is costs/calibration vs a specific gate)."""
+        f = dict(self._directional_funnel)
+        ev = int(f.get("evaluated", 0) or 0)
+        opened = int((f.get("stage_counts", {}) or {}).get("opened_readiness", 0))
+        return {
+            "schema": "directional_funnel/1.0", "paper_only": True,
+            "live_trading_enabled": False, "hard_gates_intact": True,
+            "evaluated": ev,
+            "after_cost_positive": int(f.get("after_cost_positive", 0) or 0),
+            "after_cost_positive_rate": round(f.get("after_cost_positive", 0) / ev, 4)
+            if ev else 0.0,
+            "credible_positive": int(f.get("credible_positive", 0) or 0),
+            "net_edge_ge_threshold": int(f.get("net_edge_ge_threshold", 0) or 0),
+            "max_net_edge": f.get("max_net_edge"),
+            "opened_readiness": opened,
+            "stage_counts": dict(f.get("stage_counts", {}) or {}),
+            "best_near_miss": f.get("best_near_miss"),
+            "diagnosis": self._directional_funnel_diagnosis(f),
+        }
+
+    @staticmethod
+    def _directional_funnel_diagnosis(f: dict) -> str:
+        ev = int(f.get("evaluated", 0) or 0)
+        if ev == 0:
+            return "no directional candidates evaluated yet"
+        acp = int(f.get("after_cost_positive", 0) or 0)
+        cred = int(f.get("credible_positive", 0) or 0)
+        if acp == 0:
+            return ("model edge does NOT survive costs on any candidate (after-cost edge <= 0) "
+                    "-> lever is calibration sharpening / tighter-spread market focus, not gates")
+        if cred == 0:
+            return ("some candidates are after-cost positive but NONE clear the credible "
+                    "lower-bound -> edge is real but uncertain; sharpen calibration / widen CI "
+                    "evidence before opening readiness trades")
+        return ("credible positive-after-cost candidates EXIST -> readiness trades should open; "
+                "if opened_readiness==0, a downstream gate is over-filtering (see stage_counts)")
+
     def _consider(self, rec, now: float) -> dict:
         est = self.prob.estimate(rec, self.signal_model, now=now)
         edge = self.edge_engine.best_side(
@@ -2751,6 +2845,9 @@ class PolymarketPaperTrainer:
         elif would_trade:
             self._credible_gate_metrics["readiness_credible_trades"] = (
                 self._credible_gate_metrics.get("readiness_credible_trades", 0) + 1)
+
+        # P2 directional funnel: count this candidate at the after-cost-edge stage.
+        self._dir_funnel_eval(edge)
 
         # #5 value-of-information: record where a bounded Grok call is worth the most
         # (high ensemble disagreement + near the trade threshold + liquid). Read-only;
@@ -2860,15 +2957,28 @@ class PolymarketPaperTrainer:
                     strategy_tier="tier3_exploration" if ald in ("near_miss", "shadow")
                     else "tier2_directional", strategy_source="directional",
                     active_learning=al_decision, tick=self.tick_count)
+                self._dir_funnel_term(
+                    "routed_to_exploration" if ald in ("near_miss", "shadow", "explore")
+                    else str(reason), edge, est, opened=False)
                 return {"opened": False, "reason": reason,
                         "exploration_decision": ald}
 
         # observe_only mode evaluates + records but NEVER opens a paper trade
         if self.mode != "paper_train":
             self.learner.record_decision(traded=False, reason="observe_only")
+            self._dir_funnel_term("observe_only", edge, est, opened=False)
             return {"opened": False, "reason": "observe_only"}
 
         res = self._open(rec, est, edge, diag, exploratory=exploratory)
+        # P2 funnel terminal: a non-exploratory open is a READINESS trade; an exploratory
+        # candidate exited the readiness funnel into the tiny-exploration lane.
+        if exploratory:
+            self._dir_funnel_term("routed_to_exploration", edge, est, opened=False)
+        elif res.get("opened"):
+            self._dir_funnel_term("opened_readiness", edge, est, opened=True)
+        else:
+            self._dir_funnel_term("open_rejected:" + str(res.get("reason", "")),
+                                  edge, est, opened=False)
         # tiny-directional (active-learning) exploration lane accounting: count what was
         # selected for exploration, what actually opened (all hard gates passed), and
         # the exact blocker for any selected-but-unopened tiny trade.
@@ -5322,6 +5432,9 @@ class PolymarketPaperTrainer:
                 "bregman_execution.json": self.bregman_summary().get("execution", {}),
                 # READ-ONLY feed health with EXACT chainlink/btc reasons (Fix 3).
                 "feeds_health.json": self.feeds_health_report(),
+                # P2 directional after-cost-edge funnel + authoritative model skill.
+                "directional_funnel.json": self.directional_funnel_report(),
+                "model_skill.json": self.model_skill_report(),
             }
             for _name, _payload in _per_pass.items():
                 (m_out / _name).write_text(
@@ -6448,6 +6561,7 @@ class PolymarketPaperTrainer:
             "maker_fill_sim": self.maker_fill_report(),
             "profit_discovery": self.profit_discovery_report(),
             "model_skill": self.model_skill_report(),
+            "directional_funnel": self.directional_funnel_report(),
             "capital_allocation": self.capital_allocation_report(),
             "canary": self.canary_status(),
             "experiments": self.experiment_report(),

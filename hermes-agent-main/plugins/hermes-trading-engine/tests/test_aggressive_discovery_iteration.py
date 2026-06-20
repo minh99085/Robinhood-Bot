@@ -204,3 +204,66 @@ def test_settlement_fetcher_override_is_used(tmp_path, monkeypatch):
     sentinel = lambda mid, cid=None: {"closed": True}    # noqa: E731
     t._settlement_fetcher_override = sentinel
     assert t._settlement_fetcher() is sentinel
+
+
+# --------------------------------------------------------------------------- #
+# P2 directional after-cost-edge funnel
+# --------------------------------------------------------------------------- #
+def _edge_ns(*, net_edge, threshold=0.01, credible=False, lb=None):
+    return SimpleNamespace(net_edge=net_edge, threshold=threshold,
+                           credible_positive_expectancy=credible,
+                           after_cost_edge_lower_bound=(lb if lb is not None else net_edge - 0.02),
+                           gross_edge=net_edge + 0.03, cost_penalty=0.03, p_final=0.6,
+                           executable_price=0.55)
+
+
+def _est_ns(**kw):
+    base = dict(p_model=0.62, p_market_mid=0.55, spread=0.02, liquidity_usd=4000.0)
+    base.update(kw)
+    return SimpleNamespace(**base)
+
+
+def test_directional_funnel_after_cost_positive_and_stages(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    # candidate 1: after-cost positive + credible -> opened readiness
+    e1 = _edge_ns(net_edge=0.05, credible=True, lb=0.02)
+    t._dir_funnel_eval(e1); t._dir_funnel_term("opened_readiness", e1, _est_ns(), opened=True)
+    # candidate 2: after-cost positive but NOT credible -> dies at credible gate
+    e2 = _edge_ns(net_edge=0.03, credible=False, lb=-0.01)
+    t._dir_funnel_eval(e2)
+    t._dir_funnel_term("not_credible_after_cost_edge", e2, _est_ns(), opened=False)
+    # candidate 3: negative after-cost -> edge_too_low
+    e3 = _edge_ns(net_edge=-0.04, credible=False)
+    t._dir_funnel_eval(e3); t._dir_funnel_term("edge_too_low", e3, _est_ns(), opened=False)
+    r = t.directional_funnel_report()
+    assert r["evaluated"] == 3
+    assert r["after_cost_positive"] == 2            # e1, e2
+    assert r["credible_positive"] == 1              # e1 only
+    assert r["opened_readiness"] == 1
+    assert r["stage_counts"]["not_credible_after_cost_edge"] == 1
+    assert r["stage_counts"]["edge_too_low"] == 1
+    # best near-miss is the highest net_edge that did NOT open (e2 @ 0.03)
+    assert r["best_near_miss"]["net_edge"] == 0.03
+    assert "EXIST" in r["diagnosis"]                  # a credible candidate (e1) exists
+
+
+def test_directional_funnel_diagnosis_positive_but_not_credible(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    # all after-cost positive but NONE credible -> "real but uncertain" diagnosis
+    for ne in (0.03, 0.02, 0.04):
+        e = _edge_ns(net_edge=ne, credible=False, lb=-0.01)
+        t._dir_funnel_eval(e)
+        t._dir_funnel_term("not_credible_after_cost_edge", e, _est_ns(), opened=False)
+    r = t.directional_funnel_report()
+    assert r["after_cost_positive"] == 3 and r["credible_positive"] == 0
+    assert "credible lower-bound" in r["diagnosis"]
+
+
+def test_directional_funnel_diagnosis_edge_dies_after_cost(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    for ne in (-0.05, -0.02, -0.1):
+        e = _edge_ns(net_edge=ne)
+        t._dir_funnel_eval(e); t._dir_funnel_term("edge_too_low", e, _est_ns(), opened=False)
+    r = t.directional_funnel_report()
+    assert r["after_cost_positive"] == 0
+    assert "does NOT survive costs" in r["diagnosis"]
