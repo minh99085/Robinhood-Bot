@@ -885,9 +885,10 @@ class PolymarketPaperTrainer:
                      int(getattr(self.cfg, "paper_decision_budget",
                                  self.cfg.trade_candidate_limit)))
         # P2-A: focus the directional budget on MODEL-EDGE-ZONE markets (mid-range prob,
-        # liquid, tight spread) instead of volume-ranked longshots. Selection-only; the
-        # Bregman lane below still groups over the FULL eligible catalog (not this shortlist).
-        candidates = self._select_directional_candidates(watch, budget)
+        # liquid, tight spread). Draw from the FULL ranked scan (`records`), not just the
+        # volume-ranked `watch` top-slice (which the funnel proved is 100% extreme-probability
+        # longshots/locks). Selection-only; the Bregman lane still groups over `eligible`.
+        candidates = self._select_directional_candidates(records, budget, fallback=watch)
         # PASS-2: raw-catalog Bregman discovery — group over the FULL eligible
         # catalog (after safety filters), NOT the directional shortlist, so
         # complete-set arbitrage that never reaches the shortlist is still found.
@@ -1135,22 +1136,26 @@ class PolymarketPaperTrainer:
                 self._settlement_fetcher_cached = None
         return self._settlement_fetcher_cached
 
-    def _select_directional_candidates(self, watch: list, budget: int) -> list:
+    def _select_directional_candidates(self, pool: list, budget: int,
+                                       *, fallback: Optional[list] = None) -> list:
         """Focus the directional lane's budget on MODEL-EDGE-ZONE markets instead of the
         volume-ranked shortlist (which the funnel proved is longshot-dominated, where model
         and market agree => zero after-cost edge). Selection-ONLY: prefers mid-range
         probabilities (real edge room), liquid books, and tight spreads (cost-effective). It
         NEVER loosens a gate — every realism/after-cost/credible/risk gate still applies to
-        whatever is selected; it just stops spending the budget on untradeable extremes."""
+        whatever is selected; it just stops spending the budget on untradeable extremes.
+
+        Draws from the broad ``pool`` (full ranked scan). When disabled, returns the original
+        top-``budget`` slice (== the prior ``watch[:budget]`` behavior)."""
         if not getattr(self.cfg, "directional_selection_enabled", False):
-            return watch[:budget]
+            return (fallback if fallback is not None else pool)[:budget]
         lo = float(getattr(self.cfg, "directional_min_prob", 0.10))
         hi = float(getattr(self.cfg, "directional_max_prob", 0.90))
         min_depth = float(getattr(self.cfg, "directional_select_min_depth_usd", 50.0))
         max_spread = float(getattr(self.cfg, "directional_select_max_spread", 0.06))
         scored: list = []
         in_band = filt_prob = filt_depth = filt_spread = 0
-        for rec in (watch or []):
+        for rec in (pool or []):
             mid = market_mid(rec)
             if mid is None or not (lo <= float(mid) <= hi):
                 filt_prob += 1
@@ -1176,7 +1181,7 @@ class PolymarketPaperTrainer:
         selected = [r for _, r in scored[:budget]]
         self._directional_selection_tel = {
             "directional_selection_enabled": True,
-            "watch_in": len(watch or []), "in_band": in_band,
+            "pool_in": len(pool or []), "in_band": in_band,
             "filtered_out_of_band_prob": filt_prob, "filtered_thin_depth": filt_depth,
             "filtered_wide_spread": filt_spread, "selected": len(selected),
             "prob_band": [lo, hi], "min_depth_usd": min_depth, "max_spread": max_spread}
