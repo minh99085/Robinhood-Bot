@@ -934,6 +934,14 @@ class PolymarketPaperTrainer:
         # Bregman opportunity exists this tick.
         self._begin_directional_phase(dir_slots_before, bregman_opened)
         self._begin_exploration_phase()   # PASS-6: reset per-tick active-learning caps
+        # P2: hydrate the directional shortlist with REAL CLOB books so the directional
+        # lane can EVALUATE after-cost edge instead of rejecting every candidate
+        # `no_fresh_book` (the funnel proved this is the dominant directional wall). Bounded
+        # + read-only; supplies the fresh book the freshness gate requires — never loosens it.
+        try:
+            self._hydrate_directional(candidates, now)
+        except Exception:  # noqa: BLE001 — hydration never breaks a tick
+            pass
         for rec in candidates:
             ok, block_reason = self._directional_admit(rec)
             if block_reason == "global_capacity":
@@ -1123,6 +1131,62 @@ class PolymarketPaperTrainer:
             except Exception:  # noqa: BLE001 — never break a tick building a fetcher
                 self._settlement_fetcher_cached = None
         return self._settlement_fetcher_cached
+
+    def _hydrate_directional(self, candidates: list, now: float) -> dict:
+        """Hydrate the directional candidate shortlist with REAL CLOB books (read-only,
+        bounded) so the directional lane can evaluate after-cost edge. Reuses the Bregman
+        CLOB book fetcher; sets each record's real best bid/ask + book age so the UNCHANGED
+        freshness gate passes for genuinely-fresh books. Never trades/sizes/loosens a gate."""
+        tel = {"directional_hydration_enabled": bool(
+            getattr(self.cfg, "directional_hydration_enabled", False))}
+        if not tel["directional_hydration_enabled"]:
+            return tel
+        hyd = getattr(self, "_bregman_clob_hydrator", None)
+        fetcher = getattr(hyd, "book_fetcher", None) if hyd is not None else None
+        if fetcher is None:
+            tel["directional_hydration_active"] = False
+            self._directional_hydration_tel = tel
+            return tel
+        from engine.training.clob_hydration import parse_clob_book
+        from engine.training.probability_stack import has_fresh_book
+        max_age = float(getattr(self.cfg, "bregman_max_book_age_sec", 20.0) or 20.0)
+        cap = int(getattr(self.cfg, "directional_hydration_max_per_tick", 40))
+        attempted = hydrated = failed = already = 0
+        for rec in list(candidates)[:cap]:
+            try:
+                if has_fresh_book(rec, max_age):
+                    already += 1
+                    continue
+                toks = list(getattr(rec, "clob_token_ids", []) or [])
+                yes_tok = str(toks[0]) if toks else ""
+                if not yes_tok or (":" in yes_tok and yes_tok.split(":")[-1] in ("YES", "NO")):
+                    continue
+                attempted += 1
+                book = fetcher(yes_tok)
+                parsed = parse_clob_book(book) if book else None
+                if not parsed or parsed.get("best_bid") is None:
+                    failed += 1
+                    continue
+                rec.raw["bestAsk"] = parsed["best_ask"]
+                rec.raw["bestBid"] = parsed["best_bid"]
+                bts = parsed.get("book_ts")
+                rec.book_age_s = round(max(0.0, now - float(bts)), 3) if bts is not None else 0.0
+                try:
+                    rec.top_depth_usd = max(float(getattr(rec, "top_depth_usd", 0.0) or 0.0),
+                                            float(parsed.get("ask_depth_usd", 0.0) or 0.0))
+                except (TypeError, ValueError):
+                    pass
+                hydrated += 1
+            except Exception:  # noqa: BLE001 — one bad book never breaks the tick
+                failed += 1
+                continue
+        tel.update({"directional_hydration_active": True,
+                    "directional_hydration_attempted": attempted,
+                    "directional_hydrated": hydrated,
+                    "directional_hydration_failed": failed,
+                    "directional_already_fresh": already})
+        self._directional_hydration_tel = tel
+        return tel
 
     def _train_on_resolved_settlements(self) -> None:
         """Feed the closed loop's clean, genuinely-RESOLVED settlement completions into the
@@ -2797,8 +2861,16 @@ class PolymarketPaperTrainer:
             "opened_readiness": opened,
             "stage_counts": dict(f.get("stage_counts", {}) or {}),
             "best_near_miss": f.get("best_near_miss"),
+            "hydration": getattr(self, "_directional_hydration_tel", {}),
             "diagnosis": self._directional_funnel_diagnosis(f),
         }
+
+    # EdgeEngine gates that fire BEFORE the after-cost edge is even computed — when these
+    # dominate, after_cost_positive==0 means "never evaluated", NOT "edge dies after costs".
+    _PRE_EDGE_STAGES = ("no_fresh_book", "no_executable_price", "chainlink_stale_or_irrelevant",
+                        "stale_research", "offline_stub_blocked", "no_model_or_research_probability")
+    _QUALITY_STAGES = ("spread_too_wide", "depth_too_thin", "ambiguity_too_high",
+                       "research_confident_but_ambiguous", "evidence_too_weak")
 
     @staticmethod
     def _directional_funnel_diagnosis(f: dict) -> str:
@@ -2807,8 +2879,22 @@ class PolymarketPaperTrainer:
             return "no directional candidates evaluated yet"
         acp = int(f.get("after_cost_positive", 0) or 0)
         cred = int(f.get("credible_positive", 0) or 0)
+        stages = f.get("stage_counts", {}) or {}
+        # find the dominant terminal stage to classify the wall correctly.
+        dom = max(stages.items(), key=lambda kv: kv[1])[0] if stages else ""
+        pre = sum(stages.get(s, 0) for s in PolymarketPaperTrainer._PRE_EDGE_STAGES)
+        qual = sum(stages.get(s, 0) for s in PolymarketPaperTrainer._QUALITY_STAGES)
+        if pre >= max(1, ev // 2):
+            return (f"{pre}/{ev} candidates rejected BEFORE edge computation (dominant={dom}) "
+                    "-> the wall is BOOK FRESHNESS / hydration coverage for the directional "
+                    "lane (or feed staleness), NOT costs or calibration; hydrate the "
+                    "directional shortlist so edge can be evaluated")
+        if qual >= max(1, ev // 2):
+            return (f"{qual}/{ev} candidates rejected on market-quality gates (dominant={dom}: "
+                    "spread/depth/ambiguity) -> focus the directional lane on tighter-spread, "
+                    "deeper, less-ambiguous markets")
         if acp == 0:
-            return ("model edge does NOT survive costs on any candidate (after-cost edge <= 0) "
+            return ("edge WAS computed but is non-positive after costs on every candidate "
                     "-> lever is calibration sharpening / tighter-spread market focus, not gates")
         if cred == 0:
             return ("some candidates are after-cost positive but NONE clear the credible "

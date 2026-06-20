@@ -376,6 +376,11 @@ class TrainingConfig:
     # outcomes. base OFF (offline/unit safe); aggressive_paper turns ON.
     closed_loop_settlement_fetch_enabled: bool = False
     closed_loop_settlement_max_fetches_per_tick: int = 30
+    # P2: hydrate the directional candidate shortlist with REAL CLOB books so the directional
+    # lane can EVALUATE after-cost edge (the funnel proved candidates die `no_fresh_book`
+    # before edge). Bounded/read-only; base OFF, aggressive_paper ON.
+    directional_hydration_enabled: bool = False
+    directional_hydration_max_per_tick: int = 40
     # Tier-2 institutional risk layer (PAPER ONLY; tighten-only). Portfolio concentration
     # limits (VaR/CVaR + event/category/total exposure caps), confidence-aware fractional
     # Kelly sizing, and a regime aggression multiplier. base OFF; aggressive_paper turns ON.
@@ -1586,6 +1591,9 @@ class TrainingConfig:
                 "CLOSED_LOOP_SETTLEMENT_FETCH_ENABLED", True),
             closed_loop_settlement_max_fetches_per_tick=_envi(
                 "CLOSED_LOOP_SETTLEMENT_MAX_FETCHES_PER_TICK", 30),
+            directional_hydration_enabled=_envb("POLYMARKET_DIRECTIONAL_HYDRATION_ENABLED", True),
+            directional_hydration_max_per_tick=_envi(
+                "POLYMARKET_DIRECTIONAL_HYDRATION_MAX_PER_TICK", 40),
             # Tier-2 institutional risk layer ON for the aggressive profile (tighten-only).
             portfolio_risk_enabled=_envb("PORTFOLIO_RISK_ENABLED", True),
             max_event_exposure_frac=_envf("PORTFOLIO_MAX_EVENT_EXPOSURE_FRAC", 0.20),

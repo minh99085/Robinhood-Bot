@@ -263,7 +263,47 @@ def test_directional_funnel_diagnosis_edge_dies_after_cost(tmp_path, monkeypatch
     t = _trainer(tmp_path, monkeypatch)
     for ne in (-0.05, -0.02, -0.1):
         e = _edge_ns(net_edge=ne)
-        t._dir_funnel_eval(e); t._dir_funnel_term("edge_too_low", e, _est_ns(), opened=False)
+        t._dir_funnel_eval(e)
+        t._dir_funnel_term("edge_too_low", e, _est_ns(), opened=False)
     r = t.directional_funnel_report()
     assert r["after_cost_positive"] == 0
-    assert "does NOT survive costs" in r["diagnosis"]
+    assert "after costs" in r["diagnosis"]
+
+
+def test_directional_funnel_diagnosis_flags_book_freshness_wall(tmp_path, monkeypatch):
+    t = _trainer(tmp_path, monkeypatch)
+    for _ in range(10):
+        e = _edge_ns(net_edge=0.0)
+        t._dir_funnel_eval(e)
+        t._dir_funnel_term("no_fresh_book", e, _est_ns(), opened=False)
+    r = t.directional_funnel_report()
+    assert "BOOK FRESHNESS" in r["diagnosis"]      # pre-edge wall, not costs/calibration
+
+
+# --------------------------------------------------------------------------- #
+# P2 directional book hydration: the fix for the `no_fresh_book` wall
+# --------------------------------------------------------------------------- #
+def test_directional_hydration_makes_stale_candidate_fresh(tmp_path, monkeypatch):
+    from engine.markets import universe_manager as um
+    from engine.training.probability_stack import has_fresh_book
+    t = _trainer(tmp_path, monkeypatch, directional_hydration_enabled=True)
+    raw = {"id": "m0", "clobTokenIds": ["tok0yes", "tok0no"], "question": "Q?",
+           "bestBid": 0, "bestAsk": 0, "liquidityNum": 100.0}
+    rec = um.MarketRecord.from_raw(raw, now=_NOW)
+    assert not has_fresh_book(rec, 30.0)            # no usable book before
+    book = {"asks": [{"price": "0.55", "size": "500"}],
+            "bids": [{"price": "0.53", "size": "500"}], "timestamp": str(_NOW)}
+    t.enable_clob_hydration(book_fetcher=lambda tok: book, max_book_age_s=30.0)
+    tel = t._hydrate_directional([rec], _NOW + 1.0)
+    assert tel["directional_hydrated"] == 1
+    assert has_fresh_book(rec, 30.0)                # REAL fresh book after hydration
+    assert rec.raw["bestAsk"] == 0.55 and rec.raw["bestBid"] == 0.53
+
+
+def test_directional_hydration_disabled_is_noop(tmp_path, monkeypatch):
+    from engine.markets import universe_manager as um
+    t = _trainer(tmp_path, monkeypatch, directional_hydration_enabled=False)
+    raw = {"id": "m0", "clobTokenIds": ["tok0yes", "tok0no"], "bestBid": 0, "bestAsk": 0}
+    rec = um.MarketRecord.from_raw(raw, now=_NOW)
+    tel = t._hydrate_directional([rec], _NOW)
+    assert tel == {"directional_hydration_enabled": False}

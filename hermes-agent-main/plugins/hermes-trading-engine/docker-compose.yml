@@ -669,6 +669,13 @@ services:
       # short-horizon momentum proxy is reported separately and NEVER as calibration.
       CLOSED_LOOP_SETTLEMENT_FETCH_ENABLED: "1"
       CLOSED_LOOP_SETTLEMENT_MAX_FETCHES_PER_TICK: "30"
+      # ---- P2: directional readiness lane — hydrate the directional shortlist ----
+      # The directional after-cost funnel proved candidates die `no_fresh_book` BEFORE edge
+      # is computed (books weren't hydrated for the directional lane). Hydrate the shortlist
+      # with REAL CLOB books (bounded/read-only) so the proven model edge can finally be
+      # evaluated and credible positive-after-cost readiness trades can open. No gate loosened.
+      POLYMARKET_DIRECTIONAL_HYDRATION_ENABLED: "1"
+      POLYMARKET_DIRECTIONAL_HYDRATION_MAX_PER_TICK: "40"
       # ---- Chainlink real price feed (READ-ONLY oracle input) ----
       # Live Chainlink mainnet aggregator reads (latestRoundData over JSON-RPC),
       # used ONLY as a probability/edge input feature for crypto-linked markets.
