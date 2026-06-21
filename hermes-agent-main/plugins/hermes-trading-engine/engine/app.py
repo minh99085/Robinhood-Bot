@@ -135,6 +135,26 @@ async function tick(){
  cards.appendChild(card('Execution gate',[['candidates',eg.candidates],['accepted (fills)',eg.accepted,'ok'],['rejected',eg.rejected_total,'bad'],...Object.entries(eg.rejected||{}).filter(([,v])=>v>0).map(([k,v])=>['· '+k,v,'bad']),['reconciled',eg.reconciled?'yes':'NO',eg.reconciled?'ok':'bad']]));
  cards.appendChild(card('Settlement & calibration',[['sources',JSON.stringify(L.settle_sources||{})],['proxy vs official','both '+(rec.both||0)+' · agree '+(rec.agree||0)+' · disagree '+(rec.disagree||0)],['Brier',f(c.brier,3)+' (base 0.25)'],['log-loss',f(c.log_loss,3)],['samples',c.samples],['base-rate up',f(c.base_rate_up,2)]]));
  cards.appendChild(card('Grok event-risk overlay',[['enabled',g.enabled?'yes':'no'],['regime',(g.state||{}).regime||'—'],['blackout',(g.state||{}).blackout?'YES':'no',(g.state||{}).blackout?'bad':''],['calls',g.calls],['reason',(g.state||{}).reason||'—']]));
+ // TradingView TA intake (observe-only)
+ const tv=s.tradingview||{};
+ if(tv.enabled){
+   const vbs=tv.tradingview_valid_by_symbol||{};
+   cards.appendChild(card('TradingView signals (observe-only)',[['received',tv.tradingview_alerts_received],['valid',tv.tradingview_alerts_valid,'ok'],['rejected',tv.tradingview_alerts_rejected,'bad'],...Object.entries(vbs).map(([k,v])=>['· valid '+k,v]),...Object.entries(tv.tradingview_reject_reasons||{}).filter(([,v])=>v>0).map(([k,v])=>['· rej '+k,v,'bad']),['observe-only',tv.tradingview_observe_only?'yes':'no','muted']]));
+   const lbs=tv.tradingview_latest_by_symbol||{};
+   const latestRows=Object.entries(lbs).map(([sym,e])=>[sym,(e.direction||'—')+' · '+(e.timeframe||'?')+'m · '+(e.indicator_name||'')]);
+   if(latestRows.length) cards.appendChild(card('TradingView latest signal',latestRows));
+   // RSI alert-history trend + next-5min prediction
+   const rs=tv.rsi_trend||{},ct=rs.current_trend||{},np=rs.next_window_prediction||{};
+   const rrows=[];
+   Object.entries(ct).forEach(([sym,t])=>rrows.push(['trend '+sym,(t.last_direction||'—')+' · streak '+(t.streak||0)]));
+   Object.entries(np).forEach(([sym,pr])=>rrows.push(['next '+sym, pr&&pr.prediction?(pr.prediction+' '+f((pr.prob_up||0)*100,0)+'%'):((pr&&pr.reason)||'—'), pr&&pr.prediction?(pr.prediction==='UP'?'ok':'bad'):'muted']));
+   rrows.push(['pred accuracy', rs.prediction_accuracy==null?'—':f(rs.prediction_accuracy*100,1)+'%']);
+   rrows.push(['scored', rs.predictions_scored||0]);
+   cards.appendChild(card('RSI trend → next 5-min',rrows));
+   // does the TA actually predict the 5-min outcome?
+   const ed=tv.edge_vs_5min_outcome||{};
+   cards.appendChild(card('TA edge vs 5-min outcome',[['verdict',ed.verdict||'—',(ed.verdict==='signal_predictive_edge'?'ok':(ed.verdict==='signal_inverse_edge'?'bad':'muted'))],['signal hit-rate',ed.signal_hit_rate==null?'—':f(ed.signal_hit_rate*100,1)+'%'],['baseline up-rate',ed.baseline_up_rate==null?'—':f(ed.baseline_up_rate*100,1)+'%'],['aligned win-rate',ed.aligned_bot_win_rate==null?'—':f(ed.aligned_bot_win_rate*100,1)+'%'],['opposed win-rate',ed.opposed_bot_win_rate==null?'—':f(ed.opposed_bot_win_rate*100,1)+'%'],['settled w/ signal',ed.n_settled_with_signal||0]]));
+ }
  // positions
  const pos=(l&&l.positions)||[];const pc=$(`<div class="card" style="grid-column:1/-1"><h2>Recent paper positions</h2></div>`);
  const tb=$(`<table><thead><tr><th>window</th><th>side</th><th>entry</th><th>fair</th><th>s_open→s_close</th><th>won</th><th>pnl</th></tr></thead><tbody></tbody></table>`);
