@@ -15,12 +15,15 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger("hte.pulse.tradingview")
 
 # explicit, stable rejection reasons (acceptance criterion #3 + #8)
 INVALID_JSON = "invalid_json"
@@ -506,6 +509,8 @@ class TradingViewIntake:
                 # 401 for auth failures, 400 for everything else (never reveals the secret)
                 code = 401 if reason in (MISSING_SECRET, BAD_SECRET) else 400
                 self._persist_locked()
+                logger.info("tradingview alert REJECTED: reason=%s (received=%d valid=%d)",
+                            reason, self.received, self.valid)
                 return code, {"ok": False, "reason": reason, "observe_only": True}
             if ev.event_id in self._seen_set:
                 self.rejected += 1
@@ -526,6 +531,9 @@ class TradingViewIntake:
             self.valid_by_symbol[ev.symbol] = self.valid_by_symbol.get(ev.symbol, 0) + 1
             self._pending.append(ev)
             self._persist_locked()
+            logger.info("tradingview alert ACCEPTED (observe-only): %s %s tf=%s strength=%s id=%s "
+                        "(valid=%d)", ev.symbol, ev.direction, ev.timeframe, ev.strength,
+                        ev.event_id, self.valid)
             return 200, {"ok": True, "accepted": True, "event_id": ev.event_id,
                          "direction": ev.direction, "observe_only": True,
                          "note": "candidate-signal only; cannot place/resize/bypass a trade"}
