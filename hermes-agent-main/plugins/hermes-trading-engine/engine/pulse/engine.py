@@ -211,6 +211,8 @@ class PulseEngine:
             from engine.pulse.edge_model import EdgeModel
             self.edge_model = EdgeModel()
         self.reconciler = LifecycleReconciler()   # GS-Quant-style candidate lifecycle audit
+        from engine.pulse.promotion import PromotionLadder
+        self.promotion = PromotionLadder()        # all features default to observe-only (level 0)
         self._daily_loss = 0.0                    # for the Kelly daily-loss-cap diagnostic
         self._daily_key = None
         from engine.pulse.reporting import OutcomeGroups
@@ -621,6 +623,7 @@ class PulseEngine:
                            else {"enabled": False}),
             "tier_table": self._tier_report(),
             "meta_learning": self._meta_learning_status(),
+            "promotion_ladder": self.promotion.report(),
             "sizing": {"enabled": self.cfg.sizing_enabled, "paper_only": True,
                        "hard_cap_usd": self.cfg.sizing_hard_cap_usd,
                        "daily_loss_cap_usd": self.cfg.sizing_daily_loss_cap_usd,
