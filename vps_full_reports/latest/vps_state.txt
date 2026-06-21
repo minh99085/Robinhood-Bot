@@ -1,5 +1,5 @@
-VPS report pulled: 2026-06-21T13:18Z UTC
-VPS HEAD: 437bfbbbabe8ce1899a07e074a0af0f7d0ff1e72
-Container: Up 6 hours (healthy)
-ticks: 4982 | trades: 139 settled: 137 | win_rate: 53.3% | pnl: +$9.80 | readiness: not_ready
-RTDS: connected, Chainlink data-streams oracle, 39580 msgs, 2 reconnects
+VPS report pulled: 2026-06-21T21:11Z UTC
+VPS HEAD: e5252683abe79b88fc262ef8ff85473102322d70
+Container: healthy
+global_reconciled: true | trades 229 settled 229 | win 52.4% | pnl -$30.93 | readiness not_ready
+learning: enabled, cold-start (15/60 labels) | TV gate active | TV intake reset (BTCUSD only going forward)

@@ -1,30 +1,30 @@
 {
  "paper_only": true,
  "stats": {
-  "trades": 152,
-  "settled": 151,
-  "wins": 80,
-  "win_rate": 0.5298,
-  "avg_entry_price": 0.5289,
-  "edge_realized": 0.0009,
-  "win_rate_up": 0.5441,
-  "win_rate_down": 0.5181,
+  "trades": 229,
+  "settled": 229,
+  "wins": 120,
+  "win_rate": 0.524,
+  "avg_entry_price": 0.5369,
+  "edge_realized": -0.0129,
+  "win_rate_up": 0.549,
+  "win_rate_down": 0.5039,
   "side_counts": {
-   "up": 68,
-   "down": 83
+   "up": 102,
+   "down": 127
   },
   "settle_sources": {
-   "polymarket_resolution": 63,
-   "rtds_chainlink_proxy": 72
+   "polymarket_resolution": 99,
+   "rtds_chainlink_proxy": 114
   },
   "proxy_official_reconciliation": {
-   "both": 62,
-   "agree": 59,
-   "disagree": 3
+   "both": 98,
+   "agree": 94,
+   "disagree": 4
   },
   "execution_gate": {
-   "candidates": 107,
-   "accepted": 107,
+   "candidates": 184,
+   "accepted": 184,
    "rejected_total": 0,
    "rejected": {
     "wide_spread": 0,
@@ -36,38 +36,38 @@
     "missing_market_data": 0,
     "stale_orderbook": 0
    },
-   "fills": 107,
+   "fills": 184,
    "reconciled": true
   },
-  "realized_pnl_usd": -4.7633,
-  "avg_pnl_per_trade": -0.0315,
-  "profit_factor": 0.874,
-  "avg_win_usd": 2.1849,
-  "avg_loss_usd": 2.8169,
-  "max_drawdown_usd": 64.2291,
-  "open_positions": 1
+  "realized_pnl_usd": -30.9309,
+  "avg_pnl_per_trade": -0.1351,
+  "profit_factor": 0.8683,
+  "avg_win_usd": 2.8219,
+  "avg_loss_usd": 3.578,
+  "max_drawdown_usd": 90.6972,
+  "open_positions": 0
  },
  "accumulators": {
-  "settled_entry_sum": 79.870525,
+  "settled_entry_sum": 122.948188,
   "side_n": {
-   "up": 68,
-   "down": 83
+   "up": 102,
+   "down": 127
   },
   "side_wins": {
-   "up": 37,
-   "down": 43
+   "up": 56,
+   "down": 64
   },
   "settle_sources": {
-   "polymarket_resolution": 63,
-   "rtds_chainlink_proxy": 72
+   "polymarket_resolution": 99,
+   "rtds_chainlink_proxy": 114
   },
   "recon": {
-   "both": 62,
-   "agree": 59,
-   "disagree": 3
+   "both": 98,
+   "agree": 94,
+   "disagree": 4
   },
-  "exec_candidates": 107,
-  "exec_accepted": 107,
+  "exec_candidates": 184,
+  "exec_accepted": 184,
   "exec_rejected": {
    "wide_spread": 0,
    "insufficient_depth": 0,
@@ -78,13 +78,3481 @@
    "missing_market_data": 0,
    "stale_orderbook": 0
   },
-  "gross_win": 174.794699,
-  "gross_loss": 200.0,
-  "equity": -25.205301,
+  "gross_win": 338.627222,
+  "gross_loss": 390.0,
+  "equity": -51.372778,
   "equity_peak": 33.8197,
-  "max_drawdown": 64.229083
+  "max_drawdown": 90.697227
  },
  "positions": [
+  {
+   "window_key": "616515",
+   "market_id": "2621986",
+   "title": "Bitcoin Up or Down - June 21, 5:00PM-5:05PM ET",
+   "side": "up",
+   "token_id": "26897197965777511381477510020061205908890210825929860311860531825242920148141",
+   "entry_price": 0.64,
+   "size_usd": 5.0,
+   "shares": 7.8125,
+   "fair_at_entry": 0.7252268485817115,
+   "edge_at_entry": 0.05522684858171148,
+   "open_ts": 1782075600.0,
+   "close_ts": 1782075900.0,
+   "entry_ts": 1782075633.4447718,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63761.33514497043,
+   "s_close": 63748.87939637273,
+   "close_lag_s": 0.1263716220855713,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": 0.4427,
+     "realized_vol_scaled": 0.8383999999999999,
+     "zscore": 0.0,
+     "signal_strength_signed": 0.5487,
+     "edge_quality_score": 0.9351,
+     "orderbook_imbalance": -0.7306
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616515",
+   "external": {
+    "source": "tradingview",
+    "direction": "UP",
+    "timeframe": "5",
+    "symbol": "BTCUSD",
+    "indicator_name": "RSI Divergence",
+    "strength": 0.9,
+    "rsi_trend_state": "up_streak1",
+    "rsi_predicted_next": null,
+    "rsi_pred_prob_up": null
+   }
+  },
+  {
+   "window_key": "616508",
+   "market_id": "2621965",
+   "title": "Bitcoin Up or Down - June 21, 4:55PM-5:00PM ET",
+   "side": "down",
+   "token_id": "115221440099397394452821108618568768384940547380999759633548707155234801905982",
+   "entry_price": 0.47000000000000003,
+   "size_usd": 5.0,
+   "shares": 10.638298,
+   "fair_at_entry": 0.4424530319908497,
+   "edge_at_entry": 0.057546968009150296,
+   "open_ts": 1782075300.0,
+   "close_ts": 1782075600.0,
+   "entry_ts": 1782075331.6401289,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63776.1207020059,
+   "s_close": 63761.33514497043,
+   "close_lag_s": 1.4442167282104492,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "30-120s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6401,
+     "autocorr_lag1": 0.0484,
+     "realized_vol_scaled": 1.3492,
+     "zscore": 0.2743,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9371,
+     "orderbook_imbalance": -0.7545
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "low"
+   },
+   "decision_id": "616508",
+   "external": {
+    "source": "tradingview",
+    "direction": "DOWN",
+    "timeframe": "5",
+    "symbol": "BTCUSD",
+    "indicator_name": "RSI Divergence",
+    "strength": 0.9,
+    "rsi_trend_state": "down_streak1",
+    "rsi_predicted_next": null,
+    "rsi_pred_prob_up": null
+   }
+  },
+  {
+   "window_key": "616428",
+   "market_id": "2621660",
+   "title": "Bitcoin Up or Down - June 21, 4:35PM-4:40PM ET",
+   "side": "up",
+   "token_id": "6688610848148297850810278621947535256494528754515273037656751778827969047817",
+   "entry_price": 0.76,
+   "size_usd": 5.0,
+   "shares": 6.578947,
+   "fair_at_entry": 0.8587461877316608,
+   "edge_at_entry": 0.06874618773166077,
+   "open_ts": 1782074100.0,
+   "close_ts": 1782074400.0,
+   "entry_ts": 1782074131.2012491,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63970.40310160174,
+   "s_close": 63942.09423539157,
+   "close_lag_s": 3.624701499938965,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": ">=2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7162,
+     "autocorr_lag1": 0.2035,
+     "realized_vol_scaled": 0.579,
+     "zscore": 2.8122,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9376,
+     "orderbook_imbalance": -0.6696
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616428",
+   "external": {
+    "source": "tradingview",
+    "direction": "DOWN",
+    "timeframe": "5",
+    "symbol": "BTCUSD",
+    "indicator_name": "RSI Divergence",
+    "strength": 0.9,
+    "rsi_trend_state": "down_streak1",
+    "rsi_predicted_next": null,
+    "rsi_pred_prob_up": null
+   }
+  },
+  {
+   "window_key": "616412",
+   "market_id": "2621520",
+   "title": "Bitcoin Up or Down - June 21, 4:30PM-4:35PM ET",
+   "side": "up",
+   "token_id": "52403541378700761761984679268109968822726241862726906284785792220508252583540",
+   "entry_price": 0.62,
+   "size_usd": 5.0,
+   "shares": 8.064516,
+   "fair_at_entry": 0.8123783225145796,
+   "edge_at_entry": 0.16237832251457965,
+   "open_ts": 1782073800.0,
+   "close_ts": 1782074100.0,
+   "entry_ts": 1782073839.1963387,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64038.993954118,
+   "s_close": 63970.40310160174,
+   "close_lag_s": 3.2007811069488525,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6738,
+     "autocorr_lag1": 0.2284,
+     "realized_vol_scaled": 0.5404,
+     "zscore": 1.3234,
+     "signal_strength_signed": 0.6918,
+     "edge_quality_score": 0.9287,
+     "orderbook_imbalance": -0.7481
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616412",
+   "external": null
+  },
+  {
+   "window_key": "616400",
+   "market_id": "2621506",
+   "title": "Bitcoin Up or Down - June 21, 4:25PM-4:30PM ET",
+   "side": "up",
+   "token_id": "94724321685689800087515243985153251038320112123140505269989002293383937269468",
+   "entry_price": 0.58,
+   "size_usd": 5.0,
+   "shares": 8.62069,
+   "fair_at_entry": 0.6664938871992855,
+   "edge_at_entry": 0.056493887199285525,
+   "open_ts": 1782073500.0,
+   "close_ts": 1782073800.0,
+   "entry_ts": 1782073531.1910884,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64040.74627403143,
+   "s_close": 64038.993954118,
+   "close_lag_s": 3.1957366466522217,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.7689,
+     "autocorr_lag1": 0.2472,
+     "realized_vol_scaled": 0.5745,
+     "zscore": 0.9578,
+     "signal_strength_signed": 0.294,
+     "edge_quality_score": 0.9376,
+     "orderbook_imbalance": -0.7795
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616400",
+   "external": null
+  },
+  {
+   "window_key": "616396",
+   "market_id": "2621500",
+   "title": "Bitcoin Up or Down - June 21, 4:20PM-4:25PM ET",
+   "side": "up",
+   "token_id": "32351753757759813280733853448320444605666217415082738226286828146125458037003",
+   "entry_price": 0.59,
+   "size_usd": 5.0,
+   "shares": 8.474576,
+   "fair_at_entry": 0.6708021296838981,
+   "edge_at_entry": 0.050802129683898106,
+   "open_ts": 1782073200.0,
+   "close_ts": 1782073500.0,
+   "entry_ts": 1782073231.1857383,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 3.474576,
+   "s_open": 63995.6683768099,
+   "s_close": 64040.74627403143,
+   "close_lag_s": 3.1905763149261475,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.708,
+     "autocorr_lag1": 0.3041,
+     "realized_vol_scaled": 0.5539000000000001,
+     "zscore": 1.1366,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9376,
+     "orderbook_imbalance": -0.7219
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616396",
+   "external": null
+  },
+  {
+   "window_key": "616383",
+   "market_id": "2621488",
+   "title": "Bitcoin Up or Down - June 21, 4:15PM-4:20PM ET",
+   "side": "down",
+   "token_id": "115017410280341998951682206735341046997533292797337924375352064788773791910454",
+   "entry_price": 0.53,
+   "size_usd": 5.0,
+   "shares": 9.433962,
+   "fair_at_entry": 0.3940286092961759,
+   "edge_at_entry": 0.04597139070382408,
+   "open_ts": 1782072900.0,
+   "close_ts": 1782073200.0,
+   "entry_ts": 1782072931.1806715,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 4.433962,
+   "s_open": 64087.73542977904,
+   "s_close": 63995.6683768099,
+   "close_lag_s": 3.1852595806121826,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7163,
+     "autocorr_lag1": 0.3107,
+     "realized_vol_scaled": 0.4628,
+     "zscore": 0.0337,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9376,
+     "orderbook_imbalance": -0.8084
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616383",
+   "external": {
+    "source": "tradingview",
+    "direction": "DOWN",
+    "timeframe": "5",
+    "symbol": "BTCUSDT",
+    "indicator_name": "RSI Divergence",
+    "strength": 0.9,
+    "rsi_trend_state": "down_streak1",
+    "rsi_predicted_next": null,
+    "rsi_pred_prob_up": null
+   }
+  },
+  {
+   "window_key": "616375",
+   "market_id": "2621481",
+   "title": "Bitcoin Up or Down - June 21, 4:10PM-4:15PM ET",
+   "side": "down",
+   "token_id": "35226556006720316154425220975484595322291410422873621000199515259916670581797",
+   "entry_price": 0.67,
+   "size_usd": 5.0,
+   "shares": 7.462687,
+   "fair_at_entry": 0.07186025051899536,
+   "edge_at_entry": 0.2281397494810046,
+   "open_ts": 1782072600.0,
+   "close_ts": 1782072900.0,
+   "entry_ts": 1782072631.175283,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 2.462687,
+   "s_open": 64154.47373506738,
+   "s_close": 64087.73542977904,
+   "close_lag_s": 3.180201768875122,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "<=-2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6869,
+     "autocorr_lag1": 0.3708,
+     "realized_vol_scaled": 0.40469999999999995,
+     "zscore": -2.0443,
+     "signal_strength_signed": -0.7581,
+     "edge_quality_score": 0.9376,
+     "orderbook_imbalance": -0.8616
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616375",
+   "external": {
+    "source": "tradingview",
+    "direction": "UP",
+    "timeframe": "5",
+    "symbol": "BTCUSDT",
+    "indicator_name": "RSI Divergence",
+    "strength": 0.9,
+    "rsi_trend_state": "up_streak3",
+    "rsi_predicted_next": null,
+    "rsi_pred_prob_up": null
+   }
+  },
+  {
+   "window_key": "616368",
+   "market_id": "2621473",
+   "title": "Bitcoin Up or Down - June 21, 4:05PM-4:10PM ET",
+   "side": "up",
+   "token_id": "112362545839829615367613357279378363890886384801512201549010120449403015970696",
+   "entry_price": 0.67,
+   "size_usd": 5.0,
+   "shares": 7.462687,
+   "fair_at_entry": 0.7514296798781945,
+   "edge_at_entry": 0.051429679878194495,
+   "open_ts": 1782072300.0,
+   "close_ts": 1782072600.0,
+   "entry_ts": 1782072335.170032,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 2.462687,
+   "s_open": 64131.56617140445,
+   "s_close": 64154.47373506738,
+   "close_lag_s": 3.174767255783081,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": ">=2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.627,
+     "autocorr_lag1": 0.3288,
+     "realized_vol_scaled": 0.3484,
+     "zscore": 3.0905,
+     "signal_strength_signed": 0.6274,
+     "edge_quality_score": 0.9332,
+     "orderbook_imbalance": -0.8193
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616368",
+   "external": null
+  },
+  {
+   "window_key": "616360",
+   "market_id": "2621449",
+   "title": "Bitcoin Up or Down - June 21, 4:00PM-4:05PM ET",
+   "side": "up",
+   "token_id": "85339406581895617564378607903356654697871120956721487844133887571348665184583",
+   "entry_price": 0.52,
+   "size_usd": 5.0,
+   "shares": 9.615385,
+   "fair_at_entry": 0.6601246369778998,
+   "edge_at_entry": 0.11012463697789979,
+   "open_ts": 1782072000.0,
+   "close_ts": 1782072300.0,
+   "entry_ts": 1782072035.1648047,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 4.615385,
+   "s_open": 64128.52278001865,
+   "s_close": 64131.56617140445,
+   "close_lag_s": 3.1694562435150146,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6315,
+     "autocorr_lag1": 0.2696,
+     "realized_vol_scaled": 0.3912,
+     "zscore": 0.4536,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9332,
+     "orderbook_imbalance": -0.806
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616360",
+   "external": null
+  },
+  {
+   "window_key": "616337",
+   "market_id": "2621402",
+   "title": "Bitcoin Up or Down - June 21, 3:55PM-4:00PM ET",
+   "side": "up",
+   "token_id": "52636401473801114771291389741506739176374146753132393318269885818265799224828",
+   "entry_price": 0.38,
+   "size_usd": 5.0,
+   "shares": 13.157895,
+   "fair_at_entry": 0.4732112814625139,
+   "edge_at_entry": 0.0632112814625139,
+   "open_ts": 1782071700.0,
+   "close_ts": 1782072000.0,
+   "entry_ts": 1782071803.1607976,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64151.426263585105,
+   "s_close": 64128.52278001865,
+   "close_lag_s": 3.164213180541992,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "<=-2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6201,
+     "autocorr_lag1": 0.2631,
+     "realized_vol_scaled": 0.4112,
+     "zscore": -2.4657,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.8576,
+     "orderbook_imbalance": -0.8727
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616337",
+   "external": null
+  },
+  {
+   "window_key": "616325",
+   "market_id": "2621390",
+   "title": "Bitcoin Up or Down - June 21, 3:50PM-3:55PM ET",
+   "side": "up",
+   "token_id": "8623166335171532800896495319789521676071254809512680196887090008488828091739",
+   "entry_price": 0.54,
+   "size_usd": 5.0,
+   "shares": 9.259259,
+   "fair_at_entry": 0.6025309140991986,
+   "edge_at_entry": 0.03253091409919853,
+   "open_ts": 1782071400.0,
+   "close_ts": 1782071700.0,
+   "entry_ts": 1782071443.154615,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 4.259259,
+   "s_open": 64148.20231143667,
+   "s_close": 64151.426263585105,
+   "close_lag_s": 3.159123659133911,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.5852,
+     "autocorr_lag1": 0.2829,
+     "realized_vol_scaled": 0.4528,
+     "zscore": 1.0819,
+     "signal_strength_signed": 0.5396,
+     "edge_quality_score": 0.9243,
+     "orderbook_imbalance": -0.7848
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616325",
+   "external": null
+  },
+  {
+   "window_key": "616312",
+   "market_id": "2621377",
+   "title": "Bitcoin Up or Down - June 21, 3:45PM-3:50PM ET",
+   "side": "up",
+   "token_id": "93076509400773199126378698421786999524548873228038527361879686644761527222585",
+   "entry_price": 0.38,
+   "size_usd": 5.0,
+   "shares": 13.157895,
+   "fair_at_entry": 0.4726367102202266,
+   "edge_at_entry": 0.06263671022022657,
+   "open_ts": 1782071100.0,
+   "close_ts": 1782071400.0,
+   "entry_ts": 1782071155.149688,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 8.157895,
+   "s_open": 64136.3088556612,
+   "s_close": 64148.20231143667,
+   "close_lag_s": 3.1539061069488525,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "<=-2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6677,
+     "autocorr_lag1": 0.2447,
+     "realized_vol_scaled": 0.4819,
+     "zscore": -2.1679,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.911,
+     "orderbook_imbalance": -0.8569
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616312",
+   "external": null
+  },
+  {
+   "window_key": "616303",
+   "market_id": "2621365",
+   "title": "Bitcoin Up or Down - June 21, 3:40PM-3:45PM ET",
+   "side": "down",
+   "token_id": "61987433873011433433297590422376536521552516512393487774274899068934324547386",
+   "entry_price": 0.47000000000000003,
+   "size_usd": 5.0,
+   "shares": 10.638298,
+   "fair_at_entry": 0.359321653200096,
+   "edge_at_entry": 0.140678346799904,
+   "open_ts": 1782070800.0,
+   "close_ts": 1782071100.0,
+   "entry_ts": 1782070843.144314,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 5.638298,
+   "s_open": 64146.91372893274,
+   "s_close": 64136.3088556612,
+   "close_lag_s": 3.148782730102539,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": 0.2796,
+     "realized_vol_scaled": 0.4507,
+     "zscore": 0.0,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9243,
+     "orderbook_imbalance": -0.7758
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616303",
+   "external": null
+  },
+  {
+   "window_key": "616296",
+   "market_id": "2621353",
+   "title": "Bitcoin Up or Down - June 21, 3:35PM-3:40PM ET",
+   "side": "down",
+   "token_id": "80011872305522413555318375027734992220200561506463864297220087719287313995220",
+   "entry_price": 0.8,
+   "size_usd": 5.0,
+   "shares": 6.25,
+   "fair_at_entry": 0.05255132211456004,
+   "edge_at_entry": 0.11744867788543992,
+   "open_ts": 1782070500.0,
+   "close_ts": 1782070800.0,
+   "entry_ts": 1782070533.0401223,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64134.67083723821,
+   "s_close": 64146.91372893274,
+   "close_lag_s": 3.143615484237671,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "<=-2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6217,
+     "autocorr_lag1": 0.2665,
+     "realized_vol_scaled": 0.4252,
+     "zscore": -3.3944,
+     "signal_strength_signed": -0.7038,
+     "edge_quality_score": 0.9355,
+     "orderbook_imbalance": -0.9088
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616296",
+   "external": null
+  },
+  {
+   "window_key": "616285",
+   "market_id": "2621244",
+   "title": "Bitcoin Up or Down - June 21, 3:30PM-3:35PM ET",
+   "side": "up",
+   "token_id": "7718209704288404531338804541212429650000515171839230743071315255262301842034",
+   "entry_price": 0.56,
+   "size_usd": 5.0,
+   "shares": 8.928571,
+   "fair_at_entry": 0.6830415424031511,
+   "edge_at_entry": 0.09304154240315102,
+   "open_ts": 1782070200.0,
+   "close_ts": 1782070500.0,
+   "entry_ts": 1782070233.0349548,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64144.06622316663,
+   "s_close": 64135.29849481935,
+   "close_lag_s": 1.0395750999450684,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6328,
+     "autocorr_lag1": 0.1651,
+     "realized_vol_scaled": 0.44079999999999997,
+     "zscore": 0.4972,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9355,
+     "orderbook_imbalance": -0.7773
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616285",
+   "external": null
+  },
+  {
+   "window_key": "616272",
+   "market_id": "2621224",
+   "title": "Bitcoin Up or Down - June 21, 3:25PM-3:30PM ET",
+   "side": "down",
+   "token_id": "9183932413561001317951883298587036295566190377889639712800525328739306675361",
+   "entry_price": 0.5841584158415842,
+   "size_usd": 5.0,
+   "shares": 8.559322,
+   "fair_at_entry": 0.2840251860619801,
+   "edge_at_entry": 0.10597481393802002,
+   "open_ts": 1782069900.0,
+   "close_ts": 1782070200.0,
+   "entry_ts": 1782069933.0298803,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 3.559322,
+   "s_open": 64160.67177701968,
+   "s_close": 64144.06622316663,
+   "close_lag_s": 1.034421682357788,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6379,
+     "autocorr_lag1": 0.154,
+     "realized_vol_scaled": 0.4336,
+     "zscore": -1.0644,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9355,
+     "orderbook_imbalance": -0.8561
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616272",
+   "external": null
+  },
+  {
+   "window_key": "616265",
+   "market_id": "2621217",
+   "title": "Bitcoin Up or Down - June 21, 3:20PM-3:25PM ET",
+   "side": "down",
+   "token_id": "74774911307161987143529267436935264273918720993980212144310750772184799948440",
+   "entry_price": 0.6,
+   "size_usd": 5.0,
+   "shares": 8.333333,
+   "fair_at_entry": 0.31523454396018386,
+   "edge_at_entry": 0.054765456039816224,
+   "open_ts": 1782069600.0,
+   "close_ts": 1782069900.0,
+   "entry_ts": 1782069633.024714,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64147.49653764105,
+   "s_close": 64160.66977701968,
+   "close_lag_s": 1.0293543338775635,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7092,
+     "autocorr_lag1": 0.1979,
+     "realized_vol_scaled": 0.6344000000000001,
+     "zscore": -1.3956,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9355,
+     "orderbook_imbalance": -0.8507
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616265",
+   "external": null
+  },
+  {
+   "window_key": "616258",
+   "market_id": "2621210",
+   "title": "Bitcoin Up or Down - June 21, 3:15PM-3:20PM ET",
+   "side": "down",
+   "token_id": "82250311210498657197931706449468110485730347646632131886911875845146218606241",
+   "entry_price": 0.4799999999999999,
+   "size_usd": 5.0,
+   "shares": 10.416667,
+   "fair_at_entry": 0.3046102070600156,
+   "edge_at_entry": 0.1853897929399844,
+   "open_ts": 1782069300.0,
+   "close_ts": 1782069600.0,
+   "entry_ts": 1782069333.0196707,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64145.59659423974,
+   "s_close": 64147.49653764105,
+   "close_lag_s": 1.0241806507110596,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.7179,
+     "autocorr_lag1": 0.187,
+     "realized_vol_scaled": 0.6538999999999999,
+     "zscore": 0.1527,
+     "signal_strength_signed": -0.2229,
+     "edge_quality_score": 0.9355,
+     "orderbook_imbalance": -0.7946
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616258",
+   "external": {
+    "source": "tradingview",
+    "direction": "UP",
+    "timeframe": "5",
+    "symbol": "BTCUSDT",
+    "indicator_name": "RSI Divergence",
+    "strength": 0.9,
+    "rsi_trend_state": "up_streak2",
+    "rsi_predicted_next": null,
+    "rsi_pred_prob_up": null
+   }
+  },
+  {
+   "window_key": "616246",
+   "market_id": "2621196",
+   "title": "Bitcoin Up or Down - June 21, 3:10PM-3:15PM ET",
+   "side": "down",
+   "token_id": "37112855204967442150067090024508975336666220857353836458603551313222545519823",
+   "entry_price": 0.26,
+   "size_usd": 5.0,
+   "shares": 19.230769,
+   "fair_at_entry": 0.47941124165105575,
+   "edge_at_entry": 0.23058875834894424,
+   "open_ts": 1782069000.0,
+   "close_ts": 1782069300.0,
+   "entry_ts": 1782069045.0149012,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64098.279,
+   "s_close": 64145.59659423974,
+   "close_lag_s": 1.0191476345062256,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": ">=2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7635,
+     "autocorr_lag1": 0.2337,
+     "realized_vol_scaled": 0.6552,
+     "zscore": 3.1051,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9222,
+     "orderbook_imbalance": -0.7034
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616246",
+   "external": null
+  },
+  {
+   "window_key": "616234",
+   "market_id": "2621183",
+   "title": "Bitcoin Up or Down - June 21, 3:05PM-3:10PM ET",
+   "side": "up",
+   "token_id": "106112843878510216073193384166524064682960785713566194727803193683790396062794",
+   "entry_price": 0.52,
+   "size_usd": 5.0,
+   "shares": 9.615385,
+   "fair_at_entry": 0.5831421015950993,
+   "edge_at_entry": 0.033142101595099255,
+   "open_ts": 1782068700.0,
+   "close_ts": 1782069000.0,
+   "entry_ts": 1782068761.0100913,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64105.6858095774,
+   "s_close": 64098.20479202253,
+   "close_lag_s": 1.0141816139221191,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6546,
+     "autocorr_lag1": 0.2448,
+     "realized_vol_scaled": 0.8056,
+     "zscore": -0.1236,
+     "signal_strength_signed": -0.1946,
+     "edge_quality_score": 0.9044,
+     "orderbook_imbalance": -0.831
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "low"
+   },
+   "decision_id": "616234",
+   "external": null
+  },
+  {
+   "window_key": "616230",
+   "market_id": "2621179",
+   "title": "Bitcoin Up or Down - June 21, 3:00PM-3:05PM ET",
+   "side": "down",
+   "token_id": "34727751178291011667710646568096535600544157756919193912465954549575018214244",
+   "entry_price": 0.37,
+   "size_usd": 5.0,
+   "shares": 13.513514,
+   "fair_at_entry": 0.5346227322417327,
+   "edge_at_entry": 0.06537726775826727,
+   "open_ts": 1782068400.0,
+   "close_ts": 1782068700.0,
+   "entry_ts": 1782068441.004813,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 8.513514,
+   "s_open": 64132.19272005642,
+   "s_close": 64105.6858095774,
+   "close_lag_s": 1.0091536045074463,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6435,
+     "autocorr_lag1": 0.2613,
+     "realized_vol_scaled": 0.6698999999999999,
+     "zscore": 1.4416,
+     "signal_strength_signed": 0.4518,
+     "edge_quality_score": 0.9267,
+     "orderbook_imbalance": -0.7798
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616230",
+   "external": null
+  },
+  {
+   "window_key": "616209",
+   "market_id": "2621002",
+   "title": "Bitcoin Up or Down - June 21, 2:55PM-3:00PM ET",
+   "side": "down",
+   "token_id": "39610443334802361848512998867203554336730607650284505897382461846161047651123",
+   "entry_price": 0.64,
+   "size_usd": 5.0,
+   "shares": 7.8125,
+   "fair_at_entry": 0.25113353091093926,
+   "edge_at_entry": 0.07886646908906073,
+   "open_ts": 1782068100.0,
+   "close_ts": 1782068400.0,
+   "entry_ts": 1782068132.9997084,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64122.7561293164,
+   "s_close": 64132.19272005642,
+   "close_lag_s": 1.0041453838348389,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6139,
+     "autocorr_lag1": 0.2609,
+     "realized_vol_scaled": 0.7913,
+     "zscore": -1.9376,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9356,
+     "orderbook_imbalance": -0.8619
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616209",
+   "external": null
+  },
+  {
+   "window_key": "616175",
+   "market_id": "2620885",
+   "title": "Bitcoin Up or Down - June 21, 2:50PM-2:55PM ET",
+   "side": "down",
+   "token_id": "11925227076786265619751551418166303515784226101560232765756467286282400247770",
+   "entry_price": 0.4,
+   "size_usd": 5.0,
+   "shares": 12.5,
+   "fair_at_entry": 0.5099632120883275,
+   "edge_at_entry": 0.06003678791167247,
+   "open_ts": 1782067800.0,
+   "close_ts": 1782068100.0,
+   "entry_ts": 1782067848.9950821,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64103.10642008936,
+   "s_close": 64122.7561293164,
+   "close_lag_s": 0.9991865158081055,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.658,
+     "autocorr_lag1": 0.0976,
+     "realized_vol_scaled": 1.0151,
+     "zscore": 1.0607,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9178,
+     "orderbook_imbalance": -0.8033
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616175",
+   "external": null
+  },
+  {
+   "window_key": "616172",
+   "market_id": "2620881",
+   "title": "Bitcoin Up or Down - June 21, 2:45PM-2:50PM ET",
+   "side": "up",
+   "token_id": "22626099391655110020153058933997606126422178520420245723674477793500208451043",
+   "entry_price": 0.33,
+   "size_usd": 5.0,
+   "shares": 15.151515,
+   "fair_at_entry": 0.4222629981065824,
+   "edge_at_entry": 0.062262998106582396,
+   "open_ts": 1782067500.0,
+   "close_ts": 1782067800.0,
+   "entry_ts": 1782067564.9905226,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64106.49999555202,
+   "s_close": 64103.10642008936,
+   "close_lag_s": 0.9943294525146484,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "<=-2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6903,
+     "autocorr_lag1": 0.0533,
+     "realized_vol_scaled": 0.9021,
+     "zscore": -2.0337,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9,
+     "orderbook_imbalance": -0.8952
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616172",
+   "external": null
+  },
+  {
+   "window_key": "616158",
+   "market_id": "2620867",
+   "title": "Bitcoin Up or Down - June 21, 2:40PM-2:45PM ET",
+   "side": "up",
+   "token_id": "13753577484935566456032392651874950206926476591275468702700768152266503825038",
+   "entry_price": 0.51,
+   "size_usd": 5.0,
+   "shares": 9.803922,
+   "fair_at_entry": 0.6074431760432805,
+   "edge_at_entry": 0.06744317604328046,
+   "open_ts": 1782067200.0,
+   "close_ts": 1782067500.0,
+   "entry_ts": 1782067252.985363,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64124.20797235813,
+   "s_close": 64106.49999555202,
+   "close_lag_s": 0.9893496036529541,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6597,
+     "autocorr_lag1": 0.0279,
+     "realized_vol_scaled": 0.893,
+     "zscore": -0.264,
+     "signal_strength_signed": 0.2431,
+     "edge_quality_score": 0.9134,
+     "orderbook_imbalance": -0.8198
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616158",
+   "external": {
+    "source": "tradingview",
+    "direction": "UP",
+    "timeframe": "5",
+    "symbol": "BTCUSDT",
+    "indicator_name": "RSI Divergence",
+    "strength": 0.9,
+    "rsi_trend_state": "up_streak1",
+    "rsi_predicted_next": null,
+    "rsi_pred_prob_up": null
+   }
+  },
+  {
+   "window_key": "616148",
+   "market_id": "2620851",
+   "title": "Bitcoin Up or Down - June 21, 2:35PM-2:40PM ET",
+   "side": "up",
+   "token_id": "110056603283983336284894714465940869543594940119721380579715131364432272633305",
+   "entry_price": 0.6,
+   "size_usd": 5.0,
+   "shares": 8.333333,
+   "fair_at_entry": 0.6839832054055743,
+   "edge_at_entry": 0.05398320540557436,
+   "open_ts": 1782066900.0,
+   "close_ts": 1782067200.0,
+   "entry_ts": 1782066932.9801276,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 3.333333,
+   "s_open": 64076.523951145486,
+   "s_close": 64124.20797235813,
+   "close_lag_s": 0.9844975471496582,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.7154,
+     "autocorr_lag1": -0.037,
+     "realized_vol_scaled": 0.7731,
+     "zscore": 0.867,
+     "signal_strength_signed": 0.2772,
+     "edge_quality_score": 0.9356,
+     "orderbook_imbalance": -0.818
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616148",
+   "external": null
+  },
+  {
+   "window_key": "616133",
+   "market_id": "2620784",
+   "title": "Bitcoin Up or Down - June 21, 2:30PM-2:35PM ET",
+   "side": "down",
+   "token_id": "82051272481366398060092264310693233554237971919765358293815173881592391470766",
+   "entry_price": 0.54,
+   "size_usd": 5.0,
+   "shares": 9.259259,
+   "fair_at_entry": 0.3532024757105763,
+   "edge_at_entry": 0.07679752428942369,
+   "open_ts": 1782066600.0,
+   "close_ts": 1782066900.0,
+   "entry_ts": 1782066636.9752884,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63965.685077017806,
+   "s_close": 64076.523951145486,
+   "close_lag_s": 0.9796116352081299,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.5538,
+     "autocorr_lag1": 0.157,
+     "realized_vol_scaled": 0.3998,
+     "zscore": -0.9542,
+     "signal_strength_signed": -0.3307,
+     "edge_quality_score": 0.9311,
+     "orderbook_imbalance": -0.7841
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616133",
+   "external": null
+  },
+  {
+   "window_key": "616123",
+   "market_id": "2620753",
+   "title": "Bitcoin Up or Down - June 21, 2:25PM-2:30PM ET",
+   "side": "down",
+   "token_id": "75887149816140231837531827553344062762161435920110630114863094423691832713848",
+   "entry_price": 0.28,
+   "size_usd": 5.0,
+   "shares": 17.857143,
+   "fair_at_entry": 0.637446243515313,
+   "edge_at_entry": 0.05255375648468699,
+   "open_ts": 1782066300.0,
+   "close_ts": 1782066600.0,
+   "entry_ts": 1782066372.9709966,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63947.47761192062,
+   "s_close": 63965.685077017806,
+   "close_lag_s": 0.9747135639190674,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": ">=2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6167,
+     "autocorr_lag1": 0.1369,
+     "realized_vol_scaled": 0.5579,
+     "zscore": 2.3846,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.8912,
+     "orderbook_imbalance": -0.67
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616123",
+   "external": null
+  },
+  {
+   "window_key": "616114",
+   "market_id": "2620742",
+   "title": "Bitcoin Up or Down - June 21, 2:20PM-2:25PM ET",
+   "side": "down",
+   "token_id": "105163249875408874323438741404511239495899986905086158582423242491684915211207",
+   "entry_price": 0.37,
+   "size_usd": 5.0,
+   "shares": 13.513514,
+   "fair_at_entry": 0.49510144303161124,
+   "edge_at_entry": 0.10489855696838882,
+   "open_ts": 1782066000.0,
+   "close_ts": 1782066300.0,
+   "entry_ts": 1782066056.9659417,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63935.47917819189,
+   "s_close": 63947.47761192062,
+   "close_lag_s": 0.9698317050933838,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7054,
+     "autocorr_lag1": 0.237,
+     "realized_vol_scaled": 0.6700999999999999,
+     "zscore": 1.425,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9089,
+     "orderbook_imbalance": -0.7375
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616114",
+   "external": null
+  },
+  {
+   "window_key": "616106",
+   "market_id": "2620734",
+   "title": "Bitcoin Up or Down - June 21, 2:15PM-2:20PM ET",
+   "side": "up",
+   "token_id": "43919872983049486114575781234727500555420107140853922829627472200455810104370",
+   "entry_price": 0.45999999999999996,
+   "size_usd": 5.0,
+   "shares": 10.869565,
+   "fair_at_entry": 0.5247693904636219,
+   "edge_at_entry": 0.0347693904636219,
+   "open_ts": 1782065700.0,
+   "close_ts": 1782066000.0,
+   "entry_ts": 1782065764.9612012,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 5.869565,
+   "s_open": 63931.17350943028,
+   "s_close": 63935.47917819189,
+   "close_lag_s": 0.9650232791900635,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7472,
+     "autocorr_lag1": 0.2186,
+     "realized_vol_scaled": 0.6789999999999999,
+     "zscore": -0.8461,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9001,
+     "orderbook_imbalance": -0.8497
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616106",
+   "external": null
+  },
+  {
+   "window_key": "616094",
+   "market_id": "2620720",
+   "title": "Bitcoin Up or Down - June 21, 2:10PM-2:15PM ET",
+   "side": "down",
+   "token_id": "47953028479485861505188870682134798996203319171203286946734594740245968535584",
+   "entry_price": 0.33,
+   "size_usd": 5.0,
+   "shares": 15.151515,
+   "fair_at_entry": 0.6077336428252506,
+   "edge_at_entry": 0.03226635717474943,
+   "open_ts": 1782065400.0,
+   "close_ts": 1782065700.0,
+   "entry_ts": 1782065452.9560647,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63914.739382392916,
+   "s_close": 63931.17350943028,
+   "close_lag_s": 0.9601912498474121,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": ">=2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6537,
+     "autocorr_lag1": 0.2244,
+     "realized_vol_scaled": 0.6416,
+     "zscore": 2.0151,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9134,
+     "orderbook_imbalance": -0.6447
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "low"
+   },
+   "decision_id": "616094",
+   "external": null
+  },
+  {
+   "window_key": "616087",
+   "market_id": "2620713",
+   "title": "Bitcoin Up or Down - June 21, 2:05PM-2:10PM ET",
+   "side": "up",
+   "token_id": "46253461617198074421145934810512189875473143588285257451057805710546480285215",
+   "entry_price": 0.51,
+   "size_usd": 5.0,
+   "shares": 9.803922,
+   "fair_at_entry": 0.6070015324345637,
+   "edge_at_entry": 0.06700153243456367,
+   "open_ts": 1782065100.0,
+   "close_ts": 1782065400.0,
+   "entry_ts": 1782065132.950901,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 4.803922,
+   "s_open": 63908.6563737714,
+   "s_close": 63914.739382392916,
+   "close_lag_s": 0.9552052021026611,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7161,
+     "autocorr_lag1": 0.2634,
+     "realized_vol_scaled": 0.5024,
+     "zscore": 0.0554,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9356,
+     "orderbook_imbalance": -0.7668
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616087",
+   "external": null
+  },
+  {
+   "window_key": "616077",
+   "market_id": "2620659",
+   "title": "Bitcoin Up or Down - June 21, 2:00PM-2:05PM ET",
+   "side": "down",
+   "token_id": "21092079473718066835408149312375471863584384774427752186894003156318807575943",
+   "entry_price": 0.29,
+   "size_usd": 5.0,
+   "shares": 17.241379,
+   "fair_at_entry": 0.6274644226490844,
+   "edge_at_entry": 0.0525355773509156,
+   "open_ts": 1782064800.0,
+   "close_ts": 1782065100.0,
+   "entry_ts": 1782064836.9459274,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 12.241379,
+   "s_open": 64073.264213933166,
+   "s_close": 63908.3455887714,
+   "close_lag_s": 0.9503936767578125,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": ">=2",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.5672,
+     "autocorr_lag1": 0.0882,
+     "realized_vol_scaled": 0.32549999999999996,
+     "zscore": 2.8283,
+     "signal_strength_signed": -0.2883,
+     "edge_quality_score": 0.9312,
+     "orderbook_imbalance": -0.6771
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616077",
+   "external": null
+  },
+  {
+   "window_key": "616049",
+   "market_id": "2620566",
+   "title": "Bitcoin Up or Down - June 21, 1:55PM-2:00PM ET",
+   "side": "down",
+   "token_id": "38964753774857152138664440030658161151871043839898464966007842260973257967083",
+   "entry_price": 0.52,
+   "size_usd": 5.0,
+   "shares": 9.615385,
+   "fair_at_entry": 0.4180789995229984,
+   "edge_at_entry": 0.031921000477001665,
+   "open_ts": 1782064500.0,
+   "close_ts": 1782064800.0,
+   "entry_ts": 1782064552.9413307,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 4.615385,
+   "s_open": 64099.107224425796,
+   "s_close": 64073.264213933166,
+   "close_lag_s": 0.945319414138794,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.5668,
+     "autocorr_lag1": 0.0715,
+     "realized_vol_scaled": 0.2724,
+     "zscore": 1.3173,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9134,
+     "orderbook_imbalance": -0.7801
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616049",
+   "external": null
+  },
+  {
+   "window_key": "616039",
+   "market_id": "2620537",
+   "title": "Bitcoin Up or Down - June 21, 1:50PM-1:55PM ET",
+   "side": "down",
+   "token_id": "48033058571743469157305455461897492697302344048049458352837896324675724606239",
+   "entry_price": 0.53,
+   "size_usd": 5.0,
+   "shares": 9.433962,
+   "fair_at_entry": 0.397206985462704,
+   "edge_at_entry": 0.04279301453729592,
+   "open_ts": 1782064200.0,
+   "close_ts": 1782064500.0,
+   "entry_ts": 1782064232.9357467,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 4.433962,
+   "s_open": 64105.91470916981,
+   "s_close": 64099.107224425796,
+   "close_lag_s": 0.9404582977294922,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": 0.1111,
+     "realized_vol_scaled": 0.32,
+     "zscore": 0.0,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9356,
+     "orderbook_imbalance": -0.755
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "616039",
+   "external": {
+    "source": "tradingview",
+    "direction": "UP",
+    "timeframe": "5",
+    "symbol": "BTCUSD",
+    "indicator_name": "RSI Divergence",
+    "strength": null,
+    "rsi_trend_state": "up_streak3",
+    "rsi_predicted_next": null,
+    "rsi_pred_prob_up": null
+   }
+  },
+  {
+   "window_key": "616028",
+   "market_id": "2620527",
+   "title": "Bitcoin Up or Down - June 21, 1:45PM-1:50PM ET",
+   "side": "up",
+   "token_id": "46458967151717217234547931161255232718645800002942435021927159643428657772157",
+   "entry_price": 0.8,
+   "size_usd": 5.0,
+   "shares": 6.25,
+   "fair_at_entry": 0.9650153361058171,
+   "edge_at_entry": 0.1350153361058171,
+   "open_ts": 1782063900.0,
+   "close_ts": 1782064200.0,
+   "entry_ts": 1782063933.0055566,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 1.25,
+   "s_open": 64048.77478572281,
+   "s_close": 64105.91470916981,
+   "close_lag_s": 0.9351451396942139,
+   "research": {
+    "hurst_regime": "noise",
+    "zscore_bucket": ">=2",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.4882,
+     "autocorr_lag1": 0.0772,
+     "realized_vol_scaled": 0.37620000000000003,
+     "zscore": 2.6636,
+     "signal_strength_signed": 0.705,
+     "edge_quality_score": 0.9356,
+     "orderbook_imbalance": -0.6021
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616028",
+   "external": null
+  },
+  {
+   "window_key": "616015",
+   "market_id": "2620488",
+   "title": "Bitcoin Up or Down - June 21, 1:40PM-1:45PM ET",
+   "side": "down",
+   "token_id": "101149711492557045623179199490759206858329029039568367188282877556052918060565",
+   "entry_price": 0.64,
+   "size_usd": 5.0,
+   "shares": 7.8125,
+   "fair_at_entry": 0.2974965539754474,
+   "edge_at_entry": 0.0325034460245526,
+   "open_ts": 1782063600.0,
+   "close_ts": 1782063900.0,
+   "entry_ts": 1782063661.0005639,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64008.51515068944,
+   "s_close": 64048.77478572281,
+   "close_lag_s": 1.0049824714660645,
+   "research": {
+    "hurst_regime": "noise",
+    "zscore_bucket": "<=-2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.4921,
+     "autocorr_lag1": 0.0238,
+     "realized_vol_scaled": 0.3557,
+     "zscore": -2.9865,
+     "signal_strength_signed": -0.2942,
+     "edge_quality_score": 0.9045,
+     "orderbook_imbalance": -0.8424
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "616015",
+   "external": null
+  },
+  {
+   "window_key": "616007",
+   "market_id": "2620473",
+   "title": "Bitcoin Up or Down - June 21, 1:35PM-1:40PM ET",
+   "side": "up",
+   "token_id": "108260567263626531316735344696726720665774708514599428713549525371118268221212",
+   "entry_price": 0.5,
+   "size_usd": 5.0,
+   "shares": 10.0,
+   "fair_at_entry": 0.5856234620766614,
+   "edge_at_entry": 0.055623462076661384,
+   "open_ts": 1782063300.0,
+   "close_ts": 1782063600.0,
+   "entry_ts": 1782063392.995982,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 5.0,
+   "s_open": 64004.4325745294,
+   "s_close": 64008.51515068944,
+   "close_lag_s": 0.9995207786560059,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": 0.0555,
+     "realized_vol_scaled": 0.3832,
+     "zscore": 0.2012,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.8689,
+     "orderbook_imbalance": -0.7813
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "low"
+   },
+   "decision_id": "616007",
+   "external": null
+  },
+  {
+   "window_key": "615996",
+   "market_id": "2620311",
+   "title": "Bitcoin Up or Down - June 21, 1:30PM-1:35PM ET",
+   "side": "up",
+   "token_id": "76588937896188795135217545781098954655412825384601060351411412121815071565930",
+   "entry_price": 0.49,
+   "size_usd": 5.0,
+   "shares": 10.204082,
+   "fair_at_entry": 0.742576796775842,
+   "edge_at_entry": 0.222576796775842,
+   "open_ts": 1782063000.0,
+   "close_ts": 1782063300.0,
+   "entry_ts": 1782063034.2370064,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64027.792699563804,
+   "s_close": 64004.4325745294,
+   "close_lag_s": 0.9942615032196045,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6487,
+     "autocorr_lag1": 0.0865,
+     "realized_vol_scaled": 0.49820000000000003,
+     "zscore": -0.2622,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9064,
+     "orderbook_imbalance": -0.8374
+    },
+    "spread_bucket": "0.01-0.03",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615996",
+   "external": null
+  },
+  {
+   "window_key": "615984",
+   "market_id": "2620299",
+   "title": "Bitcoin Up or Down - June 21, 1:25PM-1:30PM ET",
+   "side": "down",
+   "token_id": "101165792725612966928736794180841227938152623162615196449809721352922677540211",
+   "entry_price": 0.63,
+   "size_usd": 5.0,
+   "shares": 7.936508,
+   "fair_at_entry": 0.2141057188145069,
+   "edge_at_entry": 0.1258942811854931,
+   "open_ts": 1782062700.0,
+   "close_ts": 1782063000.0,
+   "entry_ts": 1782062730.2322009,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 2.936508,
+   "s_open": 64082.34164267826,
+   "s_close": 64027.792699563804,
+   "close_lag_s": 2.236499309539795,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.7773,
+     "autocorr_lag1": 0.1422,
+     "realized_vol_scaled": 0.3176,
+     "zscore": -1.6654,
+     "signal_strength_signed": -0.4971,
+     "edge_quality_score": 0.9386,
+     "orderbook_imbalance": -0.8451
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615984",
+   "external": null
+  },
+  {
+   "window_key": "615978",
+   "market_id": "2620291",
+   "title": "Bitcoin Up or Down - June 21, 1:20PM-1:25PM ET",
+   "side": "up",
+   "token_id": "61536144207210042266925218634089367166989121241533762785932070557894469893698",
+   "entry_price": 0.41,
+   "size_usd": 5.0,
+   "shares": 12.195122,
+   "fair_at_entry": 0.507856658368648,
+   "edge_at_entry": 0.06785665836864804,
+   "open_ts": 1782062400.0,
+   "close_ts": 1782062700.0,
+   "entry_ts": 1782062458.2279358,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64099.41019475587,
+   "s_close": 64082.34164267826,
+   "close_lag_s": 2.2317652702331543,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": -0.0797,
+     "realized_vol_scaled": 0.2994,
+     "zscore": 0.0,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9075,
+     "orderbook_imbalance": -0.8551
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615978",
+   "external": null
+  },
+  {
+   "window_key": "615970",
+   "market_id": "2620283",
+   "title": "Bitcoin Up or Down - June 21, 1:15PM-1:20PM ET",
+   "side": "down",
+   "token_id": "11823490992485483769525625309466126628832287325068293100348154709155950961797",
+   "entry_price": 0.63,
+   "size_usd": 5.0,
+   "shares": 7.936508,
+   "fair_at_entry": 0.29178439345872204,
+   "edge_at_entry": 0.048215606541277906,
+   "open_ts": 1782062100.0,
+   "close_ts": 1782062400.0,
+   "entry_ts": 1782062154.2224724,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 2.936508,
+   "s_open": 64130.28234046633,
+   "s_close": 64099.41019475587,
+   "close_lag_s": 2.2270491123199463,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6623,
+     "autocorr_lag1": 0.2515,
+     "realized_vol_scaled": 0.4804,
+     "zscore": -1.0854,
+     "signal_strength_signed": -0.4329,
+     "edge_quality_score": 0.912,
+     "orderbook_imbalance": -0.8416
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615970",
+   "external": null
+  },
+  {
+   "window_key": "615955",
+   "market_id": "2620237",
+   "title": "Bitcoin Up or Down - June 21, 1:10PM-1:15PM ET",
+   "side": "down",
+   "token_id": "18640201737887322045388998915284661622683458906635861610444288373058222478966",
+   "entry_price": 0.63,
+   "size_usd": 5.0,
+   "shares": 7.936508,
+   "fair_at_entry": 0.2919225182933354,
+   "edge_at_entry": 0.04807748170666462,
+   "open_ts": 1782061800.0,
+   "close_ts": 1782062100.0,
+   "entry_ts": 1782061834.217189,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 2.936508,
+   "s_open": 64134.152336547144,
+   "s_close": 64130.28234046633,
+   "close_lag_s": 2.2216298580169678,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6091,
+     "autocorr_lag1": 0.2427,
+     "realized_vol_scaled": 0.5352,
+     "zscore": -1.2,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9342,
+     "orderbook_imbalance": -0.8404
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615955",
+   "external": null
+  },
+  {
+   "window_key": "615946",
+   "market_id": "2620226",
+   "title": "Bitcoin Up or Down - June 21, 1:05PM-1:10PM ET",
+   "side": "down",
+   "token_id": "103764889250433505770898075822320076174663467089366716824919685952765533475570",
+   "entry_price": 0.56,
+   "size_usd": 5.0,
+   "shares": 8.928571,
+   "fair_at_entry": 0.34310883416334864,
+   "edge_at_entry": 0.06689116583665136,
+   "open_ts": 1782061500.0,
+   "close_ts": 1782061800.0,
+   "entry_ts": 1782061534.212252,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64111.55924157202,
+   "s_close": 64134.152336547144,
+   "close_lag_s": 2.2166085243225098,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.5909,
+     "autocorr_lag1": 0.2142,
+     "realized_vol_scaled": 0.5455,
+     "zscore": 0.0,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9342,
+     "orderbook_imbalance": -0.7826
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615946",
+   "external": null
+  },
+  {
+   "window_key": "615932",
+   "market_id": "2620209",
+   "title": "Bitcoin Up or Down - June 21, 1:00PM-1:05PM ET",
+   "side": "down",
+   "token_id": "60844517422393136798582856078379748043579936332526529357280893351215886240700",
+   "entry_price": 0.65,
+   "size_usd": 5.0,
+   "shares": 7.692308,
+   "fair_at_entry": 0.18559926699611096,
+   "edge_at_entry": 0.13440073300388902,
+   "open_ts": 1782061200.0,
+   "close_ts": 1782061500.0,
+   "entry_ts": 1782061234.2073824,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64073.12781783683,
+   "s_close": 64111.55924157202,
+   "close_lag_s": 2.211759328842163,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": 0.0312,
+     "realized_vol_scaled": 0.4764,
+     "zscore": 0.0,
+     "signal_strength_signed": -0.6673,
+     "edge_quality_score": 0.9342,
+     "orderbook_imbalance": -0.8382
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615932",
+   "external": null
+  },
+  {
+   "window_key": "615925",
+   "market_id": "2620204",
+   "title": "Bitcoin Up or Down - June 21, 12:55PM-1:00PM ET",
+   "side": "up",
+   "token_id": "46873096583121090388837039014569249868563472002602666246469708268283760370442",
+   "entry_price": 0.63,
+   "size_usd": 5.0,
+   "shares": 7.936508,
+   "fair_at_entry": 0.7131631155678618,
+   "edge_at_entry": 0.053163115567861824,
+   "open_ts": 1782060900.0,
+   "close_ts": 1782061200.0,
+   "entry_ts": 1782060930.903643,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 2.936508,
+   "s_open": 64071.872557363065,
+   "s_close": 64073.12781783683,
+   "close_lag_s": 2.2068750858306885,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6143,
+     "autocorr_lag1": 0.1553,
+     "realized_vol_scaled": 0.7495,
+     "zscore": 0.4963,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9379,
+     "orderbook_imbalance": -0.735
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "615925",
+   "external": null
+  },
+  {
+   "window_key": "615902",
+   "market_id": "2619639",
+   "title": "Bitcoin Up or Down - June 21, 12:50PM-12:55PM ET",
+   "side": "up",
+   "token_id": "25729572286205473318833640861365404842649049681581549489981358448180116974267",
+   "entry_price": 0.56,
+   "size_usd": 5.0,
+   "shares": 8.928571,
+   "fair_at_entry": 0.7019648165950454,
+   "edge_at_entry": 0.11196481659504534,
+   "open_ts": 1782060600.0,
+   "close_ts": 1782060900.0,
+   "entry_ts": 1782060630.8988495,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 3.928571,
+   "s_open": 64071.6546172913,
+   "s_close": 64071.872557363065,
+   "close_lag_s": 2.9031031131744385,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.5928,
+     "autocorr_lag1": 0.2857,
+     "realized_vol_scaled": 0.7132000000000001,
+     "zscore": -0.3678,
+     "signal_strength_signed": 0.2097,
+     "edge_quality_score": 0.9379,
+     "orderbook_imbalance": -0.7749
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615902",
+   "external": null
+  },
+  {
+   "window_key": "615896",
+   "market_id": "2619633",
+   "title": "Bitcoin Up or Down - June 21, 12:45PM-12:50PM ET",
+   "side": "up",
+   "token_id": "69411150434747262360977838857462117867458711675009987133524580958926468743010",
+   "entry_price": 0.66,
+   "size_usd": 5.0,
+   "shares": 7.575758,
+   "fair_at_entry": 0.7430364564918885,
+   "edge_at_entry": 0.05303645649188851,
+   "open_ts": 1782060300.0,
+   "close_ts": 1782060600.0,
+   "entry_ts": 1782060334.8940997,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 2.575758,
+   "s_open": 64030.53445214618,
+   "s_close": 64071.6546172913,
+   "close_lag_s": 2.8984053134918213,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.5775,
+     "autocorr_lag1": 0.259,
+     "realized_vol_scaled": 0.6750999999999999,
+     "zscore": 0.7617,
+     "signal_strength_signed": 0.3637,
+     "edge_quality_score": 0.9335,
+     "orderbook_imbalance": -0.7142
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615896",
+   "external": null
+  },
+  {
+   "window_key": "615884",
+   "market_id": "2619621",
+   "title": "Bitcoin Up or Down - June 21, 12:40PM-12:45PM ET",
+   "side": "up",
+   "token_id": "16622873505918828008651407679602344480770902275083799667896811637694219811335",
+   "entry_price": 0.64,
+   "size_usd": 5.0,
+   "shares": 7.8125,
+   "fair_at_entry": 0.7586112200372969,
+   "edge_at_entry": 0.08861122003729685,
+   "open_ts": 1782060000.0,
+   "close_ts": 1782060300.0,
+   "entry_ts": 1782060046.8894503,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 2.8125,
+   "s_open": 63972.30552298195,
+   "s_close": 64030.53445214618,
+   "close_lag_s": 2.8935704231262207,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6306,
+     "autocorr_lag1": 0.2757,
+     "realized_vol_scaled": 0.6704,
+     "zscore": 0.5314,
+     "signal_strength_signed": 0.2164,
+     "edge_quality_score": 0.9201,
+     "orderbook_imbalance": -0.7173
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615884",
+   "external": null
+  },
+  {
+   "window_key": "615879",
+   "market_id": "2619606",
+   "title": "Bitcoin Up or Down - June 21, 12:35PM-12:40PM ET",
+   "side": "up",
+   "token_id": "41860195671845896738524542505150037026861262702129977658064240898070968664090",
+   "entry_price": 0.6127208759932008,
+   "size_usd": 5.0,
+   "shares": 8.160323,
+   "fair_at_entry": 0.7158696725423003,
+   "edge_at_entry": 0.07586967254230029,
+   "open_ts": 1782059700.0,
+   "close_ts": 1782060000.0,
+   "entry_ts": 1782059730.8843925,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63981.705772129,
+   "s_close": 63972.30552298195,
+   "close_lag_s": 2.8887531757354736,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.5658,
+     "autocorr_lag1": 0.2714,
+     "realized_vol_scaled": 0.6452,
+     "zscore": 0.2356,
+     "signal_strength_signed": -0.3527,
+     "edge_quality_score": 0.9379,
+     "orderbook_imbalance": -0.7341
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615879",
+   "external": null
+  },
+  {
+   "window_key": "615866",
+   "market_id": "2619490",
+   "title": "Bitcoin Up or Down - June 21, 12:30PM-12:35PM ET",
+   "side": "down",
+   "token_id": "91930902834563845366919572452210566371268962740086574209567838717339107142625",
+   "entry_price": 0.56,
+   "size_usd": 5.0,
+   "shares": 8.928571,
+   "fair_at_entry": 0.25063283150469484,
+   "edge_at_entry": 0.1593671684953051,
+   "open_ts": 1782059400.0,
+   "close_ts": 1782059700.0,
+   "entry_ts": 1782059430.8795354,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 3.928571,
+   "s_open": 64109.58157584171,
+   "s_close": 63981.705772129,
+   "close_lag_s": 2.8839454650878906,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6655,
+     "autocorr_lag1": 0.152,
+     "realized_vol_scaled": 0.3956,
+     "zscore": -1.0862,
+     "signal_strength_signed": -0.5887,
+     "edge_quality_score": 0.9379,
+     "orderbook_imbalance": -0.8243
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615866",
+   "external": null
+  },
+  {
+   "window_key": "615856",
+   "market_id": "2619480",
+   "title": "Bitcoin Up or Down - June 21, 12:25PM-12:30PM ET",
+   "side": "up",
+   "token_id": "13283728553053791899523907232312482769436510431830085115831391426158826096114",
+   "entry_price": 0.67,
+   "size_usd": 5.0,
+   "shares": 7.462687,
+   "fair_at_entry": 0.7662835721067582,
+   "edge_at_entry": 0.0662835721067582,
+   "open_ts": 1782059100.0,
+   "close_ts": 1782059400.0,
+   "entry_ts": 1782059146.874734,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64143.520834286406,
+   "s_close": 64109.58157584171,
+   "close_lag_s": 2.8790485858917236,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": 0.1411,
+     "realized_vol_scaled": 0.3397,
+     "zscore": 0.0,
+     "signal_strength_signed": 0.3663,
+     "edge_quality_score": 0.9202,
+     "orderbook_imbalance": -0.7311
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615856",
+   "external": null
+  },
+  {
+   "window_key": "615844",
+   "market_id": "2619469",
+   "title": "Bitcoin Up or Down - June 21, 12:20PM-12:25PM ET",
+   "side": "down",
+   "token_id": "68141067319503102571293686180810998863175739763837074014670231710880132945160",
+   "entry_price": 0.4,
+   "size_usd": 5.0,
+   "shares": 12.5,
+   "fair_at_entry": 0.5040066023356684,
+   "edge_at_entry": 0.06599339766433157,
+   "open_ts": 1782058800.0,
+   "close_ts": 1782059100.0,
+   "entry_ts": 1782058830.495341,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64108.06220647649,
+   "s_close": 64143.520834286406,
+   "close_lag_s": 2.8739545345306396,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.5996,
+     "autocorr_lag1": 0.2442,
+     "realized_vol_scaled": 0.7049,
+     "zscore": 0.0,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9383,
+     "orderbook_imbalance": -0.7701
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "615844",
+   "external": null
+  },
+  {
+   "window_key": "615839",
+   "market_id": "2619460",
+   "title": "Bitcoin Up or Down - June 21, 12:15PM-12:20PM ET",
+   "side": "down",
+   "token_id": "7890718061750023100184525664679080370100989367558648459272052985279598461823",
+   "entry_price": 0.58,
+   "size_usd": 5.0,
+   "shares": 8.62069,
+   "fair_at_entry": 0.29321342411769724,
+   "edge_at_entry": 0.0967865758823028,
+   "open_ts": 1782058500.0,
+   "close_ts": 1782058800.0,
+   "entry_ts": 1782058542.4906356,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64067.245448900394,
+   "s_close": 64108.06220647649,
+   "close_lag_s": 2.4948980808258057,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": 0.3178,
+     "realized_vol_scaled": 0.9561000000000001,
+     "zscore": 0.0,
+     "signal_strength_signed": -0.2828,
+     "edge_quality_score": 0.925,
+     "orderbook_imbalance": -0.7966
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615839",
+   "external": null
+  },
+  {
+   "window_key": "615823",
+   "market_id": "2619443",
+   "title": "Bitcoin Up or Down - June 21, 12:10PM-12:15PM ET",
+   "side": "up",
+   "token_id": "73251384803251175725667072287319894299967435253858213818773071367852870098130",
+   "entry_price": 0.53,
+   "size_usd": 5.0,
+   "shares": 9.433962,
+   "fair_at_entry": 0.6177788349901242,
+   "edge_at_entry": 0.05777883499012418,
+   "open_ts": 1782058200.0,
+   "close_ts": 1782058500.0,
+   "entry_ts": 1782058246.8033974,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64114.860518884074,
+   "s_close": 64067.245448900394,
+   "close_lag_s": 2.4899823665618896,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.655,
+     "autocorr_lag1": 0.2796,
+     "realized_vol_scaled": 0.5014,
+     "zscore": 0.5601,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9202,
+     "orderbook_imbalance": -0.7633
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615823",
+   "external": null
+  },
+  {
+   "window_key": "615817",
+   "market_id": "2619438",
+   "title": "Bitcoin Up or Down - June 21, 12:05PM-12:10PM ET",
+   "side": "down",
+   "token_id": "70996746690629861997299780788667792126483603410497888445583824781787254038153",
+   "entry_price": 0.84,
+   "size_usd": 5.0,
+   "shares": 5.952381,
+   "fair_at_entry": 0.08871798994498742,
+   "edge_at_entry": 0.04128201005501256,
+   "open_ts": 1782057900.0,
+   "close_ts": 1782058200.0,
+   "entry_ts": 1782057950.7984383,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 0.952381,
+   "s_open": 64157.153018891644,
+   "s_close": 64114.860518884074,
+   "close_lag_s": 2.8027048110961914,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "<=-2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6481,
+     "autocorr_lag1": 0.2284,
+     "realized_vol_scaled": 0.4815,
+     "zscore": -3.1214,
+     "signal_strength_signed": -0.6164,
+     "edge_quality_score": 0.9158,
+     "orderbook_imbalance": -0.9342
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615817",
+   "external": null
+  },
+  {
+   "window_key": "615806",
+   "market_id": "2619427",
+   "title": "Bitcoin Up or Down - June 21, 12:00PM-12:05PM ET",
+   "side": "down",
+   "token_id": "26910647343359739059340980012736519145657869961097072497657504916295800857986",
+   "entry_price": 0.6100000000000001,
+   "size_usd": 5.0,
+   "shares": 8.196721,
+   "fair_at_entry": 0.24749738494323525,
+   "edge_at_entry": 0.11250261505676476,
+   "open_ts": 1782057600.0,
+   "close_ts": 1782057900.0,
+   "entry_ts": 1782057630.7932546,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64148.759560804625,
+   "s_close": 64157.153018891644,
+   "close_lag_s": 2.79766845703125,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6639,
+     "autocorr_lag1": 0.1749,
+     "realized_vol_scaled": 0.6108,
+     "zscore": -0.8646,
+     "signal_strength_signed": -0.4364,
+     "edge_quality_score": 0.938,
+     "orderbook_imbalance": -0.8292
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615806",
+   "external": null
+  },
+  {
+   "window_key": "615788",
+   "market_id": "2619410",
+   "title": "Bitcoin Up or Down - June 21, 11:55AM-12:00PM ET",
+   "side": "down",
+   "token_id": "63621078566382883582887017727608158510321670379469084600407881658681567071746",
+   "entry_price": 0.6100000000000001,
+   "size_usd": 5.0,
+   "shares": 8.196721,
+   "fair_at_entry": 0.24915694509174274,
+   "edge_at_entry": 0.11084305490825722,
+   "open_ts": 1782057300.0,
+   "close_ts": 1782057600.0,
+   "entry_ts": 1782057334.7885838,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 3.196721,
+   "s_open": 64165.89473235357,
+   "s_close": 64144.312005200736,
+   "close_lag_s": 2.7928104400634766,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.558,
+     "autocorr_lag1": 0.1878,
+     "realized_vol_scaled": 0.7135999999999999,
+     "zscore": -1.3403,
+     "signal_strength_signed": -0.3667,
+     "edge_quality_score": 0.8502,
+     "orderbook_imbalance": -0.8862
+    },
+    "spread_bucket": "0.03-0.06",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615788",
+   "external": null
+  },
+  {
+   "window_key": "615686",
+   "market_id": "2619105",
+   "title": "Bitcoin Up or Down - June 21, 11:50AM-11:55AM ET",
+   "side": "down",
+   "token_id": "107076025197305125739251577093176393455327178493222917381004716113407637142754",
+   "entry_price": 0.37,
+   "size_usd": 5.0,
+   "shares": 13.513514,
+   "fair_at_entry": 0.5574800848122689,
+   "edge_at_entry": 0.042519915187731155,
+   "open_ts": 1782057000.0,
+   "close_ts": 1782057300.0,
+   "entry_ts": 1782057046.7840505,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 8.513514,
+   "s_open": 64177.0673304169,
+   "s_close": 64165.89473235357,
+   "close_lag_s": 2.788088083267212,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6225,
+     "autocorr_lag1": 0.1775,
+     "realized_vol_scaled": 0.7153999999999999,
+     "zscore": 1.7501,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9203,
+     "orderbook_imbalance": -0.7969
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "low"
+   },
+   "decision_id": "615686",
+   "external": null
+  },
+  {
+   "window_key": "615674",
+   "market_id": "2619093",
+   "title": "Bitcoin Up or Down - June 21, 11:45AM-11:50AM ET",
+   "side": "up",
+   "token_id": "30831510732382942556885865797973803619877615830027485094792448305205291066380",
+   "entry_price": 0.59,
+   "size_usd": 5.0,
+   "shares": 8.474576,
+   "fair_at_entry": 0.6564376285059284,
+   "edge_at_entry": 0.03643762850592838,
+   "open_ts": 1782056700.0,
+   "close_ts": 1782057000.0,
+   "entry_ts": 1782056738.7791147,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64222.71380652344,
+   "s_close": 64177.0673304169,
+   "close_lag_s": 2.7833752632141113,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6344,
+     "autocorr_lag1": 0.2881,
+     "realized_vol_scaled": 0.7786000000000001,
+     "zscore": 1.209,
+     "signal_strength_signed": 0.3237,
+     "edge_quality_score": 0.9291,
+     "orderbook_imbalance": -0.7497
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615674",
+   "external": null
+  },
+  {
+   "window_key": "615671",
+   "market_id": "2619089",
+   "title": "Bitcoin Up or Down - June 21, 11:40AM-11:45AM ET",
+   "side": "up",
+   "token_id": "12371627736226784879069512862170598648274437466041794554534755291037392014869",
+   "entry_price": 0.35,
+   "size_usd": 5.0,
+   "shares": 14.285714,
+   "fair_at_entry": 0.44833942212217653,
+   "edge_at_entry": 0.06833942212217656,
+   "open_ts": 1782056400.0,
+   "close_ts": 1782056700.0,
+   "entry_ts": 1782056446.773657,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 9.285714,
+   "s_open": 64195.633707632216,
+   "s_close": 64222.71380652344,
+   "close_lag_s": 2.7785325050354004,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.641,
+     "autocorr_lag1": 0.2897,
+     "realized_vol_scaled": 0.6551,
+     "zscore": -1.2443,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9203,
+     "orderbook_imbalance": -0.8765
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "low"
+   },
+   "decision_id": "615671",
+   "external": null
+  },
+  {
+   "window_key": "615661",
+   "market_id": "2619070",
+   "title": "Bitcoin Up or Down - June 21, 11:35AM-11:40AM ET",
+   "side": "down",
+   "token_id": "51553931589702209566720196948510207751977590896092974993729163574812610423424",
+   "entry_price": 0.45,
+   "size_usd": 5.0,
+   "shares": 11.111111,
+   "fair_at_entry": 0.4329430655610367,
+   "edge_at_entry": 0.08705693443896331,
+   "open_ts": 1782056100.0,
+   "close_ts": 1782056400.0,
+   "entry_ts": 1782056170.76816,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64123.638532977006,
+   "s_close": 64195.633707632216,
+   "close_lag_s": 2.772792339324951,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6943,
+     "autocorr_lag1": 0.3688,
+     "realized_vol_scaled": 0.5318,
+     "zscore": 0.8569,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.8936,
+     "orderbook_imbalance": -0.8038
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615661",
+   "external": null
+  },
+  {
+   "window_key": "615651",
+   "market_id": "2619024",
+   "title": "Bitcoin Up or Down - June 21, 11:30AM-11:35AM ET",
+   "side": "down",
+   "token_id": "75394939947762997612293051676130467899762984698145351735728321504600772233350",
+   "entry_price": 0.75,
+   "size_usd": 5.0,
+   "shares": 6.666667,
+   "fair_at_entry": 0.12673201099089693,
+   "edge_at_entry": 0.09326798900910307,
+   "open_ts": 1782055800.0,
+   "close_ts": 1782056100.0,
+   "entry_ts": 1782055830.7624683,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 1.666667,
+   "s_open": 64182.46379839701,
+   "s_close": 64123.638532977006,
+   "close_lag_s": 2.76697039604187,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6728,
+     "autocorr_lag1": 0.3913,
+     "realized_vol_scaled": 0.5318,
+     "zscore": -1.9783,
+     "signal_strength_signed": -0.3166,
+     "edge_quality_score": 0.9381,
+     "orderbook_imbalance": -0.883
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615651",
+   "external": null
+  },
+  {
+   "window_key": "615636",
+   "market_id": "2619009",
+   "title": "Bitcoin Up or Down - June 21, 11:25AM-11:30AM ET",
+   "side": "down",
+   "token_id": "86404446194752739321301991592686304428800013126845550645499026463241678577947",
+   "entry_price": 0.55,
+   "size_usd": 5.0,
+   "shares": 9.090909,
+   "fair_at_entry": 0.35696913393252094,
+   "edge_at_entry": 0.06303086606747901,
+   "open_ts": 1782055500.0,
+   "close_ts": 1782055800.0,
+   "entry_ts": 1782055530.757616,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64123.73082907072,
+   "s_close": 64182.46379839701,
+   "close_lag_s": 2.762014865875244,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7365,
+     "autocorr_lag1": 0.0997,
+     "realized_vol_scaled": 0.6677,
+     "zscore": -0.103,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9381,
+     "orderbook_imbalance": -0.7921
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615636",
+   "external": null
+  },
+  {
+   "window_key": "615630",
+   "market_id": "2618998",
+   "title": "Bitcoin Up or Down - June 21, 11:20AM-11:25AM ET",
+   "side": "down",
+   "token_id": "14562837688303995213297456255209300963443956612319675736608683648804645108429",
+   "entry_price": 0.6,
+   "size_usd": 5.0,
+   "shares": 8.333333,
+   "fair_at_entry": 0.32915516610563694,
+   "edge_at_entry": 0.040844833894363136,
+   "open_ts": 1782055200.0,
+   "close_ts": 1782055500.0,
+   "entry_ts": 1782055254.7530887,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 3.333333,
+   "s_open": 64142.677727912414,
+   "s_close": 64123.73082907072,
+   "close_lag_s": 2.757171630859375,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.7328,
+     "autocorr_lag1": 0.2596,
+     "realized_vol_scaled": 0.8653,
+     "zscore": -0.6059,
+     "signal_strength_signed": -0.176,
+     "edge_quality_score": 0.9114,
+     "orderbook_imbalance": -0.8577
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615630",
+   "external": null
+  },
+  {
+   "window_key": "615615",
+   "market_id": "2618982",
+   "title": "Bitcoin Up or Down - June 21, 11:15AM-11:20AM ET",
+   "side": "down",
+   "token_id": "75201360814204371851401915127607757282428321141950186091683638565032721785038",
+   "entry_price": 0.34,
+   "size_usd": 5.0,
+   "shares": 14.705882,
+   "fair_at_entry": 0.5807840475537249,
+   "edge_at_entry": 0.04921595244627505,
+   "open_ts": 1782054900.0,
+   "close_ts": 1782055200.0,
+   "entry_ts": 1782054946.74812,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64127.99841228371,
+   "s_close": 64142.677727912414,
+   "close_lag_s": 2.7522521018981934,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7723,
+     "autocorr_lag1": 0.2626,
+     "realized_vol_scaled": 0.9749,
+     "zscore": 1.6689,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9203,
+     "orderbook_imbalance": -0.6848
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "615615",
+   "external": null
+  },
+  {
+   "window_key": "615610",
+   "market_id": "2618976",
+   "title": "Bitcoin Up or Down - June 21, 11:10AM-11:15AM ET",
+   "side": "down",
+   "token_id": "2971801460212063355865060648326532618877124048470184862890570386650606511319",
+   "entry_price": 0.85,
+   "size_usd": 5.0,
+   "shares": 5.882353,
+   "fair_at_entry": 0.07166184721367824,
+   "edge_at_entry": 0.048338152786321725,
+   "open_ts": 1782054600.0,
+   "close_ts": 1782054900.0,
+   "entry_ts": 1782054734.7446349,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 0.882353,
+   "s_open": 64160.38571992663,
+   "s_close": 64127.99841228371,
+   "close_lag_s": 2.7474098205566406,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7694,
+     "autocorr_lag1": 0.2648,
+     "realized_vol_scaled": 1.1031,
+     "zscore": -1.2097,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.8225,
+     "orderbook_imbalance": -0.9503
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615610",
+   "external": null
+  },
+  {
+   "window_key": "615605",
+   "market_id": "2618969",
+   "title": "Bitcoin Up or Down - June 21, 11:05AM-11:10AM ET",
+   "side": "up",
+   "token_id": "60462043823588356460568373070469339983019785393854401152316417225627020783524",
+   "entry_price": 0.57,
+   "size_usd": 5.0,
+   "shares": 8.77193,
+   "fair_at_entry": 0.6672906153326861,
+   "edge_at_entry": 0.06729061533268613,
+   "open_ts": 1782054300.0,
+   "close_ts": 1782054600.0,
+   "entry_ts": 1782054334.7381475,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 3.77193,
+   "s_open": 64142.89235946011,
+   "s_close": 64160.38571992663,
+   "close_lag_s": 2.742532253265381,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": 0.4417,
+     "realized_vol_scaled": 1.2533999999999998,
+     "zscore": 0.0,
+     "signal_strength_signed": 0.2529,
+     "edge_quality_score": 0.9336,
+     "orderbook_imbalance": -0.7565
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615605",
+   "external": null
+  },
+  {
+   "window_key": "615590",
+   "market_id": "2618952",
+   "title": "Bitcoin Up or Down - June 21, 11:00AM-11:05AM ET",
+   "side": "down",
+   "token_id": "113339674148280223869196153063696050484109923506213960704491346388254605524315",
+   "entry_price": 0.7,
+   "size_usd": 5.0,
+   "shares": 7.142857,
+   "fair_at_entry": 0.22602706055382055,
+   "edge_at_entry": 0.04397293944617944,
+   "open_ts": 1782054000.0,
+   "close_ts": 1782054300.0,
+   "entry_ts": 1782054054.7220824,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64067.58707526881,
+   "s_close": 64142.89235946011,
+   "close_lag_s": 2.737650156021118,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6731,
+     "autocorr_lag1": 0.2222,
+     "realized_vol_scaled": 0.5601,
+     "zscore": -1.8057,
+     "signal_strength_signed": -0.2849,
+     "edge_quality_score": 0.9114,
+     "orderbook_imbalance": -0.8864
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615590",
+   "external": null
+  },
+  {
+   "window_key": "615580",
+   "market_id": "2618942",
+   "title": "Bitcoin Up or Down - June 21, 10:55AM-11:00AM ET",
+   "side": "up",
+   "token_id": "8365470311760252550103422169932443778184017449539789561574587288235894680838",
+   "entry_price": 0.83,
+   "size_usd": 5.0,
+   "shares": 6.024096,
+   "fair_at_entry": 0.8931250762671168,
+   "edge_at_entry": 0.03312507626711683,
+   "open_ts": 1782053700.0,
+   "close_ts": 1782054000.0,
+   "entry_ts": 1782053730.7165527,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 1.024096,
+   "s_open": 64012.000253488,
+   "s_close": 64067.58707526881,
+   "close_lag_s": 2.721223831176758,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": ">=2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6735,
+     "autocorr_lag1": 0.2513,
+     "realized_vol_scaled": 0.5515,
+     "zscore": 2.5306,
+     "signal_strength_signed": 0.5237,
+     "edge_quality_score": 0.9381,
+     "orderbook_imbalance": -0.5633
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615580",
+   "external": null
+  },
+  {
+   "window_key": "615563",
+   "market_id": "2618879",
+   "title": "Bitcoin Up or Down - June 21, 10:50AM-10:55AM ET",
+   "side": "up",
+   "token_id": "26106065655486188732266407701048556300489533973703546714203769218351092551141",
+   "entry_price": 0.64,
+   "size_usd": 5.0,
+   "shares": 7.8125,
+   "fair_at_entry": 0.8136972514516603,
+   "edge_at_entry": 0.14369725145166026,
+   "open_ts": 1782053400.0,
+   "close_ts": 1782053700.0,
+   "entry_ts": 1782053430.711556,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 2.8125,
+   "s_open": 63974.256979995385,
+   "s_close": 64012.000253488,
+   "close_lag_s": 2.7160580158233643,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.74,
+     "autocorr_lag1": 0.2851,
+     "realized_vol_scaled": 0.5097,
+     "zscore": 1.1739,
+     "signal_strength_signed": 0.5309,
+     "edge_quality_score": 0.9381,
+     "orderbook_imbalance": -0.7273
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615563",
+   "external": null
+  },
+  {
+   "window_key": "615557",
+   "market_id": "2618870",
+   "title": "Bitcoin Up or Down - June 21, 10:45AM-10:50AM ET",
+   "side": "down",
+   "token_id": "46100786040116067478285962288605462907487285451065811627862478410010454705895",
+   "entry_price": 0.52,
+   "size_usd": 5.0,
+   "shares": 9.615385,
+   "fair_at_entry": 0.4156163899059305,
+   "edge_at_entry": 0.03438361009406957,
+   "open_ts": 1782053100.0,
+   "close_ts": 1782053400.0,
+   "entry_ts": 1782053134.7065423,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 4.615385,
+   "s_open": 63982.72436167834,
+   "s_close": 63974.256979995385,
+   "close_lag_s": 2.710986852645874,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6453,
+     "autocorr_lag1": 0.3034,
+     "realized_vol_scaled": 0.4558,
+     "zscore": -0.1622,
+     "signal_strength_signed": -0.2444,
+     "edge_quality_score": 0.9337,
+     "orderbook_imbalance": -0.7564
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615557",
+   "external": null
+  },
+  {
+   "window_key": "615545",
+   "market_id": "2618858",
+   "title": "Bitcoin Up or Down - June 21, 10:40AM-10:45AM ET",
+   "side": "up",
+   "token_id": "109788384453317670144909524438523841646984622090058850076260625025422668607515",
+   "entry_price": 0.79,
+   "size_usd": 5.0,
+   "shares": 6.329114,
+   "fair_at_entry": 0.9111007251671575,
+   "edge_at_entry": 0.09110072516715742,
+   "open_ts": 1782052800.0,
+   "close_ts": 1782053100.0,
+   "entry_ts": 1782052830.701195,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 1.329114,
+   "s_open": 63966.596155,
+   "s_close": 63982.72436167834,
+   "close_lag_s": 2.7059719562530518,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": ">=2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.7452,
+     "autocorr_lag1": 0.2088,
+     "realized_vol_scaled": 0.4985,
+     "zscore": 3.1214,
+     "signal_strength_signed": 0.5021,
+     "edge_quality_score": 0.9381,
+     "orderbook_imbalance": -0.5934
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615545",
+   "external": null
+  },
+  {
+   "window_key": "615536",
+   "market_id": "2618845",
+   "title": "Bitcoin Up or Down - June 21, 10:35AM-10:40AM ET",
+   "side": "down",
+   "token_id": "10614443125176410894920405423363203439668993898040980038726343709518157432066",
+   "entry_price": 0.44,
+   "size_usd": 5.0,
+   "shares": 11.363636,
+   "fair_at_entry": 0.46248369146024965,
+   "edge_at_entry": 0.0675163085397503,
+   "open_ts": 1782052500.0,
+   "close_ts": 1782052800.0,
+   "entry_ts": 1782052530.696114,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63932.2395441581,
+   "s_close": 63966.596155,
+   "close_lag_s": 2.700698137283325,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.7049,
+     "autocorr_lag1": 0.2094,
+     "realized_vol_scaled": 0.4935,
+     "zscore": 1.5239,
+     "signal_strength_signed": -0.3215,
+     "edge_quality_score": 0.9381,
+     "orderbook_imbalance": -0.7316
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615536",
+   "external": null
+  },
+  {
+   "window_key": "615520",
+   "market_id": "2618754",
+   "title": "Bitcoin Up or Down - June 21, 10:30AM-10:35AM ET",
+   "side": "down",
+   "token_id": "55324768106922400686087280281089451651094775797883443660812209158606991356729",
+   "entry_price": 0.67,
+   "size_usd": 5.0,
+   "shares": 7.462687,
+   "fair_at_entry": 0.1673084155802228,
+   "edge_at_entry": 0.13269158441977716,
+   "open_ts": 1782052200.0,
+   "close_ts": 1782052500.0,
+   "entry_ts": 1782052230.691165,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 2.462687,
+   "s_open": 63962.03384373372,
+   "s_close": 63932.2395441581,
+   "close_lag_s": 2.695622444152832,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "<=-2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6631,
+     "autocorr_lag1": 0.2295,
+     "realized_vol_scaled": 0.5355,
+     "zscore": -2.0042,
+     "signal_strength_signed": -0.5737,
+     "edge_quality_score": 0.9381,
+     "orderbook_imbalance": -0.8253
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": "615520",
+   "external": null
+  },
+  {
+   "window_key": "615510",
+   "market_id": "2618744",
+   "title": "Bitcoin Up or Down - June 21, 10:25AM-10:30AM ET",
+   "side": "down",
+   "token_id": "47174296728556668133427854308846380219126894556040502242940478529950796053883",
+   "entry_price": 0.45999999999999996,
+   "size_usd": 5.0,
+   "shares": 10.869565,
+   "fair_at_entry": 0.45401544488709566,
+   "edge_at_entry": 0.055984555112904316,
+   "open_ts": 1782051900.0,
+   "close_ts": 1782052200.0,
+   "entry_ts": 1782051966.6868045,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 5.869565,
+   "s_open": 64011.96076,
+   "s_close": 63962.03384373372,
+   "close_lag_s": 2.6906955242156982,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.7679,
+     "autocorr_lag1": 0.2159,
+     "realized_vol_scaled": 0.5879,
+     "zscore": 1.5925,
+     "signal_strength_signed": 0.1953,
+     "edge_quality_score": 0.8981,
+     "orderbook_imbalance": -0.7423
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "615510",
+   "external": null
+  },
   {
    "window_key": "615505",
    "market_id": "2618732",
@@ -99,13 +3567,13 @@
    "open_ts": 1782051600.0,
    "close_ts": 1782051900.0,
    "entry_ts": 1782051638.6813145,
-   "status": "open",
-   "outcome_up": null,
-   "won": null,
-   "pnl_usd": null,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
    "s_open": 63960.5886075552,
-   "s_close": null,
-   "close_lag_s": null,
+   "s_close": 64011.96076,
+   "close_lag_s": 2.685710906982422,
    "research": {
     "hurst_regime": "insufficient_data",
     "zscore_bucket": "na",
@@ -126,7 +3594,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": "615505"
+   "decision_id": "615505",
+   "external": null
   },
   {
    "window_key": "615491",
@@ -169,7 +3638,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615481",
@@ -212,7 +3682,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615470",
@@ -255,7 +3726,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615448",
@@ -298,7 +3770,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615433",
@@ -341,7 +3814,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615414",
@@ -384,7 +3858,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615403",
@@ -427,7 +3902,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615394",
@@ -470,7 +3946,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615376",
@@ -513,7 +3990,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615360",
@@ -556,7 +4034,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615347",
@@ -599,7 +4078,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615341",
@@ -642,7 +4122,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615329",
@@ -685,7 +4166,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615317",
@@ -728,7 +4210,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615312",
@@ -771,7 +4254,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615298",
@@ -814,7 +4298,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615290",
@@ -857,7 +4342,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615256",
@@ -900,7 +4386,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615246",
@@ -943,7 +4430,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615237",
@@ -986,7 +4474,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615232",
@@ -1029,7 +4518,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615221",
@@ -1072,7 +4562,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615208",
@@ -1115,7 +4606,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615197",
@@ -1158,7 +4650,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615185",
@@ -1201,7 +4694,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615178",
@@ -1244,7 +4738,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615169",
@@ -1287,7 +4782,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615161",
@@ -1330,7 +4826,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615147",
@@ -1373,7 +4870,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615113",
@@ -1416,7 +4914,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615105",
@@ -1459,7 +4958,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615100",
@@ -1502,7 +5002,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615084",
@@ -1545,7 +5046,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615074",
@@ -1588,7 +5090,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "low"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615056",
@@ -1631,7 +5134,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615050",
@@ -1674,7 +5178,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615037",
@@ -1717,7 +5222,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615031",
@@ -1760,7 +5266,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615023",
@@ -1803,7 +5310,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "615010",
@@ -1846,7 +5354,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614992",
@@ -1889,7 +5398,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614977",
@@ -1932,7 +5442,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614971",
@@ -1975,7 +5486,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614966",
@@ -2018,7 +5530,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614957",
@@ -2061,7 +5574,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614939",
@@ -2104,7 +5618,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614930",
@@ -2147,7 +5662,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614924",
@@ -2190,7 +5706,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614914",
@@ -2233,7 +5750,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614902",
@@ -2276,7 +5794,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614892",
@@ -2319,7 +5838,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "low"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614886",
@@ -2362,7 +5882,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614861",
@@ -2405,7 +5926,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614847",
@@ -2448,7 +5970,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614838",
@@ -2491,7 +6014,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614834",
@@ -2534,7 +6058,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614814",
@@ -2577,7 +6102,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614813",
@@ -2620,7 +6146,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614805",
@@ -2663,7 +6190,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614795",
@@ -2706,7 +6234,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614780",
@@ -2749,7 +6278,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614777",
@@ -2792,7 +6322,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614764",
@@ -2835,7 +6366,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614754",
@@ -2878,7 +6410,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614737",
@@ -2921,7 +6454,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614724",
@@ -2964,7 +6498,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614719",
@@ -3007,7 +6542,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614712",
@@ -3050,7 +6586,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614706",
@@ -3093,7 +6630,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614691",
@@ -3136,7 +6674,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614684",
@@ -3179,7 +6718,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614678",
@@ -3222,7 +6762,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614659",
@@ -3265,7 +6806,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "low"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614656",
@@ -3308,7 +6850,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614633",
@@ -3351,7 +6894,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614626",
@@ -3394,7 +6938,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614613",
@@ -3437,7 +6982,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614595",
@@ -3480,7 +7026,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614589",
@@ -3523,7 +7070,8 @@
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614568",
@@ -3563,7 +7111,8 @@
      "orderbook_imbalance": -0.8124
     }
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614559",
@@ -3603,7 +7152,8 @@
      "orderbook_imbalance": -0.85
     }
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614554",
@@ -3643,7 +7193,8 @@
      "orderbook_imbalance": -0.814
     }
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614512",
@@ -3672,7 +7223,8 @@
     "half_life_bucket": "na",
     "ttc_bucket": "120-240s"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614498",
@@ -3701,7 +7253,8 @@
     "half_life_bucket": "na",
     "ttc_bucket": ">=240s"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614478",
@@ -3730,7 +7283,8 @@
     "half_life_bucket": "<30s",
     "ttc_bucket": "120-240s"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614464",
@@ -3759,7 +7313,8 @@
     "half_life_bucket": "<30s",
     "ttc_bucket": ">=240s"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614456",
@@ -3788,7 +7343,8 @@
     "half_life_bucket": "na",
     "ttc_bucket": ">=240s"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614440",
@@ -3817,7 +7373,8 @@
     "half_life_bucket": "na",
     "ttc_bucket": ">=240s"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614433",
@@ -3846,7 +7403,8 @@
     "half_life_bucket": "na",
     "ttc_bucket": ">=240s"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614426",
@@ -3873,7 +7431,8 @@
     "hurst_regime": "trending",
     "zscore_bucket": ">=2"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614417",
@@ -3900,7 +7459,8 @@
     "hurst_regime": "trending",
     "zscore_bucket": "-1..1"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614406",
@@ -3927,7 +7487,8 @@
     "hurst_regime": "trending",
     "zscore_bucket": "-1..1"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614399",
@@ -3954,7 +7515,8 @@
     "hurst_regime": "trending",
     "zscore_bucket": "na"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614390",
@@ -3981,7 +7543,8 @@
     "hurst_regime": "trending",
     "zscore_bucket": "na"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614364",
@@ -4008,7 +7571,8 @@
     "hurst_regime": "insufficient_data",
     "zscore_bucket": "na"
    },
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614353",
@@ -4032,7 +7596,8 @@
    "s_close": 64176.32118254139,
    "close_lag_s": 3.7932841777801514,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614344",
@@ -4056,7 +7621,8 @@
    "s_close": 64228.00933732856,
    "close_lag_s": 0.3221702575683594,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614340",
@@ -4080,7 +7646,8 @@
    "s_close": 64286.36252438677,
    "close_lag_s": 0.3173220157623291,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614331",
@@ -4104,7 +7671,8 @@
    "s_close": 64229.250859612635,
    "close_lag_s": 0.3123948574066162,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614304",
@@ -4128,7 +7696,8 @@
    "s_close": 64219.89880947922,
    "close_lag_s": 0.30734705924987793,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614313",
@@ -4152,7 +7721,8 @@
    "s_close": 64209.498315,
    "close_lag_s": 0.30230283737182617,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614293",
@@ -4176,7 +7746,8 @@
    "s_close": 64163.77885188888,
    "close_lag_s": 2.3509278297424316,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614283",
@@ -4200,7 +7771,8 @@
    "s_close": 64161.09052189162,
    "close_lag_s": 2.3459975719451904,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614282",
@@ -4224,7 +7796,8 @@
    "s_close": 64192.75183304308,
    "close_lag_s": 2.3410375118255615,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614262",
@@ -4248,7 +7821,8 @@
    "s_close": 64190.523317944644,
    "close_lag_s": 2.336010217666626,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614257",
@@ -4272,7 +7846,8 @@
    "s_close": 64201.9690033373,
    "close_lag_s": 2.3310251235961914,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614243",
@@ -4296,7 +7871,8 @@
    "s_close": 64254.00687644428,
    "close_lag_s": 2.3261451721191406,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614231",
@@ -4320,7 +7896,8 @@
    "s_close": 64386.70414268072,
    "close_lag_s": 2.611510753631592,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614219",
@@ -4344,7 +7921,8 @@
    "s_close": 64411.17070783663,
    "close_lag_s": 2.606379508972168,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614207",
@@ -4368,7 +7946,8 @@
    "s_close": 64460.09299578622,
    "close_lag_s": 2.6008007526397705,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614195",
@@ -4392,7 +7971,8 @@
    "s_close": 64466.82356475879,
    "close_lag_s": 2.5951485633850098,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614187",
@@ -4416,7 +7996,8 @@
    "s_close": 64452.18391472514,
    "close_lag_s": 2.5898447036743164,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614172",
@@ -4440,7 +8021,8 @@
    "s_close": 64415.62778975209,
    "close_lag_s": 2.584556818008423,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614159",
@@ -4464,7 +8046,8 @@
    "s_close": 64361.11888397965,
    "close_lag_s": 2.5793821811676025,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614150",
@@ -4488,7 +8071,8 @@
    "s_close": 64327.54945535718,
    "close_lag_s": 2.5742900371551514,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614144",
@@ -4512,7 +8096,8 @@
    "s_close": 64332.78721183004,
    "close_lag_s": 2.5692830085754395,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614131",
@@ -4536,7 +8121,8 @@
    "s_close": 64334.4510492127,
    "close_lag_s": 2.5639235973358154,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614088",
@@ -4560,7 +8146,8 @@
    "s_close": 64349.20642873166,
    "close_lag_s": 2.558690309524536,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614034",
@@ -4584,7 +8171,8 @@
    "s_close": 64338.19967478156,
    "close_lag_s": 2.5537073612213135,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614021",
@@ -4608,7 +8196,8 @@
    "s_close": 64374.82509149415,
    "close_lag_s": 2.5489025115966797,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614014",
@@ -4632,7 +8221,8 @@
    "s_close": 64369.4516166998,
    "close_lag_s": 2.5439839363098145,
    "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   },
   {
    "window_key": "614006",
@@ -4656,771 +8246,225 @@
    "s_close": 64346.06849184062,
    "close_lag_s": 2.53891921043396,
    "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613992",
-   "market_id": "2614571",
-   "title": "Bitcoin Up or Down - June 20, 11:30PM-11:35PM ET",
-   "side": "down",
-   "token_id": "112815631206775947447101051513625988206644663222531970786050855915776299784504",
-   "entry_price": 0.37,
-   "size_usd": 5.0,
-   "shares": 13.513514,
-   "fair_at_entry": 0.4998579101124905,
-   "edge_at_entry": 0.10014208988750953,
-   "open_ts": 1782012600.0,
-   "close_ts": 1782012900.0,
-   "entry_ts": 1782012630.5296218,
-   "status": "settled",
-   "outcome_up": false,
-   "won": true,
-   "pnl_usd": 8.513514,
-   "s_open": 64342.30957,
-   "s_close": 64282.69902315532,
-   "close_lag_s": 2.533975839614868,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613980",
-   "market_id": "2614557",
-   "title": "Bitcoin Up or Down - June 20, 11:25PM-11:30PM ET",
-   "side": "up",
-   "token_id": "90811200063015937916099294468094829828228027406566792741117529020207986338489",
-   "entry_price": 0.53,
-   "size_usd": 5.0,
-   "shares": 9.433962,
-   "fair_at_entry": 0.6195923042283757,
-   "edge_at_entry": 0.05959230422837572,
-   "open_ts": 1782012300.0,
-   "close_ts": 1782012600.0,
-   "entry_ts": 1782012330.5247066,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64337.232498159145,
-   "s_close": 64342.30957,
-   "close_lag_s": 2.5291643142700195,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613973",
-   "market_id": "2614550",
-   "title": "Bitcoin Up or Down - June 20, 11:20PM-11:25PM ET",
-   "side": "up",
-   "token_id": "53306622088250571739802223137875609184515330387238612997954881025103458136551",
-   "entry_price": 0.71,
-   "size_usd": 5.0,
-   "shares": 7.042254,
-   "fair_at_entry": 0.8547005201237918,
-   "edge_at_entry": 0.11470052012379187,
-   "open_ts": 1782012000.0,
-   "close_ts": 1782012300.0,
-   "entry_ts": 1782012066.5204048,
-   "status": "settled",
-   "outcome_up": true,
-   "won": true,
-   "pnl_usd": 2.042254,
-   "s_open": 64228.723935,
-   "s_close": 64337.06314149265,
-   "close_lag_s": 2.5242221355438232,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613963",
-   "market_id": "2614539",
-   "title": "Bitcoin Up or Down - June 20, 11:15PM-11:20PM ET",
-   "side": "up",
-   "token_id": "13029807498038049222355273534877873650768672367514169413060091117560425971429",
-   "entry_price": 0.66,
-   "size_usd": 5.0,
-   "shares": 7.575758,
-   "fair_at_entry": 0.8613702603709119,
-   "edge_at_entry": 0.17137026037091188,
-   "open_ts": 1782011700.0,
-   "close_ts": 1782012000.0,
-   "entry_ts": 1782011730.5149384,
-   "status": "settled",
-   "outcome_up": true,
-   "won": true,
-   "pnl_usd": 2.575758,
-   "s_open": 64219.089646354936,
-   "s_close": 64228.815175,
-   "close_lag_s": 2.5193793773651123,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613949",
-   "market_id": "2614525",
-   "title": "Bitcoin Up or Down - June 20, 11:10PM-11:15PM ET",
-   "side": "up",
-   "token_id": "99059441407071920211588626709896329198324862110998379194657442274359797290968",
-   "entry_price": 0.62,
-   "size_usd": 5.0,
-   "shares": 8.064516,
-   "fair_at_entry": 0.9155034630028143,
-   "edge_at_entry": 0.26550346300281424,
-   "open_ts": 1782011400.0,
-   "close_ts": 1782011700.0,
-   "entry_ts": 1782011470.5103924,
-   "status": "settled",
-   "outcome_up": true,
-   "won": true,
-   "pnl_usd": 3.064516,
-   "s_open": 64184.48733456704,
-   "s_close": 64221.73425,
-   "close_lag_s": 2.514467239379883,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613941",
-   "market_id": "2614514",
-   "title": "Bitcoin Up or Down - June 20, 11:05PM-11:10PM ET",
-   "side": "up",
-   "token_id": "86879679225451858625538589456386840079584510783511667973643111603034631893824",
-   "entry_price": 0.34,
-   "size_usd": 5.0,
-   "shares": 14.705882,
-   "fair_at_entry": 0.41862422101191005,
-   "edge_at_entry": 0.048624221011910024,
-   "open_ts": 1782011100.0,
-   "close_ts": 1782011400.0,
-   "entry_ts": 1782011133.7270875,
-   "status": "settled",
-   "outcome_up": true,
-   "won": true,
-   "pnl_usd": 9.705882,
-   "s_open": 64174.27286038965,
-   "s_close": 64184.45256456704,
-   "close_lag_s": 2.509113311767578,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613937",
-   "market_id": "2614509",
-   "title": "Bitcoin Up or Down - June 20, 11:00PM-11:05PM ET",
-   "side": "up",
-   "token_id": "50216242228293224704619288057511620291178266911615974752874243910563411705755",
-   "entry_price": 0.46,
-   "size_usd": 5.0,
-   "shares": 10.869565,
-   "fair_at_entry": 0.558955851558246,
-   "edge_at_entry": 0.06895585155824599,
-   "open_ts": 1782010800.0,
-   "close_ts": 1782011100.0,
-   "entry_ts": 1782010849.7221456,
-   "status": "settled",
-   "outcome_up": true,
-   "won": true,
-   "pnl_usd": 5.869565,
-   "s_open": 64166.03122080516,
-   "s_close": 64174.27286038965,
-   "close_lag_s": 1.726550817489624,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613922",
-   "market_id": "2614433",
-   "title": "Bitcoin Up or Down - June 20, 10:55PM-11:00PM ET",
-   "side": "down",
-   "token_id": "29821027598599561746526870754620599115145072562451666052162239970572478564983",
-   "entry_price": 0.5,
-   "size_usd": 5.0,
-   "shares": 10.0,
-   "fair_at_entry": 0.4001614569848391,
-   "edge_at_entry": 0.06983854301516093,
-   "open_ts": 1782010500.0,
-   "close_ts": 1782010800.0,
-   "entry_ts": 1782010533.716758,
-   "status": "settled",
-   "outcome_up": false,
-   "won": true,
-   "pnl_usd": 5.0,
-   "s_open": 64183.59008908205,
-   "s_close": 64166.03122080516,
-   "close_lag_s": 1.7213587760925293,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613906",
-   "market_id": "2614418",
-   "title": "Bitcoin Up or Down - June 20, 10:50PM-10:55PM ET",
-   "side": "up",
-   "token_id": "5882912662375639001938407728651368006668862757875289256919587799619412647362",
-   "entry_price": 0.41,
-   "size_usd": 5.0,
-   "shares": 12.195122,
-   "fair_at_entry": 0.4782762449542744,
-   "edge_at_entry": 0.038276244954274424,
-   "open_ts": 1782010200.0,
-   "close_ts": 1782010500.0,
-   "entry_ts": 1782010257.7123435,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64195.99731333985,
-   "s_close": 64182.32185041738,
-   "close_lag_s": 1.7162461280822754,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613901",
-   "market_id": "2614413",
-   "title": "Bitcoin Up or Down - June 20, 10:45PM-10:50PM ET",
-   "side": "up",
-   "token_id": "40080862577174417837035157373958328185387629533667356451747438317912823986",
-   "entry_price": 0.64,
-   "size_usd": 5.0,
-   "shares": 7.8125,
-   "fair_at_entry": 0.7221033668685177,
-   "edge_at_entry": 0.052103366868517714,
-   "open_ts": 1782009900.0,
-   "close_ts": 1782010200.0,
-   "entry_ts": 1782009981.7079275,
-   "status": "settled",
-   "outcome_up": true,
-   "won": true,
-   "pnl_usd": 2.8125,
-   "s_open": 64161.61354802035,
-   "s_close": 64195.99731333985,
-   "close_lag_s": 1.7114262580871582,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613889",
-   "market_id": "2614400",
-   "title": "Bitcoin Up or Down - June 20, 10:40PM-10:45PM ET",
-   "side": "down",
-   "token_id": "13468216594873492620643740759775269598909939108138525886916468550291705369194",
-   "entry_price": 0.63,
-   "size_usd": 5.0,
-   "shares": 7.936508,
-   "fair_at_entry": 0.3042699435109596,
-   "edge_at_entry": 0.0357300564890404,
-   "open_ts": 1782009600.0,
-   "close_ts": 1782009900.0,
-   "entry_ts": 1782009633.7022247,
-   "status": "settled",
-   "outcome_up": false,
-   "won": true,
-   "pnl_usd": 2.936508,
-   "s_open": 64165.44023178264,
-   "s_close": 64161.61354802035,
-   "close_lag_s": 1.706662654876709,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613882",
-   "market_id": "2614394",
-   "title": "Bitcoin Up or Down - June 20, 10:35PM-10:40PM ET",
-   "side": "up",
-   "token_id": "19531874625721235989729269228992280209163996063405905206013480912466344542175",
-   "entry_price": 0.53,
-   "size_usd": 5.0,
-   "shares": 9.433962,
-   "fair_at_entry": 0.6148290569024275,
-   "edge_at_entry": 0.05482905690242748,
-   "open_ts": 1782009300.0,
-   "close_ts": 1782009600.0,
-   "entry_ts": 1782009361.6978977,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64167.887395,
-   "s_close": 64165.44023178264,
-   "close_lag_s": 1.7017090320587158,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613874",
-   "market_id": "2614233",
-   "title": "Bitcoin Up or Down - June 20, 10:30PM-10:35PM ET",
-   "side": "up",
-   "token_id": "76661729336853573938770780371980937821952096864482973189913474306438076465723",
-   "entry_price": 0.43,
-   "size_usd": 5.0,
-   "shares": 11.627907,
-   "fair_at_entry": 0.5133811600111097,
-   "edge_at_entry": 0.05338116001110968,
-   "open_ts": 1782009000.0,
-   "close_ts": 1782009300.0,
-   "entry_ts": 1782009031.0032215,
-   "status": "settled",
-   "outcome_up": true,
-   "won": true,
-   "pnl_usd": 6.627907,
-   "s_open": 64142.685,
-   "s_close": 64167.887395,
-   "close_lag_s": 1.6969377994537354,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613861",
-   "market_id": "2614217",
-   "title": "Bitcoin Up or Down - June 20, 10:25PM-10:30PM ET",
-   "side": "down",
-   "token_id": "40030874915592604621420961934422124664124537823426048800357072875378611604872",
-   "entry_price": 0.37,
-   "size_usd": 5.0,
-   "shares": 13.513514,
-   "fair_at_entry": 0.5075325076839458,
-   "edge_at_entry": 0.09246749231605425,
-   "open_ts": 1782008700.0,
-   "close_ts": 1782009000.0,
-   "entry_ts": 1782008730.9984121,
-   "status": "settled",
-   "outcome_up": true,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64144.115,
-   "s_close": 64151.975,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613850",
-   "market_id": "2614208",
-   "title": "Bitcoin Up or Down - June 20, 10:20PM-10:25PM ET",
-   "side": "up",
-   "token_id": "23271498303932880614333879049389787814595065666438150482834429454552271019898",
-   "entry_price": 0.26,
-   "size_usd": 5.0,
-   "shares": 19.230769,
-   "fair_at_entry": 0.396593721189854,
-   "edge_at_entry": 0.10659372118985397,
-   "open_ts": 1782008400.0,
-   "close_ts": 1782008700.0,
-   "entry_ts": 1782008538.9953275,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64161.395,
-   "s_close": 64154.185,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613843",
-   "market_id": "2614197",
-   "title": "Bitcoin Up or Down - June 20, 10:15PM-10:20PM ET",
-   "side": "up",
-   "token_id": "111078278475514374762714345839219778694129910795616418214191911457072130864433",
-   "entry_price": 0.31,
-   "size_usd": 5.0,
-   "shares": 16.129032,
-   "fair_at_entry": 0.42623565328357044,
-   "edge_at_entry": 0.08623565328357044,
-   "open_ts": 1782008100.0,
-   "close_ts": 1782008400.0,
-   "entry_ts": 1782008142.9889529,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64187.325,
-   "s_close": 64143.905,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613832",
-   "market_id": "2614184",
-   "title": "Bitcoin Up or Down - June 20, 10:10PM-10:15PM ET",
-   "side": "up",
-   "token_id": "91940548898995651262748921328899717672123588013247373710725173153262131952099",
-   "entry_price": 0.37,
-   "size_usd": 5.0,
-   "shares": 13.513514,
-   "fair_at_entry": 0.5102002906420393,
-   "edge_at_entry": 0.11020029064203932,
-   "open_ts": 1782007800.0,
-   "close_ts": 1782008100.0,
-   "entry_ts": 1782007830.2396317,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64176.005,
-   "s_close": 64156.255,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613823",
-   "market_id": "2614175",
-   "title": "Bitcoin Up or Down - June 20, 10:05PM-10:10PM ET",
-   "side": "down",
-   "token_id": "15355406561524567176931227237153029343116567297876227351609408383289120508570",
-   "entry_price": 0.67,
-   "size_usd": 5.0,
-   "shares": 7.462687,
-   "fair_at_entry": 0.26282471734978696,
-   "edge_at_entry": 0.037175282650213,
-   "open_ts": 1782007500.0,
-   "close_ts": 1782007800.0,
-   "entry_ts": 1782007538.512329,
-   "status": "settled",
-   "outcome_up": false,
-   "won": true,
-   "pnl_usd": 2.462687,
-   "s_open": 64179.445,
-   "s_close": 64169.695,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613801",
-   "market_id": "2614116",
-   "title": "Bitcoin Up or Down - June 20, 10:00PM-10:05PM ET",
-   "side": "down",
-   "token_id": "24720049670173342563407112295166508568341484976775395847131919474474671289101",
-   "entry_price": 0.52,
-   "size_usd": 5.0,
-   "shares": 9.615385,
-   "fair_at_entry": 0.1907103698943991,
-   "edge_at_entry": 0.2592896301056009,
-   "open_ts": 1782007200.0,
-   "close_ts": 1782007500.0,
-   "entry_ts": 1782007230.5073054,
-   "status": "settled",
-   "outcome_up": false,
-   "won": true,
-   "pnl_usd": 4.615385,
-   "s_open": 64186.875,
-   "s_close": 64156.155,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613794",
-   "market_id": "2614081",
-   "title": "Bitcoin Up or Down - June 20, 9:55PM-10:00PM ET",
-   "side": "up",
-   "token_id": "114197733296067259387695995385797537040551507269547086373469926648259896113285",
-   "entry_price": 0.54,
-   "size_usd": 5.0,
-   "shares": 9.259259,
-   "fair_at_entry": 0.70787812236401,
-   "edge_at_entry": 0.13787812236401,
-   "open_ts": 1782006900.0,
-   "close_ts": 1782007200.0,
-   "entry_ts": 1782006938.502383,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64167.015,
-   "s_close": 64147.955,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613777",
-   "market_id": "2614039",
-   "title": "Bitcoin Up or Down - June 20, 9:50PM-9:55PM ET",
-   "side": "down",
-   "token_id": "45426652387745607018641603731066776073942229258365218772698797846869362465333",
-   "entry_price": 0.47,
-   "size_usd": 5.0,
-   "shares": 10.638298,
-   "fair_at_entry": 0.45308805844015454,
-   "edge_at_entry": 0.04691194155984549,
-   "open_ts": 1782006600.0,
-   "close_ts": 1782006900.0,
-   "entry_ts": 1782006630.4968386,
-   "status": "settled",
-   "outcome_up": true,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64169.585,
-   "s_close": 64172.245,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613760",
-   "market_id": "2614023",
-   "title": "Bitcoin Up or Down - June 20, 9:45PM-9:50PM ET",
-   "side": "down",
-   "token_id": "56893146854936123395500802109976732754642799316573297018179492805393679858141",
-   "entry_price": 0.44,
-   "size_usd": 5.0,
-   "shares": 11.363636,
-   "fair_at_entry": 0.49988683275031504,
-   "edge_at_entry": 0.03011316724968502,
-   "open_ts": 1782006300.0,
-   "close_ts": 1782006600.0,
-   "entry_ts": 1782006346.4917967,
-   "status": "settled",
-   "outcome_up": true,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64172.245,
-   "s_close": 64193.385,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613751",
-   "market_id": "2614014",
-   "title": "Bitcoin Up or Down - June 20, 9:40PM-9:45PM ET",
-   "side": "up",
-   "token_id": "39332506059629020026172578531515717682718053545141697752974656295369958649579",
-   "entry_price": 0.54,
-   "size_usd": 5.0,
-   "shares": 9.259259,
-   "fair_at_entry": 0.6024321892206302,
-   "edge_at_entry": 0.03243218922063021,
-   "open_ts": 1782006000.0,
-   "close_ts": 1782006300.0,
-   "entry_ts": 1782006066.4864113,
-   "status": "settled",
-   "outcome_up": true,
-   "won": true,
-   "pnl_usd": 4.259259,
-   "s_open": 64133.865,
-   "s_close": 64232.005,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613744",
-   "market_id": "2613927",
-   "title": "Bitcoin Up or Down - June 20, 9:35PM-9:40PM ET",
-   "side": "up",
-   "token_id": "56099878477930445746821810137691526253876447564160643985585580122595864808674",
-   "entry_price": 0.57,
-   "size_usd": 5.0,
-   "shares": 8.77193,
-   "fair_at_entry": 0.6850334710951658,
-   "edge_at_entry": 0.08503347109516582,
-   "open_ts": 1782005700.0,
-   "close_ts": 1782006000.0,
-   "entry_ts": 1782005734.4799976,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64151.025,
-   "s_close": 64145.565,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613725",
-   "market_id": "2613856",
-   "title": "Bitcoin Up or Down - June 20, 9:30PM-9:35PM ET",
-   "side": "up",
-   "token_id": "39237283544113495976772515061791221540552119328142073081898639345453550203000",
-   "entry_price": 0.47,
-   "size_usd": 5.0,
-   "shares": 10.638298,
-   "fair_at_entry": 0.553599779605544,
-   "edge_at_entry": 0.05359977960554399,
-   "open_ts": 1782005400.0,
-   "close_ts": 1782005700.0,
-   "entry_ts": 1782005430.4736862,
-   "status": "settled",
-   "outcome_up": true,
-   "won": true,
-   "pnl_usd": 5.638298,
-   "s_open": 64152.235,
-   "s_close": 64187.995,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613719",
-   "market_id": "2613849",
-   "title": "Bitcoin Up or Down - June 20, 9:25PM-9:30PM ET",
-   "side": "up",
-   "token_id": "57349409233674377054264040038675472919937080764452550755818643866750711257780",
-   "entry_price": 0.52,
-   "size_usd": 5.0,
-   "shares": 9.615385,
-   "fair_at_entry": 0.6181349710636017,
-   "edge_at_entry": 0.0681349710636017,
-   "open_ts": 1782005100.0,
-   "close_ts": 1782005400.0,
-   "entry_ts": 1782005130.4675648,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64157.935,
-   "s_close": 64149.985,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613709",
-   "market_id": "2613820",
-   "title": "Bitcoin Up or Down - June 20, 9:20PM-9:25PM ET",
-   "side": "down",
-   "token_id": "50463934835049688516028909605931963311012501063571618384949132182899393876424",
-   "entry_price": 0.43,
-   "size_usd": 5.0,
-   "shares": 11.627907,
-   "fair_at_entry": 0.47903146977809674,
-   "edge_at_entry": 0.06096853022190327,
-   "open_ts": 1782004800.0,
-   "close_ts": 1782005100.0,
-   "entry_ts": 1782004834.461167,
-   "status": "settled",
-   "outcome_up": false,
-   "won": true,
-   "pnl_usd": 6.627907,
-   "s_open": 64165.835,
-   "s_close": 64153.455,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613693",
-   "market_id": "2613807",
-   "title": "Bitcoin Up or Down - June 20, 9:15PM-9:20PM ET",
-   "side": "down",
-   "token_id": "100132532495806521728054310952776864121360566554538781149305400060101322714094",
-   "entry_price": 0.26,
-   "size_usd": 5.0,
-   "shares": 19.230769,
-   "fair_at_entry": 0.6723155344306291,
-   "edge_at_entry": 0.03768446556937091,
-   "open_ts": 1782004500.0,
-   "close_ts": 1782004800.0,
-   "entry_ts": 1782004586.4561532,
-   "status": "settled",
-   "outcome_up": false,
-   "won": true,
-   "pnl_usd": 14.230769,
-   "s_open": 64169.085,
-   "s_close": 64163.865,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
-  },
-  {
-   "window_key": "613685",
-   "market_id": "2613796",
-   "title": "Bitcoin Up or Down - June 20, 9:10PM-9:15PM ET",
-   "side": "up",
-   "token_id": "71732795016565901125303637026302688247012773063172954957699976620687014338974",
-   "entry_price": 0.3,
-   "size_usd": 5.0,
-   "shares": 16.666667,
-   "fair_at_entry": 0.472766794682407,
-   "edge_at_entry": 0.14276679468240702,
-   "open_ts": 1782004200.0,
-   "close_ts": 1782004500.0,
-   "entry_ts": 1782004242.4490743,
-   "status": "settled",
-   "outcome_up": false,
-   "won": false,
-   "pnl_usd": -5.0,
-   "s_open": 64192.095,
-   "s_close": 64178.385,
-   "close_lag_s": null,
-   "research": null,
-   "decision_id": null
+   "decision_id": null,
+   "external": null
   }
  ],
  "calibration_state": {
-  "n": 151,
-  "sq": 34.849904278701274,
-  "ll": 97.3842760133193,
-  "up_outcomes": 77
+  "n": 229,
+  "sq": 55.40497484997464,
+  "ll": 154.4840261306319,
+  "up_outcomes": 119
  },
  "accounting_state": {
   "lifecycle": {
-   "created": 10,
-   "feature_scored": 10,
-   "execution_costed": 1,
-   "ledgered": 1,
-   "reported": 10,
+   "created": 1192,
+   "feature_scored": 1192,
+   "execution_costed": 78,
+   "ledgered": 78,
+   "reported": 1192,
    "terminals": {
-    "accepted": 1,
-    "rejected": 9,
+    "accepted": 78,
+    "rejected": 1114,
     "skipped": 0,
     "expired": 0,
     "missing_data": 0
    },
    "rejected_by_stage": {
-    "directional": 9,
+    "directional": 1114,
     "execution_gate": 0
    },
    "skipped_by_reason": {},
    "missing_by_reason": {}
   },
   "gate_observations": {
-   "n": 1,
+   "n": 78,
    "fields": {
     "spread": {
      "min": 0.01,
-     "max": 0.01,
-     "sum": 0.01,
-     "n": 1
+     "max": 0.02,
+     "sum": 0.7900000000000005,
+     "n": 78
     },
     "ask_depth_usd": {
-     "min": 33275.88,
-     "max": 33275.88,
-     "sum": 33275.88,
-     "n": 1
+     "min": 27224.86,
+     "max": 43035.9,
+     "sum": 2572863.7899999996,
+     "n": 78
     },
     "slippage": {
-     "min": 0.0007843137254902599,
-     "max": 0.0007843137254902599,
-     "sum": 0.0007843137254902599,
-     "n": 1
+     "min": -5.551115123125783e-17,
+     "max": 0.004158415841584273,
+     "sum": 0.00766360556027551,
+     "n": 78
     },
     "ev_after_slippage": {
-     "min": 0.06836712406129003,
-     "max": 0.06836712406129003,
-     "sum": 0.06836712406129003,
-     "n": 1
+     "min": 0.061921000477001664,
+     "max": 0.26058875834894424,
+     "sum": 8.490614481523489,
+     "n": 78
     },
     "ttc_s": {
-     "min": 261.3186855316162,
-     "max": 261.3186855316162,
-     "sum": 261.3186855316162,
-     "n": 1
+     "min": 165.25536513328552,
+     "max": 269.7677991390228,
+     "sum": 20000.231848955154,
+     "n": 78
     }
    }
   },
   "ev": {
-   "before_sum": 0.074151,
-   "after_sum": 0.068367,
-   "n": 1
+   "before_sum": 8.893278,
+   "after_sum": 8.490614,
+   "n": 78
+  },
+  "tv_edge": {
+   "n_total": 1,
+   "outcomes_up": 0,
+   "n_with_signal": 1,
+   "n_no_signal": 0,
+   "signal_evaluated": 1,
+   "signal_correct": 0,
+   "dims": {
+    "direction": {
+     "UP": {
+      "n": 1,
+      "sig_eval": 1,
+      "sig_correct": 0,
+      "bot_wins": 0,
+      "pnl": -5.0
+     }
+    },
+    "timeframe": {
+     "5": {
+      "n": 1,
+      "sig_eval": 1,
+      "sig_correct": 0,
+      "bot_wins": 0,
+      "pnl": -5.0
+     }
+    },
+    "symbol": {
+     "BTCUSD": {
+      "n": 1,
+      "sig_eval": 1,
+      "sig_correct": 0,
+      "bot_wins": 0,
+      "pnl": -5.0
+     }
+    },
+    "alignment": {
+     "aligned": {
+      "n": 1,
+      "sig_eval": 1,
+      "sig_correct": 0,
+      "bot_wins": 0,
+      "pnl": -5.0
+     }
+    }
+   }
+  },
+  "rsi_trend": {
+   "hist": {},
+   "state_counts": {
+    "BTCUSD": {
+     "up_streak1": {
+      "up": 0,
+      "n": 1
+     }
+    }
+   },
+   "pred_n": 0,
+   "pred_correct": 0,
+   "pred_by_symbol": {}
+  },
+  "edge_model": {
+   "w": {
+    "hurst": -0.0056250545846540725,
+    "autocorr_lag1": -0.020576036718195207,
+    "realized_vol_scaled": -0.013833242439146184,
+    "zscore": 0.0020138735391105793,
+    "signal_strength_signed": -0.009201415823640051,
+    "edge_quality_score": -0.039709677535618104,
+    "orderbook_imbalance": 0.03049400024597309
+   },
+   "b": -0.04431592029419905,
+   "n_labeled": 15,
+   "calib": {
+    "0.5-0.6": {
+     "n": 11,
+     "up": 5
+    },
+    "0.4-0.5": {
+     "n": 3,
+     "up": 2
+    },
+    "0.6-0.7": {
+     "n": 1,
+     "up": 0
+    }
+   },
+   "recent": [
+    [
+     0.5,
+     1.0
+    ],
+    [
+     0.517717,
+     0.0
+    ],
+    [
+     0.548494,
+     1.0
+    ],
+    [
+     0.481751,
+     1.0
+    ],
+    [
+     0.604326,
+     0.0
+    ],
+    [
+     0.513682,
+     1.0
+    ],
+    [
+     0.520173,
+     1.0
+    ],
+    [
+     0.527702,
+     0.0
+    ],
+    [
+     0.535868,
+     0.0
+    ],
+    [
+     0.542638,
+     1.0
+    ],
+    [
+     0.565904,
+     0.0
+    ],
+    [
+     0.546079,
+     0.0
+    ],
+    [
+     0.534279,
+     0.0
+    ],
+    [
+     0.457987,
+     1.0
+    ],
+    [
+     0.489718,
+     0.0
+    ]
+   ]
   },
   "baseline": {
    "captured": true,
