@@ -245,6 +245,147 @@ class TradingViewEdge:
                                    "pnl": float(v.get("pnl", 0.0) or 0.0)}
 
 
+class RSITrendModel:
+    """OBSERVE-ONLY: track the per-symbol history of RSI alerts, classify the current up/down
+    trend, and learn ``P(next 5-min Chainlink outcome | current RSI trend state)`` so it can
+    PREDICT the next 5-min window's direction — then SCORE its own predictions against reality.
+
+    Leakage-free: the prediction for a window is made from counts that EXCLUDE that window's own
+    outcome (counts are updated only at settlement, after scoring). REPORT-ONLY — it never affects
+    which paper trades are taken."""
+
+    HIST = 64                  # alerts kept per symbol
+    MIN_STATE_N = 8            # min settled samples for a trend-state before it will predict
+
+    def __init__(self):
+        self.hist: dict = {}            # symbol -> deque[(ts, direction)]
+        self.state_counts: dict = {}    # symbol -> {state_key: {"up": int, "n": int}}
+        self.pred_n = 0
+        self.pred_correct = 0
+        self.pred_by_symbol: dict = {}  # symbol -> {"n","correct"}
+
+    def observe(self, *, symbol: str, direction: str, ts: float) -> None:
+        if not symbol:
+            return
+        dq = self.hist.setdefault(symbol, deque(maxlen=self.HIST))
+        dq.append((float(ts or 0.0), direction))
+
+    @staticmethod
+    def _streak(dq) -> "tuple[int, Optional[str]]":
+        """Signed run length of the latest consecutive same non-FLAT direction (UP=+, DOWN=-)."""
+        if not dq:
+            return 0, None
+        last = dq[-1][1]
+        if last not in ("UP", "DOWN"):
+            return 0, last
+        run = 0
+        for _, d in reversed(dq):
+            if d == last:
+                run += 1
+            else:
+                break
+        return (run if last == "UP" else -run), last
+
+    def _state_key(self, dq) -> str:
+        streak, last = self._streak(dq)
+        if last not in ("UP", "DOWN"):
+            return "flat_or_none"
+        return ("up" if streak > 0 else "down") + "_streak" + str(min(abs(streak), 3))
+
+    def trend(self, symbol: str) -> dict:
+        dq = self.hist.get(symbol)
+        if not dq:
+            return {"symbol": symbol, "n": 0, "last_direction": None, "streak": 0,
+                    "state": "flat_or_none", "recent_up_fraction": None}
+        streak, last = self._streak(dq)
+        recent = [d for _, d in list(dq)[-8:] if d in ("UP", "DOWN")]
+        ups = sum(1 for d in recent if d == "UP")
+        return {"symbol": symbol, "n": len(dq), "last_direction": last, "streak": streak,
+                "state": self._state_key(dq),
+                "recent_up_fraction": (round(ups / len(recent), 3) if recent else None)}
+
+    def predict(self, symbol: str) -> dict:
+        """Observe-only next-5-min prediction from P(up | current RSI trend state)."""
+        dq = self.hist.get(symbol)
+        if not dq:
+            return {"symbol": symbol, "prediction": None, "reason": "no_history"}
+        state = self._state_key(dq)
+        c = (self.state_counts.get(symbol) or {}).get(state)
+        if not c or c["n"] < self.MIN_STATE_N:
+            return {"symbol": symbol, "state": state, "prediction": None, "prob_up": None,
+                    "reason": "insufficient_state_samples", "state_n": (c["n"] if c else 0)}
+        p_up = c["up"] / c["n"]
+        return {"symbol": symbol, "state": state,
+                "prediction": ("UP" if p_up > 0.5 else "DOWN"), "prob_up": round(p_up, 4),
+                "confidence": round(abs(p_up - 0.5) * 2, 3), "state_n": c["n"],
+                "basis": "conditional_outcome_given_rsi_trend"}
+
+    def score_and_update(self, *, symbol: str, state: Optional[str], predicted: Optional[str],
+                         outcome_up: bool) -> None:
+        """Score the entry-time prediction (leakage-free), then fold the realized outcome into the
+        conditional distribution for that trend state."""
+        if predicted in ("UP", "DOWN"):
+            correct = (predicted == "UP" and outcome_up) or (predicted == "DOWN" and not outcome_up)
+            self.pred_n += 1
+            self.pred_correct += int(bool(correct))
+            ps = self.pred_by_symbol.setdefault(symbol or "none", {"n": 0, "correct": 0})
+            ps["n"] += 1
+            ps["correct"] += int(bool(correct))
+        if state:
+            sc = self.state_counts.setdefault(symbol or "none", {}).setdefault(
+                state, {"up": 0, "n": 0})
+            sc["n"] += 1
+            sc["up"] += int(bool(outcome_up))
+
+    def report(self) -> dict:
+        acc = round(self.pred_correct / self.pred_n, 4) if self.pred_n else None
+        return {
+            "observe_only": True, "report_only": True,
+            "min_state_samples": self.MIN_STATE_N,
+            "predictions_scored": self.pred_n,
+            "prediction_accuracy": acc,
+            "prediction_accuracy_by_symbol": {
+                s: {"n": v["n"], "accuracy": (round(v["correct"] / v["n"], 4) if v["n"] else None)}
+                for s, v in self.pred_by_symbol.items()},
+            "current_trend": {s: self.trend(s) for s in self.hist},
+            "next_window_prediction": {s: self.predict(s) for s in self.hist},
+            "learned_states": {s: {k: {"n": v["n"],
+                                       "p_up": (round(v["up"] / v["n"], 4) if v["n"] else None)}
+                                   for k, v in sc.items()}
+                               for s, sc in self.state_counts.items()},
+            "note": ("observe-only: learns P(next 5-min outcome | RSI alert trend state) from the "
+                     "alert history and scores its own next-window predictions. Never trades."),
+        }
+
+    def to_state(self) -> dict:
+        return {"hist": {s: [[t, d] for t, d in dq] for s, dq in self.hist.items()},
+                "state_counts": {s: {k: dict(v) for k, v in sc.items()}
+                                 for s, sc in self.state_counts.items()},
+                "pred_n": self.pred_n, "pred_correct": self.pred_correct,
+                "pred_by_symbol": {s: dict(v) for s, v in self.pred_by_symbol.items()}}
+
+    def load_state(self, data: dict) -> None:
+        if not data:
+            return
+        self.hist = {}
+        for s, seq in (data.get("hist") or {}).items():
+            dq = deque(maxlen=self.HIST)
+            for item in seq:
+                try:
+                    dq.append((float(item[0]), item[1]))
+                except Exception:  # noqa: BLE001
+                    continue
+            self.hist[s] = dq
+        self.state_counts = {}
+        for s, sc in (data.get("state_counts") or {}).items():
+            self.state_counts[s] = {k: {"up": int(v.get("up", 0) or 0), "n": int(v.get("n", 0) or 0)}
+                                    for k, v in sc.items()}
+        self.pred_n = int(data.get("pred_n", 0) or 0)
+        self.pred_correct = int(data.get("pred_correct", 0) or 0)
+        self.pred_by_symbol = {s: {"n": int(v.get("n", 0) or 0), "correct": int(v.get("correct", 0) or 0)}
+                               for s, v in (data.get("pred_by_symbol") or {}).items()}
+
+
 def _event_from_dict(d) -> Optional["TradingViewSignalEvent"]:
     if not isinstance(d, dict) or not d.get("event_id"):
         return None

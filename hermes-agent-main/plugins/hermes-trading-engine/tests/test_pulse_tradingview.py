@@ -17,7 +17,7 @@ from engine.pulse.tradingview import (TradingViewIntake, normalize_direction, no
                                        BAD_SECRET, MISSING_SECRET, WRONG_BOT, UNSUPPORTED_SYMBOL,
                                        STALE_TIMESTAMP, MALFORMED_DIRECTION, DUPLICATE_EVENT_ID,
                                        INVALID_JSON)
-from engine.pulse.tradingview import TradingViewEdge
+from engine.pulse.tradingview import TradingViewEdge, RSITrendModel
 from engine.pulse.webhook import WebhookServer
 from engine.pulse.markets import OrderBook, PulseWindow
 from engine.pulse.price import PulsePriceFeed
@@ -292,6 +292,58 @@ def test_edge_measurement_persists_round_trip():
     edge2.load_state(edge.to_state())
     assert edge2.report()["by_timeframe"]["3"]["n"] == 5
     assert edge2.signal_correct == 5 and edge2.n_total == 5
+
+
+# ============================= RSI trend history model ===================================== #
+def test_rsi_trend_classification_streak():
+    m = RSITrendModel()
+    for i, d in enumerate(["UP", "UP", "UP"]):
+        m.observe(symbol="BTCUSD", direction=d, ts=1000 + i)
+    t = m.trend("BTCUSD")
+    assert t["last_direction"] == "UP" and t["streak"] == 3 and t["state"] == "up_streak3"
+    m.observe(symbol="BTCUSD", direction="DOWN", ts=1100)
+    assert m.trend("BTCUSD")["state"] == "down_streak1"
+
+
+def test_rsi_predictor_learns_and_scores_leakage_free():
+    """In trend state 'up_streak1' the next outcome is UP 90% of the time; after enough settled
+    samples the model predicts UP for that state and scores its own (leakage-free) predictions."""
+    m = RSITrendModel()
+    ts = 1000.0
+    hits = 0
+    n = 0
+    for i in range(60):
+        # produce an 'up_streak1' state: a single UP after a DOWN
+        m.observe(symbol="BTCUSD", direction="DOWN", ts=ts); ts += 1
+        m.observe(symbol="BTCUSD", direction="UP", ts=ts); ts += 1
+        state = m.trend("BTCUSD")["state"]
+        pred = m.predict("BTCUSD")          # leakage-free: uses counts excluding this outcome
+        outcome_up = (i % 10 != 0)          # UP 90% of the time
+        if pred.get("prediction") in ("UP", "DOWN"):
+            n += 1
+            hits += int((pred["prediction"] == "UP") == outcome_up)
+        m.score_and_update(symbol="BTCUSD", state=state,
+                           predicted=pred.get("prediction"), outcome_up=outcome_up)
+    rep = m.report()
+    assert rep["observe_only"] is True
+    # once it had >= MIN_STATE_N samples it predicted UP for up_streak1 and was right ~90%
+    assert rep["predictions_scored"] >= 1
+    assert rep["prediction_accuracy"] is not None and rep["prediction_accuracy"] >= 0.8
+    assert rep["next_window_prediction"]["BTCUSD"]["prediction"] == "UP"
+    assert rep["learned_states"]["BTCUSD"]["up_streak1"]["n"] >= 8
+
+
+def test_rsi_model_persists_round_trip():
+    m = RSITrendModel()
+    ts = 1000.0
+    for i in range(12):
+        m.observe(symbol="BTCUSD", direction="UP", ts=ts); ts += 1
+        m.score_and_update(symbol="BTCUSD", state="up_streak1", predicted="UP", outcome_up=True)
+    m2 = RSITrendModel()
+    m2.load_state(m.to_state())
+    assert m2.pred_n == 12 and m2.pred_correct == 12
+    assert m2.report()["learned_states"]["BTCUSD"]["up_streak1"]["n"] == 12
+    assert m2.trend("BTCUSD")["last_direction"] == "UP"
 
 
 # ============================= engine integration (#6,#7) ================================== #

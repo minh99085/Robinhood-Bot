@@ -243,8 +243,9 @@ class PulseEngine:
         self._daily_key = None
         from engine.pulse.reporting import OutcomeGroups
         self._groups = OutcomeGroups()            # settled PnL grouped by every entry-time tag
-        from engine.pulse.tradingview import TradingViewEdge
+        from engine.pulse.tradingview import TradingViewEdge, RSITrendModel
         self._tv_edge = TradingViewEdge()         # OBSERVE-ONLY TradingView signal-vs-outcome edge
+        self._rsi_model = RSITrendModel()         # OBSERVE-ONLY RSI alert-history next-trend model
         self._ev_before_sum = 0.0                 # EV before/after costs (accepted candidates)
         self._ev_after_sum = 0.0
         self._ev_n = 0
@@ -326,6 +327,7 @@ class PulseEngine:
         self.reconciler.load_state(acct.get("lifecycle") or {})
         self.gate_obs.load_state(acct.get("gate_observations") or {})
         self._tv_edge.load_state(acct.get("tv_edge") or {})
+        self._rsi_model.load_state(acct.get("rsi_trend") or {})
         ev = acct.get("ev") or {}
         self._ev_before_sum = float(ev.get("before_sum", 0.0) or 0.0)
         self._ev_after_sum = float(ev.get("after_sum", 0.0) or 0.0)
@@ -365,7 +367,9 @@ class PulseEngine:
         # latest signal feature for this tick. NEVER used by decide()/evaluate_execution().
         tv_feature = None
         if self.tradingview is not None:
-            self.tradingview.drain_pending()
+            for ev in self.tradingview.drain_pending():   # build the per-symbol RSI alert history
+                self._rsi_model.observe(symbol=ev.symbol, direction=ev.direction,
+                                        ts=(ev.bar_time or ev.received_at))
             feat = self.tradingview.latest_feature(now=now, symbol=self.cfg.oracle_symbol)
             if feat is not None and (feat.get("age_s") is None
                                      or feat["age_s"] <= self.cfg.tradingview_signal_max_feature_age_s):
@@ -553,12 +557,20 @@ class PulseEngine:
                                         if (dr.model or {}).get("trained")
                                         else (dr.signals or {}).get("confidence"))}
             if tv_feature is not None:            # observe-only external signal present at entry
+                _sym = tv_feature.get("symbol")
+                _pred = self._rsi_model.predict(_sym) if _sym else {}
+                _trend = self._rsi_model.trend(_sym) if _sym else {}
                 pos.external = {"source": "tradingview",
                                 "direction": tv_feature.get("direction"),
                                 "timeframe": tv_feature.get("timeframe"),
-                                "symbol": tv_feature.get("symbol"),
+                                "symbol": _sym,
                                 "indicator_name": tv_feature.get("indicator_name"),
-                                "strength": tv_feature.get("strength")}
+                                "strength": tv_feature.get("strength"),
+                                # RSI alert-history next-window prediction at entry (observe-only,
+                                # leakage-free: scored at settlement before counts are updated)
+                                "rsi_trend_state": _trend.get("state"),
+                                "rsi_predicted_next": _pred.get("prediction"),
+                                "rsi_pred_prob_up": _pred.get("prob_up")}
             # the canonical paper fill — set for EVERY accepted trade (independent of EV stats)
             # so reconciler.ledgered == accepted == ledger.trades by construction.
             dr.fill = PaperFill(window_key=w.event_id, side=d.side, fill_price=ex.fill_price,
@@ -661,6 +673,13 @@ class PulseEngine:
             # outcome and whether aligning helped the bot win (computed AFTER the outcome is known).
             self._tv_edge.record(tv=pos.external, traded_side=pos.side, outcome_up=bool(outcome),
                                  won=bool(pos.won), pnl=float(pos.pnl_usd or 0.0))
+            # score the RSI alert-history next-window prediction, then fold the outcome into the
+            # conditional model (leakage-free order). Observe-only.
+            _ext = pos.external or {}
+            if _ext.get("symbol"):
+                self._rsi_model.score_and_update(
+                    symbol=_ext.get("symbol"), state=_ext.get("rsi_trend_state"),
+                    predicted=_ext.get("rsi_predicted_next"), outcome_up=bool(outcome))
             logger.info("pulse settled %s side=%s won=%s pnl=%.3f via=%s",
                         pos.title, pos.side, pos.won, pos.pnl_usd or 0.0, source)
 
@@ -758,6 +777,7 @@ class PulseEngine:
             if self.webhook is not None:
                 rep["webhook"] = self.webhook.status()
         rep["edge_vs_5min_outcome"] = self._tv_edge.report()
+        rep["rsi_trend"] = self._rsi_model.report()
         return rep
 
     def _tier_report(self) -> dict:
@@ -841,6 +861,7 @@ class PulseEngine:
                               "ev": {"before_sum": round(self._ev_before_sum, 6),
                                      "after_sum": round(self._ev_after_sum, 6), "n": self._ev_n},
                               "tv_edge": self._tv_edge.to_state(),
+                              "rsi_trend": self._rsi_model.to_state(),
                               "baseline": (self._baseline or empty_baseline())}}
             (self._data_dir / "btc_pulse_ledger.json").write_text(
                 json.dumps(ledger_doc, default=str, indent=1))
