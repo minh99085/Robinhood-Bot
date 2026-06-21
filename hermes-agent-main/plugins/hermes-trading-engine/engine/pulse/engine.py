@@ -54,6 +54,10 @@ class PulseConfig:
     min_vol_samples: int = 12              # need a real vol estimate before trusting P(up)
     sigma_trust_floor: float = 2.0e-6      # below this, price is too flat -> digital untrusted
     basis_buffer: float = 0.02             # cover Coinbase-vs-Chainlink resolution basis drift
+    # Grok event-risk overlay (advisory; can only make the bot MORE cautious)
+    grok_overlay_enabled: bool = False
+    grok_overlay_interval_s: float = 180.0
+    grok_overlay_max_calls_per_hour: int = 20
     data_dir: str = "/data"
 
     @classmethod
@@ -75,6 +79,10 @@ class PulseConfig:
             min_vol_samples=int(_envf("PULSE_MIN_VOL_SAMPLES", 12)),
             sigma_trust_floor=_envf("PULSE_SIGMA_TRUST_FLOOR", 2.0e-6),
             basis_buffer=_envf("PULSE_BASIS_BUFFER", 0.02),
+            grok_overlay_enabled=str(os.getenv("GROK_OVERLAY_ENABLED", "")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            grok_overlay_interval_s=_envf("GROK_OVERLAY_INTERVAL_S", 180.0),
+            grok_overlay_max_calls_per_hour=int(_envf("GROK_OVERLAY_MAX_CALLS_PER_HOUR", 20)),
             data_dir=os.getenv("HTE_DATA_DIR", "/data"))
 
 
@@ -88,6 +96,17 @@ class PulseEngine:
             max_open_lag_s=self.cfg.max_open_lag_s)
         self.ledger = PulseLedger()
         self.calib = PulseCalibration()
+        self.overlay = None
+        if bool(getattr(self.cfg, "grok_overlay_enabled", False)):
+            try:
+                from engine.pulse.overlay import GrokEventOverlay, xai_key_present
+                if xai_key_present():
+                    self.overlay = GrokEventOverlay(
+                        interval_s=self.cfg.grok_overlay_interval_s,
+                        max_calls_per_hour=self.cfg.grok_overlay_max_calls_per_hour)
+                    self.overlay.start()
+            except Exception:  # noqa: BLE001 — overlay never blocks startup
+                self.overlay = None
         self.ticks = 0
         self.last_tick_ts = 0.0
         self._reasons: dict = {}
@@ -134,6 +153,9 @@ class PulseEngine:
         self.price.prune_opens(keep_keys)
         reasons: dict = {}
         evald = []
+        ov = self.overlay.current(now) if self.overlay is not None else None
+        ov_blackout = bool(ov and ov.get("blackout"))
+        ov_vol_mult = float(ov.get("vol_multiplier", 1.0)) if ov else 1.0
 
         def _bump(r):
             reasons[r] = reasons.get(r, 0) + 1
@@ -165,9 +187,13 @@ class PulseEngine:
                     or sigma <= self.cfg.sigma_trust_floor:
                 _bump("untrusted_vol")
                 continue
+            if ov_blackout:
+                _bump("grok_event_blackout")     # imminent high-impact event — don't open
+                continue
             self.market.hydrate_books(w)
             ttc = w.seconds_to_close(now)
-            fair = digital_p_up(s_now, snap.price, sigma, ttc)
+            # the overlay can only RAISE sigma (>=1.0) -> more conservative P(up)
+            fair = digital_p_up(s_now, snap.price, sigma * ov_vol_mult, ttc)
             d = decide(w, fair, now, min_edge=self.cfg.min_edge,
                        min_seconds_to_close=self.cfg.min_seconds_to_close,
                        min_depth_usd=self.cfg.min_depth_usd,
@@ -225,6 +251,8 @@ class PulseEngine:
             "price": self.price.status(),
             "ledger": self.ledger.stats(),
             "calibration": self.calib.to_dict(),
+            "grok_overlay": (self.overlay.status() if self.overlay is not None
+                             else {"enabled": False}),
             "tick_reasons": self._reasons,
             "recent_evaluations": self._last_eval,
         }

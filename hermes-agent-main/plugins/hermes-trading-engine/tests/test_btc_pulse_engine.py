@@ -289,6 +289,70 @@ def test_fresh_start_archives_prior_ledger(tmp_path):
     assert glob.glob(str(tmp_path / "btc_pulse_ledger.archived_*.json"))   # prior archived
 
 
+def test_grok_overlay_sanitize_clamp_and_fail_open():
+    from engine.pulse.overlay import GrokEventOverlay
+    # vol_multiplier can only ever be >=1 (more cautious) and capped
+    ov = GrokEventOverlay(assessor=lambda: {"regime": "event_risk", "vol_multiplier": 0.4,
+                                            "blackout": True, "reason": "CPI"},
+                          vol_mult_cap=3.0)
+    s = ov.refresh(now=1000.0)
+    assert s["blackout"] is True and s["vol_multiplier"] == 1.0      # 0.4 clamped up to 1.0
+    ov2 = GrokEventOverlay(assessor=lambda: {"vol_multiplier": 9.0, "blackout": False},
+                           vol_mult_cap=3.0)
+    assert ov2.refresh(now=1000.0)["vol_multiplier"] == 3.0          # clamped to cap
+    # fail-open: a None/raising assessor -> neutral
+    ovn = GrokEventOverlay(assessor=lambda: None)
+    ovn.refresh(now=1000.0)
+    assert ovn.current(now=1000.0)["blackout"] is False
+    # stale state -> neutral
+    ov.refresh(now=1000.0)
+    assert ov.current(now=1000.0 + 10_000)["regime"] == "unknown"
+
+
+def test_grok_overlay_rate_limit():
+    from engine.pulse.overlay import GrokEventOverlay
+    calls = {"n": 0}
+
+    def _a():
+        calls["n"] += 1
+        return {"regime": "calm", "vol_multiplier": 1.0, "blackout": False}
+    ov = GrokEventOverlay(assessor=_a, max_calls_per_hour=2)
+    for i in range(5):
+        ov.refresh(now=1000.0 + i)
+    assert calls["n"] == 2                                          # capped at 2/hour
+
+
+class _StubOverlay:
+    def __init__(self, state):
+        self._state = state
+    def current(self, now=None):
+        return self._state
+
+
+def test_engine_blackout_skips_opens(tmp_path):
+    t0 = 4_500_000.0
+    win = PulseWindow(event_id="eb", market_id="mb", slug="s", title="BTC Up or Down",
+                      open_ts=t0, close_ts=t0 + 300, up_token_id="U", down_token_id="D")
+    price = {"p": 64000.0}
+
+    def fetch():
+        price["p"] += 4.0
+        return price["p"]
+    feed = PulsePriceFeed(fetcher=fetch, vol=RollingVol(window_s=900, min_samples=8),
+                          max_open_lag_s=20.0)
+    eng = PulseEngine(PulseConfig(tick_seconds=1.0, size_usd=10.0, min_edge=0.02,
+                                  min_seconds_since_open=0.0, sigma_trust_floor=0.0,
+                                  min_vol_samples=2, basis_buffer=0.0, data_dir=str(tmp_path)),
+                      market_feed=_FakeMarket(win, resolution=True), price_feed=feed)
+    eng.overlay = _StubOverlay({"blackout": True, "vol_multiplier": 1.0, "ts": t0})
+    for i in range(12):
+        eng.tick(now=t0 - 12 + i)
+    for k in range(1, 8):
+        eng.tick(now=t0 + 2 + k * 5)
+    assert eng.ledger.trades == 0                                   # blackout blocked all opens
+    assert eng._reasons.get("grok_event_blackout", 0) >= 1
+
+
 def test_engine_skips_window_with_late_open(tmp_path):
     # joining mid-window (open seen >max_open_lag late) -> never trades that window
     t0 = 2_000_000.0

@@ -34,6 +34,14 @@ services:
     command: python scripts/run_btc_pulse.py
     environment:
       HTE_DATA_DIR: "/data"
+      # xAI/Grok key (from the project .env) for the OFF-hot-path event-risk overlay only.
+      # If absent, the overlay stays disabled (fail-open to pure quant). Never used for trading.
+      XAI_API_KEY: "${XAI_API_KEY:-}"
+      # Grok event-risk overlay: slow (~3 min) advisory worker that can only make the bot MORE
+      # cautious — blackout new opens before imminent high-impact events + inflate sigma.
+      GROK_OVERLAY_ENABLED: "${GROK_OVERLAY_ENABLED:-1}"
+      GROK_OVERLAY_INTERVAL_S: "${GROK_OVERLAY_INTERVAL_S:-180}"
+      GROK_OVERLAY_MAX_CALLS_PER_HOUR: "${GROK_OVERLAY_MAX_CALLS_PER_HOUR:-20}"
       # ---- BTC 5-min pulse engine (LOOSENED quality gates; PAPER ONLY) ----
       # Loose edge/depth so it actively takes PAPER trades on btc-up-or-down-5m windows.
       # The only hard limits left are paper-only safety + don't trade a window whose open
