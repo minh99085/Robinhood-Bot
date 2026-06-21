@@ -46,7 +46,7 @@ class PulseConfig:
     max_price: float = 0.97
     max_open_lag_s: float = 20.0
     vol_window_s: float = 900.0
-    settle_grace_s: float = 60.0
+    settle_grace_s: float = 180.0          # prefer authoritative Polymarket(Chainlink) before proxy
     max_positions_kept: int = 500
     fresh_start: bool = False
     # trade-quality / expectancy gates
@@ -72,7 +72,7 @@ class PulseConfig:
             max_price=_envf("PULSE_MAX_PRICE", 0.97),
             max_open_lag_s=_envf("PULSE_MAX_OPEN_LAG_S", 20.0),
             vol_window_s=_envf("PULSE_VOL_WINDOW_S", 900.0),
-            settle_grace_s=_envf("PULSE_SETTLE_GRACE_S", 60.0),
+            settle_grace_s=_envf("PULSE_SETTLE_GRACE_S", 180.0),
             fresh_start=str(os.getenv("PULSE_FRESH_START", "")).strip().lower()
             in ("1", "true", "yes", "on"),
             min_seconds_since_open=_envf("PULSE_MIN_SECONDS_SINCE_OPEN", 30.0),
@@ -227,7 +227,8 @@ class PulseEngine:
                 s_close=s_close, allow_proxy=allow_proxy)
             if outcome is None:
                 continue                      # not resolvable yet — retry next tick
-            self.ledger.settle(pos.window_key, outcome, s_open=pos.s_open, s_close=s_close)
+            self.ledger.settle(pos.window_key, outcome, s_open=pos.s_open, s_close=s_close,
+                               source=source)
             self.calib.observe(pos.fair_at_entry, outcome)
             logger.info("pulse settled %s side=%s won=%s pnl=%.3f via=%s",
                         pos.title, pos.side, pos.won, pos.pnl_usd or 0.0, source)

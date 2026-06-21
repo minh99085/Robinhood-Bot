@@ -55,7 +55,7 @@ services:
       PULSE_MAX_PRICE: "${PULSE_MAX_PRICE:-0.97}"
       PULSE_MAX_OPEN_LAG_S: "${PULSE_MAX_OPEN_LAG_S:-20}"
       PULSE_VOL_WINDOW_S: "${PULSE_VOL_WINDOW_S:-900}"
-      PULSE_SETTLE_GRACE_S: "${PULSE_SETTLE_GRACE_S:-60}"
+      PULSE_SETTLE_GRACE_S: "${PULSE_SETTLE_GRACE_S:-180}"
       # ---- trade-quality / expectancy gates (trade fewer, better, calibrated entries) ----
       PULSE_MIN_SECONDS_SINCE_OPEN: "${PULSE_MIN_SECONDS_SINCE_OPEN:-30}"
       PULSE_MIN_VOL_SAMPLES: "${PULSE_MIN_VOL_SAMPLES:-12}"

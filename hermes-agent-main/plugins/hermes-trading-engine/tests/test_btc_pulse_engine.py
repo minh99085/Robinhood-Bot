@@ -209,6 +209,9 @@ def test_engine_full_cycle_trade_and_settle(tmp_path):
     eng.tick(now=t0 + 301)                    # past close -> settle (gamma says Up)
     assert eng.ledger.settled == 1 and pos.won is True and pos.pnl_usd > 0
     assert eng.calib.n == 1
+    # resolved via authoritative Polymarket (not the Coinbase proxy)
+    assert eng.ledger.settle_sources["polymarket"] == 1
+    assert eng.ledger.stats()["settle_sources"]["proxy_coinbase"] == 0
     assert eng.status()["paper_only"] is True and eng.status()["live_trading_enabled"] is False
     # status + ledger persisted
     assert (tmp_path / "btc_pulse_status.json").exists()

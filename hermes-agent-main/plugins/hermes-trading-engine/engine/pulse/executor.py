@@ -61,6 +61,9 @@ class PulseLedger:
         self.settled_entry_sum: float = 0.0          # sum of entry prices of settled trades
         self.side_n: dict = {"up": 0, "down": 0}
         self.side_wins: dict = {"up": 0, "down": 0}
+        # how each settled trade was resolved (authoritative Polymarket vs Coinbase proxy) —
+        # proxy wins share the entry feed so a high proxy share means win-rate is optimistic.
+        self.settle_sources: dict = {"polymarket": 0, "proxy_coinbase": 0}
 
     def has_position(self, window_key: str) -> bool:
         return window_key in self.positions
@@ -88,7 +91,8 @@ class PulseLedger:
         return pos
 
     def settle(self, window_key: str, outcome_up: bool, *,
-               s_open: Optional[float] = None, s_close: Optional[float] = None) -> Optional[PulsePosition]:
+               s_open: Optional[float] = None, s_close: Optional[float] = None,
+               source: Optional[str] = None) -> Optional[PulsePosition]:
         pos = self.positions.get(window_key)
         if pos is None or pos.status == "settled":
             return None
@@ -105,6 +109,8 @@ class PulseLedger:
         self.realized_pnl = round(self.realized_pnl + pos.pnl_usd, 6)
         self.settled += 1
         self.settled_entry_sum += pos.entry_price
+        if source in self.settle_sources:
+            self.settle_sources[source] += 1
         if pos.side in self.side_n:
             self.side_n[pos.side] += 1
             if won:
@@ -134,6 +140,7 @@ class PulseLedger:
                 "win_rate_up": self._side_win_rate("up"),
                 "win_rate_down": self._side_win_rate("down"),
                 "side_counts": dict(self.side_n),
+                "settle_sources": dict(self.settle_sources),
                 "realized_pnl_usd": round(self.realized_pnl, 4),
                 "avg_pnl_per_trade": (round(self.realized_pnl / self.settled, 4)
                                       if self.settled else None),
@@ -144,7 +151,8 @@ class PulseLedger:
         return {"paper_only": True, "stats": self.stats(),
                 "accumulators": {"settled_entry_sum": round(self.settled_entry_sum, 6),
                                  "side_n": dict(self.side_n),
-                                 "side_wins": dict(self.side_wins)},
+                                 "side_wins": dict(self.side_wins),
+                                 "settle_sources": dict(self.settle_sources)},
                 "positions": [p.to_dict() for p in recent[:max_positions]]}
 
     def load_state(self, data: dict) -> None:
@@ -161,6 +169,8 @@ class PulseLedger:
         for k in ("up", "down"):
             self.side_n[k] = int((acc.get("side_n") or {}).get(k, 0) or 0)
             self.side_wins[k] = int((acc.get("side_wins") or {}).get(k, 0) or 0)
+        for k in ("polymarket", "proxy_coinbase"):
+            self.settle_sources[k] = int((acc.get("settle_sources") or {}).get(k, 0) or 0)
         for pd in (data.get("positions") or []):
             try:
                 pos = PulsePosition.from_dict(pd)
