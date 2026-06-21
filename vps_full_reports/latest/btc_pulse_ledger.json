@@ -1,30 +1,30 @@
 {
  "paper_only": true,
  "stats": {
-  "trades": 139,
-  "settled": 137,
-  "wins": 73,
-  "win_rate": 0.5328,
-  "avg_entry_price": 0.5242,
-  "edge_realized": 0.0087,
-  "win_rate_up": 0.5667,
-  "win_rate_down": 0.5065,
+  "trades": 152,
+  "settled": 151,
+  "wins": 80,
+  "win_rate": 0.5298,
+  "avg_entry_price": 0.5289,
+  "edge_realized": 0.0009,
+  "win_rate_up": 0.5441,
+  "win_rate_down": 0.5181,
   "side_counts": {
-   "up": 60,
-   "down": 77
+   "up": 68,
+   "down": 83
   },
   "settle_sources": {
-   "polymarket_resolution": 58,
-   "rtds_chainlink_proxy": 63
+   "polymarket_resolution": 63,
+   "rtds_chainlink_proxy": 72
   },
   "proxy_official_reconciliation": {
-   "both": 57,
-   "agree": 54,
+   "both": 62,
+   "agree": 59,
    "disagree": 3
   },
   "execution_gate": {
-   "candidates": 94,
-   "accepted": 94,
+   "candidates": 107,
+   "accepted": 107,
    "rejected_total": 0,
    "rejected": {
     "wide_spread": 0,
@@ -36,38 +36,38 @@
     "missing_market_data": 0,
     "stale_orderbook": 0
    },
-   "fills": 94,
+   "fills": 107,
    "reconciled": true
   },
-  "realized_pnl_usd": 9.8044,
-  "avg_pnl_per_trade": 0.0716,
-  "profit_factor": 0.9355,
-  "avg_win_usd": 2.1146,
-  "avg_loss_usd": 2.5781,
-  "max_drawdown_usd": 44.4573,
-  "open_positions": 2
+  "realized_pnl_usd": -4.7633,
+  "avg_pnl_per_trade": -0.0315,
+  "profit_factor": 0.874,
+  "avg_win_usd": 2.1849,
+  "avg_loss_usd": 2.8169,
+  "max_drawdown_usd": 64.2291,
+  "open_positions": 1
  },
  "accumulators": {
-  "settled_entry_sum": 71.810525,
+  "settled_entry_sum": 79.870525,
   "side_n": {
-   "up": 60,
-   "down": 77
+   "up": 68,
+   "down": 83
   },
   "side_wins": {
-   "up": 34,
-   "down": 39
+   "up": 37,
+   "down": 43
   },
   "settle_sources": {
-   "polymarket_resolution": 58,
-   "rtds_chainlink_proxy": 63
+   "polymarket_resolution": 63,
+   "rtds_chainlink_proxy": 72
   },
   "recon": {
-   "both": 57,
-   "agree": 54,
+   "both": 62,
+   "agree": 59,
    "disagree": 3
   },
-  "exec_candidates": 94,
-  "exec_accepted": 94,
+  "exec_candidates": 107,
+  "exec_accepted": 107,
   "exec_rejected": {
    "wide_spread": 0,
    "insufficient_depth": 0,
@@ -78,13 +78,572 @@
    "missing_market_data": 0,
    "stale_orderbook": 0
   },
-  "gross_win": 154.36244,
-  "gross_loss": 165.0,
-  "equity": -10.63756,
+  "gross_win": 174.794699,
+  "gross_loss": 200.0,
+  "equity": -25.205301,
   "equity_peak": 33.8197,
-  "max_drawdown": 44.45726
+  "max_drawdown": 64.229083
  },
  "positions": [
+  {
+   "window_key": "615505",
+   "market_id": "2618732",
+   "title": "Bitcoin Up or Down - June 21, 10:20AM-10:25AM ET",
+   "side": "down",
+   "token_id": "54336842224676502381302134028641862083639142302767372538021245003684195035940",
+   "entry_price": 0.4607843137254903,
+   "size_usd": 5.0,
+   "shares": 10.851064,
+   "fair_at_entry": 0.47084856221321975,
+   "edge_at_entry": 0.03915143778678029,
+   "open_ts": 1782051600.0,
+   "close_ts": 1782051900.0,
+   "entry_ts": 1782051638.6813145,
+   "status": "open",
+   "outcome_up": null,
+   "won": null,
+   "pnl_usd": null,
+   "s_open": 63960.5886075552,
+   "s_close": null,
+   "close_lag_s": null,
+   "research": {
+    "hurst_regime": "insufficient_data",
+    "zscore_bucket": "na",
+    "half_life_bucket": "na",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.0,
+     "autocorr_lag1": 0.3006,
+     "realized_vol_scaled": 0.4836,
+     "zscore": 0.0,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9293,
+     "orderbook_imbalance": -0.7547
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": "615505"
+  },
+  {
+   "window_key": "615491",
+   "market_id": "2618718",
+   "title": "Bitcoin Up or Down - June 21, 10:15AM-10:20AM ET",
+   "side": "down",
+   "token_id": "94677403555584465049514108944278642281900839304774782761539267729797720174921",
+   "entry_price": 0.49,
+   "size_usd": 5.0,
+   "shares": 10.204082,
+   "fair_at_entry": 0.41288967796927223,
+   "edge_at_entry": 0.06711032203072778,
+   "open_ts": 1782051300.0,
+   "close_ts": 1782051600.0,
+   "entry_ts": 1782051335.5132544,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 5.204082,
+   "s_open": 63992.220125927415,
+   "s_close": 63960.5886075552,
+   "close_lag_s": 2.6807408332824707,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.7913,
+     "autocorr_lag1": 0.2657,
+     "realized_vol_scaled": 0.4096,
+     "zscore": -0.1136,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9328,
+     "orderbook_imbalance": -0.7731
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615481",
+   "market_id": "2618699",
+   "title": "Bitcoin Up or Down - June 21, 10:10AM-10:15AM ET",
+   "side": "up",
+   "token_id": "91664475675220772773576842610489851802522109332699135061259629643202749205821",
+   "entry_price": 0.63,
+   "size_usd": 5.0,
+   "shares": 7.936508,
+   "fair_at_entry": 0.7215525119278947,
+   "edge_at_entry": 0.06155251192789471,
+   "open_ts": 1782051000.0,
+   "close_ts": 1782051300.0,
+   "entry_ts": 1782051051.5083094,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64006.728152719625,
+   "s_close": 63992.220125927415,
+   "close_lag_s": 3.51273512840271,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "1..2",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6863,
+     "autocorr_lag1": 0.2704,
+     "realized_vol_scaled": 0.44799999999999995,
+     "zscore": 1.1124,
+     "signal_strength_signed": 0.1667,
+     "edge_quality_score": 0.915,
+     "orderbook_imbalance": -0.7015
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615470",
+   "market_id": "2618688",
+   "title": "Bitcoin Up or Down - June 21, 10:05AM-10:10AM ET",
+   "side": "up",
+   "token_id": "96306690955714287758540061753518872122718790534316705081973711752254585948918",
+   "entry_price": 0.66,
+   "size_usd": 5.0,
+   "shares": 7.575758,
+   "fair_at_entry": 0.7496402454041096,
+   "edge_at_entry": 0.05964024540410953,
+   "open_ts": 1782050700.0,
+   "close_ts": 1782051000.0,
+   "entry_ts": 1782050731.5025966,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64035.06691696375,
+   "s_close": 64006.728152719625,
+   "close_lag_s": 3.5073726177215576,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6587,
+     "autocorr_lag1": 0.2427,
+     "realized_vol_scaled": 0.4333,
+     "zscore": 0.8736,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9372,
+     "orderbook_imbalance": -0.7219
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "medium"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615448",
+   "market_id": "2618443",
+   "title": "Bitcoin Up or Down - June 21, 10:00AM-10:05AM ET",
+   "side": "up",
+   "token_id": "102187021667355901727772649463578720161058383629361506247590287659601766737100",
+   "entry_price": 0.52,
+   "size_usd": 5.0,
+   "shares": 9.615385,
+   "fair_at_entry": 0.6231814887761327,
+   "edge_at_entry": 0.07318148877613265,
+   "open_ts": 1782050400.0,
+   "close_ts": 1782050700.0,
+   "entry_ts": 1782050455.497591,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64068.70685652903,
+   "s_close": 64035.06691696375,
+   "close_lag_s": 3.502134323120117,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6645,
+     "autocorr_lag1": 0.2296,
+     "realized_vol_scaled": 0.4182,
+     "zscore": -0.2936,
+     "signal_strength_signed": 0.3539,
+     "edge_quality_score": 0.9106,
+     "orderbook_imbalance": -0.7718
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615433",
+   "market_id": "2618427",
+   "title": "Bitcoin Up or Down - June 21, 9:55AM-10:00AM ET",
+   "side": "up",
+   "token_id": "91082440363565143977742254971093073530814355033692171823007180977351437281380",
+   "entry_price": 0.73,
+   "size_usd": 5.0,
+   "shares": 6.849315,
+   "fair_at_entry": 0.8843639432070911,
+   "edge_at_entry": 0.12436394320709113,
+   "open_ts": 1782050100.0,
+   "close_ts": 1782050400.0,
+   "entry_ts": 1782050131.4921231,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 1.849315,
+   "s_open": 64033.38389955973,
+   "s_close": 64068.70685652903,
+   "close_lag_s": 3.4967424869537354,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.5753,
+     "autocorr_lag1": 0.1948,
+     "realized_vol_scaled": 0.49150000000000005,
+     "zscore": 0.8544,
+     "signal_strength_signed": 0.5646,
+     "edge_quality_score": 0.9372,
+     "orderbook_imbalance": -0.6856
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615414",
+   "market_id": "2618393",
+   "title": "Bitcoin Up or Down - June 21, 9:50AM-9:55AM ET",
+   "side": "up",
+   "token_id": "88810987648569851242651994548378474013581606106480822235431336083247339519003",
+   "entry_price": 0.75,
+   "size_usd": 5.0,
+   "shares": 6.666667,
+   "fair_at_entry": 0.8410482388892122,
+   "edge_at_entry": 0.06104823888921221,
+   "open_ts": 1782049800.0,
+   "close_ts": 1782050100.0,
+   "entry_ts": 1782049835.4867094,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 1.666667,
+   "s_open": 63975.576424379935,
+   "s_close": 64033.38389955973,
+   "close_lag_s": 3.4915926456451416,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6427,
+     "autocorr_lag1": 0.2343,
+     "realized_vol_scaled": 0.5948,
+     "zscore": 0.8552,
+     "signal_strength_signed": 0.349,
+     "edge_quality_score": 0.9328,
+     "orderbook_imbalance": -0.7025
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615403",
+   "market_id": "2618382",
+   "title": "Bitcoin Up or Down - June 21, 9:45AM-9:50AM ET",
+   "side": "up",
+   "token_id": "68940464419371599800016235660594685723456166526864801142906998724812923074248",
+   "entry_price": 0.74,
+   "size_usd": 5.0,
+   "shares": 6.756757,
+   "fair_at_entry": 0.8263906024789108,
+   "edge_at_entry": 0.05639060247891084,
+   "open_ts": 1782049500.0,
+   "close_ts": 1782049800.0,
+   "entry_ts": 1782049567.482008,
+   "status": "settled",
+   "outcome_up": true,
+   "won": true,
+   "pnl_usd": 1.756757,
+   "s_open": 63968.42707698267,
+   "s_close": 63975.576424379935,
+   "close_lag_s": 3.486140727996826,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": "120-240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_up",
+    "model_features": {
+     "hurst": 0.6403,
+     "autocorr_lag1": 0.2512,
+     "realized_vol_scaled": 0.5903,
+     "zscore": 0.6855,
+     "signal_strength_signed": 0.4623,
+     "edge_quality_score": 0.8973,
+     "orderbook_imbalance": -0.6747
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615394",
+   "market_id": "2618365",
+   "title": "Bitcoin Up or Down - June 21, 9:40AM-9:45AM ET",
+   "side": "down",
+   "token_id": "74619776491430777273018533994012739902187209733636388863268416101487185443531",
+   "entry_price": 0.53,
+   "size_usd": 5.0,
+   "shares": 9.433962,
+   "fair_at_entry": 0.38997551744386894,
+   "edge_at_entry": 0.05002448255613104,
+   "open_ts": 1782049200.0,
+   "close_ts": 1782049500.0,
+   "entry_ts": 1782049231.4763503,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 63955.00165605183,
+   "s_close": 63968.42707698267,
+   "close_lag_s": 3.4809954166412354,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6589,
+     "autocorr_lag1": 0.2184,
+     "realized_vol_scaled": 0.5754,
+     "zscore": -0.6503,
+     "signal_strength_signed": -0.2949,
+     "edge_quality_score": 0.9373,
+     "orderbook_imbalance": -0.7837
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615376",
+   "market_id": "2618230",
+   "title": "Bitcoin Up or Down - June 21, 9:35AM-9:40AM ET",
+   "side": "down",
+   "token_id": "24880228252507239670303741400605009327988660357268189758818358150356764209043",
+   "entry_price": 0.66,
+   "size_usd": 5.0,
+   "shares": 7.575758,
+   "fair_at_entry": 0.26752230394047893,
+   "edge_at_entry": 0.042477696059521036,
+   "open_ts": 1782048900.0,
+   "close_ts": 1782049200.0,
+   "entry_ts": 1782048947.471439,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 2.575758,
+   "s_open": 63970.27773145407,
+   "s_close": 63955.00165605183,
+   "close_lag_s": 3.475828170776367,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6619,
+     "autocorr_lag1": 0.2562,
+     "realized_vol_scaled": 0.5885,
+     "zscore": -1.3116,
+     "signal_strength_signed": -0.4653,
+     "edge_quality_score": 0.9195,
+     "orderbook_imbalance": -0.8323
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615360",
+   "market_id": "2618179",
+   "title": "Bitcoin Up or Down - June 21, 9:30AM-9:35AM ET",
+   "side": "down",
+   "token_id": "64177349743134280900401170663215419671476429394299369199855059325093233964679",
+   "entry_price": 0.51,
+   "size_usd": 5.0,
+   "shares": 9.803922,
+   "fair_at_entry": 0.40382673991473605,
+   "edge_at_entry": 0.05617326008526394,
+   "open_ts": 1782048600.0,
+   "close_ts": 1782048900.0,
+   "entry_ts": 1782048631.4657366,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 4.803922,
+   "s_open": 64086.98995453042,
+   "s_close": 63970.27773145407,
+   "close_lag_s": 3.4706943035125732,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.5598,
+     "autocorr_lag1": 0.1194,
+     "realized_vol_scaled": 0.5178999999999999,
+     "zscore": -0.6157,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9373,
+     "orderbook_imbalance": -0.786
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615347",
+   "market_id": "2618161",
+   "title": "Bitcoin Up or Down - June 21, 9:25AM-9:30AM ET",
+   "side": "up",
+   "token_id": "102570994603485380940584442080773895233793848980139957188099792388603421765700",
+   "entry_price": 0.42,
+   "size_usd": 5.0,
+   "shares": 11.904762,
+   "fair_at_entry": 0.4992850219263799,
+   "edge_at_entry": 0.04928502192637993,
+   "open_ts": 1782048300.0,
+   "close_ts": 1782048600.0,
+   "entry_ts": 1782048339.4602897,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
+   "s_open": 64091.58778,
+   "s_close": 64086.983210938575,
+   "close_lag_s": 3.4652302265167236,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-1..1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "chop_noise",
+    "model_features": {
+     "hurst": 0.6251,
+     "autocorr_lag1": 0.0822,
+     "realized_vol_scaled": 0.5857,
+     "zscore": -0.9599,
+     "signal_strength_signed": 0.0,
+     "edge_quality_score": 0.9284,
+     "orderbook_imbalance": -0.8183
+    },
+    "spread_bucket": "<=0.01",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
+  {
+   "window_key": "615341",
+   "market_id": "2618114",
+   "title": "Bitcoin Up or Down - June 21, 9:20AM-9:25AM ET",
+   "side": "down",
+   "token_id": "70402384855902940468411568601178105637385683041567271725554818621646856694474",
+   "entry_price": 0.66,
+   "size_usd": 5.0,
+   "shares": 7.575758,
+   "fair_at_entry": 0.2684381818107795,
+   "edge_at_entry": 0.04156181818922047,
+   "open_ts": 1782048000.0,
+   "close_ts": 1782048300.0,
+   "entry_ts": 1782048059.4552126,
+   "status": "settled",
+   "outcome_up": false,
+   "won": true,
+   "pnl_usd": 2.575758,
+   "s_open": 64099.03426,
+   "s_close": 64091.57818,
+   "close_lag_s": 3.459674119949341,
+   "research": {
+    "hurst_regime": "trending",
+    "zscore_bucket": "-2..-1",
+    "half_life_bucket": "<30s",
+    "ttc_bucket": ">=240s",
+    "edge_quality_bucket": "high",
+    "markov_state": "stale_polymarket_down",
+    "model_features": {
+     "hurst": 0.6884,
+     "autocorr_lag1": 0.1129,
+     "realized_vol_scaled": 0.6372000000000001,
+     "zscore": -1.2774,
+     "signal_strength_signed": -0.2347,
+     "edge_quality_score": 0.8784,
+     "orderbook_imbalance": -0.8658
+    },
+    "spread_bucket": "0.01-0.03",
+    "depth_bucket": ">=1000",
+    "confidence_tier": "high"
+   },
+   "decision_id": null
+  },
   {
    "window_key": "615329",
    "market_id": "2618099",
@@ -99,13 +658,13 @@
    "open_ts": 1782047700.0,
    "close_ts": 1782048000.0,
    "entry_ts": 1782047739.4489198,
-   "status": "open",
-   "outcome_up": null,
-   "won": null,
-   "pnl_usd": null,
+   "status": "settled",
+   "outcome_up": true,
+   "won": false,
+   "pnl_usd": -5.0,
    "s_open": 64045.6778970721,
-   "s_close": null,
-   "close_lag_s": null,
+   "s_close": 64099.13319522691,
+   "close_lag_s": 3.4541072845458984,
    "research": {
     "hurst_regime": "trending",
     "zscore_bucket": "-1..1",
@@ -125,7 +684,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615317",
@@ -141,10 +701,10 @@
    "open_ts": 1782047400.0,
    "close_ts": 1782047700.0,
    "entry_ts": 1782047439.4433296,
-   "status": "open",
-   "outcome_up": null,
-   "won": null,
-   "pnl_usd": null,
+   "status": "settled",
+   "outcome_up": false,
+   "won": false,
+   "pnl_usd": -5.0,
    "s_open": 64083.2834616449,
    "s_close": 64045.6778970721,
    "close_lag_s": 3.448225259780884,
@@ -167,7 +727,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615312",
@@ -209,7 +770,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615298",
@@ -251,7 +813,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615290",
@@ -293,7 +856,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615256",
@@ -335,7 +899,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615246",
@@ -377,7 +942,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615237",
@@ -419,7 +985,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615232",
@@ -461,7 +1028,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615221",
@@ -503,7 +1071,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615208",
@@ -545,7 +1114,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615197",
@@ -587,7 +1157,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615185",
@@ -629,7 +1200,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615178",
@@ -671,7 +1243,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615169",
@@ -713,7 +1286,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615161",
@@ -755,7 +1329,8 @@
     "spread_bucket": "0.01-0.03",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615147",
@@ -797,7 +1372,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615113",
@@ -839,7 +1415,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615105",
@@ -881,7 +1458,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615100",
@@ -923,7 +1501,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615084",
@@ -965,7 +1544,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615074",
@@ -1007,7 +1587,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "low"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615056",
@@ -1049,7 +1630,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615050",
@@ -1091,7 +1673,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615037",
@@ -1133,7 +1716,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615031",
@@ -1175,7 +1759,8 @@
     "spread_bucket": "0.01-0.03",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615023",
@@ -1217,7 +1802,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "615010",
@@ -1259,7 +1845,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614992",
@@ -1301,7 +1888,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614977",
@@ -1343,7 +1931,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614971",
@@ -1385,7 +1974,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614966",
@@ -1427,7 +2017,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614957",
@@ -1469,7 +2060,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614939",
@@ -1511,7 +2103,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614930",
@@ -1553,7 +2146,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614924",
@@ -1595,7 +2189,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614914",
@@ -1637,7 +2232,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614902",
@@ -1679,7 +2275,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614892",
@@ -1721,7 +2318,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "low"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614886",
@@ -1763,7 +2361,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614861",
@@ -1805,7 +2404,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614847",
@@ -1847,7 +2447,8 @@
     "spread_bucket": "0.01-0.03",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614838",
@@ -1889,7 +2490,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614834",
@@ -1931,7 +2533,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614814",
@@ -1973,7 +2576,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614813",
@@ -2015,7 +2619,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614805",
@@ -2057,7 +2662,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614795",
@@ -2099,7 +2705,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614780",
@@ -2141,7 +2748,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614777",
@@ -2183,7 +2791,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614764",
@@ -2225,7 +2834,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614754",
@@ -2267,7 +2877,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614737",
@@ -2309,7 +2920,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614724",
@@ -2351,7 +2963,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614719",
@@ -2393,7 +3006,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614712",
@@ -2435,7 +3049,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614706",
@@ -2477,7 +3092,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614691",
@@ -2519,7 +3135,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614684",
@@ -2561,7 +3178,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614678",
@@ -2603,7 +3221,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614659",
@@ -2645,7 +3264,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "low"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614656",
@@ -2687,7 +3307,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614633",
@@ -2729,7 +3350,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614626",
@@ -2771,7 +3393,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614613",
@@ -2813,7 +3436,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614595",
@@ -2855,7 +3479,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "medium"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614589",
@@ -2897,7 +3522,8 @@
     "spread_bucket": "<=0.01",
     "depth_bucket": ">=1000",
     "confidence_tier": "high"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614568",
@@ -2936,7 +3562,8 @@
      "edge_quality_score": 0.9353,
      "orderbook_imbalance": -0.8124
     }
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614559",
@@ -2975,7 +3602,8 @@
      "edge_quality_score": 0.9384,
      "orderbook_imbalance": -0.85
     }
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614554",
@@ -3014,7 +3642,8 @@
      "edge_quality_score": 0.9385,
      "orderbook_imbalance": -0.814
     }
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614512",
@@ -3042,7 +3671,8 @@
     "zscore_bucket": "na",
     "half_life_bucket": "na",
     "ttc_bucket": "120-240s"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614498",
@@ -3070,7 +3700,8 @@
     "zscore_bucket": "na",
     "half_life_bucket": "na",
     "ttc_bucket": ">=240s"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614478",
@@ -3098,7 +3729,8 @@
     "zscore_bucket": "-1..1",
     "half_life_bucket": "<30s",
     "ttc_bucket": "120-240s"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614464",
@@ -3126,7 +3758,8 @@
     "zscore_bucket": "-1..1",
     "half_life_bucket": "<30s",
     "ttc_bucket": ">=240s"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614456",
@@ -3154,7 +3787,8 @@
     "zscore_bucket": ">=2",
     "half_life_bucket": "na",
     "ttc_bucket": ">=240s"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614440",
@@ -3182,7 +3816,8 @@
     "zscore_bucket": "na",
     "half_life_bucket": "na",
     "ttc_bucket": ">=240s"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614433",
@@ -3210,7 +3845,8 @@
     "zscore_bucket": "na",
     "half_life_bucket": "na",
     "ttc_bucket": ">=240s"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614426",
@@ -3236,7 +3872,8 @@
    "research": {
     "hurst_regime": "trending",
     "zscore_bucket": ">=2"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614417",
@@ -3262,7 +3899,8 @@
    "research": {
     "hurst_regime": "trending",
     "zscore_bucket": "-1..1"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614406",
@@ -3288,7 +3926,8 @@
    "research": {
     "hurst_regime": "trending",
     "zscore_bucket": "-1..1"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614399",
@@ -3314,7 +3953,8 @@
    "research": {
     "hurst_regime": "trending",
     "zscore_bucket": "na"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614390",
@@ -3340,7 +3980,8 @@
    "research": {
     "hurst_regime": "trending",
     "zscore_bucket": "na"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614364",
@@ -3366,7 +4007,8 @@
    "research": {
     "hurst_regime": "insufficient_data",
     "zscore_bucket": "na"
-   }
+   },
+   "decision_id": null
   },
   {
    "window_key": "614353",
@@ -3389,7 +4031,8 @@
    "s_open": 64228.00933732856,
    "s_close": 64176.32118254139,
    "close_lag_s": 3.7932841777801514,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614344",
@@ -3412,7 +4055,8 @@
    "s_open": 64286.36252438677,
    "s_close": 64228.00933732856,
    "close_lag_s": 0.3221702575683594,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614340",
@@ -3435,7 +4079,8 @@
    "s_open": 64229.250859612635,
    "s_close": 64286.36252438677,
    "close_lag_s": 0.3173220157623291,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614331",
@@ -3458,7 +4103,8 @@
    "s_open": 64219.89880947922,
    "s_close": 64229.250859612635,
    "close_lag_s": 0.3123948574066162,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614304",
@@ -3481,7 +4127,8 @@
    "s_open": 64209.498315,
    "s_close": 64219.89880947922,
    "close_lag_s": 0.30734705924987793,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614313",
@@ -3504,7 +4151,8 @@
    "s_open": 64163.77885188888,
    "s_close": 64209.498315,
    "close_lag_s": 0.30230283737182617,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614293",
@@ -3527,7 +4175,8 @@
    "s_open": 64161.09052189162,
    "s_close": 64163.77885188888,
    "close_lag_s": 2.3509278297424316,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614283",
@@ -3550,7 +4199,8 @@
    "s_open": 64192.75183304308,
    "s_close": 64161.09052189162,
    "close_lag_s": 2.3459975719451904,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614282",
@@ -3573,7 +4223,8 @@
    "s_open": 64190.523317944644,
    "s_close": 64192.75183304308,
    "close_lag_s": 2.3410375118255615,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614262",
@@ -3596,7 +4247,8 @@
    "s_open": 64201.9690033373,
    "s_close": 64190.523317944644,
    "close_lag_s": 2.336010217666626,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614257",
@@ -3619,7 +4271,8 @@
    "s_open": 64254.00687644428,
    "s_close": 64201.9690033373,
    "close_lag_s": 2.3310251235961914,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614243",
@@ -3642,7 +4295,8 @@
    "s_open": 64386.70414268072,
    "s_close": 64254.00687644428,
    "close_lag_s": 2.3261451721191406,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614231",
@@ -3665,7 +4319,8 @@
    "s_open": 64411.17070783663,
    "s_close": 64386.70414268072,
    "close_lag_s": 2.611510753631592,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614219",
@@ -3688,7 +4343,8 @@
    "s_open": 64460.09299578622,
    "s_close": 64411.17070783663,
    "close_lag_s": 2.606379508972168,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614207",
@@ -3711,7 +4367,8 @@
    "s_open": 64466.82356475879,
    "s_close": 64460.09299578622,
    "close_lag_s": 2.6008007526397705,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614195",
@@ -3734,7 +4391,8 @@
    "s_open": 64452.18391472514,
    "s_close": 64466.82356475879,
    "close_lag_s": 2.5951485633850098,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614187",
@@ -3757,7 +4415,8 @@
    "s_open": 64415.62778975209,
    "s_close": 64452.18391472514,
    "close_lag_s": 2.5898447036743164,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614172",
@@ -3780,7 +4439,8 @@
    "s_open": 64361.11888397965,
    "s_close": 64415.62778975209,
    "close_lag_s": 2.584556818008423,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614159",
@@ -3803,7 +4463,8 @@
    "s_open": 64327.54945535718,
    "s_close": 64361.11888397965,
    "close_lag_s": 2.5793821811676025,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614150",
@@ -3826,7 +4487,8 @@
    "s_open": 64332.78721183004,
    "s_close": 64327.54945535718,
    "close_lag_s": 2.5742900371551514,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614144",
@@ -3849,7 +4511,8 @@
    "s_open": 64334.4510492127,
    "s_close": 64332.78721183004,
    "close_lag_s": 2.5692830085754395,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614131",
@@ -3872,7 +4535,8 @@
    "s_open": 64349.20642873166,
    "s_close": 64334.4510492127,
    "close_lag_s": 2.5639235973358154,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614088",
@@ -3895,7 +4559,8 @@
    "s_open": 64338.19967478156,
    "s_close": 64349.20642873166,
    "close_lag_s": 2.558690309524536,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614034",
@@ -3918,7 +4583,8 @@
    "s_open": 64374.82509149415,
    "s_close": 64338.19967478156,
    "close_lag_s": 2.5537073612213135,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614021",
@@ -3941,7 +4607,8 @@
    "s_open": 64369.4516166998,
    "s_close": 64374.82509149415,
    "close_lag_s": 2.5489025115966797,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614014",
@@ -3964,7 +4631,8 @@
    "s_open": 64346.06849184062,
    "s_close": 64369.4516166998,
    "close_lag_s": 2.5439839363098145,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "614006",
@@ -3987,7 +4655,8 @@
    "s_open": 64282.69902315532,
    "s_close": 64346.06849184062,
    "close_lag_s": 2.53891921043396,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613992",
@@ -4010,7 +4679,8 @@
    "s_open": 64342.30957,
    "s_close": 64282.69902315532,
    "close_lag_s": 2.533975839614868,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613980",
@@ -4033,7 +4703,8 @@
    "s_open": 64337.232498159145,
    "s_close": 64342.30957,
    "close_lag_s": 2.5291643142700195,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613973",
@@ -4056,7 +4727,8 @@
    "s_open": 64228.723935,
    "s_close": 64337.06314149265,
    "close_lag_s": 2.5242221355438232,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613963",
@@ -4079,7 +4751,8 @@
    "s_open": 64219.089646354936,
    "s_close": 64228.815175,
    "close_lag_s": 2.5193793773651123,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613949",
@@ -4102,7 +4775,8 @@
    "s_open": 64184.48733456704,
    "s_close": 64221.73425,
    "close_lag_s": 2.514467239379883,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613941",
@@ -4125,7 +4799,8 @@
    "s_open": 64174.27286038965,
    "s_close": 64184.45256456704,
    "close_lag_s": 2.509113311767578,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613937",
@@ -4148,7 +4823,8 @@
    "s_open": 64166.03122080516,
    "s_close": 64174.27286038965,
    "close_lag_s": 1.726550817489624,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613922",
@@ -4171,7 +4847,8 @@
    "s_open": 64183.59008908205,
    "s_close": 64166.03122080516,
    "close_lag_s": 1.7213587760925293,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613906",
@@ -4194,7 +4871,8 @@
    "s_open": 64195.99731333985,
    "s_close": 64182.32185041738,
    "close_lag_s": 1.7162461280822754,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613901",
@@ -4217,7 +4895,8 @@
    "s_open": 64161.61354802035,
    "s_close": 64195.99731333985,
    "close_lag_s": 1.7114262580871582,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613889",
@@ -4240,7 +4919,8 @@
    "s_open": 64165.44023178264,
    "s_close": 64161.61354802035,
    "close_lag_s": 1.706662654876709,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613882",
@@ -4263,7 +4943,8 @@
    "s_open": 64167.887395,
    "s_close": 64165.44023178264,
    "close_lag_s": 1.7017090320587158,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613874",
@@ -4286,7 +4967,8 @@
    "s_open": 64142.685,
    "s_close": 64167.887395,
    "close_lag_s": 1.6969377994537354,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613861",
@@ -4309,7 +4991,8 @@
    "s_open": 64144.115,
    "s_close": 64151.975,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613850",
@@ -4332,7 +5015,8 @@
    "s_open": 64161.395,
    "s_close": 64154.185,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613843",
@@ -4355,7 +5039,8 @@
    "s_open": 64187.325,
    "s_close": 64143.905,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613832",
@@ -4378,7 +5063,8 @@
    "s_open": 64176.005,
    "s_close": 64156.255,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613823",
@@ -4401,7 +5087,8 @@
    "s_open": 64179.445,
    "s_close": 64169.695,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613801",
@@ -4424,7 +5111,8 @@
    "s_open": 64186.875,
    "s_close": 64156.155,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613794",
@@ -4447,7 +5135,8 @@
    "s_open": 64167.015,
    "s_close": 64147.955,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613777",
@@ -4470,7 +5159,8 @@
    "s_open": 64169.585,
    "s_close": 64172.245,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613760",
@@ -4493,7 +5183,8 @@
    "s_open": 64172.245,
    "s_close": 64193.385,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613751",
@@ -4516,7 +5207,8 @@
    "s_open": 64133.865,
    "s_close": 64232.005,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613744",
@@ -4539,7 +5231,8 @@
    "s_open": 64151.025,
    "s_close": 64145.565,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613725",
@@ -4562,7 +5255,8 @@
    "s_open": 64152.235,
    "s_close": 64187.995,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613719",
@@ -4585,7 +5279,8 @@
    "s_open": 64157.935,
    "s_close": 64149.985,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613709",
@@ -4608,7 +5303,8 @@
    "s_open": 64165.835,
    "s_close": 64153.455,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613693",
@@ -4631,7 +5327,8 @@
    "s_open": 64169.085,
    "s_close": 64163.865,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   },
   {
    "window_key": "613685",
@@ -4654,13 +5351,86 @@
    "s_open": 64192.095,
    "s_close": 64178.385,
    "close_lag_s": null,
-   "research": null
+   "research": null,
+   "decision_id": null
   }
  ],
  "calibration_state": {
-  "n": 137,
-  "sq": 31.78549459940212,
-  "ll": 88.7154755215862,
-  "up_outcomes": 72
+  "n": 151,
+  "sq": 34.849904278701274,
+  "ll": 97.3842760133193,
+  "up_outcomes": 77
+ },
+ "accounting_state": {
+  "lifecycle": {
+   "created": 10,
+   "feature_scored": 10,
+   "execution_costed": 1,
+   "ledgered": 1,
+   "reported": 10,
+   "terminals": {
+    "accepted": 1,
+    "rejected": 9,
+    "skipped": 0,
+    "expired": 0,
+    "missing_data": 0
+   },
+   "rejected_by_stage": {
+    "directional": 9,
+    "execution_gate": 0
+   },
+   "skipped_by_reason": {},
+   "missing_by_reason": {}
+  },
+  "gate_observations": {
+   "n": 1,
+   "fields": {
+    "spread": {
+     "min": 0.01,
+     "max": 0.01,
+     "sum": 0.01,
+     "n": 1
+    },
+    "ask_depth_usd": {
+     "min": 33275.88,
+     "max": 33275.88,
+     "sum": 33275.88,
+     "n": 1
+    },
+    "slippage": {
+     "min": 0.0007843137254902599,
+     "max": 0.0007843137254902599,
+     "sum": 0.0007843137254902599,
+     "n": 1
+    },
+    "ev_after_slippage": {
+     "min": 0.06836712406129003,
+     "max": 0.06836712406129003,
+     "sum": 0.06836712406129003,
+     "n": 1
+    },
+    "ttc_s": {
+     "min": 261.3186855316162,
+     "max": 261.3186855316162,
+     "sum": 261.3186855316162,
+     "n": 1
+    }
+   }
+  },
+  "ev": {
+   "before_sum": 0.074151,
+   "after_sum": 0.068367,
+   "n": 1
+  },
+  "baseline": {
+   "captured": true,
+   "note": "ledger totals that predate canonical lifecycle accounting (accounted explicitly)",
+   "trades": 151,
+   "settled": 149,
+   "open_positions": 2,
+   "exec_candidates": 106,
+   "exec_accepted": 106,
+   "exec_rejected_total": 0
+  }
  }
 }

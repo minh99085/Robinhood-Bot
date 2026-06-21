@@ -1,22 +1,130 @@
 {
- "schema": "btc_pulse_light_report/1.0",
+ "schema": "btc_pulse_light_report/1.1",
  "report_only": true,
  "live_trading_enabled": false,
+ "global_reconciled": true,
+ "reconciliation": {
+  "global_reconciled": true,
+  "counts": {
+   "raw_candidates_created": 10,
+   "rejected_before_execution": 9,
+   "sent_to_execution_gate": 1,
+   "execution_gate_accepted": 1,
+   "execution_gate_rejected": 0,
+   "paper_fills_created": 1,
+   "ledger_trades": 152,
+   "settled_trades": 151,
+   "open_positions": 1,
+   "legacy_trades_before_accounting": 151,
+   "legacy_exec_candidates_before_accounting": 106
+  },
+  "checks": {
+   "lifecycle_internal": {
+    "pass": true,
+    "detail": "created(10) == sum(terminals)(10) and reported(10) == created(10)"
+   },
+   "accepted_equals_fills": {
+    "pass": true,
+    "detail": "paper_fills(1) == execution_gate_accepted(1)"
+   },
+   "gate_internal": {
+    "pass": true,
+    "detail": "gate_candidates(107) == accepted(107)+rejected(0) and fills(107)==accepted(107)"
+   },
+   "gate_flow_matches_ledger": {
+    "pass": true,
+    "detail": "ledger gate_candidates(107) == baseline(106)+sent_to_gate(1); gate_accepted(107) == baseline(106)+accepted(1)"
+   },
+   "ledger_trades_explained": {
+    "pass": true,
+    "detail": "ledger_trades(152) == legacy(151) + paper_fills(1)"
+   },
+   "positions_balance": {
+    "pass": true,
+    "detail": "settled(151) + open(1) == ledger_trades(152)"
+   }
+  },
+  "failed_checks": [],
+  "baseline": {
+   "captured": true,
+   "note": "ledger totals that predate canonical lifecycle accounting (accounted explicitly)",
+   "trades": 151,
+   "settled": 149,
+   "open_positions": 2,
+   "exec_candidates": 106,
+   "exec_accepted": 106,
+   "exec_rejected_total": 0
+  },
+  "scope_note": "lifecycle counts are cumulative since canonical accounting began; baseline counts are legacy ledger totals that predate it; ledger/gate totals == baseline + accounted.",
+  "rejected_before_execution": 9
+ },
+ "execution_gate_zero_reject_diagnostic": {
+  "active": true,
+  "message": "execution gate rejected 0 of 107 candidates that reached it \u2014 verify this is liquidity reality, not a disabled gate",
+  "thresholds": {
+   "size_usd": 5.0,
+   "max_spread": 0.06,
+   "min_depth_usd": 1.0,
+   "min_order_usd": 1.0,
+   "max_depth_consume_frac": 0.5,
+   "min_ev_after_slippage": 0.0,
+   "min_seconds_to_close": 4.0,
+   "max_book_age_s": 30.0
+  },
+  "observed_ranges": {
+   "spread": {
+    "min": 0.01,
+    "max": 0.01,
+    "mean": 0.01,
+    "n": 1
+   },
+   "ask_depth_usd": {
+    "min": 33275.88,
+    "max": 33275.88,
+    "mean": 33275.88,
+    "n": 1
+   },
+   "slippage": {
+    "min": 0.000784,
+    "max": 0.000784,
+    "mean": 0.000784,
+    "n": 1
+   },
+   "ev_after_slippage": {
+    "min": 0.068367,
+    "max": 0.068367,
+    "mean": 0.068367,
+    "n": 1
+   },
+   "ttc_s": {
+    "min": 261.318686,
+    "max": 261.318686,
+    "mean": 261.318686,
+    "n": 1
+   }
+  },
+  "likely_explanations": [
+   "Polymarket BTC 5m books are tight + deep, so spread/depth/partial-fill checks pass",
+   "VWAP slippage over the top of book is tiny at $5.0 size, so EV-after-cost stays positive",
+   "the directional stage already rejected 9 candidates before the gate, so only execution-feasible candidates reached it"
+  ],
+  "gate_is_live": true
+ },
  "candidate_lifecycle": {
-  "created": 772,
-  "feature_scored": 772,
-  "execution_costed": 66,
-  "ledgered": 66,
-  "reported": 772,
+  "created": 10,
+  "feature_scored": 10,
+  "execution_costed": 1,
+  "ledgered": 1,
+  "reported": 10,
   "terminals": {
-   "accepted": 66,
-   "rejected": 706,
+   "accepted": 1,
+   "rejected": 9,
    "skipped": 0,
    "expired": 0,
    "missing_data": 0
   },
   "rejected_by_stage": {
-   "directional": 706,
+   "directional": 9,
    "execution_gate": 0
   },
   "skipped_by_reason": {},
@@ -25,8 +133,8 @@
   "reconciled": true
  },
  "execution_stats": {
-  "candidates": 94,
-  "accepted": 94,
+  "candidates": 107,
+  "accepted": 107,
   "rejected_total": 0,
   "rejected": {
    "wide_spread": 0,
@@ -38,7 +146,7 @@
    "missing_market_data": 0,
    "stale_orderbook": 0
   },
-  "fills": 94,
+  "fills": 107,
   "reconciled": true
  },
  "reject_reasons": {
@@ -52,35 +160,35 @@
   "stale_orderbook": 0
  },
  "ev_before_after_costs": {
-  "n": 66,
-  "avg_ev_before_costs": 0.102127,
-  "avg_ev_after_costs": 0.096512
+  "n": 1,
+  "avg_ev_before_costs": 0.074151,
+  "avg_ev_after_costs": 0.068367
  },
  "ledger": {
-  "trades": 139,
-  "settled": 137,
-  "wins": 73,
-  "win_rate": 0.5328,
-  "avg_entry_price": 0.5242,
-  "edge_realized": 0.0087,
-  "win_rate_up": 0.5667,
-  "win_rate_down": 0.5065,
+  "trades": 152,
+  "settled": 151,
+  "wins": 80,
+  "win_rate": 0.5298,
+  "avg_entry_price": 0.5289,
+  "edge_realized": 0.0009,
+  "win_rate_up": 0.5441,
+  "win_rate_down": 0.5181,
   "side_counts": {
-   "up": 60,
-   "down": 77
+   "up": 68,
+   "down": 83
   },
   "settle_sources": {
-   "polymarket_resolution": 58,
-   "rtds_chainlink_proxy": 63
+   "polymarket_resolution": 63,
+   "rtds_chainlink_proxy": 72
   },
   "proxy_official_reconciliation": {
-   "both": 57,
-   "agree": 54,
+   "both": 62,
+   "agree": 59,
    "disagree": 3
   },
   "execution_gate": {
-   "candidates": 94,
-   "accepted": 94,
+   "candidates": 107,
+   "accepted": 107,
    "rejected_total": 0,
    "rejected": {
     "wide_spread": 0,
@@ -92,56 +200,44 @@
     "missing_market_data": 0,
     "stale_orderbook": 0
    },
-   "fills": 94,
+   "fills": 107,
    "reconciled": true
   },
-  "realized_pnl_usd": 9.8044,
-  "avg_pnl_per_trade": 0.0716,
-  "profit_factor": 0.9355,
-  "avg_win_usd": 2.1146,
-  "avg_loss_usd": 2.5781,
-  "max_drawdown_usd": 44.4573,
-  "open_positions": 2
+  "realized_pnl_usd": -4.7633,
+  "avg_pnl_per_trade": -0.0315,
+  "profit_factor": 0.874,
+  "avg_win_usd": 2.1849,
+  "avg_loss_usd": 2.8169,
+  "max_drawdown_usd": 64.2291,
+  "open_positions": 1
  },
  "calibration": {
-  "samples": 137,
-  "brier": 0.232011,
-  "log_loss": 0.647558,
-  "base_rate_up": 0.5255,
+  "samples": 151,
+  "brier": 0.230794,
+  "log_loss": 0.644929,
+  "base_rate_up": 0.5099,
   "baseline_brier_0_5": 0.25
  },
  "edge_model_calibration": {
-  "0.3-0.4": {
-   "n": 8,
-   "empirical_up": 0.5
-  },
   "0.4-0.5": {
-   "n": 19,
-   "empirical_up": 0.3684
+   "n": 1,
+   "empirical_up": 0.0
   },
   "0.5-0.6": {
-   "n": 21,
-   "empirical_up": 0.7619
-  },
-  "0.6-0.7": {
-   "n": 13,
-   "empirical_up": 0.6923
-  },
-  "0.7-0.8": {
-   "n": 4,
-   "empirical_up": 0.5
+   "n": 1,
+   "empirical_up": 0.0
   }
  },
  "sample_sizes": {
-  "accepted": 66,
-  "settled": 137,
-  "candidates": 772,
-  "edge_model_labeled": 65
+  "accepted": 1,
+  "settled": 151,
+  "candidates": 10,
+  "edge_model_labeled": 2
  },
  "missing_data_reasons": {
-  "hurst:insufficient_returns": 14,
-  "half_life:insufficient_samples": 19,
-  "zscore:insufficient_divergence_samples": 19,
+  "hurst:insufficient_returns": 10,
+  "half_life:insufficient_samples": 10,
+  "zscore:insufficient_divergence_samples": 10,
   "kalman:insufficient_samples": 7
  },
  "confidence_tier_table": {
@@ -150,70 +246,30 @@
   "tier_census": {
    "A+": 0,
    "A": 0,
-   "B": 6,
-   "C": 5,
+   "B": 4,
+   "C": 1,
    "D": 0
   },
   "table": {
    "edge_quality:high": {
     "dimension": "edge_quality",
-    "tier": "C",
-    "reasons": [
-     "losing_or_subcoinflip"
-    ],
-    "n": 65,
-    "win_rate": 0.4923,
-    "pnl_usd": -10.6376
-   },
-   "regime:insufficient_data": {
-    "dimension": "regime",
     "tier": "B",
     "reasons": [
      "below_tier_a_threshold"
     ],
     "n": 2,
     "win_rate": 0.5,
-    "pnl_usd": 7.2414
+    "pnl_usd": 0.2041
    },
    "regime:trending": {
     "dimension": "regime",
-    "tier": "C",
-    "reasons": [
-     "losing_or_subcoinflip"
-    ],
-    "n": 63,
-    "win_rate": 0.4921,
-    "pnl_usd": -17.8789
-   },
-   "zscore_bucket:na": {
-    "dimension": "zscore_bucket",
     "tier": "B",
     "reasons": [
      "below_tier_a_threshold"
     ],
     "n": 2,
     "win_rate": 0.5,
-    "pnl_usd": 7.2414
-   },
-   "zscore_bucket:-2..-1": {
-    "dimension": "zscore_bucket",
-    "tier": "B",
-    "reasons": [
-     "below_tier_a_threshold"
-    ],
-    "n": 13,
-    "win_rate": 0.5385,
-    "pnl_usd": 1.615
-   },
-   "zscore_bucket:-1..1": {
-    "dimension": "zscore_bucket",
-    "tier": "C",
-    "reasons": [
-     "losing_or_subcoinflip"
-    ],
-    "n": 38,
-    "win_rate": 0.4211,
-    "pnl_usd": -22.5146
+    "pnl_usd": 0.2041
    },
    "zscore_bucket:1..2": {
     "dimension": "zscore_bucket",
@@ -221,29 +277,19 @@
     "reasons": [
      "losing_or_subcoinflip"
     ],
-    "n": 6,
-    "win_rate": 0.3333,
-    "pnl_usd": -4.4392
+    "n": 1,
+    "win_rate": 0.0,
+    "pnl_usd": -5.0
    },
-   "zscore_bucket:<=-2": {
+   "zscore_bucket:-1..1": {
     "dimension": "zscore_bucket",
     "tier": "B",
     "reasons": [
      "below_tier_a_threshold"
     ],
-    "n": 4,
+    "n": 1,
     "win_rate": 1.0,
-    "pnl_usd": 5.4799
-   },
-   "zscore_bucket:>=2": {
-    "dimension": "zscore_bucket",
-    "tier": "B",
-    "reasons": [
-     "below_tier_a_threshold"
-    ],
-    "n": 2,
-    "win_rate": 1.0,
-    "pnl_usd": 1.9799
+    "pnl_usd": 5.2041
    },
    "ttc_bucket:>=240s": {
     "dimension": "ttc_bucket",
@@ -251,19 +297,9 @@
     "reasons": [
      "below_tier_a_threshold"
     ],
-    "n": 58,
+    "n": 2,
     "win_rate": 0.5,
-    "pnl_usd": 3.3251
-   },
-   "ttc_bucket:120-240s": {
-    "dimension": "ttc_bucket",
-    "tier": "C",
-    "reasons": [
-     "losing_or_subcoinflip"
-    ],
-    "n": 7,
-    "win_rate": 0.4286,
-    "pnl_usd": -13.9627
+    "pnl_usd": 0.2041
    }
   }
  },
@@ -272,172 +308,99 @@
   "actual_size_usd": 5.0
  },
  "pnl_by_hurst_regime": {
-  "insufficient_data": {
+  "trending": {
    "n": 2,
    "win_rate": 0.5,
-   "pnl_usd": 7.2414,
-   "brier": 0.3057
-  },
-  "trending": {
-   "n": 63,
-   "win_rate": 0.4921,
-   "pnl_usd": -17.8789,
-   "brier": 0.2361
+   "pnl_usd": 0.2041,
+   "brier": 0.3456
   }
  },
  "pnl_by_zscore_bucket": {
-  "na": {
-   "n": 2,
-   "win_rate": 0.5,
-   "pnl_usd": 7.2414,
-   "brier": 0.3057
-  },
-  "-2..-1": {
-   "n": 13,
-   "win_rate": 0.5385,
-   "pnl_usd": 1.615,
-   "brier": 0.2928
+  "1..2": {
+   "n": 1,
+   "win_rate": 0.0,
+   "pnl_usd": -5.0,
+   "brier": 0.5206
   },
   "-1..1": {
-   "n": 38,
-   "win_rate": 0.4211,
-   "pnl_usd": -22.5146,
-   "brier": 0.2696
-  },
-  "1..2": {
-   "n": 6,
-   "win_rate": 0.3333,
-   "pnl_usd": -4.4392,
-   "brier": 0.1285
-  },
-  "<=-2": {
-   "n": 4,
+   "n": 1,
    "win_rate": 1.0,
-   "pnl_usd": 5.4799,
-   "brier": 0.008
-  },
-  ">=2": {
-   "n": 2,
-   "win_rate": 1.0,
-   "pnl_usd": 1.9799,
-   "brier": 0.0101
+   "pnl_usd": 5.2041,
+   "brier": 0.1705
   }
  },
  "pnl_by_half_life_bucket": {
-  "na": {
+  "<30s": {
    "n": 2,
    "win_rate": 0.5,
-   "pnl_usd": 7.2414,
-   "brier": 0.3057
-  },
-  "<30s": {
-   "n": 63,
-   "win_rate": 0.4921,
-   "pnl_usd": -17.8789,
-   "brier": 0.2361
+   "pnl_usd": 0.2041,
+   "brier": 0.3456
   }
  },
  "pnl_by_ttc_bucket": {
   ">=240s": {
-   "n": 58,
+   "n": 2,
    "win_rate": 0.5,
-   "pnl_usd": 3.3251,
-   "brier": 0.2364
-  },
-  "120-240s": {
-   "n": 7,
-   "win_rate": 0.4286,
-   "pnl_usd": -13.9627,
-   "brier": 0.2537
+   "pnl_usd": 0.2041,
+   "brier": 0.3456
   }
  },
  "pnl_by_edge_quality_bucket": {
   "high": {
-   "n": 65,
-   "win_rate": 0.4923,
-   "pnl_usd": -10.6376,
-   "brier": 0.2383
+   "n": 2,
+   "win_rate": 0.5,
+   "pnl_usd": 0.2041,
+   "brier": 0.3456
   }
  },
  "pnl_by_markov_state": {
-  "stale_polymarket_down": {
-   "n": 27,
-   "win_rate": 0.6296,
-   "pnl_usd": 26.9671,
-   "brier": 0.2423
-  },
   "stale_polymarket_up": {
-   "n": 19,
-   "win_rate": 0.3684,
-   "pnl_usd": -42.0361,
-   "brier": 0.1909
+   "n": 1,
+   "win_rate": 0.0,
+   "pnl_usd": -5.0,
+   "brier": 0.5206
   },
   "chop_noise": {
-   "n": 19,
-   "win_rate": 0.4211,
-   "pnl_usd": 4.4315,
-   "brier": 0.28
+   "n": 1,
+   "win_rate": 1.0,
+   "pnl_usd": 5.2041,
+   "brier": 0.1705
   }
  },
  "pnl_by_spread_bucket": {
   "<=0.01": {
-   "n": 62,
-   "win_rate": 0.4839,
-   "pnl_usd": -21.706,
-   "brier": 0.2349
-  },
-  "0.01-0.03": {
-   "n": 3,
-   "win_rate": 0.6667,
-   "pnl_usd": 11.0684,
-   "brier": 0.3083
+   "n": 2,
+   "win_rate": 0.5,
+   "pnl_usd": 0.2041,
+   "brier": 0.3456
   }
  },
  "pnl_by_depth_bucket": {
   ">=1000": {
-   "n": 65,
-   "win_rate": 0.4923,
-   "pnl_usd": -10.6376,
-   "brier": 0.2383
+   "n": 2,
+   "win_rate": 0.5,
+   "pnl_usd": 0.2041,
+   "brier": 0.3456
   }
  },
  "pnl_by_confidence_tier": {
   "high": {
-   "n": 52,
-   "win_rate": 0.5577,
-   "pnl_usd": 24.5812,
-   "brier": 0.2363
+   "n": 1,
+   "win_rate": 0.0,
+   "pnl_usd": -5.0,
+   "brier": 0.5206
   },
   "medium": {
-   "n": 10,
-   "win_rate": 0.2,
-   "pnl_usd": -31.3298,
-   "brier": 0.2633
-  },
-  "low": {
-   "n": 3,
-   "win_rate": 0.3333,
-   "pnl_usd": -3.8889,
-   "brier": 0.1892
+   "n": 1,
+   "win_rate": 1.0,
+   "pnl_usd": 5.2041,
+   "brier": 0.1705
   }
  },
  "promotion_candidates": [],
  "demotion_candidates": [
-  "edge_quality:high",
-  "regime:trending",
-  "zscore_bucket:-1..1",
-  "zscore_bucket:1..2",
-  "ttc_bucket:120-240s"
+  "zscore_bucket:1..2"
  ],
- "reconciliation": {
-  "lifecycle_accepted": 66,
-  "gate_accepted": 94,
-  "gate_fills": 94,
-  "ledger_trades": 139,
-  "settled": 137,
-  "lifecycle_reconciled": true,
-  "no_candidate_disappeared": true
- },
  "readiness": {
   "report_only": true,
   "status": "not_ready",
@@ -447,7 +410,7 @@
    "accepted_ge_500": false,
    "accepted_ge_1000": false,
    "win_rate_ge_80": false,
-   "positive_net_paper_pnl": true,
+   "positive_net_paper_pnl": false,
    "profit_factor_ok": false,
    "calibration_error_ok": false,
    "max_drawdown_ok": true,
@@ -458,14 +421,14 @@
    "no_safety_bypass": true
   },
   "metrics": {
-   "accepted": 137,
-   "win_rate": 0.5328,
-   "net_pnl_usd": 9.8044,
-   "profit_factor": 0.9355,
-   "calibration_error": 0.232011,
-   "max_drawdown_usd": 44.4573,
-   "avg_win_usd": 2.1146,
-   "avg_loss_usd": 2.5781
+   "accepted": 151,
+   "win_rate": 0.5298,
+   "net_pnl_usd": -4.7633,
+   "profit_factor": 0.874,
+   "calibration_error": 0.230794,
+   "max_drawdown_usd": 64.2291,
+   "avg_win_usd": 2.1849,
+   "avg_loss_usd": 2.8169
   }
  }
 }
