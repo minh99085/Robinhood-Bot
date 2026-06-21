@@ -22,8 +22,9 @@ TOO_CLOSE = "too_close_to_resolution"
 MIN_SIZE_OR_TICK = "min_size_or_tick_violation"
 PARTIAL_FILL_RISK = "partial_fill_risk"
 MISSING_MARKET_DATA = "missing_market_data"
+STALE_ORDERBOOK = "stale_orderbook"
 REASONS = (WIDE_SPREAD, INSUFFICIENT_DEPTH, NEGATIVE_EV, TOO_CLOSE, MIN_SIZE_OR_TICK,
-           PARTIAL_FILL_RISK, MISSING_MARKET_DATA)
+           PARTIAL_FILL_RISK, MISSING_MARKET_DATA, STALE_ORDERBOOK)
 
 
 @dataclass
@@ -82,7 +83,9 @@ def evaluate_execution(*, side: str, book, outcome_prob: float, size_usd: float,
                        min_seconds_to_close: float = 4.0, max_spread: float = 0.06,
                        min_depth_usd: float = 1.0, min_order_usd: float = 1.0,
                        max_depth_consume_frac: float = 0.5,
-                       min_ev_after_slippage: float = 0.0) -> ExecResult:
+                       min_ev_after_slippage: float = 0.0,
+                       now: Optional[float] = None,
+                       max_book_age_s: float = 30.0) -> ExecResult:
     """Evaluate a candidate against orderbook reality. ``outcome_prob`` is the model
     probability of the outcome whose token we'd buy (so EV = outcome_prob - fill_price)."""
     best_ask = book.best_ask if book else None
@@ -99,6 +102,11 @@ def evaluate_execution(*, side: str, book, outcome_prob: float, size_usd: float,
     # 0) market data present at all
     if book is None or best_ask is None or not asks:
         return rej(MISSING_MARKET_DATA)
+    # 0b) stale orderbook — the book snapshot is older than max_book_age_s (only checked when a
+    # real book timestamp + ``now`` are available; synthetic books with ts=0 skip this).
+    if now is not None and max_book_age_s > 0 and getattr(book, "ts", 0):
+        if (now - float(book.ts)) > max_book_age_s:
+            return rej(STALE_ORDERBOOK)
     # 1) time-to-resolution
     if ttc_s <= min_seconds_to_close:
         return rej(TOO_CLOSE)

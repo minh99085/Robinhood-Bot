@@ -83,6 +83,21 @@ def test_reason_insufficient_depth():
                               tick_size=0.01, ttc_s=120.0, min_depth_usd=1.0).reason == INSUFFICIENT_DEPTH
 
 
+def test_reason_stale_orderbook():
+    from engine.pulse.execution_gate import STALE_ORDERBOOK
+    book = _book(0.49, 0.50, asks=[(0.50, 1000.0)])
+    book.ts = 1000.0
+    # book 60s old vs 30s max -> stale
+    r = evaluate_execution(side="up", book=book, outcome_prob=0.62, size_usd=10.0,
+                           tick_size=0.01, ttc_s=120.0, now=1060.0, max_book_age_s=30.0)
+    assert r.reason == STALE_ORDERBOOK
+    # fresh book (1s old) is not stale
+    book.ts = 1059.0
+    r2 = evaluate_execution(side="up", book=book, outcome_prob=0.62, size_usd=10.0,
+                            tick_size=0.01, ttc_s=120.0, now=1060.0, max_book_age_s=30.0)
+    assert r2.reason != STALE_ORDERBOOK and r2.accepted is True
+
+
 def test_reason_partial_fill_risk():
     # depth above the floor but cannot fully fill the $10 order -> partial fill risk
     book = _book(0.49, 0.50, asks=[(0.50, 12.0)])              # $6 total depth (>min, <size)

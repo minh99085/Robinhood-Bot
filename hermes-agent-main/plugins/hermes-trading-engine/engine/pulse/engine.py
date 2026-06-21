@@ -79,6 +79,7 @@ class PulseConfig:
     exec_min_order_usd: float = 1.0
     exec_max_depth_consume_frac: float = 0.5
     exec_min_ev_after_slippage: float = 0.0
+    exec_max_book_age_s: float = 30.0        # reject stale orderbook older than this
     research_features_enabled: bool = True   # OBSERVE-ONLY EP Chan features (never trade)
     data_dir: str = "/data"
 
@@ -122,6 +123,7 @@ class PulseConfig:
             exec_min_order_usd=_envf("PULSE_EXEC_MIN_ORDER_USD", 1.0),
             exec_max_depth_consume_frac=_envf("PULSE_EXEC_MAX_DEPTH_CONSUME_FRAC", 0.5),
             exec_min_ev_after_slippage=_envf("PULSE_EXEC_MIN_EV", 0.0),
+            exec_max_book_age_s=_envf("PULSE_EXEC_MAX_BOOK_AGE_S", 30.0),
             research_features_enabled=str(os.getenv("HERMES_RESEARCH_FEATURES_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             data_dir=os.getenv("HTE_DATA_DIR", "/data"))
@@ -328,7 +330,8 @@ class PulseEngine:
                 max_spread=self.cfg.exec_max_spread, min_depth_usd=self.cfg.min_depth_usd,
                 min_order_usd=self.cfg.exec_min_order_usd,
                 max_depth_consume_frac=self.cfg.exec_max_depth_consume_frac,
-                min_ev_after_slippage=self.cfg.exec_min_ev_after_slippage)
+                min_ev_after_slippage=self.cfg.exec_min_ev_after_slippage,
+                now=now, max_book_age_s=self.cfg.exec_max_book_age_s)
             self.ledger.record_exec(ex.accepted, ex.reason)
             dr.cost = ExecutionCostEstimate.from_exec_result(ex)
             dr.mark("execution_costed")
