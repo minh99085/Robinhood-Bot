@@ -206,6 +206,7 @@ class DecisionResult:
     market_context: MarketContext
     candidate: CandidateDecision
     features: Optional[dict] = None
+    signals: Optional[dict] = None              # observe-only raw signal snapshot (Phase 4)
     cost: Optional[ExecutionCostEstimate] = None
     action: Optional[object] = None             # TradeAction | RejectAction
     fill: Optional[PaperFill] = None
@@ -238,6 +239,7 @@ class DecisionResult:
         return {"market_context": self.market_context.to_dict(),
                 "candidate": self.candidate.to_dict(),
                 "features": self.features,
+                "signals": self.signals,
                 "cost": (self.cost.to_dict() if self.cost else None),
                 "action": (self.action.to_dict() if self.action else None),
                 "fill": (self.fill.to_dict() if self.fill else None),

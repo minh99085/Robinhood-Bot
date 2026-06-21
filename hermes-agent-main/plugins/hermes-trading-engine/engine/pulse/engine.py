@@ -81,6 +81,7 @@ class PulseConfig:
     exec_min_ev_after_slippage: float = 0.0
     exec_max_book_age_s: float = 30.0        # reject stale orderbook older than this
     research_features_enabled: bool = True   # OBSERVE-ONLY EP Chan features (never trade)
+    signal_engine_enabled: bool = True       # OBSERVE-ONLY Simons-style raw signals (never trade)
     data_dir: str = "/data"
 
     @classmethod
@@ -126,6 +127,8 @@ class PulseConfig:
             exec_max_book_age_s=_envf("PULSE_EXEC_MAX_BOOK_AGE_S", 30.0),
             research_features_enabled=str(os.getenv("HERMES_RESEARCH_FEATURES_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
+            signal_engine_enabled=str(os.getenv("HERMES_SIGNAL_ENGINE_ENABLED", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
             data_dir=os.getenv("HTE_DATA_DIR", "/data"))
 
 
@@ -170,6 +173,10 @@ class PulseEngine:
         if bool(getattr(self.cfg, "research_features_enabled", True)):
             from engine.pulse.research_features import ResearchObservatory
             self.research = ResearchObservatory()
+        self.signals = None
+        if bool(getattr(self.cfg, "signal_engine_enabled", True)):
+            from engine.pulse.signals import SignalEngine
+            self.signals = SignalEngine()
         self.reconciler = LifecycleReconciler()   # GS-Quant-style candidate lifecycle audit
         self.overlay = None
         if bool(getattr(self.cfg, "grok_overlay_enabled", False)):
@@ -226,6 +233,8 @@ class PulseEngine:
         self.leads.poll(now)               # lead predictors (Binance/Coinbase) — features only
         if self.research is not None:
             self.research.observe_oracle(self.price.current())
+        if self.signals is not None:
+            self.signals.observe_price(self.price.current(), now)
         windows = self.market.active_windows(now=now)
         keep_keys = {w.event_id for w in windows} | set(self.ledger.positions)
         self.price.prune_opens(keep_keys)
@@ -317,6 +326,10 @@ class PulseEngine:
                 rfeat = self.research.evaluate(current_divergence=divergence)
                 dr.features = rfeat.to_dict()
                 dr.mark("feature_scored")
+            # OBSERVE-ONLY Simons-style raw signal snapshot (never affects decision/gate).
+            if self.signals is not None:
+                self.signals.observe_poly(mc.poly_yes, mc.spread, mc.ask_depth_usd, now)
+                dr.signals = self.signals.snapshot(ttc_s=ttc, now=now).to_dict()
             if not d.trade:
                 dr.action = RejectAction(stage="directional", reason=d.reason)
                 _finalize(dr, "rejected", reason=d.reason, stage="directional")
@@ -423,6 +436,8 @@ class PulseEngine:
             "price": self.price.status(),
             "ledger": self.ledger.stats(),
             "decision_lifecycle": self.reconciler.report(),
+            "signal_engine": (self.signals.report() if self.signals is not None
+                              else {"enabled": False}),
             "execution_gate": self.ledger.exec_gate_stats(),
             "research_features": (self.research.report() if self.research is not None
                                   else {"enabled": False}),
