@@ -1,51 +1,33 @@
 # BTC 5-Minute Pulse — Full Report
 
-_Generated 2026-06-21 21:11 UTC from live VPS container `hermes-training`._
+_Generated 2026-06-22 09:46 UTC from live VPS container `hermes-training` (PAPER ONLY)._
 
-**Mode:** PAPER ONLY — `live_trading_enabled=False`, `paper_only=True`. **`global_reconciled=True`** (schema `btc_pulse_light_report/1.1`).
+**Mode:** `paper_only=True`, `live_trading_enabled=False`, **`global_reconciled=True`** · ticks 3707 · oracle `chainlink_data_streams_refprice` (RTDS connected=True).
 
-## 1. Accounting integrity (reconciliation)
-Failed checks: `none`
-| Count | Value |
-|---|---|
-| raw candidates created | 1191 |
-| rejected before execution | 1113 |
-| sent to execution gate | 78 |
-| execution-gate accepted | 78 |
-| execution-gate rejected | 0 |
-| paper fills created | 78 |
-| ledger trades | 229 |
-| settled / open | 229 / 0 |
-| legacy trades (pre-accounting) | 151 |
-
-## 2. Paper P&L (cumulative)
+## 1. Paper P&L (cumulative)
 | Metric | Value |
 |---|---|
-| Trades / settled | 229 / 229 |
-| Win rate | 52.4% |
-| Realized PnL | $-30.93 |
-| Profit factor | 0.868 |
-| Avg win / avg loss | $2.82 / $3.58 |
-| Max drawdown | $90.70 |
-| Open positions | 0 |
+| Trades / settled | 272 / 272 |
+| Win rate | 53.3% |
+| Realized PnL | $-55.68 |
+| Profit factor | 0.841 |
+| Avg win / avg loss | $2.79 / $3.78 |
+| Max drawdown | $117.63 |
+| Open | 0 |
 
-## 3. Engine + oracle
-- Ticks this run: 90 · price source `rtds_chainlink` (last 63529.71)
-- Oracle `chainlink_data_streams_refprice` · RTDS connected=True (705 msgs)
-- Settlement: official 99 + proxy 114; proxy/official recon {"both": 98, "agree": 94, "disagree": 4}
-- Execution gate: 184 candidates, 184 accepted, 0 rejected
-- Calibration: Brier 0.2419 vs 0.25 baseline · log-loss 0.6746
+## 2. Accounting integrity (reconciliation)
+`global_reconciled=true`, failed_checks: none. ledger_trades 272 = legacy 151 + accounted; settled 272 + open 0 = 272. Calibration Brier 0.2372 (samples 272).
 
-## 4. Closed-loop learning (the bot's own experience adjusting decisions)
-- enabled=True · **active=False** · weight=0.0 · reason=`insufficient_samples`
-- model labels=15 (needs 60 to start) · calibration_error=None
-- _Cold-start: it records every settled trade and will begin nudging decisions once it has ~60 calibrated samples — then weight ramps up to 0.5._
+## 3. Learned Selectivity Gate v1 (the new selectivity fix)
+- enabled=True · **accepted=0** · **rejected=361** · **explored=21** (exploration capped 5%, tracked separately).
+- reject reasons: `{"bad_bucket:ttc_bucket=>=240s": 3, "bad_bucket:confidence_tier=high": 7, "bad_bucket:zscore_bucket=-1..1": 8, "bad_bucket:confidence_tier=medium": 1, "bad_bucket:hurst_regime=trending": 338, "bad_bucket:ttc_bucket=120-240s": 4}`
+- PnL by gate decision: `{"passed": {"n": 1, "win_rate": 0.0, "pnl_usd": -5.0}, "explored": {"n": 21, "win_rate": 0.7143, "pnl_usd": 5.1536}}`
+- **Counterfactual** over 221 settled trades: would reject **221**, avoid **106** losses → counterfactual trades 0, PnL **$0** vs baseline win 0.5204 / PnL **$-99.7153**.
 
-## 5. TradingView TA (observe-only intake + directional gate)
-- Intake (after residue cleanup): received=0, valid=0, by_symbol={}
-- **Directional gate active=True** (restrict-only): a paper trade requires a fresh aligned TradingView signal.
-- Edge vs 5-min outcome: verdict=`insufficient_evidence`, settled-with-signal=1, signal_hit_rate=0.0, baseline_up_rate=0.0
-- RSI trend predictor: prediction_accuracy=None, scored=0
+**Read:** the gate is now rejecting ~all new candidates (dominant bad bucket `hurst_regime=trending`), i.e. it has effectively paused the bleed; the only new trades are the 21 exploration probes (win 0.7143, pnl $5.1536). No profitable bucket exists in the current data → not trading beats trading.
 
-## 6. Readiness → **NOT_READY**
-**Interpretation:** 229 settled paper trades, 52.4% win rate, **$-30.93** net with profit factor 0.87 (<1.0 — avg loss $3.58 > avg win $2.82). Calibration (0.242) marginally beats coinflip. No durable edge yet; learning is still in cold-start and the TradingView gate now restricts trading to fresh aligned RSI signals (sparse). Accounting fully reconciles (`global_reconciled=true`).
+## 4. TradingView intake (post-reset)
+received 52 · valid 52 · rejected 0 · signal_learning settled 25 · webhook listening True.
+
+## 5. Edge signal (CEX basket / stale divergence)
+snapshots 6149 · settled 34 · CEX coverage ['binance_btcusdt', 'coinbase_btcusd', 'kraken_btcusd', 'bitstamp_btcusd'].

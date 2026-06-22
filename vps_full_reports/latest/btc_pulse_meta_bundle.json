@@ -3,30 +3,35 @@
  "report_only": true,
  "no_live_trading_decisions": true,
  "candidate_lifecycle": {
-  "created": 1192,
-  "feature_scored": 1192,
-  "execution_costed": 78,
-  "ledgered": 78,
-  "reported": 1192,
+  "created": 10297,
+  "feature_scored": 9883,
+  "execution_costed": 121,
+  "ledgered": 121,
+  "reported": 10297,
   "terminals": {
-   "accepted": 78,
-   "rejected": 1114,
-   "skipped": 0,
+   "accepted": 121,
+   "rejected": 9762,
+   "skipped": 403,
    "expired": 0,
-   "missing_data": 0
+   "missing_data": 11
   },
   "rejected_by_stage": {
-   "directional": 1114,
-   "execution_gate": 0
+   "directional": 9401,
+   "execution_gate": 0,
+   "selectivity_gate": 361
   },
-  "skipped_by_reason": {},
-  "missing_by_reason": {},
+  "skipped_by_reason": {
+   "open_snapshot_late": 403
+  },
+  "missing_by_reason": {
+   "no_open_snapshot": 11
+  },
   "no_candidate_disappeared": true,
   "reconciled": true
  },
  "execution_stats": {
-  "candidates": 184,
-  "accepted": 184,
+  "candidates": 227,
+  "accepted": 227,
   "rejected_total": 0,
   "rejected": {
    "wide_spread": 0,
@@ -38,7 +43,7 @@
    "missing_market_data": 0,
    "stale_orderbook": 0
   },
-  "fills": 184,
+  "fills": 227,
   "reconciled": true
  },
  "reject_reasons": {
@@ -52,25 +57,29 @@
   "stale_orderbook": 0
  },
  "ev_before_after_costs": {
-  "n": 78,
-  "avg_ev_before_costs": 0.114016,
-  "avg_ev_after_costs": 0.108854
+  "n": 121,
+  "avg_ev_before_costs": 0.111342,
+  "avg_ev_after_costs": 0.106077
  },
  "calibration": {
-  "samples": 229,
-  "brier": 0.241943,
-  "log_loss": 0.674603,
-  "base_rate_up": 0.5197,
+  "samples": 272,
+  "brier": 0.237219,
+  "log_loss": 0.67104,
+  "base_rate_up": 0.511,
   "baseline_brier_0_5": 0.25
  },
  "edge_model_calibration": {
+  "0.3-0.4": {
+   "n": 1,
+   "empirical_up": 1.0
+  },
   "0.4-0.5": {
-   "n": 3,
-   "empirical_up": 0.6667
+   "n": 32,
+   "empirical_up": 0.5
   },
   "0.5-0.6": {
-   "n": 11,
-   "empirical_up": 0.4545
+   "n": 24,
+   "empirical_up": 0.4167
   },
   "0.6-0.7": {
    "n": 1,
@@ -78,102 +87,163 @@
   }
  },
  "sample_sizes": {
-  "accepted": 78,
-  "settled": 229,
-  "candidates": 1192,
-  "edge_model_labeled": 15
+  "accepted": 121,
+  "settled": 272,
+  "candidates": 10297,
+  "edge_model_labeled": 58
  },
  "missing_data_reasons": {
-  "hurst:insufficient_returns": 57,
+  "hurst:insufficient_returns": 35,
   "half_life:insufficient_samples": 19,
   "zscore:insufficient_divergence_samples": 19,
-  "kalman:insufficient_samples": 7
+  "kalman:insufficient_samples": 7,
+  "half_life:no_mean_reversion": 7
  },
  "tier_census": {
   "A+": 0,
   "A": 0,
-  "B": 0,
+  "B": 5,
   "C": 4,
   "D": 0
  },
  "promotion_candidates": [],
  "demotion_candidates": [
-  "edge_quality:high",
-  "regime:insufficient_data",
-  "zscore_bucket:na",
+  "regime:noise",
+  "zscore_bucket:-2..-1",
+  "zscore_bucket:1..2",
   "ttc_bucket:>=240s"
  ],
  "bucket_pnl": {
   "pnl_by_hurst_regime": {
-   "insufficient_data": {
+   "noise": {
     "n": 1,
     "win_rate": 0.0,
     "pnl_usd": -5.0,
-    "brier": 0.526
+    "brier": 0.0487
+   },
+   "trending": {
+    "n": 21,
+    "win_rate": 0.7143,
+    "pnl_usd": 5.1536,
+    "brier": 0.2108
    }
   },
   "pnl_by_zscore_bucket": {
-   "na": {
+   "-2..-1": {
+    "n": 3,
+    "win_rate": 0.3333,
+    "pnl_usd": -9.4444,
+    "brier": 0.3401
+   },
+   "-1..1": {
+    "n": 18,
+    "win_rate": 0.7778,
+    "pnl_usd": 14.598,
+    "brier": 0.144
+   },
+   "1..2": {
     "n": 1,
     "win_rate": 0.0,
     "pnl_usd": -5.0,
-    "brier": 0.526
+    "brier": 0.8625
    }
   },
   "pnl_by_half_life_bucket": {
-   "na": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.526
+   "<30s": {
+    "n": 22,
+    "win_rate": 0.6818,
+    "pnl_usd": 0.1536,
+    "brier": 0.2034
    }
   },
   "pnl_by_ttc_bucket": {
+   "120-240s": {
+    "n": 15,
+    "win_rate": 0.7333,
+    "pnl_usd": 4.7336,
+    "brier": 0.1844
+   },
    ">=240s": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.526
+    "n": 4,
+    "win_rate": 0.25,
+    "pnl_usd": -10.9091,
+    "brier": 0.4034
+   },
+   "60-120s": {
+    "n": 3,
+    "win_rate": 1.0,
+    "pnl_usd": 6.3291,
+    "brier": 0.032
    }
   },
   "pnl_by_edge_quality_bucket": {
    "high": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.526
+    "n": 22,
+    "win_rate": 0.6818,
+    "pnl_usd": 0.1536,
+    "brier": 0.2034
    }
   },
   "pnl_by_markov_state": {
+   "chop_noise": {
+    "n": 7,
+    "win_rate": 0.5714,
+    "pnl_usd": 0.1769,
+    "brier": 0.1562
+   },
    "stale_polymarket_up": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.526
+    "n": 6,
+    "win_rate": 0.6667,
+    "pnl_usd": 1.9904,
+    "brier": 0.2821
+   },
+   "stale_polymarket_down": {
+    "n": 9,
+    "win_rate": 0.7778,
+    "pnl_usd": -2.0137,
+    "brier": 0.1877
    }
   },
   "pnl_by_spread_bucket": {
    "<=0.01": {
+    "n": 21,
+    "win_rate": 0.6667,
+    "pnl_usd": -1.5131,
+    "brier": 0.2128
+   },
+   "0.01-0.03": {
     "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.526
+    "win_rate": 1.0,
+    "pnl_usd": 1.6667,
+    "brier": 0.0068
    }
   },
   "pnl_by_depth_bucket": {
    ">=1000": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.526
+    "n": 22,
+    "win_rate": 0.6818,
+    "pnl_usd": 0.1536,
+    "brier": 0.2034
    }
   },
   "pnl_by_confidence_tier": {
+   "low": {
+    "n": 2,
+    "win_rate": 0.5,
+    "pnl_usd": -0.3846,
+    "brier": 0.0447
+   },
    "high": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.526
+    "n": 17,
+    "win_rate": 0.6471,
+    "pnl_usd": -6.7463,
+    "brier": 0.2467
+   },
+   "medium": {
+    "n": 3,
+    "win_rate": 1.0,
+    "pnl_usd": 7.2845,
+    "brier": 0.0638
    }
   }
  },

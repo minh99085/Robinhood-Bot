@@ -1,4 +1,6 @@
-VPS report pulled 2026-06-22T35Z UTC
-VPS HEAD 2c80cff52c6a3ac58d8f64f67bd107a52e873ef2
-Learned Selectivity Gate v1 live (paper-only)
-counterfactual on 199 settled: would reject 199, avoid 99 losses, PnL -99.87 -> 0.00 (dominant: hurst_regime=trending 166)
+VPS report pulled 2026-06-22T46Z UTC
+VPS HEAD 5b858f4a996a4c8ced08823001af6c232eead8e4
+ticks 3707 | trades 272 settled 272 | win 53.3% | pnl -$55.68 | pf 0.84
+selectivity gate LIVE: accepted 0 rejected 361 explored 21 (paused the bleed; hurst=trending dominates)
+counterfactual: would reject 221/221, avoid 106 losses, -$99.72 -> $0
+global_reconciled true | paper_only true | live false
