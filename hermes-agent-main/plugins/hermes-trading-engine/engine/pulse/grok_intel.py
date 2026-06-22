@@ -35,8 +35,12 @@ def xai_key() -> str:
     return (os.getenv("XAI_API_KEY") or os.getenv("GROK_API_KEY") or "").strip()
 
 
-def _grok_chat(prompt: str, *, model: str, timeout_s: float, box: dict) -> Optional[str]:
-    """One read-only chat completion. Returns the content string or None (fail-open)."""
+def _grok_chat(prompt: str, *, model: str, timeout_s: float, box: dict,
+               extra_body: Optional[dict] = None) -> Optional[str]:
+    """One read-only chat completion. Returns the content string or None (fail-open).
+
+    ``extra_body`` is merged into the request JSON — used to enable xAI live search
+    (``search_parameters``) so the decider can pull web/X news in parallel."""
     key = xai_key()
     if not key:
         return None
@@ -46,9 +50,11 @@ def _grok_chat(prompt: str, *, model: str, timeout_s: float, box: dict) -> Optio
         if c is None:
             c = httpx.Client(timeout=timeout_s)
             box["c"] = c
-        r = c.post(_XAI_URL, headers={"Authorization": f"Bearer {key}"},
-                   json={"model": model, "temperature": 0,
-                         "messages": [{"role": "user", "content": prompt}]})
+        body = {"model": model, "temperature": 0,
+                "messages": [{"role": "user", "content": prompt}]}
+        if extra_body:
+            body.update(extra_body)
+        r = c.post(_XAI_URL, headers={"Authorization": f"Bearer {key}"}, json=body)
         if r.status_code != 200:
             return None
         return (((r.json() or {}).get("choices") or [{}])[0]

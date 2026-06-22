@@ -222,6 +222,7 @@ class DecisionResult:
     selectivity: Optional[dict] = None          # learned selectivity gate decision (accept/reject)
     context_gate: Optional[dict] = None         # TradingView context gate (pass/block/explore)
     late_window: Optional[dict] = None          # late-window high-conviction entry mode decision
+    grok_decision: Optional[dict] = None        # Grok decision-engine output (shadow/follow)
     calibration: Optional[dict] = None          # raw vs calibrated fair P(up)
     external: Optional[dict] = None             # observe-only EXTERNAL signal (e.g. TradingView)
     sizing: Optional[dict] = None               # paper-only Kelly sizing diagnostics (Phase 9)
@@ -271,6 +272,7 @@ class DecisionResult:
                 "selectivity": self.selectivity,
                 "context_gate": self.context_gate,
                 "late_window": self.late_window,
+                "grok_decision": self.grok_decision,
                 "calibration": self.calibration,
                 "external": self.external,
                 "sizing": self.sizing,

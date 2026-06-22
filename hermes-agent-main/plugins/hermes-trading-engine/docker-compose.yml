@@ -65,6 +65,16 @@ services:
       GROK_EST_USD_PER_CALL: "${GROK_EST_USD_PER_CALL:-0.02}"
       GROK_PREDICTOR_MAX_CALLS_PER_HOUR: "${GROK_PREDICTOR_MAX_CALLS_PER_HOUR:-30}"
       GROK_ANALYST_MAX_CALLS_PER_HOUR: "${GROK_ANALYST_MAX_CALLS_PER_HOUR:-4}"
+      # ---- Grok DECISION ENGINE ("Grok decides, bot executes"; PAPER ONLY) ----
+      # off | shadow (decide+grade only, NO trade — safe default) | follow (engine follows Grok
+      # direction/size, subject to the deterministic floor: execution realism, risk caps, freshness).
+      PULSE_GROK_DECIDER_MODE: "${PULSE_GROK_DECIDER_MODE:-off}"
+      PULSE_GROK_DECIDER_MODEL: "${PULSE_GROK_DECIDER_MODEL:-grok-4.3}"
+      PULSE_GROK_DECIDER_TIMEOUT_S: "${PULSE_GROK_DECIDER_TIMEOUT_S:-12}"
+      PULSE_GROK_DECIDER_USE_SEARCH: "${PULSE_GROK_DECIDER_USE_SEARCH:-0}"
+      PULSE_GROK_DECIDER_MIN_CONFIDENCE: "${PULSE_GROK_DECIDER_MIN_CONFIDENCE:-0.55}"
+      PULSE_GROK_DECIDER_TTL_S: "${PULSE_GROK_DECIDER_TTL_S:-240}"
+      PULSE_GROK_DECIDER_MAX_CALLS_PER_HOUR: "${PULSE_GROK_DECIDER_MAX_CALLS_PER_HOUR:-60}"
       # ---- BTC 5-min pulse engine (LOOSENED quality gates; PAPER ONLY) ----
       # Loose edge/depth so it actively takes PAPER trades on btc-up-or-down-5m windows.
       # The only hard limits left are paper-only safety + don't trade a window whose open

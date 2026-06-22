@@ -80,6 +80,16 @@ class PulseConfig:
     grok_est_usd_per_call: float = 0.02
     grok_predictor_max_calls_per_hour: int = 30
     grok_analyst_max_calls_per_hour: int = 4
+    # ---- Grok DECISION ENGINE ("Grok decides, bot executes"; PAPER ONLY) ----
+    # mode: off | shadow (decide+grade only, no trade — safe default) | follow (engine follows Grok
+    # direction/size subject to the deterministic floor: execution realism, risk caps, freshness).
+    grok_decider_mode: str = "off"
+    grok_decider_model: str = "grok-4.3"
+    grok_decider_timeout_s: float = 12.0
+    grok_decider_use_search: bool = False            # enable xAI live web/X news search (slower/$$)
+    grok_decider_min_confidence: float = 0.55
+    grok_decider_ttl_s: float = 240.0
+    grok_decider_max_calls_per_hour: int = 60
     # price feed: 'auto' uses Chainlink Data Streams (exact resolution feed) when creds are
     # set, else the Coinbase proxy. A sub-second background sampler keeps the price fresh
     # between the slower trade ticks.
@@ -211,6 +221,15 @@ class PulseConfig:
             grok_est_usd_per_call=_envf("GROK_EST_USD_PER_CALL", 0.02),
             grok_predictor_max_calls_per_hour=int(_envf("GROK_PREDICTOR_MAX_CALLS_PER_HOUR", 30)),
             grok_analyst_max_calls_per_hour=int(_envf("GROK_ANALYST_MAX_CALLS_PER_HOUR", 4)),
+            grok_decider_mode=(os.getenv("PULSE_GROK_DECIDER_MODE", "off") or "off").strip().lower(),
+            grok_decider_model=(os.getenv("PULSE_GROK_DECIDER_MODEL", "grok-4.3")
+                                or "grok-4.3").strip(),
+            grok_decider_timeout_s=_envf("PULSE_GROK_DECIDER_TIMEOUT_S", 12.0),
+            grok_decider_use_search=str(os.getenv("PULSE_GROK_DECIDER_USE_SEARCH", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            grok_decider_min_confidence=_envf("PULSE_GROK_DECIDER_MIN_CONFIDENCE", 0.55),
+            grok_decider_ttl_s=_envf("PULSE_GROK_DECIDER_TTL_S", 240.0),
+            grok_decider_max_calls_per_hour=int(_envf("PULSE_GROK_DECIDER_MAX_CALLS_PER_HOUR", 60)),
             price_source=(os.getenv("PULSE_PRICE_SOURCE", "auto") or "auto").strip().lower(),
             price_sampler_interval_s=_envf("PULSE_PRICE_SAMPLER_INTERVAL_S", 1.0),
             oracle_feed_type=(os.getenv("HERMES_ORACLE_FEED_TYPE",
@@ -426,19 +445,24 @@ class PulseEngine:
         self.overlay = None
         self.grok_analyst = None
         self.grok_predictor = None
+        self.grok_decider = None
+        self._grok_pending: list = []             # pending decision grades (decision_id/price0/close)
         try:
             from engine.pulse.grok_intel import (GrokBudget, GrokSignalAnalyst,
                                                  GrokSignalPredictor, xai_key)
+            decider_on = str(self.cfg.grok_decider_mode).strip().lower() in ("shadow", "follow")
             any_grok = (bool(self.cfg.grok_overlay_enabled)
                         or bool(self.cfg.grok_signal_analyst_enabled)
-                        or bool(self.cfg.grok_signal_predictor_enabled))
+                        or bool(self.cfg.grok_signal_predictor_enabled)
+                        or decider_on)
             if any_grok and xai_key():
                 self.grok_budget = GrokBudget(
                     daily_usd_cap=self.cfg.grok_budget_daily_usd,
                     est_usd_per_call=self.cfg.grok_est_usd_per_call,
                     per_feature_hourly={"predictor": self.cfg.grok_predictor_max_calls_per_hour,
                                         "analyst": self.cfg.grok_analyst_max_calls_per_hour,
-                                        "overlay": self.cfg.grok_overlay_max_calls_per_hour})
+                                        "overlay": self.cfg.grok_overlay_max_calls_per_hour,
+                                        "decider": self.cfg.grok_decider_max_calls_per_hour})
             if bool(self.cfg.grok_overlay_enabled) and xai_key():
                 from engine.pulse.overlay import GrokEventOverlay
                 self.overlay = GrokEventOverlay(
@@ -452,9 +476,21 @@ class PulseEngine:
                 self.grok_analyst = GrokSignalAnalyst(
                     budget=self.grok_budget, interval_s=self.cfg.grok_analyst_interval_s,
                     report_provider=self._grok_analyst_report).start()
+            if decider_on and xai_key():
+                from engine.pulse.grok_decider import GrokDecider, make_decider_fn
+                self.grok_decider = GrokDecider(
+                    decider_fn=make_decider_fn(
+                        model=self.cfg.grok_decider_model,
+                        timeout_s=self.cfg.grok_decider_timeout_s,
+                        use_search=self.cfg.grok_decider_use_search,
+                        default_ttl_s=self.cfg.grok_decider_ttl_s),
+                    budget=self.grok_budget, mode=self.cfg.grok_decider_mode,
+                    min_confidence=self.cfg.grok_decider_min_confidence,
+                    ttl_s=self.cfg.grok_decider_ttl_s).start()
         except Exception:  # noqa: BLE001 — Grok never blocks startup
             logger.exception("grok init failed; continuing as pure quant")
             self.grok_budget = self.overlay = self.grok_analyst = self.grok_predictor = None
+            self.grok_decider = None
         # OBSERVE-ONLY TradingView indicator webhook intake (enabled only when a secret is set).
         # Alerts become candidate signals only; they can never place/resize/bypass a paper trade.
         self.tradingview = None
@@ -566,6 +602,9 @@ class PulseEngine:
             self.grok_predictor.load_state(acct.get("grok_predictor") or {})
         if self.grok_analyst is not None:
             self.grok_analyst.load_state(acct.get("grok_analyst") or {})
+        if self.grok_decider is not None:
+            self.grok_decider.load_state(acct.get("grok_decider") or {})
+        self._grok_pending = list(acct.get("grok_pending") or [])
         if self.edge_model is not None:          # the learned edge model accumulates across runs
             self.edge_model.load_state(acct.get("edge_model") or {})
         ev = acct.get("ev") or {}
@@ -657,6 +696,7 @@ class PulseEngine:
                     gp = self.grok_predictor.get(feat.get("event_id"))
                     if gp is not None:
                         tv_feature = {**feat, "grok_p_up": gp.get("p_up")}
+        self._grade_grok_decisions(now)   # grade prior Grok decisions vs realized window close
         ov = self.overlay.current(now) if self.overlay is not None else None
         ov_blackout = bool(ov and ov.get("blackout"))
         ov_vol_mult = float(ov.get("vol_multiplier", 1.0)) if ov else 1.0
@@ -802,17 +842,74 @@ class PulseEngine:
                     fair_used = blended
                 else:
                     dr.learning = {"applied": False, "weight": round(w_learn, 4), "reason": why}
+            # ---- GROK DECISION ENGINE ("Grok decides, bot executes"; PAPER ONLY) ----
+            # Request one decision per window (async, off the tick loop), record it observe-only, and
+            # schedule a grade vs the realized close (traded or not). In SHADOW mode this is the only
+            # effect. In FOLLOW mode the decision drives side/size below, subject to the floor.
+            grok_dec = None
+            grok_size_frac = 1.0
+            if self.grok_decider is not None:
+                self.grok_decider.request(
+                    mc.decision_id,
+                    self._grok_decision_bundle(mc, dr, w, fair_used, ttc, tv_feature))
+                grok_dec = self.grok_decider.get(mc.decision_id)
+                dr.grok_decision = grok_dec
+                if grok_dec is not None:
+                    self._schedule_grok_grade(mc.decision_id, snap.price, w.close_ts)
+            grok_follow = (self.cfg.grok_decider_mode == "follow" and self.grok_decider is not None)
             # the directional decision uses the (possibly learning-adjusted) probability; the
             # STRICT execution gate below is UNCHANGED and remains the sole trade authority.
-            d = decide(w, fair_used, now, min_edge=self.cfg.min_edge,
-                       min_seconds_to_close=self.cfg.min_seconds_to_close,
-                       min_depth_usd=self.cfg.min_depth_usd,
-                       edge_buffer=self.cfg.edge_buffer, max_price=self.cfg.max_price,
-                       min_seconds_since_open=self.cfg.min_seconds_since_open,
-                       basis_buffer=self.cfg.basis_buffer,
-                       min_reward_risk=self.cfg.min_reward_risk)
-            outcome_prob = (fair_used if d.side == "up" else (1.0 - fair_used)) \
-                if fair_used is not None else None
+            if grok_follow:
+                # FOLLOW: Grok owns direction/size; the opinion gates are bypassed, only the
+                # deterministic floor (freshness, max_price, execution realism, caps) may abstain.
+                if not self.grok_decider.is_actionable(grok_dec, now=now):
+                    reason = ("grok_no_decision" if not grok_dec
+                              else ("grok_abstain" if grok_dec.get("action") == "no_trade"
+                                    else "grok_low_confidence_or_stale"))
+                    dr.candidate = CandidateDecision(side=None, fair_p_up=fair_used,
+                                                     outcome_prob=None, model_edge=0.0,
+                                                     tradeable=False, reason=reason)
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason=reason, stage="grok_decider")
+                    continue
+                side = grok_dec["action"]
+                book = w.up_book if side == "up" else w.down_book
+                ask = book.best_ask if book else None
+                cap = min(self.cfg.max_price, grok_dec.get("max_price") or self.cfg.max_price)
+                if ask is None:
+                    dr.candidate = CandidateDecision(side=side, fair_p_up=fair_used,
+                                                     outcome_prob=None, model_edge=0.0,
+                                                     tradeable=False, reason="no_tradeable_ask")
+                    _finalize(dr, "rejected", reason="no_tradeable_ask", stage="grok_decider")
+                    continue
+                if float(ask) > cap:
+                    dr.candidate = CandidateDecision(side=side, fair_p_up=fair_used,
+                                                     outcome_prob=None, model_edge=0.0,
+                                                     tradeable=False, reason="grok_max_price")
+                    _finalize(dr, "rejected", reason="grok_max_price", stage="grok_decider")
+                    continue
+                from engine.pulse.strategy import PulseDecision
+                d = PulseDecision(trade=True, side=side,
+                                  token_id=(w.up_token_id if side == "up" else w.down_token_id),
+                                  price=float(ask), fair_p_up=fair_used, edge=0.0,
+                                  reason="grok_follow")
+                grok_size_frac = max(0.0, min(1.0, float(grok_dec.get("size_fraction") or 1.0)))
+                entry_mode = "grok_follow"
+                context_explored = False
+            else:
+                d = decide(w, fair_used, now, min_edge=self.cfg.min_edge,
+                           min_seconds_to_close=self.cfg.min_seconds_to_close,
+                           min_depth_usd=self.cfg.min_depth_usd,
+                           edge_buffer=self.cfg.edge_buffer, max_price=self.cfg.max_price,
+                           min_seconds_since_open=self.cfg.min_seconds_since_open,
+                           basis_buffer=self.cfg.basis_buffer,
+                           min_reward_risk=self.cfg.min_reward_risk)
+            if grok_follow:
+                outcome_prob = float(grok_dec.get("confidence") or 0.5)   # Grok's P(chosen side wins)
+            else:
+                outcome_prob = (fair_used if d.side == "up" else (1.0 - fair_used)) \
+                    if fair_used is not None else None
             dr.candidate = CandidateDecision(side=d.side, fair_p_up=fair_used,
                                              outcome_prob=outcome_prob, model_edge=d.edge,
                                              tradeable=d.trade, reason=d.reason)
@@ -822,84 +919,82 @@ class PulseEngine:
                     self.markov.record_terminal(state=cand_state, accepted=False)
                 _finalize(dr, "rejected", reason=d.reason, stage="directional")
                 continue
-            # TradingView DIRECTIONAL INDICATION gate (restrict-only): only trade when a fresh
-            # TradingView signal agrees with the side. Can only PREVENT a trade; the execution
-            # gate below remains the sole execution authority.
-            tv_reason = self._tv_signal_gate(tv_feature, d.side)
-            if tv_reason is not None:
-                dr.action = RejectAction(stage="directional", reason=tv_reason)
-                if self.markov is not None:
-                    self.markov.record_terminal(state=cand_state, accepted=False)
-                _finalize(dr, "rejected", reason=tv_reason, stage="directional")
-                continue
-            # TradingView CONTEXT GATE (hard prior, restrict-only): block proven-losing entry
-            # contexts (TradingView volume spikes / noise hurst regime / far-from-resolution)
-            # IMMEDIATELY, before the learned selectivity gate has enough samples. Can only PREVENT
-            # a trade; never trades/resizes/bypasses the execution gate below.
-            ctx_res = self.tv_context_gate.evaluate(
-                volume_state=(tv_feature or {}).get("volume_state"),
-                hurst_regime=(rfeat.hurst_regime if rfeat else None), ttc_s=ttc)
-            dr.context_gate = {"decision": ctx_res["decision"], "reasons": ctx_res["reasons"]}
-            if ctx_res["decision"] == "block":
-                dr.action = RejectAction(stage="context_gate", reason=ctx_res["reasons"][0])
-                if self.markov is not None:
-                    self.markov.record_terminal(state=cand_state, accepted=False)
-                _finalize(dr, "rejected", reason=ctx_res["reasons"][0], stage="context_gate")
-                continue
-            context_explored = (ctx_res["decision"] == "explore")
-            # LATE-WINDOW HIGH-CONVICTION ENTRY MODE (restrict-only, time-decay edge): when enabled,
-            # only late-window AND high-conviction setups may trade. Can only PREVENT a trade; the
-            # edge is ALSO measured observe-only at settlement (cohort vs other) either way.
-            lw_res = self.late_window_gate.evaluate(ttc_s=ttc, p_up=fair_used)
-            dr.late_window = {"decision": lw_res["decision"], "reason": lw_res["reason"],
-                              "conviction": lw_res["conviction"], "late": lw_res["late"],
-                              "high_conviction": lw_res["high_conviction"]}
-            if lw_res["decision"] == "reject":
-                dr.action = RejectAction(stage="late_window_gate", reason=lw_res["reason"])
-                if self.markov is not None:
-                    self.markov.record_terminal(state=cand_state, accepted=False)
-                _finalize(dr, "rejected", reason=lw_res["reason"], stage="late_window_gate")
-                continue
-            entry_mode = ("late_window" if (lw_res["late"] and lw_res["high_conviction"])
-                          else "standard")
+            # --- quant OPINION gates (TV-signal / context / late-window / selectivity). These are
+            # the quant's directional opinion; in FOLLOW mode Grok OWNS the direction so they are
+            # bypassed. The deterministic FLOOR (execution-quality gate + caps) below still applies.
+            if not grok_follow:
+                tv_reason = self._tv_signal_gate(tv_feature, d.side)
+                if tv_reason is not None:
+                    dr.action = RejectAction(stage="directional", reason=tv_reason)
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason=tv_reason, stage="directional")
+                    continue
+                ctx_res = self.tv_context_gate.evaluate(
+                    volume_state=(tv_feature or {}).get("volume_state"),
+                    hurst_regime=(rfeat.hurst_regime if rfeat else None), ttc_s=ttc)
+                dr.context_gate = {"decision": ctx_res["decision"], "reasons": ctx_res["reasons"]}
+                if ctx_res["decision"] == "block":
+                    dr.action = RejectAction(stage="context_gate", reason=ctx_res["reasons"][0])
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason=ctx_res["reasons"][0], stage="context_gate")
+                    continue
+                context_explored = (ctx_res["decision"] == "explore")
+                lw_res = self.late_window_gate.evaluate(ttc_s=ttc, p_up=fair_used)
+                dr.late_window = {"decision": lw_res["decision"], "reason": lw_res["reason"],
+                                  "conviction": lw_res["conviction"], "late": lw_res["late"],
+                                  "high_conviction": lw_res["high_conviction"]}
+                if lw_res["decision"] == "reject":
+                    dr.action = RejectAction(stage="late_window_gate", reason=lw_res["reason"])
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason=lw_res["reason"], stage="late_window_gate")
+                    continue
+                entry_mode = ("late_window" if (lw_res["late"] and lw_res["high_conviction"])
+                              else "standard")
             # LEARNED SELECTIVITY GATE (between decision and execution): reject proven-losing
             # buckets using LIVE settled-trade evidence. Can only make the bot MORE selective —
             # it never trades/resizes/bypasses the execution gate below. Also calibrate the fair.
-            sel_tags = {
-                "hurst_regime": (rfeat.hurst_regime if rfeat else None),
-                "zscore_bucket": (rfeat.zscore_bucket if rfeat else None),
-                "ttc_bucket": ttc_bucket(ttc),
-                "confidence_tier": _confidence_tier((dr.model or {}).get("model_confidence")
-                                                    if (dr.model or {}).get("trained")
-                                                    else (dr.signals or {}).get("confidence")),
-                "spread_bucket": _spread_bucket(mc.spread),
-                "depth_bucket": _depth_bucket(mc.ask_depth_usd),
-                "markov_state": cand_state,
-                "edge_quality_bucket": (fsnap.edge_quality_bucket if fsnap else None),
-                "stale_divergence": (esnap.stale_divergence_class if esnap else None),
-                "direction": d.side}
-            from engine.pulse.selectivity import calibrate_fair
-            raw_fp, cal_fp, cal_diag = calibrate_fair(
-                fair, sel_tags, self.selectivity_evidence,
-                min_samples=self.cfg.calibration_min_samples,
-                max_shrink=self.cfg.calibration_max_shrink)
-            dr.calibration = {"raw_fair_p_up": raw_fp, "calibrated_fair_p_up": cal_fp,
-                              "diag": cal_diag}
-            gate_res = self.selectivity_gate.evaluate(sel_tags, self.selectivity_evidence)
-            dr.selectivity = {"decision": gate_res["decision"], "reasons": gate_res["reasons"],
-                              "bad_buckets": gate_res["bad_buckets"]}
-            if gate_res["decision"] == "reject":
-                dr.action = RejectAction(stage="selectivity_gate", reason=gate_res["reasons"][0])
-                if self.markov is not None:
-                    self.markov.record_terminal(state=cand_state, accepted=False)
-                _finalize(dr, "rejected", reason=gate_res["reasons"][0], stage="selectivity_gate")
-                continue
-            gate_decision = "explored" if gate_res["decision"] == "explore" else "passed"
+            if grok_follow:
+                gate_decision = "grok_follow"
+            else:
+                sel_tags = {
+                    "hurst_regime": (rfeat.hurst_regime if rfeat else None),
+                    "zscore_bucket": (rfeat.zscore_bucket if rfeat else None),
+                    "ttc_bucket": ttc_bucket(ttc),
+                    "confidence_tier": _confidence_tier((dr.model or {}).get("model_confidence")
+                                                        if (dr.model or {}).get("trained")
+                                                        else (dr.signals or {}).get("confidence")),
+                    "spread_bucket": _spread_bucket(mc.spread),
+                    "depth_bucket": _depth_bucket(mc.ask_depth_usd),
+                    "markov_state": cand_state,
+                    "edge_quality_bucket": (fsnap.edge_quality_bucket if fsnap else None),
+                    "stale_divergence": (esnap.stale_divergence_class if esnap else None),
+                    "direction": d.side}
+                from engine.pulse.selectivity import calibrate_fair
+                raw_fp, cal_fp, cal_diag = calibrate_fair(
+                    fair, sel_tags, self.selectivity_evidence,
+                    min_samples=self.cfg.calibration_min_samples,
+                    max_shrink=self.cfg.calibration_max_shrink)
+                dr.calibration = {"raw_fair_p_up": raw_fp, "calibrated_fair_p_up": cal_fp,
+                                  "diag": cal_diag}
+                gate_res = self.selectivity_gate.evaluate(sel_tags, self.selectivity_evidence)
+                dr.selectivity = {"decision": gate_res["decision"], "reasons": gate_res["reasons"],
+                                  "bad_buckets": gate_res["bad_buckets"]}
+                if gate_res["decision"] == "reject":
+                    dr.action = RejectAction(stage="selectivity_gate", reason=gate_res["reasons"][0])
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason=gate_res["reasons"][0], stage="selectivity_gate")
+                    continue
+                gate_decision = "explored" if gate_res["decision"] == "explore" else "passed"
             # STRICT execution-quality gate (AUTHORITATIVE): EV from the live ask-ladder VWAP.
             book = w.up_book if d.side == "up" else w.down_book
             ex = evaluate_execution(
                 side=d.side, book=book, outcome_prob=outcome_prob,
-                size_usd=self.cfg.size_usd, tick_size=w.tick_size, ttc_s=ttc,
+                size_usd=round(self.cfg.size_usd * grok_size_frac, 2),
+                tick_size=w.tick_size, ttc_s=ttc,
                 min_seconds_to_close=self.cfg.min_seconds_to_close,
                 max_spread=self.cfg.exec_max_spread, min_depth_usd=self.cfg.min_depth_usd,
                 min_order_usd=self.cfg.exec_min_order_usd,
@@ -920,7 +1015,8 @@ class PulseEngine:
                 _finalize(dr, "rejected", reason=ex.reason, stage="execution_gate")
                 continue
             d.price = ex.fill_price               # paper fill at realistic VWAP price
-            pos = self.ledger.open_position(w, d, now, size_usd=self.cfg.size_usd,
+            pos = self.ledger.open_position(w, d, now,
+                                            size_usd=round(self.cfg.size_usd * grok_size_frac, 2),
                                             s_open=snap.price, decision_id=mc.decision_id)
             if pos is None:
                 # gate accepted but the paper fill could not be recorded — do NOT claim a trade;
@@ -1225,6 +1321,67 @@ class PulseEngine:
             # else: stale with no price -> drop
         self._tv_pending = still[-1000:]
 
+    def _grok_decision_bundle(self, mc, dr, w, fair_used, ttc, tv_feature) -> dict:
+        """Compact 'analyze everything' payload for the Grok decider: market microstructure, the
+        digital fair, the TradingView signal, regime/research, edge signal, and the bot's OWN learned
+        evidence (selectivity bucket verdicts, late-window edge, recent decider accuracy)."""
+        rf = dr.features or {}
+        try:
+            sel_be = self.selectivity_gate.bucket_evidence(self.selectivity_evidence, top=6)
+        except Exception:  # noqa: BLE001
+            sel_be = {}
+        return {
+            "market": "polymarket_btc_5m_up_or_down",
+            "decision_id": mc.decision_id, "seconds_to_close": round(ttc, 1),
+            "btc_price_now": mc.s_now, "btc_price_open": mc.s_open,
+            "sigma_per_sec": mc.sigma_per_sec, "digital_fair_p_up": fair_used,
+            "polymarket": {"yes_mid": mc.poly_yes, "spread": mc.spread,
+                           "up_best_ask": (w.up_book.best_ask if w.up_book else None),
+                           "down_best_ask": (w.down_book.best_ask if w.down_book else None),
+                           "ask_depth_usd": mc.ask_depth_usd},
+            "tradingview_signal": tv_feature,
+            "research": {"hurst_regime": rf.get("hurst_regime"), "zscore_bucket": rf.get("zscore_bucket"),
+                         "regime": (dr.regime or {}).get("state")},
+            "edge_signal": {k: (dr.edge or {}).get(k) for k in
+                            ("pulse_edge_score", "stale_divergence_class", "cex_agreement_bucket")},
+            "edge_model_p_up": (dr.model or {}).get("p_up"),
+            "bot_learned_evidence": {
+                "selectivity_blocked_or_notable": sel_be.get("buckets", [])[:6],
+                "late_window_edge_verdict": self.late_window_edge.report().get("verdict"),
+                "ledger": {"trades": self.ledger.stats().get("trades"),
+                           "win_rate": self.ledger.stats().get("win_rate"),
+                           "realized_pnl_usd": self.ledger.stats().get("realized_pnl_usd")}},
+            "decider_track_record": (self.grok_decider.report() if self.grok_decider else {}),
+            "note": "advisory paper decision; bot enforces realism/risk floor; PAPER ONLY",
+        }
+
+    def _schedule_grok_grade(self, decision_id: str, price0, close_ts: float) -> None:
+        if price0 is None:
+            return
+        for p in self._grok_pending:
+            if p["decision_id"] == decision_id:
+                return
+        self._grok_pending.append({"decision_id": decision_id, "price0": float(price0),
+                                   "close_ts": float(close_ts)})
+
+    def _grade_grok_decisions(self, now: float) -> None:
+        """Grade due Grok decisions vs the realized 5-min outcome (UP if close >= open), traded or
+        not — the shadow-mode measurement. Observe-only; leakage-free (price0 snapshotted at entry)."""
+        if not self._grok_pending or self.grok_decider is None:
+            return
+        px = self.price.current()
+        still = []
+        for p in self._grok_pending:
+            if now < p["close_ts"]:
+                still.append(p)
+                continue
+            if px is not None:
+                self.grok_decider.grade(p["decision_id"],
+                                        outcome_up=bool(float(px) >= float(p["price0"])))
+            elif now <= p["close_ts"] + 600:
+                still.append(p)
+        self._grok_pending = still[-2000:]
+
     def _tv_signal_gate(self, tv_feature: "dict | None", side: "str | None") -> "str | None":
         """Restrict-only TradingView indication gate. Returns None if the trade is permitted, else
         a rejection reason. Only ACTIVE when the intake exists; it can never force a trade."""
@@ -1316,6 +1473,7 @@ class PulseEngine:
         report["tradingview"] = self._tradingview_report()
         report["learning"] = self._learning_report()
         report["grok_signal_intel"] = self._grok_intel_report()
+        report["grok_decider"] = self._grok_decider_report()
         report["edge_signal"] = self._edge_signal_report()
         report["learned_selectivity_gate"] = self._selectivity_report()
         report["late_window_entry"] = self._late_window_report()
@@ -1372,6 +1530,17 @@ class PulseEngine:
             return rep
         except Exception:  # noqa: BLE001
             return {}
+
+    def _grok_decider_report(self) -> dict:
+        """Grok Decision Engine status (off/shadow/follow): decisions, direction accuracy, Brier,
+        latency, abstains, per-action breakdown. PAPER ONLY; shadow does not trade."""
+        if self.grok_decider is None:
+            return {"enabled": False, "mode": self.cfg.grok_decider_mode, "paper_only": True,
+                    "affects_trading": False}
+        rep = self.grok_decider.report()
+        rep["pending_grades"] = len(self._grok_pending)
+        rep["use_search"] = bool(self.cfg.grok_decider_use_search)
+        return rep
 
     def _grok_intel_report(self) -> dict:
         """Observe-only Grok signal-intelligence status (A analyst + B predictor + budget)."""
@@ -1489,6 +1658,7 @@ class PulseEngine:
             "grok_overlay": (self.overlay.status() if self.overlay is not None
                              else {"enabled": False}),
             "grok_signal_intel": self._grok_intel_report(),
+            "grok_decider": self._grok_decider_report(),
             "edge_signal": self._edge_signal_report(),
             "learned_selectivity_gate": self._selectivity_report(),
             "late_window_entry": self._late_window_report(),
@@ -1519,6 +1689,9 @@ class PulseEngine:
                                                  if self.grok_predictor is not None else {}),
                               "grok_analyst": (self.grok_analyst.to_state()
                                                if self.grok_analyst is not None else {}),
+                              "grok_decider": (self.grok_decider.to_state()
+                                               if self.grok_decider is not None else {}),
+                              "grok_pending": self._grok_pending[-2000:],
                               "edge_model": (self.edge_model.to_state()
                                              if self.edge_model is not None else {}),
                               "selectivity_evidence": self.selectivity_evidence.to_state(),
