@@ -10468,30 +10468,30 @@
  },
  "accounting_state": {
   "lifecycle": {
-   "created": 13452,
-   "feature_scored": 12994,
+   "created": 13790,
+   "feature_scored": 13246,
    "execution_costed": 132,
    "ledgered": 132,
-   "reported": 13452,
+   "reported": 13790,
    "terminals": {
     "accepted": 132,
-    "rejected": 12862,
-    "skipped": 443,
+    "rejected": 13114,
+    "skipped": 527,
     "expired": 0,
-    "missing_data": 15
+    "missing_data": 17
    },
    "rejected_by_stage": {
-    "directional": 12267,
+    "directional": 12472,
     "execution_gate": 0,
-    "selectivity_gate": 554,
-    "context_gate": 41
+    "selectivity_gate": 557,
+    "context_gate": 85
    },
    "skipped_by_reason": {
-    "open_snapshot_late": 436,
+    "open_snapshot_late": 520,
     "untrusted_vol": 7
    },
    "missing_by_reason": {
-    "no_open_snapshot": 14,
+    "no_open_snapshot": 16,
     "no_price_or_vol": 1
    }
   },
@@ -10591,26 +10591,6 @@
   "rsi_trend": {
    "hist": {
     "BTCUSD": [
-     [
-      1782112800.0,
-      "UP"
-     ],
-     [
-      1782113100.0,
-      "UP"
-     ],
-     [
-      1782113400.0,
-      "UP"
-     ],
-     [
-      1782113700.0,
-      "UP"
-     ],
-     [
-      1782114000.0,
-      "UP"
-     ],
      [
       1782114300.0,
       "UP"
@@ -10846,6 +10826,26 @@
      [
       1782135600.0,
       "UP"
+     ],
+     [
+      1782135900.0,
+      "UP"
+     ],
+     [
+      1782136200.0,
+      "UP"
+     ],
+     [
+      1782136500.0,
+      "UP"
+     ],
+     [
+      1782136800.0,
+      "UP"
+     ],
+     [
+      1782137100.0,
+      "UP"
      ]
     ]
    },
@@ -10860,8 +10860,8 @@
       "n": 7
      },
      "up_streak3": {
-      "up": 27,
-      "n": 49
+      "up": 30,
+      "n": 54
      },
      "down_streak1": {
       "up": 3,
@@ -10877,20 +10877,20 @@
      }
     }
    },
-   "pred_n": 49,
-   "pred_correct": 21,
+   "pred_n": 54,
+   "pred_correct": 24,
    "pred_by_symbol": {
     "BTCUSD": {
-     "n": 49,
-     "correct": 21
+     "n": 54,
+     "correct": 24
     }
    },
-   "sig_n": 88,
-   "sig_correct": 44,
+   "sig_n": 93,
+   "sig_correct": 47,
    "sig_by_direction": {
     "UP": {
-     "n": 63,
-     "correct": 33
+     "n": 68,
+     "correct": 36
     },
     "DOWN": {
      "n": 25,
@@ -11369,13 +11369,13 @@
    },
    "settled": 36,
    "accepted": 35,
-   "rejected": 5067,
+   "rejected": 5400,
    "accepted_by_direction": {
     "UP": 19,
     "DOWN": 16
    },
    "rejected_by_direction": {
-    "UP": 3990,
+    "UP": 4323,
     "DOWN": 1077
    }
   },
@@ -11383,11 +11383,11 @@
    {
     "symbol": "BTCUSD",
     "direction": "UP",
-    "event_id": "BTCUSD-5-1782135300000-UP_STRONG-v4-orderflow",
+    "event_id": "BTCUSD-5-1782136800000-UP_STRONG-v4-orderflow",
     "state": "up_streak3",
     "model_pred": "UP",
-    "price0": 65228.090675,
-    "due_ts": 1782135900.0
+    "price0": 65370.50835563612,
+    "due_ts": 1782137400.0
    }
   ],
   "edge_signal": {
@@ -11518,42 +11518,42 @@
     },
     "settled": 45
    },
-   "snapshots": 9260
+   "snapshots": 9512
   },
   "grok_predictor": {
-   "requested": 89,
-   "predicted": 89,
+   "requested": 94,
+   "predicted": 94,
    "errors": 0,
    "skipped_budget": 0,
-   "scored": 85,
-   "correct": 43,
-   "brier_sum": 21.7573
+   "scored": 89,
+   "correct": 45,
+   "brier_sum": 22.7459
   },
   "grok_analyst": {
-   "calls": 21,
+   "calls": 24,
    "errors": 0,
    "skipped_budget": 0,
    "note": {
-    "summary": "With only 35 settled signals the sample is too small for reliable inference; DOWN_WEAK, z-score -1..1, active volume, and supertrend_bullish show elevated win-rates (0.65-0.71) and positive EV while most other slices are flat-to-negative. UP_STRONG, volume spike, and >=240 s TTC buckets post clear losses. Extreme win-rate variance (0 or 1.0) appears in every bucket with n<=5.",
+    "summary": "Total n=35 accepted signals (19 UP/16 DOWN) yields mixed win-rates (0.5-0.625) with overall negative realized PnL yet modestly positive avg EV after costs; a few slices (active volume, z-score -1..1, 60-120s TTC, wick-rejection candles) show above-random performance while most others degrade.",
     "working": [
-     "DOWN_WEAK (n=10, WR 0.70, EV 0.143)",
-     "zscore -1..1 (n=28, WR 0.643, +PnL)",
-     "volume_state=active (n=14, WR 0.714, +PnL)",
-     "supertrend_bullish (n=20, WR 0.65)"
+     "volume_state=active (n=14, win=0.714, +13.7 PnL, EV 0.145)",
+     "zscore_bucket=-1..1 (n=28, win=0.643, +3.77 PnL, EV 0.123)",
+     "candle_pressure=lower_wick_rejection or upper_wick_rejection (combined n=10, positive PnL)",
+     "ttc_bucket=60-120s (n=3, win=1.0) and by_direction=DOWN (n=16, win=0.625, EV 0.138)"
     ],
     "failing": [
-     "UP_STRONG (n=14, WR 0.429)",
-     "volume_state=spike (n=8, WR 0.125)",
-     "strength >=0.8 (n=20, WR 0.45)",
-     "ttc >=240s (n=5, WR 0.2)"
+     "volume_state=spike (n=8, win=0.125, -33 PnL)",
+     "hurst_regime=noise (n=2, win=0.0, -10 PnL)",
+     "zscore_bucket=-2..-1 or 1..2 (combined n=8, win<=0.33, large negative PnL)",
+     "by_signal_level=UP_STRONG and by_strength>=0.8 (win<=0.45, negative PnL)"
     ],
     "warnings": [
-     "Total n=35 and most buckets n<10; all 0/1.0 win-rates are small-sample artifacts",
-     "Positive avg_EV but negative realized PnL suggests unmodeled costs/slippage",
-     "Multi-way slicing on 15+ dimensions on 35 rows guarantees overfitting; watch for degradation on next 50 signals"
+     "All buckets have n<=34 and most n<10; extreme small-sample variance and selection bias risk",
+     "Multiple simultaneous slicing (regime/z-score/volume/candle) on 35 trades invites overfitting",
+     "Positive EV vs negative realized PnL gap suggests cost or execution modeling issues; nothing is statistically reliable yet"
     ]
    },
-   "note_ts": 1782134378.1705043
+   "note_ts": 1782137263.5943234
   },
   "edge_model": {
    "w": {
@@ -12181,14 +12181,14 @@
   },
   "selectivity_gate": {
    "accepted": 0,
-   "rejected": 554,
+   "rejected": 557,
    "explored": 32,
    "reject_reasons": {
     "bad_bucket:ttc_bucket=>=240s": 4,
     "bad_bucket:confidence_tier=high": 7,
     "bad_bucket:zscore_bucket=-1..1": 11,
     "bad_bucket:confidence_tier=medium": 1,
-    "bad_bucket:hurst_regime=trending": 513,
+    "bad_bucket:hurst_regime=trending": 516,
     "bad_bucket:ttc_bucket=120-240s": 18
    },
    "by_decision": {
@@ -12206,15 +12206,15 @@
   },
   "tv_context_gate": {
    "passed": 110,
-   "blocked": 41,
-   "explored": 2,
+   "blocked": 85,
+   "explored": 5,
    "block_reasons": {
-    "tv_context_volume_spike": 28,
-    "tv_context_ttc_too_far": 13
+    "tv_context_volume_spike": 67,
+    "tv_context_ttc_too_far": 18
    },
    "explore_reasons": {
-    "tv_context_volume_spike": 1,
-    "tv_context_ttc_too_far": 2
+    "tv_context_volume_spike": 4,
+    "tv_context_ttc_too_far": 4
    }
   },
   "late_window_gate": {

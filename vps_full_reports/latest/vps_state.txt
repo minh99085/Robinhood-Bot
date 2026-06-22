@@ -1,17 +1,14 @@
-VPS full report snapshot — 2026-06-22 13:44 UTC
+VPS full report snapshot — 2026-06-22 14:08 UTC
 
 == containers ==
-hermes-training	Up 2 hours (healthy)
-hermes-trading-engine	Up 2 hours (healthy)
-
-== deployed source hashes (engine/context_gate/late_window/tradingview) ==
-2663d7c1be3429e16f9764b5d7709d95bee634a428c9abce9ea4336f1c0c0a93  engine/pulse/engine.py
-d21ec06be4afc3c55e7995aea494ac0722e396126ccd98c56cfea2c154fa6d18  engine/pulse/context_gate.py
-eda10842d6a5c8663c85688ee8d1510fbfa5298a0505900f63235a0840370a0f  engine/pulse/late_window.py
+hermes-training	Up 2 minutes (healthy)
+hermes-trading-engine	Up 2 minutes (healthy)
 
 == enabled features ==
 GROK_BUDGET_DAILY_USD=20
 PULSE_LATE_WINDOW_ENTRY=0
+PULSE_MIN_REWARD_RISK=0.25
+PULSE_SELECTIVITY_CONFIDENCE_Z=1.64
 PULSE_SELECTIVITY_GATE_ENABLED=1
 PULSE_TRADINGVIEW_SIGNAL_GATE=1
 PULSE_TV_CONTEXT_GATE=1

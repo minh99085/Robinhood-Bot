@@ -3,30 +3,30 @@
  "report_only": true,
  "no_live_trading_decisions": true,
  "candidate_lifecycle": {
-  "created": 13452,
-  "feature_scored": 12994,
+  "created": 13791,
+  "feature_scored": 13246,
   "execution_costed": 132,
   "ledgered": 132,
-  "reported": 13452,
+  "reported": 13791,
   "terminals": {
    "accepted": 132,
-   "rejected": 12862,
-   "skipped": 443,
+   "rejected": 13114,
+   "skipped": 528,
    "expired": 0,
-   "missing_data": 15
+   "missing_data": 17
   },
   "rejected_by_stage": {
-   "directional": 12267,
+   "directional": 12472,
    "execution_gate": 0,
-   "selectivity_gate": 554,
-   "context_gate": 41
+   "selectivity_gate": 557,
+   "context_gate": 85
   },
   "skipped_by_reason": {
-   "open_snapshot_late": 436,
+   "open_snapshot_late": 521,
    "untrusted_vol": 7
   },
   "missing_by_reason": {
-   "no_open_snapshot": 14,
+   "no_open_snapshot": 16,
    "no_price_or_vol": 1
   },
   "no_candidate_disappeared": true,
@@ -92,187 +92,20 @@
  "sample_sizes": {
   "accepted": 132,
   "settled": 283,
-  "candidates": 13452,
+  "candidates": 13791,
   "edge_model_labeled": 69
  },
- "missing_data_reasons": {
-  "hurst:insufficient_returns": 35,
-  "half_life:insufficient_samples": 19,
-  "zscore:insufficient_divergence_samples": 19,
-  "kalman:insufficient_samples": 7,
-  "half_life:no_mean_reversion": 1
- },
+ "missing_data_reasons": {},
  "tier_census": {
   "A+": 0,
   "A": 0,
-  "B": 3,
-  "C": 5,
+  "B": 0,
+  "C": 0,
   "D": 0
  },
  "promotion_candidates": [],
- "demotion_candidates": [
-  "edge_quality:medium",
-  "regime:trending",
-  "zscore_bucket:-1..1",
-  "zscore_bucket:-2..-1",
-  "ttc_bucket:<60s"
- ],
- "bucket_pnl": {
-  "pnl_by_hurst_regime": {
-   "trending": {
-    "n": 5,
-    "win_rate": 0.4,
-    "pnl_usd": -4.354,
-    "brier": 0.1683
-   }
-  },
-  "pnl_by_zscore_bucket": {
-   "-1..1": {
-    "n": 3,
-    "win_rate": 0.3333,
-    "pnl_usd": 0.1515,
-    "brier": 0.2658
-   },
-   "-2..-1": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.0436
-   },
-   "1..2": {
-    "n": 1,
-    "win_rate": 1.0,
-    "pnl_usd": 0.4945,
-    "brier": 0.0004
-   }
-  },
-  "pnl_by_half_life_bucket": {
-   "<30s": {
-    "n": 5,
-    "win_rate": 0.4,
-    "pnl_usd": -4.354,
-    "brier": 0.1683
-   }
-  },
-  "pnl_by_ttc_bucket": {
-   "120-240s": {
-    "n": 3,
-    "win_rate": 0.6667,
-    "pnl_usd": 5.646,
-    "brier": 0.1346
-   },
-   "<60s": {
-    "n": 2,
-    "win_rate": 0.0,
-    "pnl_usd": -10.0,
-    "brier": 0.2188
-   }
-  },
-  "pnl_by_edge_quality_bucket": {
-   "high": {
-    "n": 4,
-    "win_rate": 0.5,
-    "pnl_usd": 0.646,
-    "brier": 0.1119
-   },
-   "medium": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.394
-   }
-  },
-  "pnl_by_markov_state": {
-   "chop_noise": {
-    "n": 1,
-    "win_rate": 1.0,
-    "pnl_usd": 10.1515,
-    "brier": 0.3078
-   },
-   "stale_polymarket_down": {
-    "n": 3,
-    "win_rate": 0.3333,
-    "pnl_usd": -9.5055,
-    "brier": 0.0466
-   },
-   "stale_polymarket_up": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.394
-   }
-  },
-  "pnl_by_spread_bucket": {
-   "<=0.01": {
-    "n": 4,
-    "win_rate": 0.5,
-    "pnl_usd": 0.646,
-    "brier": 0.1119
-   },
-   "0.01-0.03": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.394
-   }
-  },
-  "pnl_by_depth_bucket": {
-   ">=1000": {
-    "n": 5,
-    "win_rate": 0.4,
-    "pnl_usd": -4.354,
-    "brier": 0.1683
-   }
-  },
-  "pnl_by_confidence_tier": {
-   "high": {
-    "n": 5,
-    "win_rate": 0.4,
-    "pnl_usd": -4.354,
-    "brier": 0.1683
-   }
-  },
-  "pnl_by_conviction_bucket": {
-   "<0.2": {
-    "n": 1,
-    "win_rate": 1.0,
-    "pnl_usd": 10.1515,
-    "brier": 0.3078
-   },
-   "0.2-0.4": {
-    "n": 2,
-    "win_rate": 0.0,
-    "pnl_usd": -10.0,
-    "brier": 0.2449
-   },
-   "0.4-0.6": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.0436
-   },
-   ">=0.8": {
-    "n": 1,
-    "win_rate": 1.0,
-    "pnl_usd": 0.4945,
-    "brier": 0.0004
-   }
-  },
-  "pnl_by_entry_mode": {
-   "standard": {
-    "n": 4,
-    "win_rate": 0.5,
-    "pnl_usd": 0.646,
-    "brier": 0.1995
-   },
-   "late_window": {
-    "n": 1,
-    "win_rate": 0.0,
-    "pnl_usd": -5.0,
-    "brier": 0.0436
-   }
-  }
- },
+ "demotion_candidates": [],
+ "bucket_pnl": {},
  "learning_questions": [
   "Which Hurst regime / Markov state shows the best clean win-rate and positive PnL?",
   "Which z-score, half-life, spread, depth, or time-to-resolution bucket is strongest?",
