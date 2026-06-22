@@ -888,7 +888,7 @@ class PulseEngine:
                 grok_dec = self.grok_decider.get(mc.decision_id)
                 dr.grok_decision = grok_dec
                 if grok_dec is not None:
-                    self._schedule_grok_grade(mc.decision_id, snap.price, w.close_ts)
+                    self._schedule_grok_grade(mc.decision_id, snap.price, w.close_ts, grok_dec)
             # FOLLOW only when: mode=follow, breaker not tripped, and this window is in the A/B canary
             # follow-fraction. Otherwise fall through to the baseline path (the A/B control arm).
             grok_follow = False
@@ -1472,18 +1472,24 @@ class PulseEngine:
         h = int(hashlib.sha256(str(decision_id).encode("utf-8")).hexdigest()[:8], 16) / 0xFFFFFFFF
         return h < frac
 
-    def _schedule_grok_grade(self, decision_id: str, price0, close_ts: float) -> None:
+    def _schedule_grok_grade(self, decision_id: str, price0, close_ts: float, decision: dict) -> None:
+        """Queue a decision for grading at window close. The gradeable fields (action/p_up/context)
+        are SNAPSHOTTED here and persisted, so grading survives a process restart (the decider's
+        in-memory result cache does not)."""
         if price0 is None:
             return
         for p in self._grok_pending:
             if p["decision_id"] == decision_id:
                 return
         self._grok_pending.append({"decision_id": decision_id, "price0": float(price0),
-                                   "close_ts": float(close_ts)})
+                                   "close_ts": float(close_ts),
+                                   "action": decision.get("action"), "p_up": decision.get("p_up"),
+                                   "context": decision.get("context") or {}})
 
     def _grade_grok_decisions(self, now: float) -> None:
         """Grade due Grok decisions vs the realized 5-min outcome (UP if close >= open), traded or
-        not — the shadow-mode measurement. Observe-only; leakage-free (price0 snapshotted at entry)."""
+        not. Leakage-free (price0 snapshotted at entry). Uses the persisted snapshot so it survives
+        restarts. This is the always-on directional edge data Grok learns from."""
         if not self._grok_pending or self.grok_decider is None:
             return
         px = self.price.current()
@@ -1493,8 +1499,9 @@ class PulseEngine:
                 still.append(p)
                 continue
             if px is not None:
-                self.grok_decider.grade(p["decision_id"],
-                                        outcome_up=bool(float(px) >= float(p["price0"])))
+                self.grok_decider.grade_fields(
+                    action=p.get("action"), p_up=p.get("p_up"), context=p.get("context") or {},
+                    outcome_up=bool(float(px) >= float(p["price0"])))
             elif now <= p["close_ts"] + 600:
                 still.append(p)
         self._grok_pending = still[-2000:]

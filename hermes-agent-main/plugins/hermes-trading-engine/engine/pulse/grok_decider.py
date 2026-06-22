@@ -416,13 +416,23 @@ class GrokDecider:
 
     # -- grading ------------------------------------------------------------ #
     def grade(self, decision_id: str, *, outcome_up: bool, pnl: Optional[float] = None) -> None:
-        """Grade a prior decision against the realized window outcome (leakage-free; called at/after
-        close). Direction accuracy + Brier for up/down; abstains counted. ``pnl`` optional (FOLLOW)."""
+        """Grade by decision_id using the in-memory result cache (used by unit tests)."""
         with self._lock:
             dec = self._results.get(decision_id)
-            if not dec:
-                return
-            action = dec.get("action")
+        if not dec:
+            return
+        self.grade_fields(action=dec.get("action"), p_up=dec.get("p_up"),
+                          context=dec.get("context") or {}, outcome_up=outcome_up, pnl=pnl)
+
+    def grade_fields(self, *, action: Optional[str], p_up, context: Optional[dict],
+                     outcome_up: bool, pnl: Optional[float] = None) -> None:
+        """Grade from explicit snapshot fields (restart-safe — the engine persists these in its
+        pending-grade list, so grades survive a process restart). Always grades the directional VIEW
+        (p_up) vs the realized close; grades the ACTION only for up/down."""
+        if action is None:
+            return
+        with self._lock:
+            dec = {"action": action, "p_up": p_up, "context": context or {}}
             b = self.by_action.setdefault(action, {"n": 0, "wins": 0, "pnl": 0.0})
             b["n"] += 1
             if pnl is not None:

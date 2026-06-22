@@ -149,6 +149,9 @@ class _FakeDecider:
     def grade(self, decision_id, outcome_up, pnl=None):
         self.graded.append((decision_id, bool(outcome_up)))
 
+    def grade_fields(self, *, action, p_up, context, outcome_up, pnl=None):
+        self.graded.append((action, p_up, bool(outcome_up)))
+
     def report(self):
         return {"enabled": True, "mode": self.mode}
 
