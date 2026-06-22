@@ -90,8 +90,9 @@ def _sanitize(d: Optional[dict], now: float, *, vol_mult_cap: float) -> dict:
 class GrokEventOverlay:
     def __init__(self, *, assessor=None, interval_s: float = 180.0,
                  max_calls_per_hour: int = 20, max_stale_s: float = 600.0,
-                 vol_mult_cap: float = 3.0):
+                 vol_mult_cap: float = 3.0, budget=None):
         self._assessor = assessor if assessor is not None else make_xai_assessor()
+        self._budget = budget          # optional shared GrokBudget (daily $ cap across consumers)
         self.interval_s = max(30.0, float(interval_s))
         self.max_calls_per_hour = int(max_calls_per_hour)
         self.max_stale_s = float(max_stale_s)
@@ -113,6 +114,9 @@ class GrokEventOverlay:
         """One assessment pass (used by the loop + directly in tests)."""
         now = float(now if now is not None else time.time())
         if not self._rate_ok(now):
+            return self.current(now)
+        # shared daily-cost guard (across overlay + analyst + predictor), if configured
+        if self._budget is not None and not self._budget.try_spend("overlay", now=now):
             return self.current(now)
         self._call_times.append(now)
         raw = None

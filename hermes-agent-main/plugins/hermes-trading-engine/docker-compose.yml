@@ -49,6 +49,16 @@ services:
       GROK_OVERLAY_ENABLED: "${GROK_OVERLAY_ENABLED:-1}"
       GROK_OVERLAY_INTERVAL_S: "${GROK_OVERLAY_INTERVAL_S:-180}"
       GROK_OVERLAY_MAX_CALLS_PER_HOUR: "${GROK_OVERLAY_MAX_CALLS_PER_HOUR:-20}"
+      # Grok signal-intelligence (OBSERVE-ONLY, off hot path): A=batch analyst over the signal-
+      # learning report, B=per-signal P(up) graded vs realized move. Shared budget caps cost/rate
+      # across A, B, and the overlay. Neither can place/size/bypass a trade. Default ON (needs key).
+      GROK_SIGNAL_ANALYST_ENABLED: "${GROK_SIGNAL_ANALYST_ENABLED:-1}"
+      GROK_SIGNAL_PREDICTOR_ENABLED: "${GROK_SIGNAL_PREDICTOR_ENABLED:-1}"
+      GROK_ANALYST_INTERVAL_S: "${GROK_ANALYST_INTERVAL_S:-1800}"
+      GROK_BUDGET_DAILY_USD: "${GROK_BUDGET_DAILY_USD:-5}"
+      GROK_EST_USD_PER_CALL: "${GROK_EST_USD_PER_CALL:-0.02}"
+      GROK_PREDICTOR_MAX_CALLS_PER_HOUR: "${GROK_PREDICTOR_MAX_CALLS_PER_HOUR:-30}"
+      GROK_ANALYST_MAX_CALLS_PER_HOUR: "${GROK_ANALYST_MAX_CALLS_PER_HOUR:-4}"
       # ---- BTC 5-min pulse engine (LOOSENED quality gates; PAPER ONLY) ----
       # Loose edge/depth so it actively takes PAPER trades on btc-up-or-down-5m windows.
       # The only hard limits left are paper-only safety + don't trade a window whose open

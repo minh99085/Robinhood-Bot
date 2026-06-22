@@ -66,6 +66,16 @@ class PulseConfig:
     grok_overlay_enabled: bool = False
     grok_overlay_interval_s: float = 180.0
     grok_overlay_max_calls_per_hour: int = 20
+    # Grok signal-intelligence layer (OBSERVE-ONLY, off hot path): A = batch analyst over the
+    # TradingView signal-learning report; B = per-signal P(up) predictor graded vs realized move.
+    # A shared budget caps daily cost + per-feature hourly calls. Neither can trade.
+    grok_signal_analyst_enabled: bool = False        # A
+    grok_signal_predictor_enabled: bool = False       # B
+    grok_analyst_interval_s: float = 1800.0
+    grok_budget_daily_usd: float = 5.0
+    grok_est_usd_per_call: float = 0.02
+    grok_predictor_max_calls_per_hour: int = 30
+    grok_analyst_max_calls_per_hour: int = 4
     # price feed: 'auto' uses Chainlink Data Streams (exact resolution feed) when creds are
     # set, else the Coinbase proxy. A sub-second background sampler keeps the price fresh
     # between the slower trade ticks.
@@ -154,6 +164,15 @@ class PulseConfig:
             in ("1", "true", "yes", "on"),
             grok_overlay_interval_s=_envf("GROK_OVERLAY_INTERVAL_S", 180.0),
             grok_overlay_max_calls_per_hour=int(_envf("GROK_OVERLAY_MAX_CALLS_PER_HOUR", 20)),
+            grok_signal_analyst_enabled=str(os.getenv("GROK_SIGNAL_ANALYST_ENABLED", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            grok_signal_predictor_enabled=str(os.getenv("GROK_SIGNAL_PREDICTOR_ENABLED", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            grok_analyst_interval_s=_envf("GROK_ANALYST_INTERVAL_S", 1800.0),
+            grok_budget_daily_usd=_envf("GROK_BUDGET_DAILY_USD", 5.0),
+            grok_est_usd_per_call=_envf("GROK_EST_USD_PER_CALL", 0.02),
+            grok_predictor_max_calls_per_hour=int(_envf("GROK_PREDICTOR_MAX_CALLS_PER_HOUR", 30)),
+            grok_analyst_max_calls_per_hour=int(_envf("GROK_ANALYST_MAX_CALLS_PER_HOUR", 4)),
             price_source=(os.getenv("PULSE_PRICE_SOURCE", "auto") or "auto").strip().lower(),
             price_sampler_interval_s=_envf("PULSE_PRICE_SAMPLER_INTERVAL_S", 1.0),
             oracle_feed_type=(os.getenv("HERMES_ORACLE_FEED_TYPE",
@@ -290,17 +309,41 @@ class PulseEngine:
         self._ev_before_sum = 0.0                 # EV before/after costs (accepted candidates)
         self._ev_after_sum = 0.0
         self._ev_n = 0
+        # ---- Grok consumers share ONE budget guard (daily $ cap + per-feature hourly calls) ----
+        # All OBSERVE-ONLY / off hot path / fail-open; none can place, size, or bypass a trade.
+        self.grok_budget = None
         self.overlay = None
-        if bool(getattr(self.cfg, "grok_overlay_enabled", False)):
-            try:
-                from engine.pulse.overlay import GrokEventOverlay, xai_key_present
-                if xai_key_present():
-                    self.overlay = GrokEventOverlay(
-                        interval_s=self.cfg.grok_overlay_interval_s,
-                        max_calls_per_hour=self.cfg.grok_overlay_max_calls_per_hour)
-                    self.overlay.start()
-            except Exception:  # noqa: BLE001 — overlay never blocks startup
-                self.overlay = None
+        self.grok_analyst = None
+        self.grok_predictor = None
+        try:
+            from engine.pulse.grok_intel import (GrokBudget, GrokSignalAnalyst,
+                                                 GrokSignalPredictor, xai_key)
+            any_grok = (bool(self.cfg.grok_overlay_enabled)
+                        or bool(self.cfg.grok_signal_analyst_enabled)
+                        or bool(self.cfg.grok_signal_predictor_enabled))
+            if any_grok and xai_key():
+                self.grok_budget = GrokBudget(
+                    daily_usd_cap=self.cfg.grok_budget_daily_usd,
+                    est_usd_per_call=self.cfg.grok_est_usd_per_call,
+                    per_feature_hourly={"predictor": self.cfg.grok_predictor_max_calls_per_hour,
+                                        "analyst": self.cfg.grok_analyst_max_calls_per_hour,
+                                        "overlay": self.cfg.grok_overlay_max_calls_per_hour})
+            if bool(self.cfg.grok_overlay_enabled) and xai_key():
+                from engine.pulse.overlay import GrokEventOverlay
+                self.overlay = GrokEventOverlay(
+                    interval_s=self.cfg.grok_overlay_interval_s,
+                    max_calls_per_hour=self.cfg.grok_overlay_max_calls_per_hour,
+                    budget=self.grok_budget)
+                self.overlay.start()
+            if bool(self.cfg.grok_signal_predictor_enabled) and xai_key():
+                self.grok_predictor = GrokSignalPredictor(budget=self.grok_budget).start()
+            if bool(self.cfg.grok_signal_analyst_enabled) and xai_key():
+                self.grok_analyst = GrokSignalAnalyst(
+                    budget=self.grok_budget, interval_s=self.cfg.grok_analyst_interval_s,
+                    report_provider=self._grok_analyst_report).start()
+        except Exception:  # noqa: BLE001 — Grok never blocks startup
+            logger.exception("grok init failed; continuing as pure quant")
+            self.grok_budget = self.overlay = self.grok_analyst = self.grok_predictor = None
         # OBSERVE-ONLY TradingView indicator webhook intake (enabled only when a secret is set).
         # Alerts become candidate signals only; they can never place/resize/bypass a paper trade.
         self.tradingview = None
@@ -371,6 +414,10 @@ class PulseEngine:
         self._rsi_model.load_state(acct.get("rsi_trend") or {})
         self._tv_learner.load_state(acct.get("tv_learner") or {})
         self._tv_pending = list(acct.get("tv_pending") or [])
+        if self.grok_predictor is not None:
+            self.grok_predictor.load_state(acct.get("grok_predictor") or {})
+        if self.grok_analyst is not None:
+            self.grok_analyst.load_state(acct.get("grok_analyst") or {})
         if self.edge_model is not None:          # the learned edge model accumulates across runs
             self.edge_model.load_state(acct.get("edge_model") or {})
         ev = acct.get("ev") or {}
@@ -416,11 +463,22 @@ class PulseEngine:
             for ev in self.tradingview.drain_pending():   # build the per-symbol RSI alert history
                 self._rsi_model.observe(symbol=ev.symbol, direction=ev.direction,
                                         ts=(ev.bar_time or ev.received_at))
+                # B: ask Grok (async, off hot path) for P(up) given this signal + BTC context
+                if self.grok_predictor is not None:
+                    self.grok_predictor.request(ev.event_id, {
+                        "signal": {"direction": ev.direction, "strength": ev.strength,
+                                   "signal_level": ev.signal_level,
+                                   "indicator": ev.indicator_name, "symbol": ev.symbol,
+                                   "timeframe": ev.timeframe},
+                        "btc_price": px_now, "sigma_per_sec": self.price.sigma_per_sec(now),
+                        "regime": (self.overlay.current(now).get("regime")
+                                   if self.overlay is not None else None),
+                        "horizon_s": self.cfg.tradingview_signal_horizon_s})
                 # schedule a forward-return eval for EVERY signal (traded or not) so the prediction
                 # is built from the full signal history, not only windows the bot traded.
                 if px_now is not None:
                     self._tv_pending.append({
-                        "symbol": ev.symbol, "direction": ev.direction,
+                        "symbol": ev.symbol, "direction": ev.direction, "event_id": ev.event_id,
                         "state": self._rsi_model.trend(ev.symbol).get("state"),
                         "model_pred": self._rsi_model.predict(ev.symbol).get("prediction"),
                         "price0": float(px_now),
@@ -431,6 +489,11 @@ class PulseEngine:
             if feat is not None and (feat.get("age_s") is None
                                      or feat["age_s"] <= self.cfg.tradingview_signal_max_feature_age_s):
                 tv_feature = feat
+                # attach Grok's observe-only P(up) for this signal if it has answered (fail-open)
+                if self.grok_predictor is not None:
+                    gp = self.grok_predictor.get(feat.get("event_id"))
+                    if gp is not None:
+                        tv_feature = {**feat, "grok_p_up": gp.get("p_up")}
         ov = self.overlay.current(now) if self.overlay is not None else None
         ov_blackout = bool(ov and ov.get("blackout"))
         ov_vol_mult = float(ov.get("vol_multiplier", 1.0)) if ov else 1.0
@@ -846,6 +909,9 @@ class PulseEngine:
                     symbol=pend["symbol"], state=pend.get("state"),
                     model_pred=pend.get("model_pred"), signal_direction=pend.get("direction"),
                     outcome_up=outcome_up)
+                # B: grade Grok's per-signal P(up) against the same realized move (leakage-free)
+                if self.grok_predictor is not None and pend.get("event_id"):
+                    self.grok_predictor.score(pend["event_id"], outcome_up)
             elif now <= pend["due_ts"] + 600:    # grace: retry until an oracle price is available
                 still.append(pend)
             # else: stale with no price -> drop
@@ -941,7 +1007,36 @@ class PulseEngine:
         report["readiness"] = self.readiness()
         report["tradingview"] = self._tradingview_report()
         report["learning"] = self._learning_report()
+        report["grok_signal_intel"] = self._grok_intel_report()
         return report
+
+    def _grok_analyst_report(self) -> dict:
+        """Snapshot the signal-learning data for the Grok batch analyst (observe-only)."""
+        try:
+            return {"signal_learning": self._tv_learner.report(
+                        promotion_allowed=self.cfg.tradingview_promotion_allowed,
+                        min_samples=self.cfg.tradingview_promotion_min_samples,
+                        min_win_rate=self.cfg.tradingview_promotion_min_win_rate),
+                    "edge_vs_5min_outcome": self._tv_edge.report(),
+                    "rsi_trend": self._rsi_model.report(),
+                    "ledger": self.ledger.stats()}
+        except Exception:  # noqa: BLE001
+            return {}
+
+    def _grok_intel_report(self) -> dict:
+        """Observe-only Grok signal-intelligence status (A analyst + B predictor + budget)."""
+        return {
+            "observe_only": True, "affects_trading": False, "off_hot_path": True,
+            "budget": (self.grok_budget.status() if self.grok_budget is not None
+                       else {"enabled": False}),
+            "analyst_A": (self.grok_analyst.report() if self.grok_analyst is not None
+                          else {"enabled": False}),
+            "predictor_B": (self.grok_predictor.report() if self.grok_predictor is not None
+                            else {"enabled": False}),
+            "note": ("A analyzes signal-learning performance; B predicts P(up) per signal and is "
+                     "graded vs realized moves. Both observe-only — never place/size/bypass a "
+                     "trade; the execution gate remains the sole trade authority."),
+        }
 
     def _tradingview_report(self) -> dict:
         """Observe-only TradingView intake counters + latest signal + signal-vs-5min-outcome edge
@@ -1039,6 +1134,7 @@ class PulseEngine:
             },
             "grok_overlay": (self.overlay.status() if self.overlay is not None
                              else {"enabled": False}),
+            "grok_signal_intel": self._grok_intel_report(),
             "tradingview": self._tradingview_report(),
             "tick_reasons": self._reasons,
             "recent_evaluations": self._last_eval,
@@ -1060,6 +1156,10 @@ class PulseEngine:
                               "rsi_trend": self._rsi_model.to_state(),
                               "tv_learner": self._tv_learner.to_state(),
                               "tv_pending": self._tv_pending[-1000:],
+                              "grok_predictor": (self.grok_predictor.to_state()
+                                                 if self.grok_predictor is not None else {}),
+                              "grok_analyst": (self.grok_analyst.to_state()
+                                               if self.grok_analyst is not None else {}),
                               "edge_model": (self.edge_model.to_state()
                                              if self.edge_model is not None else {}),
                               "baseline": (self._baseline or empty_baseline())}}
