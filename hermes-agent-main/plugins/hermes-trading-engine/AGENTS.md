@@ -15,6 +15,12 @@ pulse paper engine profitable, fast.
   change, the standard deploy is: push to `main` → sync the VPS → `docker compose down
   --remove-orphans` → `docker compose build` → `docker compose up -d` in the pulse plugin compose
   dir, then verify health/reconciliation.
+- **ALWAYS push every full report to the `vps_full_reports/` directory on `main`** (the repo's
+  `vps_full_reports/` tree). Whenever you pull a
+  full report, refresh `vps_full_reports/latest/` (`btc_pulse_light_report.json`,
+  `btc_pulse_status.json`, `btc_pulse_ledger.json`, `btc_pulse_meta_bundle.json`, `report.md`,
+  `reconciliation_report.md`, `vps_state.txt`) from the live VPS container and commit + push it to
+  `main`.
 
 - **HARD SAFETY INVARIANT (never relaxed):** PAPER ONLY. No real order, no wallet, no signing.
   There is no live-execution code path in `engine/pulse`, and `scripts/run_btc_pulse.py`
