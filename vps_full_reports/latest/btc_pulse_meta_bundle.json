@@ -3,38 +3,38 @@
  "report_only": true,
  "no_live_trading_decisions": true,
  "candidate_lifecycle": {
-  "created": 13791,
-  "feature_scored": 13246,
-  "execution_costed": 132,
-  "ledgered": 132,
-  "reported": 13791,
+  "created": 16352,
+  "feature_scored": 15698,
+  "execution_costed": 139,
+  "ledgered": 139,
+  "reported": 16352,
   "terminals": {
-   "accepted": 132,
-   "rejected": 13114,
-   "skipped": 528,
+   "accepted": 139,
+   "rejected": 15559,
+   "skipped": 635,
    "expired": 0,
-   "missing_data": 17
+   "missing_data": 19
   },
   "rejected_by_stage": {
-   "directional": 12472,
+   "directional": 14642,
    "execution_gate": 0,
-   "selectivity_gate": 557,
-   "context_gate": 85
+   "selectivity_gate": 727,
+   "context_gate": 190
   },
   "skipped_by_reason": {
-   "open_snapshot_late": 521,
+   "open_snapshot_late": 628,
    "untrusted_vol": 7
   },
   "missing_by_reason": {
-   "no_open_snapshot": 16,
+   "no_open_snapshot": 18,
    "no_price_or_vol": 1
   },
   "no_candidate_disappeared": true,
   "reconciled": true
  },
  "execution_stats": {
-  "candidates": 238,
-  "accepted": 238,
+  "candidates": 245,
+  "accepted": 245,
   "rejected_total": 0,
   "rejected": {
    "wide_spread": 0,
@@ -46,7 +46,7 @@
    "missing_market_data": 0,
    "stale_orderbook": 0
   },
-  "fills": 238,
+  "fills": 245,
   "reconciled": true
  },
  "reject_reasons": {
@@ -60,29 +60,33 @@
   "stale_orderbook": 0
  },
  "ev_before_after_costs": {
-  "n": 132,
-  "avg_ev_before_costs": 0.113017,
-  "avg_ev_after_costs": 0.107694
+  "n": 139,
+  "avg_ev_before_costs": 0.113084,
+  "avg_ev_after_costs": 0.107746
  },
  "calibration": {
-  "samples": 283,
-  "brier": 0.236816,
-  "log_loss": 0.672683,
-  "base_rate_up": 0.5124,
+  "samples": 290,
+  "brier": 0.232602,
+  "log_loss": 0.662795,
+  "base_rate_up": 0.5069,
   "baseline_brier_0_5": 0.25
  },
  "edge_model_calibration": {
-  "0.3-0.4": {
+  "0.2-0.3": {
    "n": 1,
-   "empirical_up": 1.0
+   "empirical_up": 0.0
+  },
+  "0.3-0.4": {
+   "n": 4,
+   "empirical_up": 0.25
   },
   "0.4-0.5": {
    "n": 41,
    "empirical_up": 0.4878
   },
   "0.5-0.6": {
-   "n": 26,
-   "empirical_up": 0.4615
+   "n": 29,
+   "empirical_up": 0.4828
   },
   "0.6-0.7": {
    "n": 1,
@@ -90,22 +94,192 @@
   }
  },
  "sample_sizes": {
-  "accepted": 132,
-  "settled": 283,
-  "candidates": 13791,
-  "edge_model_labeled": 69
+  "accepted": 139,
+  "settled": 290,
+  "candidates": 16352,
+  "edge_model_labeled": 76
  },
- "missing_data_reasons": {},
+ "missing_data_reasons": {
+  "half_life:insufficient_samples": 19,
+  "zscore:insufficient_divergence_samples": 19,
+  "kalman:insufficient_samples": 7
+ },
  "tier_census": {
   "A+": 0,
   "A": 0,
-  "B": 0,
-  "C": 0,
+  "B": 4,
+  "C": 4,
   "D": 0
  },
  "promotion_candidates": [],
- "demotion_candidates": [],
- "bucket_pnl": {},
+ "demotion_candidates": [
+  "edge_quality:medium",
+  "regime:trending",
+  "zscore_bucket:1..2",
+  "ttc_bucket:<60s"
+ ],
+ "bucket_pnl": {
+  "pnl_by_hurst_regime": {
+   "trending": {
+    "n": 7,
+    "win_rate": 0.5714,
+    "pnl_usd": -4.0341,
+    "brier": 0.0622
+   }
+  },
+  "pnl_by_zscore_bucket": {
+   "-2..-1": {
+    "n": 4,
+    "win_rate": 0.75,
+    "pnl_usd": 4.6368,
+    "brier": 0.0718
+   },
+   "1..2": {
+    "n": 3,
+    "win_rate": 0.3333,
+    "pnl_usd": -8.6709,
+    "brier": 0.0494
+   }
+  },
+  "pnl_by_half_life_bucket": {
+   "<30s": {
+    "n": 7,
+    "win_rate": 0.5714,
+    "pnl_usd": -4.0341,
+    "brier": 0.0622
+   }
+  },
+  "pnl_by_ttc_bucket": {
+   "60-120s": {
+    "n": 2,
+    "win_rate": 0.5,
+    "pnl_usd": 0.0,
+    "brier": 0.1007
+   },
+   "120-240s": {
+    "n": 3,
+    "win_rate": 1.0,
+    "pnl_usd": 5.9659,
+    "brier": 0.0314
+   },
+   "<60s": {
+    "n": 2,
+    "win_rate": 0.0,
+    "pnl_usd": -10.0,
+    "brier": 0.07
+   }
+  },
+  "pnl_by_edge_quality_bucket": {
+   "high": {
+    "n": 5,
+    "win_rate": 0.8,
+    "pnl_usd": 5.9659,
+    "brier": 0.0591
+   },
+   "medium": {
+    "n": 2,
+    "win_rate": 0.0,
+    "pnl_usd": -10.0,
+    "brier": 0.07
+   }
+  },
+  "pnl_by_markov_state": {
+   "chop_noise": {
+    "n": 4,
+    "win_rate": 0.5,
+    "pnl_usd": -5.9786,
+    "brier": 0.0271
+   },
+   "stale_polymarket_down": {
+    "n": 2,
+    "win_rate": 1.0,
+    "pnl_usd": 6.9444,
+    "brier": 0.0994
+   },
+   "resolution_danger": {
+    "n": 1,
+    "win_rate": 0.0,
+    "pnl_usd": -5.0,
+    "brier": 0.1285
+   }
+  },
+  "pnl_by_spread_bucket": {
+   "<=0.01": {
+    "n": 7,
+    "win_rate": 0.5714,
+    "pnl_usd": -4.0341,
+    "brier": 0.0622
+   }
+  },
+  "pnl_by_depth_bucket": {
+   ">=1000": {
+    "n": 7,
+    "win_rate": 0.5714,
+    "pnl_usd": -4.0341,
+    "brier": 0.0622
+   }
+  },
+  "pnl_by_confidence_tier": {
+   "medium": {
+    "n": 3,
+    "win_rate": 0.6667,
+    "pnl_usd": -0.9786,
+    "brier": 0.0323
+   },
+   "high": {
+    "n": 4,
+    "win_rate": 0.5,
+    "pnl_usd": -3.0556,
+    "brier": 0.0847
+   }
+  },
+  "pnl_by_conviction_bucket": {
+   "0.6-0.8": {
+    "n": 3,
+    "win_rate": 0.3333,
+    "pnl_usd": -8.0556,
+    "brier": 0.0249
+   },
+   ">=0.8": {
+    "n": 1,
+    "win_rate": 1.0,
+    "pnl_usd": 1.3291,
+    "brier": 0.0083
+   },
+   "<0.2": {
+    "n": 1,
+    "win_rate": 1.0,
+    "pnl_usd": 5.0,
+    "brier": 0.1686
+   },
+   "0.4-0.6": {
+    "n": 1,
+    "win_rate": 1.0,
+    "pnl_usd": 2.6923,
+    "brier": 0.0557
+   },
+   "0.2-0.4": {
+    "n": 1,
+    "win_rate": 0.0,
+    "pnl_usd": -5.0,
+    "brier": 0.1285
+   }
+  },
+  "pnl_by_entry_mode": {
+   "late_window": {
+    "n": 2,
+    "win_rate": 0.0,
+    "pnl_usd": -10.0,
+    "brier": 0.0222
+   },
+   "standard": {
+    "n": 5,
+    "win_rate": 0.8,
+    "pnl_usd": 5.9659,
+    "brier": 0.0782
+   }
+  }
+ },
  "learning_questions": [
   "Which Hurst regime / Markov state shows the best clean win-rate and positive PnL?",
   "Which z-score, half-life, spread, depth, or time-to-resolution bucket is strongest?",
