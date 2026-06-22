@@ -295,6 +295,7 @@ class PulseConfig:
             tradingview_webhook_path=(os.getenv("TRADINGVIEW_WEBHOOK_PATH", "/webhooks/tradingview")
                                       or "/webhooks/tradingview").strip(),
             tradingview_max_age_s=_envf("TRADINGVIEW_MAX_AGE_S", 90.0),
+            tradingview_signal_max_feature_age_s=_envf("PULSE_TV_SIGNAL_MAX_FEATURE_AGE_S", 300.0),
             tradingview_signal_gate_enabled=str(os.getenv("PULSE_TRADINGVIEW_SIGNAL_GATE", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
             tradingview_signal_horizon_s=_envf("PULSE_TV_SIGNAL_HORIZON_S", 300.0),
@@ -1343,15 +1344,32 @@ class PulseEngine:
             min_win_rate=self.cfg.edge_promotion_min_win_rate)}
 
     def _grok_analyst_report(self) -> dict:
-        """Snapshot the signal-learning data for the Grok batch analyst (observe-only)."""
+        """Snapshot the bot's GROWING learned evidence for the Grok batch analyst (observe-only), so
+        Grok learns the bot's trading patterns and scrubs the data better as the bot accumulates
+        experience: settled-trade bucket performance, the learned-selectivity bucket evidence
+        (win-rate vs its own breakeven + confidence), the late-window time-decay edge, gate stats,
+        edge-model calibration, and the TradingView signal learning."""
         try:
-            return {"signal_learning": self._tv_learner.report(
+            rep = {"signal_learning": self._tv_learner.report(
                         promotion_allowed=self.cfg.tradingview_promotion_allowed,
                         min_samples=self.cfg.tradingview_promotion_min_samples,
                         min_win_rate=self.cfg.tradingview_promotion_min_win_rate),
-                    "edge_vs_5min_outcome": self._tv_edge.report(),
-                    "rsi_trend": self._rsi_model.report(),
-                    "ledger": self.ledger.stats()}
+                   "edge_vs_5min_outcome": self._tv_edge.report(),
+                   "rsi_trend": self._rsi_model.report(),
+                   "ledger": self.ledger.stats()}
+            # the bot's OWN learned trading patterns (this is what makes Grok "grow with the bot")
+            rep["learned_pnl_by_bucket"] = self._groups.summary()
+            rep["learned_selectivity"] = self.selectivity_gate.report(
+                evidence=self.selectivity_evidence, positions=self._selectivity_positions())
+            rep["late_window_edge"] = self.late_window_edge.report()
+            rep["context_gate"] = self.tv_context_gate.report()
+            rep["reward_risk_floor"] = {"min_reward_risk": self.cfg.min_reward_risk}
+            if self.edge_model is not None:
+                em = self.edge_model.report()
+                rep["edge_model"] = {"n_labeled": em.get("n_labeled"),
+                                     "calibration_error": em.get("calibration_error"),
+                                     "calibration_table": em.get("calibration_table")}
+            return rep
         except Exception:  # noqa: BLE001
             return {}
 

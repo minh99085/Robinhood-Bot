@@ -268,26 +268,42 @@ class GrokSignalPredictor:
 
 # --------------------------------- A: batch analyst ---------------------------------------- #
 def make_signal_analyst(*, model: str = "grok-4.3", timeout_s: float = 30.0):
-    """Build ``analyst_fn(report) -> dict|None`` that analyzes the signal-learning report."""
+    """Build ``analyst_fn(report) -> dict|None`` that LEARNS the bot's trading patterns over time.
+
+    The report now carries the bot's GROWING learned evidence — settled-trade bucket performance
+    (pnl_by_*), the learned-selectivity bucket evidence (with breakeven / confidence), the
+    late-window time-decay edge, gate stats, edge-model calibration, and the TradingView signal
+    learning — PLUS the analyst's own ``prior_analysis``. The prompt asks Grok to refine its prior
+    understanding as the sample grows (continuity), so it scrubs the data better the more the bot
+    learns. Diagnostics only — never recommends going live or placing a trade."""
     box: dict = {}
 
     def _analyze(report: dict) -> Optional[dict]:
         prompt = (
-            "You are a quant researcher reviewing an OBSERVE-ONLY paper-trading bot's TradingView "
-            "RSI-divergence signal performance. The data is bucketed win-rate/PnL/EV by direction, "
-            "signal level, strength, regime, z-score, time-to-close, spread and depth. Identify "
-            "which contexts look genuinely predictive vs noise, call out small-sample/overfitting "
-            "risks explicitly, and suggest what to watch. Do NOT recommend going live. Respond with "
-            "STRICT JSON only: {\"summary\":\"<2-3 sentences>\",\"working\":[\"...\"],"
-            "\"failing\":[\"...\"],\"warnings\":[\"...\"]}.\nREPORT: "
-            + json.dumps(report, default=str)[:6000])
+            "You are a quant researcher CONTINUOUSLY LEARNING an OBSERVE-ONLY paper-trading bot's "
+            "BTC 5-minute trading patterns. You are given the bot's GROWING learned evidence: "
+            "settled-trade performance bucketed by regime/z-score/time-to-close/conviction/entry-"
+            "mode (pnl_by_*), the learned-selectivity bucket evidence (each bucket's win-rate vs its "
+            "OWN breakeven win-rate, with a confidence flag), the late-window time-decay edge "
+            "(cohort vs other), gate stats, edge-model calibration, and TradingView signal learning. "
+            "You are ALSO given your own PRIOR analysis ('prior_analysis') and how many analyses you "
+            "have done ('analyses_done'). REFINE your understanding as the sample grows: which "
+            "patterns are now CONFIRMED profitable (win-rate confidently above breakeven, positive "
+            "EV after cost, enough samples) vs which are noise/overfit; what CHANGED since your prior "
+            "analysis; and where the bot should focus next. Be calibrated; ignore buckets with n<8. "
+            "Do NOT recommend going live. Respond with STRICT JSON only: {\"summary\":\"<2-3 "
+            "sentences>\",\"working\":[\"...\"],\"failing\":[\"...\"],\"warnings\":[\"...\"],"
+            "\"changes_since_last\":[\"...\"],\"focus_next\":[\"...\"]}.\nEVIDENCE: "
+            + json.dumps(report, default=str)[:9000])
         d = _parse_json(_grok_chat(prompt, model=model, timeout_s=timeout_s, box=box))
         if not d:
             return None
         return {"summary": str(d.get("summary", ""))[:1000],
                 "working": [str(x)[:200] for x in (d.get("working") or [])][:8],
                 "failing": [str(x)[:200] for x in (d.get("failing") or [])][:8],
-                "warnings": [str(x)[:200] for x in (d.get("warnings") or [])][:8]}
+                "warnings": [str(x)[:200] for x in (d.get("warnings") or [])][:8],
+                "changes_since_last": [str(x)[:200] for x in (d.get("changes_since_last") or [])][:6],
+                "focus_next": [str(x)[:200] for x in (d.get("focus_next") or [])][:6]}
     return _analyze
 
 
@@ -303,6 +319,7 @@ class GrokSignalAnalyst:
         self._lock = threading.Lock()
         self._note: Optional[dict] = None
         self._note_ts = 0.0
+        self._history: deque = deque(maxlen=20)      # rolling memory of past notes (Grok "learning")
         self.calls = 0
         self.errors = 0
         self.skipped_budget = 0
@@ -318,6 +335,11 @@ class GrokSignalAnalyst:
             report = self._report_provider() if self._report_provider else {}
         except Exception:  # noqa: BLE001
             report = {}
+        # continuity: give Grok its prior analysis + how many it has done, so it REFINES (learns)
+        # its understanding as the bot's evidence grows rather than starting fresh each cycle.
+        with self._lock:
+            report["prior_analysis"] = self._note
+            report["analyses_done"] = self.calls
         note = None
         try:
             note = self._fn(report)
@@ -329,6 +351,9 @@ class GrokSignalAnalyst:
             self.calls += 1
             with self._lock:
                 self._note, self._note_ts = note, time.time()
+                self._history.append({"ts": round(self._note_ts, 1),
+                                      "summary": note.get("summary", ""),
+                                      "changes_since_last": note.get("changes_since_last", [])})
         return note
 
     def _worker(self) -> None:
@@ -356,16 +381,22 @@ class GrokSignalAnalyst:
         with self._lock:
             note = dict(self._note) if self._note else None
             ts = self._note_ts
+            history = list(self._history)
         return {"enabled": True, "observe_only": True, "affects_trading": False,
                 "interval_s": self.interval_s, "calls": self.calls, "errors": self.errors,
                 "skipped_budget": self.skipped_budget, "last_note": note, "last_note_ts": ts,
-                "note": "observe-only Grok research analysis of signal performance; never trades."}
+                "learns_from": "bot_growing_evidence_with_continuity",
+                "history": history[-8:],
+                "note": ("observe-only Grok research analyst that LEARNS the bot's trading patterns "
+                         "from its growing settled-trade/selectivity/late-window evidence and refines "
+                         "across cycles (continuity). Diagnostics only — never trades.")}
 
     def to_state(self) -> dict:
         with self._lock:
             return {"calls": self.calls, "errors": self.errors,
                     "skipped_budget": self.skipped_budget,
-                    "note": self._note, "note_ts": self._note_ts}
+                    "note": self._note, "note_ts": self._note_ts,
+                    "history": list(self._history)}
 
     def load_state(self, data: dict) -> None:
         if not data:
@@ -376,3 +407,4 @@ class GrokSignalAnalyst:
             self.skipped_budget = int(data.get("skipped_budget", 0) or 0)
             self._note = data.get("note")
             self._note_ts = float(data.get("note_ts", 0.0) or 0.0)
+            self._history = deque((data.get("history") or []), maxlen=20)

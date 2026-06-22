@@ -96,6 +96,33 @@ def test_analyst_produces_note_and_fail_open():
     assert a2.report()["last_note"] is None and a2.report()["errors"] == 1
 
 
+def test_analyst_learns_with_continuity_and_history():
+    """A feeds its PRIOR analysis back in (continuity) and keeps a rolling history, so it refines as
+    the bot's evidence grows."""
+    seen = []
+
+    def _fn(report):
+        seen.append(report)                          # capture what the analyst was given
+        i = len(seen)
+        return {"summary": "analysis %d" % i, "changes_since_last": ["delta %d" % i],
+                "focus_next": ["watch trending"]}
+    a = GrokSignalAnalyst(analyst_fn=_fn,
+                          report_provider=lambda: {"learned_selectivity": {"rejected": 5}})
+    a.refresh()
+    a.refresh()
+    # 2nd call's report carried the 1st note as prior_analysis + the running count (continuity)
+    assert seen[0]["prior_analysis"] is None and seen[0]["analyses_done"] == 0
+    assert seen[1]["prior_analysis"]["summary"] == "analysis 1" and seen[1]["analyses_done"] == 1
+    rep = a.report()
+    assert rep["last_note"]["summary"] == "analysis 2"
+    assert rep["last_note"]["changes_since_last"] == ["delta 2"]
+    assert len(rep["history"]) == 2 and rep["learns_from"] == "bot_growing_evidence_with_continuity"
+    # history survives a persist/restore round-trip
+    restored = GrokSignalAnalyst(analyst_fn=lambda r: None)
+    restored.load_state(a.to_state())
+    assert len(restored.report()["history"]) == 2
+
+
 def test_analyst_budget_skip_and_persist():
     spent = GrokBudget(daily_usd_cap=0.0, est_usd_per_call=0.02)
     a = GrokSignalAnalyst(analyst_fn=lambda r: {"summary": "x"}, budget=spent,

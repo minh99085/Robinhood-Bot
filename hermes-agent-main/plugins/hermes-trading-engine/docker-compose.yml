@@ -163,6 +163,9 @@ services:
       # Use TradingView as the DIRECTIONAL INDICATION SIGNAL (restrict-only): trade only when a
       # fresh TradingView signal agrees with the side. Can only PREVENT trades, never force/bypass.
       PULSE_TRADINGVIEW_SIGNAL_GATE: "${PULSE_TRADINGVIEW_SIGNAL_GATE:-0}"
+      # how long a TradingView signal stays usable as a fresh feature/gate input (s). Higher = the
+      # signal gate trades more often between alerts (e.g. 600 = a 5m alert covers until the next).
+      PULSE_TV_SIGNAL_MAX_FEATURE_AGE_S: "${PULSE_TV_SIGNAL_MAX_FEATURE_AGE_S:-300}"
       # forward-return horizon (s) for learning whether EVERY TradingView signal predicted the
       # subsequent BTC move (builds the prediction from the full signal history). Observe-only.
       PULSE_TV_SIGNAL_HORIZON_S: "${PULSE_TV_SIGNAL_HORIZON_S:-300}"
