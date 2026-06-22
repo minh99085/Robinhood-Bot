@@ -13,8 +13,30 @@ once a bucket has enough samples) and a counterfactual replay over the existing 
 
 from __future__ import annotations
 
+import math
 import random
 from typing import Optional
+
+
+def _wilson_upper(wins: int, n: int, z: float) -> float:
+    """One-sided upper bound of the Wilson score interval for a binomial proportion."""
+    if n <= 0:
+        return 1.0
+    phat = wins / n
+    denom = 1.0 + z * z / n
+    center = (phat + z * z / (2 * n)) / denom
+    margin = (z * math.sqrt((phat * (1.0 - phat) + z * z / (4 * n)) / n)) / denom
+    return min(1.0, center + margin)
+
+
+def breakeven_win_rate(avg_win: float, avg_loss: float) -> float:
+    """The win-rate at which a bucket is EV-neutral given its OWN realized payoff: a win nets
+    ``avg_win`` while a loss costs ``avg_loss`` (full stake), so breakeven = avg_loss/(avg_win+avg_loss).
+    For a fixed-stake binary at price>0.5, avg_loss>avg_win so breakeven>0.5 (e.g. 3.75/5 -> 0.571)."""
+    denom = float(avg_win) + float(avg_loss)
+    if denom <= 0:
+        return 0.5
+    return float(avg_loss) / denom
 
 # entry-time bucket dimensions the gate learns over (all present on the position's research tags)
 DEFAULT_DIMS = ("hurst_regime", "zscore_bucket", "ttc_bucket", "confidence_tier", "spread_bucket",
@@ -118,10 +140,12 @@ class LearnedSelectivityGate:
     Never trades, resizes, or bypasses the execution gate."""
 
     def __init__(self, *, enabled: bool = True, min_samples: int = 30, min_win_rate: float = 0.52,
-                 exploration_rate: float = 0.05, seed: Optional[int] = None):
+                 exploration_rate: float = 0.05, confidence_z: float = 1.64,
+                 seed: Optional[int] = None):
         self.enabled = bool(enabled)
         self.min_samples = int(min_samples)
         self.min_win_rate = float(min_win_rate)
+        self.confidence_z = float(confidence_z)        # one-sided z for the "confidently losing" test
         self.exploration_rate = max(0.0, min(0.05, float(exploration_rate)))   # hard cap 5%
         self.accepted = 0
         self.rejected = 0
@@ -130,8 +154,26 @@ class LearnedSelectivityGate:
         self.by_decision: dict = {}        # gate_decision -> settled {n,wins,pnl} (excl. headline)
         self._rng = random.Random(seed)
 
+    def _assess(self, st: dict) -> dict:
+        """Statistically-grounded verdict for one bucket stat. A bucket is 'confidently losing' only
+        when (a) it actually lost money AND (b) we're confident (one-sided Wilson upper bound at
+        ``confidence_z``) its win-rate is below its OWN breakeven win-rate. This replaces the old
+        brittle test (`pnl<0` or `win_rate<0.52`, plus a `avg_loss>avg_win` asymmetry rule that was
+        STRUCTURALLY always-true for fixed-stake binaries, so it vetoed nearly every bucket)."""
+        n = int(st["n"]); wr = float(st["win_rate"])
+        wins = int(round(wr * n))
+        be = breakeven_win_rate(st["avg_win"], st["avg_loss"])
+        upper = _wilson_upper(wins, n, self.confidence_z)
+        ev_per_trade = round(wr * float(st["avg_win"]) - (1.0 - wr) * float(st["avg_loss"]), 4)
+        confidently_losing = (st["pnl_usd"] < 0) and (upper < be)
+        return {"n": n, "win_rate": round(wr, 4), "pnl_usd": st["pnl_usd"],
+                "avg_win": st["avg_win"], "avg_loss": st["avg_loss"],
+                "breakeven_win_rate": round(be, 4), "win_rate_upper_ci": round(upper, 4),
+                "ev_per_trade": ev_per_trade, "confidently_losing": confidently_losing}
+
     def _bad_buckets(self, tags: dict, evidence: SelectivityEvidence) -> list:
-        """Proven-losing buckets with enough samples (pure; no counters/RNG)."""
+        """Buckets that are CONFIDENTLY losing (enough samples + win-rate confidently below their own
+        breakeven). Pure; no counters/RNG. Coin-flip / not-significant buckets are NOT rejected."""
         bad = []
         for d in evidence.dims:
             b = (tags or {}).get(d)
@@ -140,12 +182,9 @@ class LearnedSelectivityGate:
             st = evidence.stat(d, b)
             if not st or st["n"] < self.min_samples:
                 continue
-            losing = (st["pnl_usd"] < 0) or (st["win_rate"] < self.min_win_rate)
-            asymmetric = (st["avg_loss"] > st["avg_win"]) and (st["win_rate"] < 0.55)
-            if losing or asymmetric:
-                bad.append({"dimension": d, "bucket": str(b), "n": st["n"],
-                            "win_rate": st["win_rate"], "pnl_usd": st["pnl_usd"],
-                            "avg_win": st["avg_win"], "avg_loss": st["avg_loss"]})
+            a = self._assess(st)
+            if a["confidently_losing"]:
+                bad.append({"dimension": d, "bucket": str(b), **a})
         return bad
 
     def evaluate(self, tags: dict, evidence: SelectivityEvidence) -> dict:
@@ -223,18 +262,40 @@ class LearnedSelectivityGate:
             "enabled": self.enabled, "observe_only_metrics": True, "affects_trading": self.enabled,
             "can_force_trade": False, "execution_gate_still_authoritative": True,
             "min_samples": self.min_samples, "min_win_rate": self.min_win_rate,
+            "confidence_z": self.confidence_z, "decision_rule": "confidently_below_breakeven",
             "exploration_rate": self.exploration_rate,
             "accepted": self.accepted, "rejected": self.rejected, "explored": self.explored,
             "reject_reasons": dict(self.reject_reasons),
             "pnl_by_gate_decision": pnl_by,
             "win_rate_by_gate_decision": {k: v["win_rate"] for k, v in pnl_by.items()},
-            "note": ("rejects candidates in proven-losing buckets using live ledger evidence; can "
-                     "only make the bot MORE selective — never trades, resizes, or bypasses the "
-                     "execution gate. Exploration trades are tracked separately from passed."),
+            "note": ("rejects ONLY buckets confidently below their own breakeven win-rate (Wilson "
+                     "upper bound < breakeven AND net-negative PnL); coin-flip / not-significant "
+                     "buckets are NOT rejected. Can only make the bot MORE selective — never trades, "
+                     "resizes, or bypasses the execution gate. Exploration tracked separately."),
         }
+        if evidence is not None:
+            out["bucket_evidence"] = self.bucket_evidence(evidence)
         if evidence is not None and positions is not None:
             out["counterfactual"] = self.counterfactual_replay(evidence, positions)
         return out
+
+    def bucket_evidence(self, evidence: SelectivityEvidence, *, min_samples: Optional[int] = None,
+                        top: int = 8) -> dict:
+        """Auditable per-bucket evidence the gate actually uses: for every dimension/bucket with
+        enough samples, the realized stat + breakeven + win-rate upper CI + EV/trade + whether it is
+        'confidently_losing'. Lets the operator see WHY a bucket is (or is NOT) blocked — resolving
+        apparent contradictions with sub-sample reports (e.g. signal-only by_hurst_regime)."""
+        ms = self.min_samples if min_samples is None else int(min_samples)
+        rows = []
+        for d in evidence.dims:
+            for b in evidence.buckets.get(d, {}):
+                st = evidence.stat(d, b)
+                if not st or st["n"] < ms:
+                    continue
+                rows.append({"dimension": d, "bucket": str(b), **self._assess(st)})
+        rows.sort(key=lambda r: (not r["confidently_losing"], r["ev_per_trade"]))
+        return {"min_samples": ms, "rule": "blocked iff confidently_losing",
+                "buckets": rows[:top]}
 
     def to_state(self) -> dict:
         return {"accepted": self.accepted, "rejected": self.rejected, "explored": self.explored,

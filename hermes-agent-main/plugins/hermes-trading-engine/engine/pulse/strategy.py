@@ -34,7 +34,7 @@ def decide(window, fair_p_up: Optional[float], now: float, *,
            min_edge: float = 0.03, min_seconds_to_close: float = 4.0,
            min_depth_usd: float = 1.0, edge_buffer: float = 0.01,
            max_price: float = 0.97, min_seconds_since_open: float = 0.0,
-           basis_buffer: float = 0.0) -> PulseDecision:
+           basis_buffer: float = 0.0, min_reward_risk: float = 0.0) -> PulseDecision:
     """Return the PAPER trade decision for ``window`` at time ``now``.
 
     Quality gates that protect EXPECTANCY (not just realism): skip the dead early window
@@ -68,5 +68,13 @@ def decide(window, fair_p_up: Optional[float], now: float, *,
     if edge < min_edge:
         return PulseDecision(False, side=side, token_id=token, price=price,
                              fair_p_up=fair_p_up, edge=edge, reason="edge_below_min")
+    # reward-to-risk floor: at ask ``price`` a winning $1 stake nets ``(1-price)/price`` while a loss
+    # costs the full stake. High-price entries (e.g. 0.91 -> ~0.10 reward/risk: win ~$0.49 vs risk
+    # $5) are skipped — one loss wipes ~10 such wins, and they are fragile to model miscalibration.
+    if min_reward_risk > 0.0 and price is not None and price > 0.0:
+        reward_risk = (1.0 - float(price)) / float(price)
+        if reward_risk < float(min_reward_risk):
+            return PulseDecision(False, side=side, token_id=token, price=price,
+                                 fair_p_up=fair_p_up, edge=edge, reason="reward_risk_too_low")
     return PulseDecision(True, side=side, token_id=token, price=price,
                          fair_p_up=fair_p_up, edge=edge, reason="trade")

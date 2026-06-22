@@ -111,6 +111,23 @@ def test_decide_rejects_low_edge_and_late_window():
     assert decide(w2, 0.99, 1100.0).reason == "no_tradeable_ask"
 
 
+def test_decide_reward_risk_floor_skips_tiny_payoff_high_price():
+    # high-price up entry: ask 0.91 -> win ~$0.49 per $5 vs full-$5 risk (reward/risk ~0.099)
+    w = _win()
+    w.up_book = OrderBook(best_bid=0.90, best_ask=0.91, ask_depth_usd=500, bid_depth_usd=500)
+    w.down_book = OrderBook(best_bid=0.07, best_ask=0.09, ask_depth_usd=500, bid_depth_usd=500)
+    # floor OFF -> the +EV (fair 0.98 > 0.91) high-price trade is taken
+    d_off = decide(w, 0.98, 1100.0, min_edge=0.02, edge_buffer=0.01, min_reward_risk=0.0)
+    assert d_off.trade and d_off.side == "up" and d_off.price == 0.91
+    # floor ON (0.25 => need price <= ~0.80) -> skipped with the explicit reason
+    d_on = decide(w, 0.98, 1100.0, min_edge=0.02, edge_buffer=0.01, min_reward_risk=0.25)
+    assert d_on.trade is False and d_on.reason == "reward_risk_too_low"
+    # a healthier-payoff entry (ask 0.55 -> reward/risk ~0.82) still passes the same floor
+    w2 = _win()
+    d2 = decide(w2, 0.80, 1100.0, min_edge=0.05, edge_buffer=0.01, min_reward_risk=0.25)
+    assert d2.trade and d2.side == "up" and d2.price == 0.55
+
+
 def test_decide_quality_gates_early_window_and_basis_buffer():
     w = _win(1000.0)
     # too early in the window (move hasn't developed) -> skip

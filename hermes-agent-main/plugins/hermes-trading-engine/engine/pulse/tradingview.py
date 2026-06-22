@@ -104,6 +104,14 @@ RANGE_STATES = ("breakout_up", "breakout_down", "range_top", "range_bottom", "ra
 MTF_ALIGNMENTS = ("bullish_aligned", "bearish_aligned", "mixed", "neutral", "unknown")
 
 
+# ---- Order-flow / event schema (v4) optional fields (OBSERVE-ONLY; invalid -> "unknown"/None) ----
+# These let real order-flow + event data be fed so the bot can GRADE whether each has an edge. They
+# NEVER place/size/veto a trade (event_blackout is measured only — it does not trigger a blackout).
+CVD_STATES = ("bullish", "bearish", "neutral", "divergence_bull", "divergence_bear", "unknown")
+FUNDING_STATES = ("positive", "negative", "neutral", "extreme_positive", "extreme_negative",
+                  "unknown")
+
+
 def _enum(value, allowed: tuple, default: str = "unknown") -> str:
     v = str(value or "").strip().lower()
     return v if v in allowed else default
@@ -186,6 +194,11 @@ class TradingViewSignalEvent:
     bar_confirmed: Optional[bool] = None
     signal_age_ms: Optional[float] = None
     non_repainting: Optional[bool] = None
+    # ---- Order-flow / event features (v4, observe-only) ----
+    cvd_state: str = "unknown"
+    funding_state: str = "unknown"
+    liquidation_spike: Optional[bool] = None
+    event_blackout: Optional[bool] = None
     source: str = "tradingview"
     observe_only: bool = True
 
@@ -207,6 +220,10 @@ class TradingViewSignalEvent:
                 "bar_confirmed": self.bar_confirmed, "signal_age_ms": self.signal_age_ms,
                 "non_repainting": self.non_repainting}
 
+    def _v4(self) -> dict:
+        return {"cvd_state": self.cvd_state, "funding_state": self.funding_state,
+                "liquidation_spike": self.liquidation_spike, "event_blackout": self.event_blackout}
+
     def to_dict(self) -> dict:
         return {"event_id": self.event_id, "source": self.source, "bot_name": self.bot_name,
                 "symbol": self.symbol, "timeframe": self.timeframe, "bar_time": self.bar_time,
@@ -214,7 +231,7 @@ class TradingViewSignalEvent:
                 "strength": self.strength, "signal_level": self.signal_level,
                 "price": self.price, "indicator_name": self.indicator_name,
                 "raw_payload_hash": self.raw_payload_hash, "observe_only": True,
-                **self._v2(), **self._v3()}
+                **self._v2(), **self._v3(), **self._v4()}
 
     def as_feature(self, *, now: Optional[float] = None) -> dict:
         """The observe-only feature view attached to a candidate (never trades/sizes/vetoes)."""
@@ -225,7 +242,8 @@ class TradingViewSignalEvent:
                 "signal_level": self.signal_level, "price": self.price,
                 "indicator_name": self.indicator_name, "symbol": self.symbol,
                 "timeframe": self.timeframe, "bar_time": self.bar_time,
-                "age_s": (round(now - self.received_at, 3)), **self._v2(), **self._v3()}
+                "age_s": (round(now - self.received_at, 3)),
+                **self._v2(), **self._v3(), **self._v4()}
 
 
 class TradingViewEdge:
@@ -371,7 +389,9 @@ class TradingViewSignalLearner:
             # Composite v2 dimensions
             "vwap_state", "bb_state", "volume_state", "htf_bias", "composite_version",
             # Composite v3 dimensions
-            "adx_state", "supertrend_direction", "candle_pressure", "range_state", "mtf_alignment")
+            "adx_state", "supertrend_direction", "candle_pressure", "range_state", "mtf_alignment",
+            # Composite v4 order-flow / event dimensions
+            "cvd_state", "funding_state", "liquidation_spike", "event_blackout")
 
     def __init__(self):
         self.dims: dict = {d: {} for d in self.DIMS}
@@ -703,6 +723,10 @@ def _event_from_dict(d) -> Optional["TradingViewSignalEvent"]:
             bar_confirmed=_as_bool(d.get("bar_confirmed")),
             signal_age_ms=_as_float(d.get("signal_age_ms")),
             non_repainting=_as_bool(d.get("non_repainting")),
+            cvd_state=_enum(d.get("cvd_state"), CVD_STATES),
+            funding_state=_enum(d.get("funding_state"), FUNDING_STATES),
+            liquidation_spike=_as_bool(d.get("liquidation_spike")),
+            event_blackout=_as_bool(d.get("event_blackout")),
             indicator_name=d.get("indicator_name"),
             raw_payload_hash=str(d.get("raw_payload_hash") or ""))
     except Exception:  # noqa: BLE001
@@ -841,6 +865,11 @@ class TradingViewIntake:
             bar_confirmed=_as_bool(payload.get("bar_confirmed")),
             signal_age_ms=_as_float(payload.get("signal_age_ms")),
             non_repainting=_as_bool(payload.get("non_repainting")),
+            # Composite v4 order-flow / event (observe-only; invalid enums -> "unknown")
+            cvd_state=_enum(payload.get("cvd_state"), CVD_STATES),
+            funding_state=_enum(payload.get("funding_state"), FUNDING_STATES),
+            liquidation_spike=_as_bool(payload.get("liquidation_spike")),
+            event_blackout=_as_bool(payload.get("event_blackout")),
             raw_payload_hash=raw_hash)
         return ev, None
 

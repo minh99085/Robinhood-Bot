@@ -220,6 +220,8 @@ class DecisionResult:
     learning: Optional[dict] = None             # learned-edge decision blend (digital<->model)
     edge: Optional[dict] = None                 # observe-only Pulse Edge Signal (CEX/stale/OB)
     selectivity: Optional[dict] = None          # learned selectivity gate decision (accept/reject)
+    context_gate: Optional[dict] = None         # TradingView context gate (pass/block/explore)
+    late_window: Optional[dict] = None          # late-window high-conviction entry mode decision
     calibration: Optional[dict] = None          # raw vs calibrated fair P(up)
     external: Optional[dict] = None             # observe-only EXTERNAL signal (e.g. TradingView)
     sizing: Optional[dict] = None               # paper-only Kelly sizing diagnostics (Phase 9)
@@ -267,6 +269,8 @@ class DecisionResult:
                 "learning": self.learning,
                 "edge": self.edge,
                 "selectivity": self.selectivity,
+                "context_gate": self.context_gate,
+                "late_window": self.late_window,
                 "calibration": self.calibration,
                 "external": self.external,
                 "sizing": self.sizing,

@@ -49,6 +49,41 @@ def test_specific_bad_buckets_guarded():
         assert gate.evaluate({dim: bucket}, ev)["decision"] == "reject", (dim, bucket)
 
 
+def test_breakeven_confidence_does_not_block_marginal_coinflip_bucket():
+    """Regression for the overblocking bug: a dominant near-breakeven bucket (e.g. trending at 52.5%
+    over ~200 trades, avg_win 3.75 / avg_loss 5.0 -> breakeven 0.571) is NOT confidently below its
+    breakeven, so it must NOT be hard-vetoed even though cumulative PnL is slightly negative."""
+    ev = SelectivityEvidence()
+    n, wins = 198, 104                                  # win_rate ~0.525, like the live trending bucket
+    for i in range(n):
+        won = i < wins
+        ev.record({"hurst_regime": "trending"}, won=won, pnl=(3.747 if won else -5.0),
+                  outcome_up=won)
+    gate = LearnedSelectivityGate(min_samples=30, exploration_rate=0.0, confidence_z=1.64)
+    res = gate.evaluate({"hurst_regime": "trending"}, ev)
+    assert res["decision"] == "accept", res            # coin-flip near breakeven -> not blocked
+    # but a genuinely, confidently losing bucket (35% over 60) IS blocked
+    ev2 = SelectivityEvidence()
+    for i in range(60):
+        won = i < 21                                    # 35% win rate
+        ev2.record({"hurst_regime": "trending"}, won=won, pnl=(3.747 if won else -5.0),
+                   outcome_up=won)
+    r2 = gate.evaluate({"hurst_regime": "trending"}, ev2)
+    assert r2["decision"] == "reject" and r2["bad_buckets"][0]["confidently_losing"] is True
+    assert r2["bad_buckets"][0]["breakeven_win_rate"] > 0.5
+
+
+def test_bucket_evidence_is_auditable():
+    ev = _evidence_with("hurst_regime", "trending", n=198, win_rate=0.525, avg_pnl=-0.4)
+    gate = LearnedSelectivityGate(min_samples=30)
+    be = gate.bucket_evidence(ev)
+    assert be["buckets"], be
+    row = be["buckets"][0]
+    for k in ("dimension", "bucket", "n", "win_rate", "breakeven_win_rate", "win_rate_upper_ci",
+              "ev_per_trade", "confidently_losing"):
+        assert k in row, k
+
+
 # ------------------------------- exploration separation + cap (req #5) --------------------- #
 def test_exploration_separated_and_capped():
     # exploration_rate is hard-capped at 0.05 even if a larger value is requested

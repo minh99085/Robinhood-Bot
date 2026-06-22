@@ -76,6 +76,9 @@ services:
       PULSE_MIN_DEPTH_USD: "${PULSE_MIN_DEPTH_USD:-1}"
       PULSE_MIN_SECONDS_TO_CLOSE: "${PULSE_MIN_SECONDS_TO_CLOSE:-4}"
       PULSE_MAX_PRICE: "${PULSE_MAX_PRICE:-0.97}"
+      # Min reward-to-risk for an entry: (1-price)/price. 0=off. e.g. 0.25 skips entries above ~0.80
+      # (which win < ~$1.25 per $5 risked) so one loss can't wipe ~10 tiny wins.
+      PULSE_MIN_REWARD_RISK: "${PULSE_MIN_REWARD_RISK:-0}"
       PULSE_MAX_OPEN_LAG_S: "${PULSE_MAX_OPEN_LAG_S:-20}"
       PULSE_VOL_WINDOW_S: "${PULSE_VOL_WINDOW_S:-900}"
       PULSE_SETTLE_GRACE_S: "${PULSE_SETTLE_GRACE_S:-180}"
@@ -127,6 +130,9 @@ services:
       PULSE_SELECTIVITY_GATE_ENABLED: "${PULSE_SELECTIVITY_GATE_ENABLED:-1}"
       PULSE_SELECTIVITY_MIN_SAMPLES: "${PULSE_SELECTIVITY_MIN_SAMPLES:-30}"
       PULSE_SELECTIVITY_MIN_WIN_RATE: "${PULSE_SELECTIVITY_MIN_WIN_RATE:-0.52}"
+      # one-sided z for the "confidently below breakeven" reject test (1.64 ~= 95%). Higher = the
+      # gate must be MORE sure a bucket loses before rejecting (fewer rejects of coin-flip buckets).
+      PULSE_SELECTIVITY_CONFIDENCE_Z: "${PULSE_SELECTIVITY_CONFIDENCE_Z:-1.64}"
       PULSE_SELECTIVITY_EXPLORATION_RATE: "${PULSE_SELECTIVITY_EXPLORATION_RATE:-0.05}"
       PULSE_CALIB_MIN_SAMPLES: "${PULSE_CALIB_MIN_SAMPLES:-30}"
       PULSE_CALIB_MAX_SHRINK: "${PULSE_CALIB_MAX_SHRINK:-0.5}"
@@ -165,6 +171,19 @@ services:
       PULSE_TV_PROMOTION_ALLOWED: "${PULSE_TV_PROMOTION_ALLOWED:-0}"
       PULSE_TV_PROMOTION_MIN_SAMPLES: "${PULSE_TV_PROMOTION_MIN_SAMPLES:-50}"
       PULSE_TV_PROMOTION_MIN_WIN_RATE: "${PULSE_TV_PROMOTION_MIN_WIN_RATE:-0.80}"
+      # TradingView CONTEXT GATE (hard prior, restrict-only): blocks proven-losing entry contexts
+      # (volume spikes / noise regime / far-from-resolution) before the learned selectivity gate
+      # has samples. Can only PREVENT trades; never forces/sizes/bypasses the execution gate.
+      PULSE_TV_CONTEXT_GATE: "${PULSE_TV_CONTEXT_GATE:-0}"
+      PULSE_TV_CONTEXT_BLOCK_VOLUME: "${PULSE_TV_CONTEXT_BLOCK_VOLUME:-spike}"
+      PULSE_TV_CONTEXT_BLOCK_HURST: "${PULSE_TV_CONTEXT_BLOCK_HURST:-noise}"
+      PULSE_TV_CONTEXT_MAX_TTC_S: "${PULSE_TV_CONTEXT_MAX_TTC_S:-240}"
+      PULSE_TV_CONTEXT_EXPLORATION_RATE: "${PULSE_TV_CONTEXT_EXPLORATION_RATE:-0.05}"
+      # Late-window high-conviction entry mode (time-decay edge). Restrict-only; edge always measured
+      # observe-only. Can only PREVENT trades; never forces/sizes/bypasses the execution gate.
+      PULSE_LATE_WINDOW_ENTRY: "${PULSE_LATE_WINDOW_ENTRY:-0}"
+      PULSE_LATE_WINDOW_MAX_TTC_S: "${PULSE_LATE_WINDOW_MAX_TTC_S:-120}"
+      PULSE_LATE_WINDOW_MIN_CONVICTION: "${PULSE_LATE_WINDOW_MIN_CONVICTION:-0.40}"
       CHAINLINK_DATA_STREAMS_API_KEY: "${CHAINLINK_DATA_STREAMS_API_KEY:-}"
       CHAINLINK_DATA_STREAMS_SECRET: "${CHAINLINK_DATA_STREAMS_SECRET:-}"
       CHAINLINK_BTC_FEED_ID: "${CHAINLINK_BTC_FEED_ID:-}"
