@@ -10,6 +10,11 @@ pulse paper engine profitable, fast.
 
 - **ALWAYS end every response with the exact line `I AM DONE THINKING`** as the final line, so
   the operator knows the answer is complete. This applies to every turn, no exceptions.
+- **ALWAYS push every change to BOTH the GitHub `main` repo AND the live VPS**, and keep them in
+  sync (ideally SHA-for-SHA) on every turn. Never leave `main` and the VPS diverged. After a code
+  change, the standard deploy is: push to `main` → sync the VPS → `docker compose down
+  --remove-orphans` → `docker compose build` → `docker compose up -d` in the pulse plugin compose
+  dir, then verify health/reconciliation.
 
 - **HARD SAFETY INVARIANT (never relaxed):** PAPER ONLY. No real order, no wallet, no signing.
   There is no live-execution code path in `engine/pulse`, and `scripts/run_btc_pulse.py`
