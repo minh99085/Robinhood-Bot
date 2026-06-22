@@ -111,6 +111,16 @@ class PulseConfig:
     selectivity_exploration_rate: float = 0.05
     calibration_min_samples: int = 30
     calibration_max_shrink: float = 0.5
+    # ---- TradingView Context Gate (hard prior, restrict-only; PAPER ONLY) ----
+    # Blocks proven-losing entry contexts (TradingView volume spikes, the noise hurst regime, and
+    # entries too far from resolution) IMMEDIATELY — before the learned selectivity gate has enough
+    # samples. Can only make the bot MORE selective; never trades/resizes/bypasses the execution
+    # gate. Default OFF (no behavior change); enabled per-deployment via env.
+    tv_context_gate_enabled: bool = False
+    tv_context_blocked_volume_states: tuple = ("spike",)
+    tv_context_blocked_hurst_regimes: tuple = ("noise",)
+    tv_context_max_ttc_s: float = 240.0
+    tv_context_exploration_rate: float = 0.05
     signal_engine_enabled: bool = True       # OBSERVE-ONLY Simons-style raw signals (never trade)
     factor_model_enabled: bool = True        # OBSERVE-ONLY BTC-pulse factor/context model
     markov_enabled: bool = True              # OBSERVE-ONLY Markov regime machine
@@ -224,6 +234,16 @@ class PulseConfig:
             selectivity_exploration_rate=_envf("PULSE_SELECTIVITY_EXPLORATION_RATE", 0.05),
             calibration_min_samples=int(_envf("PULSE_CALIB_MIN_SAMPLES", 30)),
             calibration_max_shrink=_envf("PULSE_CALIB_MAX_SHRINK", 0.5),
+            tv_context_gate_enabled=str(os.getenv("PULSE_TV_CONTEXT_GATE", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            tv_context_blocked_volume_states=tuple(
+                s.strip().lower() for s in os.getenv("PULSE_TV_CONTEXT_BLOCK_VOLUME", "spike")
+                .split(",") if s.strip()),
+            tv_context_blocked_hurst_regimes=tuple(
+                s.strip().lower() for s in os.getenv("PULSE_TV_CONTEXT_BLOCK_HURST", "noise")
+                .split(",") if s.strip()),
+            tv_context_max_ttc_s=_envf("PULSE_TV_CONTEXT_MAX_TTC_S", 240.0),
+            tv_context_exploration_rate=_envf("PULSE_TV_CONTEXT_EXPLORATION_RATE", 0.05),
             signal_engine_enabled=str(os.getenv("HERMES_SIGNAL_ENGINE_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             factor_model_enabled=str(os.getenv("HERMES_FACTOR_MODEL_ENABLED", "1"))
@@ -326,6 +346,13 @@ class PulseEngine:
             from engine.pulse.edge_model import EdgeModel
             self.edge_model = EdgeModel()
         # Learned Selectivity Gate v1 — live-evidence bucket gate between decision and execution.
+        from engine.pulse.context_gate import TradingViewContextGate
+        self.tv_context_gate = TradingViewContextGate(
+            enabled=bool(self.cfg.tv_context_gate_enabled),
+            blocked_volume_states=self.cfg.tv_context_blocked_volume_states,
+            blocked_hurst_regimes=self.cfg.tv_context_blocked_hurst_regimes,
+            max_ttc_s=self.cfg.tv_context_max_ttc_s,
+            exploration_rate=self.cfg.tv_context_exploration_rate)
         from engine.pulse.selectivity import SelectivityEvidence, LearnedSelectivityGate
         self.selectivity_evidence = SelectivityEvidence()
         self.selectivity_gate = LearnedSelectivityGate(
@@ -495,6 +522,7 @@ class PulseEngine:
             self.edge_signal.load_state(acct.get("edge_signal") or {})
         self.selectivity_evidence.load_state(acct.get("selectivity_evidence") or {})
         self.selectivity_gate.load_state(acct.get("selectivity_gate") or {})
+        self.tv_context_gate.load_state(acct.get("tv_context_gate") or {})
         # one-time bootstrap: if no evidence persisted yet, seed it from the existing settled
         # ledger positions so the gate uses LIVE history immediately (not hard-coded numbers).
         if not self.selectivity_evidence.has_data:
@@ -774,6 +802,21 @@ class PulseEngine:
                     self.markov.record_terminal(state=cand_state, accepted=False)
                 _finalize(dr, "rejected", reason=tv_reason, stage="directional")
                 continue
+            # TradingView CONTEXT GATE (hard prior, restrict-only): block proven-losing entry
+            # contexts (TradingView volume spikes / noise hurst regime / far-from-resolution)
+            # IMMEDIATELY, before the learned selectivity gate has enough samples. Can only PREVENT
+            # a trade; never trades/resizes/bypasses the execution gate below.
+            ctx_res = self.tv_context_gate.evaluate(
+                volume_state=(tv_feature or {}).get("volume_state"),
+                hurst_regime=(rfeat.hurst_regime if rfeat else None), ttc_s=ttc)
+            dr.context_gate = {"decision": ctx_res["decision"], "reasons": ctx_res["reasons"]}
+            if ctx_res["decision"] == "block":
+                dr.action = RejectAction(stage="context_gate", reason=ctx_res["reasons"][0])
+                if self.markov is not None:
+                    self.markov.record_terminal(state=cand_state, accepted=False)
+                _finalize(dr, "rejected", reason=ctx_res["reasons"][0], stage="context_gate")
+                continue
+            context_explored = (ctx_res["decision"] == "explore")
             # LEARNED SELECTIVITY GATE (between decision and execution): reject proven-losing
             # buckets using LIVE settled-trade evidence. Can only make the bot MORE selective —
             # it never trades/resizes/bypasses the execution gate below. Also calibrate the fair.
@@ -862,6 +905,7 @@ class PulseEngine:
                 pos.research = {}
             pos.research["ev_after_cost"] = ex.ev_after_slippage
             pos.research["gate_decision"] = gate_decision     # passed | explored (selectivity gate)
+            pos.research["context_gate"] = ("explore" if context_explored else "pass")
             if esnap is not None:
                 pos.research.update({"edge_stale_divergence": esnap.stale_divergence_class,
                                      "edge_ttc_bucket": esnap.ttc_bucket,
@@ -1290,6 +1334,7 @@ class PulseEngine:
             "max_signal_age_s": self.cfg.tradingview_signal_max_feature_age_s,
             "note": ("when active, a paper trade is taken only if a fresh TradingView signal agrees "
                      "with the side; it can only PREVENT trades, never force or bypass them.")}
+        rep["context_gate"] = self.tv_context_gate.report()
         return rep
 
     def _tier_report(self) -> dict:
@@ -1390,6 +1435,7 @@ class PulseEngine:
                                              if self.edge_model is not None else {}),
                               "selectivity_evidence": self.selectivity_evidence.to_state(),
                               "selectivity_gate": self.selectivity_gate.to_state(),
+                              "tv_context_gate": self.tv_context_gate.to_state(),
                               "baseline": (self._baseline or empty_baseline())}}
             (self._data_dir / "btc_pulse_ledger.json").write_text(
                 json.dumps(ledger_doc, default=str, indent=1))

@@ -165,6 +165,14 @@ services:
       PULSE_TV_PROMOTION_ALLOWED: "${PULSE_TV_PROMOTION_ALLOWED:-0}"
       PULSE_TV_PROMOTION_MIN_SAMPLES: "${PULSE_TV_PROMOTION_MIN_SAMPLES:-50}"
       PULSE_TV_PROMOTION_MIN_WIN_RATE: "${PULSE_TV_PROMOTION_MIN_WIN_RATE:-0.80}"
+      # TradingView CONTEXT GATE (hard prior, restrict-only): blocks proven-losing entry contexts
+      # (volume spikes / noise regime / far-from-resolution) before the learned selectivity gate
+      # has samples. Can only PREVENT trades; never forces/sizes/bypasses the execution gate.
+      PULSE_TV_CONTEXT_GATE: "${PULSE_TV_CONTEXT_GATE:-0}"
+      PULSE_TV_CONTEXT_BLOCK_VOLUME: "${PULSE_TV_CONTEXT_BLOCK_VOLUME:-spike}"
+      PULSE_TV_CONTEXT_BLOCK_HURST: "${PULSE_TV_CONTEXT_BLOCK_HURST:-noise}"
+      PULSE_TV_CONTEXT_MAX_TTC_S: "${PULSE_TV_CONTEXT_MAX_TTC_S:-240}"
+      PULSE_TV_CONTEXT_EXPLORATION_RATE: "${PULSE_TV_CONTEXT_EXPLORATION_RATE:-0.05}"
       CHAINLINK_DATA_STREAMS_API_KEY: "${CHAINLINK_DATA_STREAMS_API_KEY:-}"
       CHAINLINK_DATA_STREAMS_SECRET: "${CHAINLINK_DATA_STREAMS_SECRET:-}"
       CHAINLINK_BTC_FEED_ID: "${CHAINLINK_BTC_FEED_ID:-}"
