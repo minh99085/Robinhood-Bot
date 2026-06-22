@@ -14,13 +14,30 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger("hte.pulse.webhook")
 
 MAX_BODY_BYTES = 64 * 1024          # tiny alerts only; reject anything larger
+
+
+def _data_dir() -> Path:
+    return Path(os.environ.get("HTE_DATA_DIR", "/data"))
+
+
+def _read_json(name: str) -> "dict | None":
+    p = _data_dir() / name
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _make_handler(intake, path: str, header_name: str):
@@ -39,8 +56,41 @@ def _make_handler(intake, path: str, header_name: str):
             except Exception:  # noqa: BLE001
                 pass
 
-        def do_GET(self):  # noqa: N802 — health only, never accepts signals
-            if self.path.rstrip("/") in ("/health", "/healthz"):
+        def _send_html(self, html: str) -> None:
+            payload = html.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            try:
+                self.wfile.write(payload)
+            except Exception:  # noqa: BLE001
+                pass
+
+        def do_GET(self):  # noqa: N802 — read-only views; never accepts signals
+            p = self.path.split("?", 1)[0].rstrip("/")
+            if p in ("", "/dashboard"):                     # read-only dashboard (port 80)
+                try:
+                    from engine.app import _DASHBOARD_HTML
+                    self._send_html(_DASHBOARD_HTML)
+                except Exception:  # noqa: BLE001
+                    self._send(500, {"ok": False, "reason": "dashboard_unavailable"})
+            elif p == "/api/polymarket/training/btc_pulse":
+                st = _read_json("btc_pulse_status.json")
+                self._send(200, ({"available": True, **st} if st else
+                                 {"available": False, "reason": "no status yet"}))
+            elif p == "/api/polymarket/training/btc_pulse/ledger":
+                led = _read_json("btc_pulse_ledger.json")
+                self._send(200, ({"available": True, **led} if led else
+                                 {"available": False, "reason": "no ledger yet"}))
+            elif p == "/api/health":
+                sp = _data_dir() / "btc_pulse_status.json"
+                age = (round(time.time() - sp.stat().st_mtime, 1) if sp.exists() else None)
+                st = _read_json("btc_pulse_status.json") or {}
+                self._send(200, {"status": "ok", "paper_only": True, "live_trading_enabled": False,
+                                 "pulse_status_fresh": (age is not None and age < 120),
+                                 "pulse_status_age_s": age, "ticks": st.get("ticks")})
+            elif p in ("/health", "/healthz"):
                 self._send(200, {"status": "ok", "observe_only": True,
                                  "paper_only": True, "live_trading_enabled": False})
             else:
