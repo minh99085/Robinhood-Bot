@@ -29,6 +29,7 @@ from typing import Optional
 logger = logging.getLogger("hte.pulse.grok_intel")
 
 _XAI_URL = "https://api.x.ai/v1/chat/completions"
+_XAI_RESPONSES_URL = "https://api.x.ai/v1/responses"
 
 
 def xai_key() -> str:
@@ -59,6 +60,39 @@ def _grok_chat(prompt: str, *, model: str, timeout_s: float, box: dict,
             return None
         return (((r.json() or {}).get("choices") or [{}])[0]
                 .get("message", {}).get("content", "") or "")
+    except Exception:  # noqa: BLE001 — never raise into the engine
+        return None
+
+
+def _grok_responses(prompt: str, *, model: str, timeout_s: float, box: dict,
+                    tools: Optional[list] = None) -> Optional[str]:
+    """One call to the xAI Agent Tools API (/v1/responses) with built-in server-side tools (e.g.
+    web_search, x_search). Returns the assistant message text or None (fail-open)."""
+    key = xai_key()
+    if not key:
+        return None
+    try:
+        import httpx
+        c = box.get("rc")
+        if c is None:
+            c = httpx.Client(timeout=timeout_s)
+            box["rc"] = c
+        body = {"model": model, "input": [{"role": "user", "content": prompt}]}
+        if tools:
+            body["tools"] = tools
+        r = c.post(_XAI_RESPONSES_URL, headers={"Authorization": f"Bearer {key}"}, json=body)
+        if r.status_code != 200:
+            return None
+        j = r.json() or {}
+        txt = j.get("output_text")
+        if txt:
+            return txt
+        for it in (j.get("output") or []):
+            if it.get("type") == "message":
+                for part in (it.get("content") or []):
+                    if part.get("text"):
+                        return part["text"]
+        return None
     except Exception:  # noqa: BLE001 — never raise into the engine
         return None
 

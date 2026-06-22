@@ -26,7 +26,7 @@ import time
 from collections import deque
 from typing import Optional
 
-from engine.pulse.grok_intel import _grok_chat, _parse_json, GrokBudget
+from engine.pulse.grok_intel import _grok_chat, _grok_responses, _parse_json, GrokBudget
 
 ACTIONS = ("up", "down", "no_trade")
 _ACTION_ALIASES = {
@@ -108,22 +108,22 @@ def make_decider_fn(*, model: str = "grok-4.3", timeout_s: float = 12.0,
     return _decide
 
 
-def make_news_fn(*, model: str = "grok-4.3", timeout_s: float = 15.0, chat=_grok_chat):
-    """Build ``news_fn() -> digest|None`` that pulls a short BTC news/sentiment digest via xAI live
-    web/X search. Separated from the per-window decision so news is gathered periodically (cheap,
-    bounded) and injected into every decision bundle."""
+def make_news_fn(*, model: str = "grok-4.3", timeout_s: float = 35.0, responses=_grok_responses):
+    """Build ``news_fn() -> digest|None`` that pulls a short BTC news/sentiment digest via the xAI
+    Agent Tools API (built-in web_search + x_search on /v1/responses). Separated from the per-window
+    decision so news is gathered periodically (cheap, bounded) and injected into every bundle."""
     box: dict = {}
-    extra = {"search_parameters": {"mode": "on", "sources": [{"type": "web"}, {"type": "x"}],
-                                   "max_search_results": 10}}
+    tools = [{"type": "web_search"}, {"type": "x_search"}]
 
     def _news() -> Optional[dict]:
         prompt = (
             "Search the latest web + X for BREAKING Bitcoin news and sentiment in the last ~30 "
             "minutes that could move BTC over the NEXT 5 MINUTES (macro prints, ETF flows, "
             "exchange/regulatory headlines, large liquidations, prominent X posts). Summarize for a "
-            "short-horizon trader. STRICT JSON only: {\"sentiment\":\"bullish|bearish|neutral\","
-            "\"confidence\":<0-1>,\"headlines\":[\"...\"],\"event_risk\":\"low|medium|high\"}.")
-        d = _parse_json(chat(prompt, model=model, timeout_s=timeout_s, box=box, extra_body=extra))
+            "short-horizon trader. Reply with STRICT JSON only: {\"sentiment\":\"bullish|bearish|"
+            "neutral\",\"confidence\":<0-1>,\"headlines\":[\"...\"],\"event_risk\":\"low|medium|"
+            "high\"}.")
+        d = _parse_json(responses(prompt, model=model, timeout_s=timeout_s, box=box, tools=tools))
         if not d:
             return None
         return {"sentiment": str(d.get("sentiment", "neutral"))[:20],

@@ -500,7 +500,7 @@ class PulseEngine:
                     self.grok_news = GrokNewsDigest(
                         budget=self.grok_budget,
                         news_fn=make_news_fn(model=self.cfg.grok_decider_model,
-                                             timeout_s=self.cfg.grok_decider_timeout_s),
+                                             timeout_s=max(35.0, self.cfg.grok_decider_timeout_s)),
                         interval_s=self.cfg.grok_news_refresh_s).start()
                 self.grok_decider = GrokDecider(
                     decider_fn=make_decider_fn(
