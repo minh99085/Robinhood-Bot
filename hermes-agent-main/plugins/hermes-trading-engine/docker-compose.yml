@@ -89,6 +89,8 @@ services:
       # we couldn't capture + don't trade into the settlement second.
       PULSE_TICK_SECONDS: "${PULSE_TICK_SECONDS:-4}"
       PULSE_SIZE_USD: "${PULSE_SIZE_USD:-5}"
+      # notional starting capital for the dashboard "on-hand capital" display (paper; on_hand=start+pnl)
+      PULSE_STARTING_CAPITAL_USD: "${PULSE_STARTING_CAPITAL_USD:-500}"
       PULSE_MIN_EDGE: "${PULSE_MIN_EDGE:-0.03}"
       PULSE_EDGE_BUFFER: "${PULSE_EDGE_BUFFER:-0.01}"
       PULSE_MIN_DEPTH_USD: "${PULSE_MIN_DEPTH_USD:-1}"

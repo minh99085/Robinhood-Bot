@@ -167,6 +167,8 @@ class PulseConfig:
     sizing_hard_cap_usd: float = 10.0
     sizing_daily_loss_cap_usd: float = 50.0
     sizing_bankroll_usd: float = 1000.0
+    # notional starting capital for the on-hand-capital display (paper). on_hand = start + realized.
+    starting_capital_usd: float = 500.0
     # ---- TradingView indicator webhook intake (OBSERVE-ONLY external signal) ----
     # Enabled only when a shared secret is set. Bound to 127.0.0.1 by default (private to host);
     # alerts are candidate signals only — they can never place/resize/bypass a paper trade.
@@ -312,6 +314,7 @@ class PulseConfig:
             sizing_hard_cap_usd=_envf("HERMES_SIZING_HARD_CAP_USD", 10.0),
             sizing_daily_loss_cap_usd=_envf("HERMES_SIZING_DAILY_LOSS_CAP_USD", 50.0),
             sizing_bankroll_usd=_envf("HERMES_SIZING_BANKROLL_USD", 1000.0),
+            starting_capital_usd=_envf("PULSE_STARTING_CAPITAL_USD", 500.0),
             tradingview_secret=(os.getenv("TRADINGVIEW_WEBHOOK_SECRET", "") or "").strip(),
             tradingview_allowed_symbols=tuple(
                 s.strip().upper() for s in os.getenv(
@@ -1645,6 +1648,24 @@ class PulseEngine:
         except Exception:  # noqa: BLE001
             return {}
 
+    def _capital_status(self) -> dict:
+        """On-hand paper capital = starting capital + realized PnL, with open exposure (stake at risk
+        in open positions). Display-only; PAPER ONLY (no real funds)."""
+        ls = self.ledger.stats()
+        start = float(self.cfg.starting_capital_usd)
+        realized = float(ls.get("realized_pnl_usd") or 0.0)
+        open_exposure = 0.0
+        for pos in self.ledger.positions.values():
+            if pos.status == "open":
+                open_exposure += float(getattr(pos, "size_usd", 0.0) or 0.0)
+        on_hand = start + realized
+        return {"paper_only": True, "starting_capital_usd": round(start, 2),
+                "realized_pnl_usd": round(realized, 2),
+                "on_hand_capital_usd": round(on_hand, 2),
+                "return_pct": (round(realized / start * 100, 2) if start else None),
+                "open_exposure_usd": round(open_exposure, 2),
+                "open_positions": ls.get("open_positions")}
+
     def _grok_decider_report(self) -> dict:
         """Grok Decision Engine status (off/shadow/follow): decisions, direction accuracy, Brier,
         latency, abstains, per-action breakdown. PAPER ONLY; shadow does not trade."""
@@ -1730,8 +1751,11 @@ class PulseEngine:
             "ts": self.last_tick_ts, "ticks": self.ticks,
             "config": {"tick_seconds": self.cfg.tick_seconds, "size_usd": self.cfg.size_usd,
                        "min_edge": self.cfg.min_edge, "edge_buffer": self.cfg.edge_buffer,
-                       "min_depth_usd": self.cfg.min_depth_usd, "max_price": self.cfg.max_price},
+                       "min_depth_usd": self.cfg.min_depth_usd, "max_price": self.cfg.max_price,
+                       "min_reward_risk": self.cfg.min_reward_risk,
+                       "grok_decider_mode": self.cfg.grok_decider_mode},
             "price": self.price.status(),
+            "capital": self._capital_status(),
             "ledger": self.ledger.stats(),
             "decision_lifecycle": self.reconciler.report(),
             "reconciliation": self._global_reconciliation(),

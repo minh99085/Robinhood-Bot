@@ -269,6 +269,18 @@ def test_engine_follow_abstains_on_no_decision(tmp_path):
     assert eng.light_report()["global_reconciled"] is True
 
 
+def test_engine_capital_status(tmp_path):
+    # on-hand capital = starting capital (default $500) + realized PnL
+    eng, t0 = _engine(tmp_path, mode="shadow",
+                      decision={"action": "no_trade", "confidence": 0.5, "ttl_s": 240})
+    _drive(eng, t0)
+    cap = eng.status()["capital"]
+    assert cap["starting_capital_usd"] == 500.0 and cap["paper_only"] is True
+    realized = eng.ledger.stats().get("realized_pnl_usd") or 0.0
+    assert abs(cap["on_hand_capital_usd"] - (500.0 + realized)) < 0.02   # cents rounding
+    assert "open_exposure_usd" in cap and "return_pct" in cap
+
+
 def test_engine_bundle_is_fully_structured(tmp_path):
     # the payload sent to Grok must be complete + correctly typed (payoff, divergence, account, etc.)
     eng, t0 = _engine(tmp_path, mode="shadow",
