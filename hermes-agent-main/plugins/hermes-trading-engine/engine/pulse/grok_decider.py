@@ -56,6 +56,12 @@ def normalize_decision(d, *, default_ttl_s: float = 240.0) -> Optional[dict]:
     size = _clamp01(d.get("size_fraction"), 1.0 if action != "no_trade" else 0.0)
     if action == "no_trade":
         size = 0.0
+    # p_up: Grok's probability BTC closes UP — REQUIRED on every window (even no_trade) so the
+    # directional VIEW is graded each window and Grok accumulates calibrated edge data fast.
+    p_up = _clamp01(d.get("p_up"))
+    if p_up is None:
+        c = conf or 0.5
+        p_up = c if action == "up" else ((1.0 - c) if action == "down" else 0.5)
     mp = None
     try:
         if d.get("max_price") is not None:
@@ -66,7 +72,7 @@ def normalize_decision(d, *, default_ttl_s: float = 240.0) -> Optional[dict]:
         ttl = float(d.get("ttl_s")) if d.get("ttl_s") is not None else float(default_ttl_s)
     except (TypeError, ValueError):
         ttl = float(default_ttl_s)
-    return {"action": action, "confidence": round(conf or 0.0, 4),
+    return {"action": action, "confidence": round(conf or 0.0, 4), "p_up": round(p_up, 4),
             "size_fraction": round(size or 0.0, 4), "max_price": mp,
             "ttl_s": max(0.0, ttl),
             "key_risks": [str(x)[:160] for x in (d.get("key_risks") or [])][:6],
@@ -101,10 +107,12 @@ def make_decider_fn(*, model: str = "grok-4.3", timeout_s: float = 12.0,
             "LEARN from your own track record in 'decider_track_record' (direction accuracy overall, "
             "by context, and 'recent_decisions' hits/misses): lean into contexts where your calls "
             "have been right and avoid/abstain in contexts where they've been wrong as evidence grows. "
-            "Be calibrated and selective; prefer no_trade when uncertain. Respond with STRICT JSON "
-            "ONLY: {\"action\":\"up|down|no_trade\",\"confidence\":<0-1>,\"size_fraction\":<0-1>,"
-            "\"max_price\":<0-1 optional>,\"key_risks\":[\"...\"],\"rationale\":\"<short>\","
-            "\"ttl_s\":<seconds this decision stays valid>}.\nBUNDLE: "
+            "Be calibrated and selective; prefer no_trade for the ACTION when uncertain. But ALWAYS "
+            "give your best-estimate p_up (probability BTC closes UP this window) even when action is "
+            "no_trade — it is graded every window to build your track record. Respond with STRICT "
+            "JSON ONLY: {\"action\":\"up|down|no_trade\",\"p_up\":<0-1>,\"confidence\":<0-1>,"
+            "\"size_fraction\":<0-1>,\"max_price\":<0-1 optional>,\"key_risks\":[\"...\"],"
+            "\"rationale\":\"<short>\",\"ttl_s\":<seconds this decision stays valid>}.\nBUNDLE: "
             + json.dumps(bundle, default=str)[:11000])
         content = chat(prompt, model=model, timeout_s=timeout_s, box=box, extra_body=extra)
         return normalize_decision(_parse_json(content), default_ttl_s=default_ttl_s)
@@ -266,8 +274,14 @@ class GrokDecider:
         self.brier_sum = 0.0
         self.abstains = 0
         self.by_action: dict = {}             # action -> {"n","wins","pnl"}
-        # ---- learning-as-it-trades: per-context accuracy + recent graded outcomes ----
-        self.by_context: dict = {}            # dim -> bucket -> {"n","correct"}
+        # ---- directional VIEW grading (p_up vs realized close on EVERY window, traded or not) ----
+        # this is the rich, always-on edge data: Grok's p_up is scored each window so it accumulates
+        # a calibrated track record even while it abstains from trading.
+        self.view_graded = 0
+        self.view_correct = 0
+        self.view_brier_sum = 0.0
+        # ---- learning-as-it-trades: per-context VIEW accuracy + recent graded outcomes ----
+        self.by_context: dict = {}            # dim -> bucket -> {"n","correct"} (by p_up view)
         self._recent: deque = deque(maxlen=12)
 
     # -- request / read ----------------------------------------------------- #
@@ -413,32 +427,40 @@ class GrokDecider:
             b["n"] += 1
             if pnl is not None:
                 b["pnl"] = round(b["pnl"] + float(pnl), 6)
-            if action == "no_trade":
-                self.abstains += 1
-                return
-            p_up = float(dec.get("confidence") or 0.5)
-            p_up = p_up if action == "up" else (1.0 - p_up)     # confidence -> P(up)
-            correct = (action == "up") == bool(outcome_up)
-            self.graded += 1
-            self.correct += int(correct)
-            self.brier_sum += (p_up - (1.0 if outcome_up else 0.0)) ** 2
-            b["wins"] += int(correct)
-            # learning-as-it-trades: per-context accuracy + a rolling window of recent outcomes that
-            # are fed back to Grok so it can refine which contexts its calls actually work in.
+            # (1) ALWAYS grade the directional VIEW (p_up) vs the realized outcome — this is the
+            # rich edge data that accrues every window even when the action is no_trade.
+            p_up = float(dec.get("p_up") if dec.get("p_up") is not None else 0.5)
+            view_correct = (p_up > 0.5) == bool(outcome_up)
+            self.view_graded += 1
+            self.view_correct += int(view_correct)
+            self.view_brier_sum += (p_up - (1.0 if outcome_up else 0.0)) ** 2
             for dim, bucket in (dec.get("context") or {}).items():
                 if bucket is None:
                     continue
                 cb = self.by_context.setdefault(dim, {}).setdefault(str(bucket), {"n": 0, "correct": 0})
                 cb["n"] += 1
-                cb["correct"] += int(correct)
-            self._recent.append({"action": action, "confidence": round(float(dec.get("confidence")
-                                 or 0.0), 3), "outcome_up": bool(outcome_up), "correct": bool(correct),
+                cb["correct"] += int(view_correct)
+            self._recent.append({"action": action, "p_up": round(p_up, 3),
+                                 "confidence": round(float(dec.get("confidence") or 0.0), 3),
+                                 "outcome_up": bool(outcome_up), "view_correct": bool(view_correct),
                                  "context": dec.get("context") or {}})
+            # (2) ACTION-level grading (only for up/down trades the bot would actually take)
+            if action == "no_trade":
+                self.abstains += 1
+                return
+            ap = p_up if action == "up" else (1.0 - p_up)
+            correct = (action == "up") == bool(outcome_up)
+            self.graded += 1
+            self.correct += int(correct)
+            self.brier_sum += (ap - (1.0 if outcome_up else 0.0)) ** 2
+            b["wins"] += int(correct)
 
     def report(self) -> dict:
         with self._lock:
             acc = round(self.correct / self.graded, 4) if self.graded else None
             brier = round(self.brier_sum / self.graded, 4) if self.graded else None
+            v_acc = round(self.view_correct / self.view_graded, 4) if self.view_graded else None
+            v_brier = round(self.view_brier_sum / self.view_graded, 4) if self.view_graded else None
             avg_lat = round(self.latency_sum / self.decided, 3) if self.decided else None
             by_action = {a: {"n": s["n"],
                              "direction_accuracy": (round(s["wins"] / s["n"], 4)
@@ -453,6 +475,7 @@ class GrokDecider:
                 "skipped_budget": self.skipped_budget, "pending": len(self._queue),
                 "avg_latency_s": avg_lat,
                 "graded_directional": self.graded, "direction_accuracy": acc, "brier": brier,
+                "views_graded": self.view_graded, "view_accuracy": v_acc, "view_brier": v_brier,
                 "abstains": self.abstains, "by_action": by_action,
                 "accuracy_by_context": {
                     dim: {b: {"n": s["n"],
@@ -472,6 +495,8 @@ class GrokDecider:
                     "skipped_budget": self.skipped_budget, "latency_sum": round(self.latency_sum, 3),
                     "graded": self.graded, "correct": self.correct,
                     "brier_sum": round(self.brier_sum, 6), "abstains": self.abstains,
+                    "view_graded": self.view_graded, "view_correct": self.view_correct,
+                    "view_brier_sum": round(self.view_brier_sum, 6),
                     "by_action": {a: dict(s) for a, s in self.by_action.items()},
                     "trips": self.trips, "consec_losses": self._consec_losses,
                     "daily_loss": round(self._daily_loss, 4), "daily_key": self._daily_key,
@@ -493,6 +518,9 @@ class GrokDecider:
             self.correct = int(data.get("correct", 0) or 0)
             self.brier_sum = float(data.get("brier_sum", 0.0) or 0.0)
             self.abstains = int(data.get("abstains", 0) or 0)
+            self.view_graded = int(data.get("view_graded", 0) or 0)
+            self.view_correct = int(data.get("view_correct", 0) or 0)
+            self.view_brier_sum = float(data.get("view_brier_sum", 0.0) or 0.0)
             self.by_action = {a: {"n": int(s.get("n", 0) or 0), "wins": int(s.get("wins", 0) or 0),
                                   "pnl": float(s.get("pnl", 0.0) or 0.0)}
                               for a, s in (data.get("by_action") or {}).items()}

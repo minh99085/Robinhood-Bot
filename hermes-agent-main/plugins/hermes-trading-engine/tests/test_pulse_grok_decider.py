@@ -55,7 +55,8 @@ def test_decider_decides_and_grades_leakage_free():
 
 
 def test_decider_learns_per_context_and_recent():
-    g = GrokDecider(decider_fn=lambda b: {"action": "up", "confidence": 0.7}, mode="shadow")
+    g = GrokDecider(decider_fn=lambda b: {"action": "up", "p_up": 0.7, "confidence": 0.7},
+                    mode="shadow")
     g.request("a", {"b": 1}, context={"hurst_regime": "trending", "ttc_bucket": "60-120s"})
     g._process_one()
     g.grade("a", outcome_up=True)              # up + up -> correct in trending
@@ -65,11 +66,33 @@ def test_decider_learns_per_context_and_recent():
     rep = g.report()
     acc = rep["accuracy_by_context"]["hurst_regime"]["trending"]
     assert acc["n"] == 2 and acc["accuracy"] == 0.5
-    assert len(rep["recent_decisions"]) == 2 and rep["recent_decisions"][0]["correct"] is True
+    assert len(rep["recent_decisions"]) == 2 and rep["recent_decisions"][0]["view_correct"] is True
     # learning state survives a persist/restore round-trip
     g2 = GrokDecider(mode="shadow")
     g2.load_state(g.to_state())
     assert g2.report()["accuracy_by_context"]["hurst_regime"]["trending"]["n"] == 2
+
+
+def test_decider_grades_view_even_on_no_trade():
+    # the directional VIEW (p_up) is graded EVERY window, even when the action is no_trade — this is
+    # the always-on edge data that lets Grok build a track record while abstaining.
+    g = GrokDecider(decider_fn=lambda b: {"action": "no_trade", "p_up": 0.7, "confidence": 0.6},
+                    mode="shadow")
+    g.request("v1", {"b": 1}, context={"hurst_regime": "trending"})
+    g._process_one()
+    assert g.get("v1")["p_up"] == 0.7
+    g.grade("v1", outcome_up=True)             # p_up 0.7 -> view up; outcome up -> correct
+    rep = g.report()
+    assert rep["views_graded"] == 1 and rep["view_accuracy"] == 1.0
+    assert rep["graded_directional"] == 0 and rep["abstains"] == 1     # no_trade not action-graded
+    assert rep["accuracy_by_context"]["hurst_regime"]["trending"]["n"] == 1
+
+
+def test_normalize_decision_includes_p_up():
+    assert normalize_decision({"action": "no_trade", "p_up": 0.62})["p_up"] == 0.62
+    # derive p_up from action+confidence when omitted
+    assert normalize_decision({"action": "up", "confidence": 0.8})["p_up"] == 0.8
+    assert normalize_decision({"action": "down", "confidence": 0.7})["p_up"] == 0.3
 
 
 def test_decider_failclosed_and_budget_skip():
