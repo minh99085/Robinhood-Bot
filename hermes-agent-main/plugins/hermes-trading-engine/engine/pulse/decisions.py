@@ -218,6 +218,7 @@ class DecisionResult:
     regime: Optional[dict] = None               # observe-only Markov regime snapshot (Phase 6)
     model: Optional[dict] = None                # observe-only calibrated edge model (Phase 7)
     learning: Optional[dict] = None             # learned-edge decision blend (digital<->model)
+    edge: Optional[dict] = None                 # observe-only Pulse Edge Signal (CEX/stale/OB)
     external: Optional[dict] = None             # observe-only EXTERNAL signal (e.g. TradingView)
     sizing: Optional[dict] = None               # paper-only Kelly sizing diagnostics (Phase 9)
     cost: Optional[ExecutionCostEstimate] = None
@@ -262,6 +263,7 @@ class DecisionResult:
                 "regime": self.regime,
                 "model": self.model,
                 "learning": self.learning,
+                "edge": self.edge,
                 "external": self.external,
                 "sizing": self.sizing,
                 "cost": (self.cost.to_dict() if self.cost else None),

@@ -95,6 +95,13 @@ class PulseConfig:
     exec_min_ev_after_slippage: float = 0.0
     exec_max_book_age_s: float = 30.0        # reject stale orderbook older than this
     research_features_enabled: bool = True   # OBSERVE-ONLY EP Chan features (never trade)
+    # OBSERVE-ONLY BTC Pulse Edge Signal layer (CEX basket momentum + stale-price divergence +
+    # orderbook pressure + pulse_edge_score). Never trades/vetoes/bypasses the gate.
+    edge_signal_enabled: bool = True
+    edge_extra_cex_enabled: bool = False     # add Kraken+Bitstamp (extra REST; opt-in for hot path)
+    edge_promotion_allowed: bool = False
+    edge_promotion_min_samples: int = 50
+    edge_promotion_min_win_rate: float = 0.80
     signal_engine_enabled: bool = True       # OBSERVE-ONLY Simons-style raw signals (never trade)
     factor_model_enabled: bool = True        # OBSERVE-ONLY BTC-pulse factor/context model
     markov_enabled: bool = True              # OBSERVE-ONLY Markov regime machine
@@ -193,6 +200,14 @@ class PulseConfig:
             exec_max_book_age_s=_envf("PULSE_EXEC_MAX_BOOK_AGE_S", 30.0),
             research_features_enabled=str(os.getenv("HERMES_RESEARCH_FEATURES_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
+            edge_signal_enabled=str(os.getenv("HERMES_EDGE_SIGNAL_ENABLED", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            edge_extra_cex_enabled=str(os.getenv("HERMES_EDGE_EXTRA_CEX_ENABLED", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            edge_promotion_allowed=str(os.getenv("HERMES_EDGE_PROMOTION_ALLOWED", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            edge_promotion_min_samples=int(_envf("HERMES_EDGE_PROMOTION_MIN_SAMPLES", 50)),
+            edge_promotion_min_win_rate=_envf("HERMES_EDGE_PROMOTION_MIN_WIN_RATE", 0.80),
             signal_engine_enabled=str(os.getenv("HERMES_SIGNAL_ENGINE_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             factor_model_enabled=str(os.getenv("HERMES_FACTOR_MODEL_ENABLED", "1"))
@@ -306,6 +321,21 @@ class PulseEngine:
         self._rsi_model = RSITrendModel()         # OBSERVE-ONLY RSI alert-history next-trend model
         self._tv_learner = TradingViewSignalLearner()   # OBSERVE-ONLY bucketed perf + promotion
         self._tv_pending: list = []               # pending forward-return evals for ALL signals
+        # OBSERVE-ONLY BTC Pulse Edge Signal layer (CEX basket + stale divergence + OB pressure).
+        self.edge_signal = None
+        self._cex_extra: dict = {}                # optional Kraken/Bitstamp fetchers (opt-in)
+        if bool(getattr(self.cfg, "edge_signal_enabled", True)):
+            from engine.pulse.edge_signal import EdgeSignalEngine
+            members = ["binance_btcusdt", "coinbase_btcusd"]
+            if bool(self.cfg.edge_extra_cex_enabled):
+                members += ["kraken_btcusd", "bitstamp_btcusd"]
+                try:
+                    from engine.pulse.cex_feeds import kraken_spot_fetcher, bitstamp_spot_fetcher
+                    self._cex_extra = {"kraken_btcusd": kraken_spot_fetcher(),
+                                       "bitstamp_btcusd": bitstamp_spot_fetcher()}
+                except Exception:  # noqa: BLE001
+                    self._cex_extra = {}
+            self.edge_signal = EdgeSignalEngine(members)
         self._ev_before_sum = 0.0                 # EV before/after costs (accepted candidates)
         self._ev_after_sum = 0.0
         self._ev_n = 0
@@ -414,6 +444,8 @@ class PulseEngine:
         self._rsi_model.load_state(acct.get("rsi_trend") or {})
         self._tv_learner.load_state(acct.get("tv_learner") or {})
         self._tv_pending = list(acct.get("tv_pending") or [])
+        if self.edge_signal is not None:
+            self.edge_signal.load_state(acct.get("edge_signal") or {})
         if self.grok_predictor is not None:
             self.grok_predictor.load_state(acct.get("grok_predictor") or {})
         if self.grok_analyst is not None:
@@ -446,6 +478,21 @@ class PulseEngine:
         self.last_tick_ts = now
         self.price.poll(now)               # oracle: RTDS Chainlink ref price
         self.leads.poll(now)               # lead predictors (Binance/Coinbase) — features only
+        if self.edge_signal is not None:   # feed the OBSERVE-ONLY CEX basket (lead feeds + extras)
+            latest = getattr(self.leads, "_latest", {}) or {}
+            prices = {"binance_btcusdt": ((latest.get("binance_btcusdt") or (None,))[0], "no_data"),
+                      "coinbase_btcusd": ((latest.get("coinbase_btcusd") or (None,))[0], "no_data")}
+            for name, fetch in self._cex_extra.items():
+                try:
+                    px = fetch()
+                except Exception:  # noqa: BLE001 — an extra CEX feed never breaks a tick
+                    px = None
+                prices[name] = (px, "fetch_failed" if px is None else None)
+            if not self._cex_extra:            # extras disabled -> mark missing reason
+                for nm in ("kraken_btcusd", "bitstamp_btcusd"):
+                    if nm in self.edge_signal.basket.buf:
+                        prices[nm] = (None, "disabled_by_config")
+            self.edge_signal.observe_prices(prices, now)
         if self.research is not None:
             self.research.observe_oracle(self.price.current())
         if self.signals is not None:
@@ -611,6 +658,17 @@ class PulseEngine:
                 model_vec = extract_features(features=dr.features, signals=dr.signals,
                                              factors=dr.factors)
                 dr.model = self.edge_model.predict(model_vec)
+            # OBSERVE-ONLY BTC Pulse Edge Signal (CEX basket momentum + stale divergence + OB
+            # pressure + pulse_edge_score). NEVER used by decide()/evaluate_execution().
+            esnap = None
+            if self.edge_signal is not None:
+                _rv = (dr.features or {}).get("realized_vol") if dr.features else None
+                esnap = self.edge_signal.snapshot(
+                    now=now, poly_yes=mc.poly_yes, spread=mc.spread,
+                    up_book=w.up_book, down_book=w.down_book, ttc_s=ttc,
+                    hurst_regime=(rfeat.hurst_regime if rfeat else None), realized_vol=_rv,
+                    tv_strength=(tv_feature or {}).get("strength"), size_usd=self.cfg.size_usd)
+                dr.edge = esnap.to_dict()
             # ---- digital fair value, then the CLOSED-LOOP LEARNED-EDGE BLEND ----
             # the overlay can only RAISE sigma (>=1.0) -> more conservative P(up)
             fair = digital_p_up(s_now, snap.price, sigma * ov_vol_mult, ttc)
@@ -707,6 +765,16 @@ class PulseEngine:
                                         (dr.model or {}).get("model_confidence")
                                         if (dr.model or {}).get("trained")
                                         else (dr.signals or {}).get("confidence"))}
+            # OBSERVE-ONLY edge-signal entry tags + EV-after-cost (recorded for every trade)
+            if pos.research is None:
+                pos.research = {}
+            pos.research["ev_after_cost"] = ex.ev_after_slippage
+            if esnap is not None:
+                pos.research.update({"edge_stale_divergence": esnap.stale_divergence_class,
+                                     "edge_ttc_bucket": esnap.ttc_bucket,
+                                     "edge_ob_pressure": esnap.orderbook_pressure.get("bucket"),
+                                     "edge_score_bucket": esnap.pulse_edge_score_bucket,
+                                     "edge_cex_agreement": esnap.cex_agreement_bucket})
             if tv_feature is not None:            # observe-only external signal present at entry
                 _sym = tv_feature.get("symbol")
                 _pred = self._rsi_model.predict(_sym) if _sym else {}
@@ -833,6 +901,18 @@ class PulseEngine:
             # it here (that would double-count traded windows).
             # OBSERVE-ONLY bucketed learning: if this traded window carried a TradingView signal,
             # record win/PnL/EV by every signal + market-context bucket (for promotion diagnostics).
+            # OBSERVE-ONLY edge-signal bucketed learning for EVERY settled trade (CEX/stale/OB).
+            if self.edge_signal is not None:
+                rt = pos.research or {}
+                self.edge_signal.record_settled(
+                    {"stale_divergence": rt.get("edge_stale_divergence"),
+                     "ttc_bucket": rt.get("edge_ttc_bucket"),
+                     "ob_pressure": rt.get("edge_ob_pressure"),
+                     "edge_score": rt.get("edge_score_bucket"),
+                     "cex_agreement": rt.get("edge_cex_agreement")},
+                    won=bool(pos.won), pnl=float(pos.pnl_usd or 0.0),
+                    ev_after_cost=rt.get("ev_after_cost"),
+                    reconciled=bool(self.reconciler.report().get("reconciled")))
             ext = pos.external or {}
             if ext.get("source") == "tradingview":
                 rt = pos.research or {}
@@ -1008,7 +1088,19 @@ class PulseEngine:
         report["tradingview"] = self._tradingview_report()
         report["learning"] = self._learning_report()
         report["grok_signal_intel"] = self._grok_intel_report()
+        report["edge_signal"] = self._edge_signal_report()
         return report
+
+    def _edge_signal_report(self) -> dict:
+        """Observe-only BTC Pulse Edge Signal report (CEX coverage, bucketed PnL/win/EV,
+        best/worst-after-cost, promotion diagnostics)."""
+        if self.edge_signal is None:
+            return {"enabled": False, "observe_only": True, "affects_trading": False}
+        return {"enabled": True, **self.edge_signal.report(
+            now=self.last_tick_ts or time.time(),
+            promotion_allowed=self.cfg.edge_promotion_allowed,
+            min_samples=self.cfg.edge_promotion_min_samples,
+            min_win_rate=self.cfg.edge_promotion_min_win_rate)}
 
     def _grok_analyst_report(self) -> dict:
         """Snapshot the signal-learning data for the Grok batch analyst (observe-only)."""
@@ -1135,6 +1227,7 @@ class PulseEngine:
             "grok_overlay": (self.overlay.status() if self.overlay is not None
                              else {"enabled": False}),
             "grok_signal_intel": self._grok_intel_report(),
+            "edge_signal": self._edge_signal_report(),
             "tradingview": self._tradingview_report(),
             "tick_reasons": self._reasons,
             "recent_evaluations": self._last_eval,
@@ -1156,6 +1249,8 @@ class PulseEngine:
                               "rsi_trend": self._rsi_model.to_state(),
                               "tv_learner": self._tv_learner.to_state(),
                               "tv_pending": self._tv_pending[-1000:],
+                              "edge_signal": (self.edge_signal.to_state()
+                                              if self.edge_signal is not None else {}),
                               "grok_predictor": (self.grok_predictor.to_state()
                                                  if self.grok_predictor is not None else {}),
                               "grok_analyst": (self.grok_analyst.to_state()

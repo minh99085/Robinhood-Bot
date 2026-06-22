@@ -108,6 +108,14 @@ services:
       # OBSERVE-ONLY EP Chan research features (Hurst regime, half-life/ADF, z-score, Kalman).
       # Logged per candidate + grouped PnL/calibration by regime/z-bucket. NEVER trades/vetoes.
       HERMES_RESEARCH_FEATURES_ENABLED: "${HERMES_RESEARCH_FEATURES_ENABLED:-1}"
+      # OBSERVE-ONLY BTC Pulse Edge Signal (CEX basket momentum + Polymarket stale-price divergence
+      # + orderbook pressure + pulse_edge_score). Never trades/vetoes/bypasses the gate. Kraken+
+      # Bitstamp are opt-in (extra REST) to protect the hot path; Binance+Coinbase are the default.
+      HERMES_EDGE_SIGNAL_ENABLED: "${HERMES_EDGE_SIGNAL_ENABLED:-1}"
+      HERMES_EDGE_EXTRA_CEX_ENABLED: "${HERMES_EDGE_EXTRA_CEX_ENABLED:-0}"
+      HERMES_EDGE_PROMOTION_ALLOWED: "${HERMES_EDGE_PROMOTION_ALLOWED:-0}"
+      HERMES_EDGE_PROMOTION_MIN_SAMPLES: "${HERMES_EDGE_PROMOTION_MIN_SAMPLES:-50}"
+      HERMES_EDGE_PROMOTION_MIN_WIN_RATE: "${HERMES_EDGE_PROMOTION_MIN_WIN_RATE:-0.80}"
       # ---- closed-loop learning: blend the bot's own calibrated edge model into the DIRECTIONAL
       # decision so it improves as it trades. PAPER ONLY. Influence is earned (ramps with sample
       # count), gated (only when calibrated), and self-disabling (drops to 0 if calibration error
