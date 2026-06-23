@@ -130,7 +130,7 @@ class PulseConfig:
     exec_max_spread: float = 0.06
     exec_min_order_usd: float = 1.0
     exec_max_depth_consume_frac: float = 0.5
-    exec_min_ev_after_slippage: float = 0.0
+    exec_min_ev_after_slippage: float = 0.02   # require a real calibrated edge buffer (per-share)
     exec_max_book_age_s: float = 30.0        # reject stale orderbook older than this
     research_features_enabled: bool = True   # OBSERVE-ONLY EP Chan features (never trade)
     # OBSERVE-ONLY BTC Pulse Edge Signal layer (CEX basket momentum + stale-price divergence +
@@ -297,7 +297,7 @@ class PulseConfig:
             exec_max_spread=_envf("PULSE_EXEC_MAX_SPREAD", 0.06),
             exec_min_order_usd=_envf("PULSE_EXEC_MIN_ORDER_USD", 1.0),
             exec_max_depth_consume_frac=_envf("PULSE_EXEC_MAX_DEPTH_CONSUME_FRAC", 0.5),
-            exec_min_ev_after_slippage=_envf("PULSE_EXEC_MIN_EV", 0.0),
+            exec_min_ev_after_slippage=_envf("PULSE_EXEC_MIN_EV", 0.02),
             exec_max_book_age_s=_envf("PULSE_EXEC_MAX_BOOK_AGE_S", 30.0),
             research_features_enabled=str(os.getenv("HERMES_RESEARCH_FEATURES_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
@@ -1137,46 +1137,62 @@ class PulseEngine:
                     continue
                 entry_mode = ("late_window" if (lw_res["late"] and lw_res["high_conviction"])
                               else "standard")
-            # LEARNED SELECTIVITY GATE (between decision and execution): reject proven-losing
-            # buckets using LIVE settled-trade evidence. Can only make the bot MORE selective —
-            # it never trades/resizes/bypasses the execution gate below. Also calibrate the fair.
+            # SAFETY FLOOR (ALL MODES incl. grok-follow): proven-loss selectivity block + probability
+            # CALIBRATION. Blocking a statistically-proven losing bucket and de-biasing an OVER-
+            # CONFIDENT probability are SAFETY/realism, not directional opinion, so they apply even
+            # when Grok owns the side. Both can only make the bot MORE selective / LESS over-confident
+            # — they never create, force, resize-up, or fast-track a trade, and the execution gate
+            # remains authoritative. Buckets below min_samples are untouched, so unproven contexts are
+            # still explored (cold-start). This is the fix for the negative-expectancy bleed: the
+            # model claimed ~+0.11 EV/share while realized win-rate was ~0.52, so over-priced
+            # favourites in proven-flat/losing buckets used to pass a zero EV floor.
+            sel_tags = {
+                "hurst_regime": (rfeat.hurst_regime if rfeat else None),
+                "zscore_bucket": (rfeat.zscore_bucket if rfeat else None),
+                "ttc_bucket": ttc_bucket(ttc),
+                "confidence_tier": _confidence_tier((dr.model or {}).get("model_confidence")
+                                                    if (dr.model or {}).get("trained")
+                                                    else (dr.signals or {}).get("confidence")),
+                "spread_bucket": _spread_bucket(mc.spread),
+                "depth_bucket": _depth_bucket(mc.ask_depth_usd),
+                "markov_state": cand_state,
+                "edge_quality_bucket": (fsnap.edge_quality_bucket if fsnap else None),
+                "stale_divergence": (esnap.stale_divergence_class if esnap else None),
+                "direction": d.side}
+            from engine.pulse.selectivity import calibrate_fair, calibrate_chosen_prob
+            raw_fp, cal_fp, cal_diag = calibrate_fair(
+                fair, sel_tags, self.selectivity_evidence,
+                min_samples=self.cfg.calibration_min_samples,
+                max_shrink=self.cfg.calibration_max_shrink)
+            # de-bias the probability the EV gate will actually use toward the bucket's REALIZED
+            # win-rate so the model's over-claimed edge cannot pass the EV floor in proven contexts.
+            raw_op, cal_op, op_diag = calibrate_chosen_prob(
+                outcome_prob, sel_tags, self.selectivity_evidence,
+                min_samples=self.cfg.calibration_min_samples,
+                max_shrink=self.cfg.calibration_max_shrink)
+            gate_outcome_prob = cal_op if cal_op is not None else outcome_prob
+            dr.calibration = {"raw_fair_p_up": raw_fp, "calibrated_fair_p_up": cal_fp,
+                              "diag": cal_diag, "raw_outcome_prob": raw_op,
+                              "calibrated_outcome_prob": cal_op, "outcome_prob_diag": op_diag}
+            gate_res = self.selectivity_gate.evaluate(sel_tags, self.selectivity_evidence)
+            dr.selectivity = {"decision": gate_res["decision"], "reasons": gate_res["reasons"],
+                              "bad_buckets": gate_res["bad_buckets"]}
+            if gate_res["decision"] == "reject":
+                dr.action = RejectAction(stage="selectivity_gate", reason=gate_res["reasons"][0])
+                if self.markov is not None:
+                    self.markov.record_terminal(state=cand_state, accepted=False)
+                _finalize(dr, "rejected", reason=gate_res["reasons"][0], stage="selectivity_gate")
+                continue
             if grok_follow:
-                gate_decision = "grok_follow"
+                gate_decision = ("grok_follow_explored" if gate_res["decision"] == "explore"
+                                 else "grok_follow")
             else:
-                sel_tags = {
-                    "hurst_regime": (rfeat.hurst_regime if rfeat else None),
-                    "zscore_bucket": (rfeat.zscore_bucket if rfeat else None),
-                    "ttc_bucket": ttc_bucket(ttc),
-                    "confidence_tier": _confidence_tier((dr.model or {}).get("model_confidence")
-                                                        if (dr.model or {}).get("trained")
-                                                        else (dr.signals or {}).get("confidence")),
-                    "spread_bucket": _spread_bucket(mc.spread),
-                    "depth_bucket": _depth_bucket(mc.ask_depth_usd),
-                    "markov_state": cand_state,
-                    "edge_quality_bucket": (fsnap.edge_quality_bucket if fsnap else None),
-                    "stale_divergence": (esnap.stale_divergence_class if esnap else None),
-                    "direction": d.side}
-                from engine.pulse.selectivity import calibrate_fair
-                raw_fp, cal_fp, cal_diag = calibrate_fair(
-                    fair, sel_tags, self.selectivity_evidence,
-                    min_samples=self.cfg.calibration_min_samples,
-                    max_shrink=self.cfg.calibration_max_shrink)
-                dr.calibration = {"raw_fair_p_up": raw_fp, "calibrated_fair_p_up": cal_fp,
-                                  "diag": cal_diag}
-                gate_res = self.selectivity_gate.evaluate(sel_tags, self.selectivity_evidence)
-                dr.selectivity = {"decision": gate_res["decision"], "reasons": gate_res["reasons"],
-                                  "bad_buckets": gate_res["bad_buckets"]}
-                if gate_res["decision"] == "reject":
-                    dr.action = RejectAction(stage="selectivity_gate", reason=gate_res["reasons"][0])
-                    if self.markov is not None:
-                        self.markov.record_terminal(state=cand_state, accepted=False)
-                    _finalize(dr, "rejected", reason=gate_res["reasons"][0], stage="selectivity_gate")
-                    continue
                 gate_decision = "explored" if gate_res["decision"] == "explore" else "passed"
-            # STRICT execution-quality gate (AUTHORITATIVE): EV from the live ask-ladder VWAP.
+            # STRICT execution-quality gate (AUTHORITATIVE): EV from the live ask-ladder VWAP, using
+            # the CALIBRATED probability so the floor reflects realized edge, not the model's claim.
             book = w.up_book if d.side == "up" else w.down_book
             ex = evaluate_execution(
-                side=d.side, book=book, outcome_prob=outcome_prob,
+                side=d.side, book=book, outcome_prob=gate_outcome_prob,
                 size_usd=round(self.cfg.size_usd * grok_size_frac, 2),
                 tick_size=w.tick_size, ttc_s=ttc,
                 min_seconds_to_close=self.cfg.min_seconds_to_close,

@@ -8,7 +8,8 @@ still passes.
 
 from __future__ import annotations
 
-from engine.pulse.selectivity import (SelectivityEvidence, LearnedSelectivityGate, calibrate_fair)
+from engine.pulse.selectivity import (SelectivityEvidence, LearnedSelectivityGate, calibrate_fair,
+                                       calibrate_chosen_prob)
 from engine.pulse.markets import OrderBook, PulseWindow
 from engine.pulse.price import PulsePriceFeed
 from engine.pulse.fair_value import RollingVol
@@ -117,6 +118,31 @@ def test_calibrated_differs_from_raw_with_evidence():
     assert raw2 == cal2 == 0.70 and diag2 is None
 
 
+def test_calibrate_chosen_prob_shrinks_overconfident_toward_realized():
+    """The negative-expectancy fix: a model that CLAIMS p_win=0.70 in a bucket whose realized
+    win-rate is 0.50 must be shrunk toward 0.50 before the EV gate, so an over-priced favourite
+    fails the EV floor. Calibration is symmetric (a genuinely winning bucket calibrates UP)."""
+    ev = _evidence_with("markov_state", "chop_noise", n=60, win_rate=0.50, avg_pnl=-0.02)
+    raw, cal, diag = calibrate_chosen_prob(0.70, {"markov_state": "chop_noise"}, ev,
+                                           min_samples=30, max_shrink=0.6)
+    assert raw == 0.70 and cal < raw and 0.50 <= cal < 0.70
+    assert diag is not None and diag["empirical_win_rate"] == 0.5
+    # genuinely winning bucket: a conservative claim calibrates UP toward realized 0.70
+    win = _evidence_with("markov_state", "trending", n=60, win_rate=0.70, avg_pnl=0.05)
+    _, cal_up, _ = calibrate_chosen_prob(0.55, {"markov_state": "trending"}, win,
+                                         min_samples=30, max_shrink=0.6)
+    assert cal_up > 0.55
+
+
+def test_calibrate_chosen_prob_coldstart_untouched():
+    # below min_samples -> no calibration (unproven contexts still get explored with the raw prob)
+    thin = _evidence_with("markov_state", "new", n=5, win_rate=0.2, avg_pnl=-0.05)
+    raw, cal, diag = calibrate_chosen_prob(0.70, {"markov_state": "new"}, thin, min_samples=30)
+    assert raw == cal == 0.70 and diag is None
+    # None passes through safely
+    assert calibrate_chosen_prob(None, {}, SelectivityEvidence()) == (None, None, None)
+
+
 # ------------------------------- counterfactual replay (req #7) ---------------------------- #
 def test_counterfactual_replay():
     gate = LearnedSelectivityGate(min_samples=30, min_win_rate=0.52, exploration_rate=0.0)
@@ -214,7 +240,32 @@ def test_engine_passes_when_no_bad_evidence(tmp_path):
     # the candidate carries raw + calibrated fair (calibration reported)
     acc = [r for r in eng.status()["recent_evaluations"] if r["terminal"] == "accepted"]
     assert acc and "raw_fair_p_up" in acc[0]["calibration"] and "calibrated_fair_p_up" in acc[0]["calibration"]
+    # the EV-gate probability calibration is also reported (the negative-expectancy fix)
+    assert "raw_outcome_prob" in acc[0]["calibration"] and "calibrated_outcome_prob" in acc[0]["calibration"]
     assert eng.light_report()["global_reconciled"] is True
+
+
+def test_engine_ev_floor_rejects_overconfident_in_proven_flat_bucket(tmp_path):
+    """Calibration + EV floor: when a bucket is proven coin-flip (win-rate ~0.50) but the model
+    still wants to buy the favourite near 0.55, the calibrated EV (~0.50-0.55<0) fails the 0.02
+    floor, so the trade is rejected by the execution gate rather than bleeding negative expectancy."""
+    eng, t0 = _engine(tmp_path, deep=True, expl=0.0, selectivity_min_samples=30,
+                      exec_min_ev_after_slippage=0.02, calibration_min_samples=30,
+                      calibration_max_shrink=0.6)
+    # proven coin-flip across the markov bucket the rising-price candidate will land in -> calibrate
+    # the model's (overconfident) prob down toward 0.50; coin-flip is NOT hard-blocked by selectivity.
+    for st in ("stale_polymarket_up", "stale_polymarket_down", "chop_noise", "trending_up",
+               "trending_down"):
+        for _ in range(40):
+            eng.selectivity_evidence.record({"markov_state": st}, won=False, pnl=-5.0,
+                                            outcome_up=False)
+            eng.selectivity_evidence.record({"markov_state": st}, won=True, pnl=4.5, outcome_up=True)
+    _drive(eng, t0)
+    lc = eng.status()["decision_lifecycle"]
+    rejected = lc["rejected_by_stage"]
+    assert (rejected.get("execution_gate", 0) + rejected.get("selectivity_gate", 0)) >= 1
+    assert eng.light_report()["global_reconciled"] is True
+    assert eng.status()["paper_only"] is True
 
 
 def test_engine_selectivity_cannot_help_tradingview_bypass_gate(tmp_path):

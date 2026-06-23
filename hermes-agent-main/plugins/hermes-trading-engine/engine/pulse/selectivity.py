@@ -135,6 +135,41 @@ def calibrate_fair(raw_p_up: Optional[float], tags: dict, evidence: SelectivityE
         "shrink_weight": round(w, 4)}
 
 
+def calibrate_chosen_prob(raw_chosen_prob: Optional[float], tags: dict,
+                          evidence: "SelectivityEvidence", *, min_samples: int = 30,
+                          max_shrink: float = 0.6) -> "tuple":
+    """Shrink the model's claimed P(chosen side wins) toward the bucket's REALIZED win-rate.
+
+    The model is systematically overconfident: it claims a large per-share edge (e.g. +10c) while
+    the realized win-rate is ~coin-flip, so the execution-gate EV (outcome_prob - fill_price) is
+    positive on paper but negative in reality. This calibrates the probability fed to the EV gate
+    toward what the bot has ACTUALLY achieved in the most-sampled relevant bucket, so over-priced
+    favourites in proven-flat/losing contexts fail the EV floor. Buckets with < ``min_samples``
+    are left untouched (cold start / exploration), so unproven contexts still get explored.
+
+    Returns (raw, calibrated, diag|None). Symmetric: a genuinely winning bucket calibrates UP."""
+    if raw_chosen_prob is None:
+        return raw_chosen_prob, raw_chosen_prob, None
+    best = None
+    for d in evidence.dims:
+        b = (tags or {}).get(d)
+        if b is None:
+            continue
+        st = evidence.stat(d, b)
+        if st and st["n"] >= min_samples and (best is None or st["n"] > best[2]["n"]):
+            best = (d, b, st)
+    if best is None:
+        return round(float(raw_chosen_prob), 4), round(float(raw_chosen_prob), 4), None
+    d, b, st = best
+    n = st["n"]
+    target = float(st["win_rate"])                       # realized P(trade wins) in this bucket
+    w = min(float(max_shrink), n / (n + float(min_samples)))
+    cal = (1.0 - w) * float(raw_chosen_prob) + w * target
+    return round(float(raw_chosen_prob), 4), round(cal, 4), {
+        "dimension": d, "bucket": str(b), "n": n, "empirical_win_rate": round(target, 4),
+        "shrink_weight": round(w, 4)}
+
+
 class LearnedSelectivityGate:
     """Rejects/penalizes candidates in proven-losing buckets; can only make the bot MORE selective.
     Never trades, resizes, or bypasses the execution gate."""
