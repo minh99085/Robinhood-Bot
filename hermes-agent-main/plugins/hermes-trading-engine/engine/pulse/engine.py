@@ -726,12 +726,15 @@ class PulseEngine:
         if self.cex_lead is not None:
             self.cex_lead.load_state(acct.get("cex_lead") or {})
             self._cex_lead_pending = list(acct.get("cex_lead_pending") or [])
-        # restore research avoid-rules, dropping legacy 'direction=' rules and normalizing case
+        # restore research avoid-rules, but RE-VALIDATE each against current evidence (drops legacy
+        # 'direction=', excluded liquidity dims, and any rule no longer confidently losing).
         self._research_avoid = set()
         for k in (acct.get("research_avoid") or []):
             d, _, b = str(k).partition("=")
-            if d and b and d != "direction":
-                self._research_avoid.add("%s=%s" % (d, b.lower()))
+            b = b.lower()
+            if (d in self._RESEARCH_AVOID_DIMS and b
+                    and self._research_rule_evidence_backed(d, b)):
+                self._research_avoid.add("%s=%s" % (d, b))
         self.selectivity_evidence.load_state(acct.get("selectivity_evidence") or {})
         self.selectivity_gate.load_state(acct.get("selectivity_gate") or {})
         self.tv_context_gate.load_state(acct.get("tv_context_gate") or {})
@@ -2079,17 +2082,32 @@ class PulseEngine:
                            "edge_quality": "edge_quality_bucket", "confidence": "confidence_tier",
                            "spread": "spread_bucket", "depth": "depth_bucket",
                            "zscore": "zscore_bucket", "ttc": "ttc_bucket"}
-    # NOTE: "direction" is deliberately EXCLUDED — blocking a whole side is too coarse and would
-    # also kill profitable favourite trades on that side; we avoid losing CONTEXTS, not sides.
+    # NOTE: "direction" is EXCLUDED (a whole side is too coarse); "depth_bucket"/"spread_bucket" are
+    # EXCLUDED too — they are liquidity ATTRIBUTES, not directional edge contexts, and blocking them
+    # (e.g. depth>=1000 = most of the book) would freeze nearly all trading. We avoid losing
+    # directional CONTEXTS only.
     _RESEARCH_AVOID_DIMS = {"hurst_regime", "zscore_bucket", "ttc_bucket", "confidence_tier",
-                            "spread_bucket", "depth_bucket", "markov_state", "edge_quality_bucket",
-                            "stale_divergence"}
+                            "markov_state", "edge_quality_bucket", "stale_divergence"}
+
+    def _research_rule_evidence_backed(self, dim: str, bucket: str) -> bool:
+        """MAKER-CHECKER: only auto-apply a Claude-proposed avoid-rule if the bot's OWN live evidence
+        CONFIDENTLY proves that bucket is losing (Wilson upper bound < its breakeven + net-negative),
+        the SAME bar the selectivity gate uses. This grounds the self-improving loop in data and stops
+        the LLM from hallucinating / over-broad blocks (e.g. a confidence tier that doesn't exist)."""
+        try:
+            st = self.selectivity_evidence.stat(dim, bucket)
+            if not st or st["n"] < self.selectivity_gate.min_samples:
+                return False
+            return bool(self.selectivity_gate._assess(st).get("confidently_losing"))
+        except Exception:  # noqa: BLE001
+            return False
 
     def _research_apply(self, note: dict) -> list:
-        """Bounded, SAFETY-only auto-apply of the research loop's recommendations: turn Claude's
-        avoid_contexts into hard blocks (only-more-selective, capped, deduplicated). Never loosens a
-        gate, changes size, enables live, or applies exploit/knob nudges automatically. This closes
-        the self-improving loop: the strategy tightens itself against proven-losing contexts."""
+        """Bounded, evidence-gated, SAFETY-only auto-apply of the research loop's avoid_contexts:
+        turn a Claude proposal into a hard block ONLY when the bot's own data confirms it is
+        confidently losing (maker-checker). Only-more-selective, capped, deduplicated; never loosens a
+        gate, changes size, enables live, or applies exploit/knob nudges. Closes the self-improving
+        loop on EVIDENCE, not opinion."""
         applied = []
         for ctx in (note.get("avoid_contexts") or []):
             if "=" not in str(ctx):
@@ -2103,6 +2121,8 @@ class PulseEngine:
             bucket = bucket.strip().strip(",").strip().lower()   # tags are lowercase
             cdim = self._RESEARCH_DIM_ALIAS.get(dim, dim)
             if cdim not in self._RESEARCH_AVOID_DIMS or not bucket:
+                continue
+            if not self._research_rule_evidence_backed(cdim, bucket):   # maker-checker on live data
                 continue
             key = "%s=%s" % (cdim, bucket)
             if key not in self._research_avoid and len(self._research_avoid) < self.cfg.research_avoid_max:

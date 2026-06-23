@@ -268,15 +268,22 @@ def test_engine_ev_floor_rejects_overconfident_in_proven_flat_bucket(tmp_path):
     assert eng.status()["paper_only"] is True
 
 
-def test_research_apply_aliases_excludes_direction_and_caps(tmp_path):
-    # self-improving loop: avoid_contexts -> hard-block rules. 'regime' aliases to 'hurst_regime';
-    # unknown dims and 'direction' (too coarse) are ignored; case is normalized.
-    eng, _ = _engine(tmp_path, deep=True, expl=0.0)
+def test_research_apply_is_evidence_gated_and_excludes_coarse_dims(tmp_path):
+    # self-improving loop is MAKER-CHECKER: a Claude avoid-context becomes a hard block ONLY when the
+    # bot's OWN evidence confirms it is confidently losing. 'regime' aliases to 'hurst_regime';
+    # 'direction'/'depth_bucket' (coarse/liquidity) and unknown dims are ignored; case normalized.
+    eng, _ = _engine(tmp_path, deep=True, expl=0.0, selectivity_min_samples=30)
+    # seed live evidence: hurst_regime=trending is CONFIDENTLY losing (35% win over 40)
+    for i in range(40):
+        won = i < 14
+        eng.selectivity_evidence.record({"hurst_regime": "trending"}, won=won,
+                                        pnl=(3.0 if won else -5.0), outcome_up=won)
     eng._research_apply({"avoid_contexts": ["regime=Trending", "direction=UP", "bogus=zzz",
-                                            "markov_state=chop_noise"]})
-    assert "hurst_regime=trending" in eng._research_avoid     # aliased + lowercased
-    assert "markov_state=chop_noise" in eng._research_avoid
+                                            "depth_bucket=>=1000", "markov_state=chop_noise"]})
+    assert "hurst_regime=trending" in eng._research_avoid     # evidence-backed -> applied
+    assert "markov_state=chop_noise" not in eng._research_avoid  # NO evidence -> NOT applied (checker)
     assert not any(k.startswith("direction") for k in eng._research_avoid)   # whole side excluded
+    assert not any(k.startswith("depth_bucket") for k in eng._research_avoid)  # liquidity attr excluded
     assert not any(k.startswith("bogus") for k in eng._research_avoid)       # unknown dim ignored
     # the matcher hits a flagged context but NEVER blocks on direction
     assert eng._research_avoid_hit({"hurst_regime": "trending", "direction": "up"}) == "hurst_regime=trending"
