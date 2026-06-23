@@ -65,7 +65,9 @@ class CexLeadEdge:
     def __init__(self, *, enabled: bool = True, mode: str = "shadow", min_samples: int = 60,
                  min_divergence: float = 0.04, confidence_z: float = 1.64,
                  min_edge_vs_market: float = 0.0, ev_margin: float = 0.0,
-                 agreement_thr: float = 0.66):
+                 agreement_thr: float = 0.66, tv_strength_thr: float = 0.5,
+                 decisive_thr: float = 0.35, late_ttc_s: float = 90.0,
+                 kelly_scale: float = 0.5, max_size_frac: float = 2.0):
         self.enabled = bool(enabled)
         self.mode = mode if mode in self.MODES else "shadow"
         self.min_samples = int(min_samples)
@@ -75,23 +77,44 @@ class CexLeadEdge:
         self.min_edge_vs_market = float(min_edge_vs_market)
         self.ev_margin = float(ev_margin)
         self.agreement_thr = float(agreement_thr)   # cross-exchange agreement to call a signal "confirmed"
+        self.tv_strength_thr = float(tv_strength_thr)   # TradingView strength to count as TV-confirmed
+        self.decisive_thr = float(decisive_thr)     # |cex_p_up-0.5| >= this => move ~decided (nowcast)
+        self.late_ttc_s = float(late_ttc_s)         # ttc <= this => late window (convergence-lag zone)
+        self.kelly_scale = float(kelly_scale)       # fraction of full Kelly for edge-scaled sizing
+        self.max_size_frac = float(max_size_frac)   # hard cap on size multiplier
         self.buckets: dict = {}                 # context_key -> stat (div + composite microstructure)
         self.graded = 0
         self.signals_seen = 0                   # windows with an actionable signal
         self.drove = 0                          # times it actually proposed a driven entry
         self._recent: deque = deque(maxlen=60)
 
+    def size_fraction(self, *, p_side: float, price: float) -> float:
+        """Edge-scaled (fractional-Kelly) size for a PROVEN edge. For a binary bought at ``price``
+        with win prob ``p_side``: full Kelly = (p-price)/(1-price); we take ``kelly_scale`` of it,
+        clamped to [0, max_size_frac]. Returns 0 when there's no positive edge."""
+        try:
+            price = float(price)
+            if price <= 0 or price >= 1:
+                return 0.0
+            kelly = (float(p_side) - price) / (1.0 - price)
+            return max(0.0, min(self.max_size_frac, kelly * self.kelly_scale))
+        except Exception:  # noqa: BLE001
+            return 0.0
+
     # ---------------------------------- signal --------------------------------------------- #
     def signal(self, *, cex_p_up: Optional[float], poly_yes: Optional[float],
                fair: Optional[float] = None, ttc_s: Optional[float] = None,
                basket_direction: Optional[str] = None, exchange_agreement: Optional[float] = None,
-               ob_imbalance: Optional[float] = None) -> dict:
-        """Build the (observe-only) CEX-lead signal + ORDERFLOW microstructure context for one window.
+               ob_imbalance: Optional[float] = None, tv_direction: Optional[str] = None,
+               tv_strength: Optional[float] = None, news_sentiment: Optional[str] = None) -> dict:
+        """Build the (observe-only) mispricing signal + ORDERFLOW + TradingView + late-window context.
 
-        The base signal is the price divergence (CEX-implied vs market). v2 adds confirmation from the
-        short-horizon CEX move (``basket_direction``), cross-exchange agreement, and orderbook pressure
-        — then emits composite ``context_keys`` (divergence alone, divergence×confirmed/unconfirmed,
-        divergence×ttc) so grading can discover WHICH combination actually beats the market."""
+        Base = CEX-implied vs market divergence. Confirmations: short-horizon CEX move
+        (``basket_direction``), cross-exchange agreement, orderbook pressure, and TradingView
+        (``tv_direction``/``tv_strength``). LATE-WINDOW NOWCAST: when ttc is low and the CEX nowcast is
+        DECISIVE (|cex_p_up-0.5|>=decisive_thr) while the market lags, the outcome is ~decided ->
+        the strongest, lowest-variance mispricing. Emits composite ``context_keys`` so grading finds
+        which stack (confirmed × TV × late-decisive) actually beats the market."""
         if cex_p_up is None or poly_yes is None:
             return {"has_signal": False, "reason": "missing_inputs", "context_keys": [],
                     "cex_p_up": cex_p_up, "poly_yes": poly_yes}
@@ -106,19 +129,43 @@ class CexLeadEdge:
         ob_confirms = (ob_imbalance is not None and ((side == "up" and float(ob_imbalance) > 0)
                                                      or (side == "down" and float(ob_imbalance) < 0)))
         confirmed = bool(mom_confirms and agree_strong)
+        # TradingView confirmation: an aligned, strong TV signal on the same side
+        tv_dir = (str(tv_direction).lower() if tv_direction else None)
+        tv_dir = {"up": "up", "down": "down"}.get(tv_dir)
+        tv_confirms = bool(tv_dir == side and tv_strength is not None
+                           and float(tv_strength) >= self.tv_strength_thr)
+        # late-window nowcast: outcome ~decided by the fresh CEX price while the market lags
+        late = (ttc_s is not None and float(ttc_s) <= self.late_ttc_s)
+        decisive = abs(float(cex_p_up) - 0.5) >= self.decisive_thr
+        late_decisive = bool(late and decisive)
+        # Grok news/X sentiment confirmation (Grok exploiting mispricing via fresh context)
+        _ns = (str(news_sentiment).lower() if news_sentiment else None)
+        news_dir = {"bullish": "up", "bearish": "down"}.get(_ns)
+        news_state = ("aligned" if news_dir == side else
+                      ("against" if news_dir in ("up", "down") else "neutral"))
         ttcb = ttc_bucket_edge(ttc_s)
         keys = []
         if has:
             self.signals_seen += 1
             keys = [b,                                                  # divergence alone (back-compat)
                     "conf=%s|%s" % (b, "confirmed" if confirmed else "unconfirmed"),
-                    "ttc=%s|%s" % (b, ttcb)]
+                    "ttc=%s|%s" % (b, ttcb),
+                    "tv=%s|%s" % (b, "confirmed" if tv_confirms else "unconfirmed"),
+                    "news=%s|%s" % (b, news_state),
+                    "late=%s|%s" % (b, "decisive" if late_decisive else "indecisive")]
             if confirmed:
-                keys.append("conf_ttc=%s|%s" % (b, ttcb))               # the strongest composite
+                keys.append("conf_ttc=%s|%s" % (b, ttcb))
+            if late_decisive:
+                keys.append("latedec=%s" % b)                          # flagship late-window nowcast
+            if confirmed and tv_confirms and late_decisive:
+                keys.append("stack=%s|aligned" % b)                    # full multi-source alignment
         return {"has_signal": has, "side": side, "divergence": round(div, 4),
                 "abs_divergence": round(ab, 4), "bucket": b, "ttc_bucket": ttcb,
                 "confirmed": confirmed, "momentum_confirms": mom_confirms,
                 "ob_confirms": (bool(ob_confirms) if ob_imbalance is not None else None),
+                "tv_confirms": tv_confirms, "tv_direction": tv_dir,
+                "news_state": news_state, "news_sentiment": _ns,
+                "late_decisive": late_decisive, "decisive": decisive, "late": late,
                 "exchange_agreement": (round(float(exchange_agreement), 4)
                                        if exchange_agreement is not None else None),
                 "basket_direction": basket_direction, "context_keys": keys,
@@ -203,15 +250,17 @@ class CexLeadEdge:
     def decide(self, *, cex_p_up: Optional[float], poly_yes: Optional[float],
                fair: Optional[float] = None, ttc_s: Optional[float] = None,
                basket_direction: Optional[str] = None, exchange_agreement: Optional[float] = None,
-               ob_imbalance: Optional[float] = None) -> Optional[dict]:
+               ob_imbalance: Optional[float] = None, tv_direction: Optional[str] = None,
+               tv_strength: Optional[float] = None, news_sentiment: Optional[str] = None) -> Optional[dict]:
         """Return a driven-entry proposal ONLY in gated mode when ANY of the signal's context keys is
-        a proven, market-beating bucket; else None. Advisory: the safety floor + execution gate still
-        decide the trade."""
+        a proven, market-beating bucket; else None. Includes an edge-scaled (fractional-Kelly) size.
+        Advisory: the safety floor + execution gate still decide the trade."""
         if not self.enabled or self.mode != "gated":
             return None
         sig = self.signal(cex_p_up=cex_p_up, poly_yes=poly_yes, fair=fair, ttc_s=ttc_s,
                           basket_direction=basket_direction, exchange_agreement=exchange_agreement,
-                          ob_imbalance=ob_imbalance)
+                          ob_imbalance=ob_imbalance, tv_direction=tv_direction, tv_strength=tv_strength,
+                          news_sentiment=news_sentiment)
         if not sig.get("has_signal"):
             return None
         fired = self.best_proven(sig.get("context_keys"))
@@ -219,9 +268,12 @@ class CexLeadEdge:
             return None
         side = sig["side"]
         p_side = float(cex_p_up) if side == "up" else (1.0 - float(cex_p_up))
+        price = float(poly_yes) if side == "up" else (1.0 - float(poly_yes))
         self.drove += 1
         return {"side": side, "p_up": round(float(cex_p_up), 4), "outcome_prob": round(p_side, 4),
                 "bucket": sig["bucket"], "fired_context": fired, "confirmed": sig.get("confirmed"),
+                "tv_confirms": sig.get("tv_confirms"), "late_decisive": sig.get("late_decisive"),
+                "size_frac": round(self.size_fraction(p_side=p_side, price=price), 4),
                 "divergence": sig["divergence"], "proven": True}
 
     # ---------------------------------- report / state ------------------------------------- #
@@ -231,7 +283,10 @@ class CexLeadEdge:
         return {"enabled": self.enabled, "mode": self.mode, "paper_only": True,
                 "affects_trading": (self.enabled and self.mode == "gated"),
                 "min_samples": self.min_samples, "min_divergence": self.min_divergence,
-                "confidence_z": self.confidence_z, "graded": self.graded,
+                "confidence_z": self.confidence_z, "tv_strength_thr": self.tv_strength_thr,
+                "decisive_thr": self.decisive_thr, "late_ttc_s": self.late_ttc_s,
+                "kelly_scale": self.kelly_scale, "max_size_frac": self.max_size_frac,
+                "graded": self.graded,
                 "signals_seen": self.signals_seen, "drove_entries": self.drove,
                 "promotion_rule": ("n>=min AND wilson_lower(win_rate)>breakeven AND "
                                    "Brier_cex<Brier_market AND avg_pnl>0"),

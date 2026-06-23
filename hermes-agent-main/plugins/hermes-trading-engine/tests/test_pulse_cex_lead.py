@@ -70,6 +70,30 @@ def test_record_grades_all_context_keys_and_decide_fires_on_confirmed():
     assert nodrive is None
 
 
+def test_signal_tv_news_late_window_contexts_and_kelly_size():
+    edge = CexLeadEdge(min_divergence=0.04, tv_strength_thr=0.5, decisive_thr=0.35, late_ttc_s=90)
+    # CEX nowcast decisive (0.92), late window (ttc 45), TV aligned+strong, news bullish -> full stack
+    sig = edge.signal(cex_p_up=0.92, poly_yes=0.60, fair=0.8, ttc_s=45, basket_direction="up",
+                      exchange_agreement=0.9, ob_imbalance=0.3, tv_direction="UP", tv_strength=0.82,
+                      news_sentiment="bullish")
+    assert sig["side"] == "up" and sig["tv_confirms"] is True and sig["late_decisive"] is True
+    assert sig["news_state"] == "aligned"
+    keys = sig["context_keys"]                                   # div 0.32 -> ">=0.30" bucket
+    assert "tv=>=0.30|confirmed" in keys
+    assert "news=>=0.30|aligned" in keys
+    assert any(k.startswith("latedec=") for k in keys)
+    assert "stack=>=0.30|aligned" in keys                       # confirmed + TV + late-decisive
+    # news against the side is flagged
+    s2 = edge.signal(cex_p_up=0.92, poly_yes=0.60, ttc_s=45, news_sentiment="bearish")
+    assert s2["news_state"] == "against" and "news=>=0.30|against" in s2["context_keys"]
+    # not late / not decisive -> no latedec/stack
+    s3 = edge.signal(cex_p_up=0.60, poly_yes=0.52, ttc_s=270)
+    assert s3["late_decisive"] is False and not any(k.startswith("latedec=") for k in s3["context_keys"])
+    # edge-scaled (fractional-Kelly) size: half-Kelly of (0.8-0.6)/(1-0.6)=0.5 -> 0.25
+    assert abs(edge.size_fraction(p_side=0.8, price=0.6) - 0.25) < 1e-6
+    assert edge.size_fraction(p_side=0.5, price=0.6) == 0.0     # no edge -> zero size
+
+
 def test_proven_only_when_beats_market_and_wilson_confident():
     edge = CexLeadEdge(min_samples=40, min_divergence=0.04, confidence_z=1.64)
     # bucket where CEX is RIGHT and CONFIDENT and well-calibrated (beats the market price).

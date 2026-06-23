@@ -290,6 +290,29 @@ def test_research_apply_is_evidence_gated_and_excludes_coarse_dims(tmp_path):
     assert eng._research_avoid_hit({"direction": "up"}) is None
 
 
+def test_engine_research_exploit_is_evidence_gated(tmp_path):
+    # EXPLOIT side of the self-improving loop (dual of avoid): a Claude exploit-context is promoted
+    # ONLY when the bot's own data confirms it is confidently WINNING (Wilson lower > breakeven, +PnL).
+    eng, _ = _engine(tmp_path, deep=True, expl=0.0, selectivity_min_samples=30)
+    # seed a confidently-WINNING bucket: markov_state=stale_polymarket_down at ~75% over 40
+    for i in range(40):
+        won = i < 30
+        eng.selectivity_evidence.record({"markov_state": "stale_polymarket_down"}, won=won,
+                                        pnl=(4.0 if won else -5.0), outcome_up=won)
+    # and a LOSING bucket that must NOT be promoted to exploit
+    for i in range(40):
+        won = i < 14
+        eng.selectivity_evidence.record({"markov_state": "chop_noise"}, won=won,
+                                        pnl=(4.0 if won else -5.0), outcome_up=won)
+    eng._research_apply({"avoid_contexts": [],
+                         "exploit_contexts": ["markov_state=stale_polymarket_down",
+                                              "markov_state=chop_noise"]})
+    assert "markov_state=stale_polymarket_down" in eng._research_exploit   # winning -> promoted
+    assert "markov_state=chop_noise" not in eng._research_exploit          # losing -> rejected
+    assert eng._research_exploit_hit({"markov_state": "stale_polymarket_down"}) is True
+    assert eng._research_exploit_hit({"markov_state": "chop_noise"}) is False
+
+
 def test_engine_research_avoid_blocks_flagged_context(tmp_path):
     # the self-improving loop end-to-end: a research-flagged context is hard-blocked before execution.
     from engine.pulse.reporting import spread_bucket

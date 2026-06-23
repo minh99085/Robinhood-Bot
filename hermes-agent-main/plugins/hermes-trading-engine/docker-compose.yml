@@ -103,6 +103,9 @@ services:
       # blocks (only-more-selective, capped, deduplicated; never loosens/sizes/goes live).
       PULSE_RESEARCH_AUTO_APPLY: "${PULSE_RESEARCH_AUTO_APPLY:-1}"
       PULSE_RESEARCH_AVOID_MAX: "${PULSE_RESEARCH_AVOID_MAX:-14}"
+      # EXPLOIT side (dual of avoid): evidence-gated size-up of proven-winning contexts
+      PULSE_RESEARCH_EXPLOIT_MAX: "${PULSE_RESEARCH_EXPLOIT_MAX:-10}"
+      PULSE_RESEARCH_EXPLOIT_SIZE_MULT: "${PULSE_RESEARCH_EXPLOIT_SIZE_MULT:-1.5}"
       PULSE_RESEARCH_MAX_CALLS_PER_HOUR: "${PULSE_RESEARCH_MAX_CALLS_PER_HOUR:-6}"
       CLAUDE_BUDGET_DAILY_USD: "${CLAUDE_BUDGET_DAILY_USD:-10}"
       CLAUDE_EST_USD_PER_CALL: "${CLAUDE_EST_USD_PER_CALL:-0.01}"
@@ -182,6 +185,12 @@ services:
       PULSE_CEX_LEAD_MIN_DIVERGENCE: "${PULSE_CEX_LEAD_MIN_DIVERGENCE:-0.04}"
       PULSE_CEX_LEAD_CONFIDENCE_Z: "${PULSE_CEX_LEAD_CONFIDENCE_Z:-1.64}"
       PULSE_CEX_LEAD_MIN_EDGE_VS_MARKET: "${PULSE_CEX_LEAD_MIN_EDGE_VS_MARKET:-0}"
+      # v3: orderflow + TradingView confirmation, late-window nowcast, edge-scaled (Kelly) sizing
+      PULSE_CEX_LEAD_TV_STRENGTH_THR: "${PULSE_CEX_LEAD_TV_STRENGTH_THR:-0.5}"
+      PULSE_CEX_LEAD_DECISIVE_THR: "${PULSE_CEX_LEAD_DECISIVE_THR:-0.35}"
+      PULSE_CEX_LEAD_LATE_TTC_S: "${PULSE_CEX_LEAD_LATE_TTC_S:-90}"
+      PULSE_CEX_LEAD_KELLY_SCALE: "${PULSE_CEX_LEAD_KELLY_SCALE:-0.5}"
+      PULSE_CEX_LEAD_MAX_SIZE_FRAC: "${PULSE_CEX_LEAD_MAX_SIZE_FRAC:-2.0}"
       # Learned Selectivity Gate v1: reject proven-losing buckets (live evidence) between decision
       # and execution. Only makes the bot MORE selective; never trades/resizes/bypasses the gate.
       PULSE_SELECTIVITY_GATE_ENABLED: "${PULSE_SELECTIVITY_GATE_ENABLED:-1}"

@@ -111,6 +111,8 @@ class PulseConfig:
     research_event_min_gap_s: float = 600.0  # min gap between event-triggered research runs
     research_auto_apply: bool = True         # bounded auto-apply: avoid-contexts -> hard blocks
     research_avoid_max: int = 14             # cap on active research avoid-context rules
+    research_exploit_max: int = 10           # cap on active research EXPLOIT-context rules
+    research_exploit_size_mult: float = 1.5  # size-up multiplier for proven-winning exploit contexts
     research_max_calls_per_hour: int = 6
     claude_budget_daily_usd: float = 10.0
     claude_est_usd_per_call: float = 0.01
@@ -154,6 +156,11 @@ class PulseConfig:
     cex_lead_min_divergence: float = 0.04
     cex_lead_confidence_z: float = 1.64
     cex_lead_min_edge_vs_market: float = 0.0   # required Brier improvement over the market
+    cex_lead_tv_strength_thr: float = 0.5      # TradingView strength to count as TV-confirmed
+    cex_lead_decisive_thr: float = 0.35        # |cex_p_up-0.5| >= this => late-window move ~decided
+    cex_lead_late_ttc_s: float = 90.0          # ttc <= this => late-window convergence-lag zone
+    cex_lead_kelly_scale: float = 0.5          # fractional-Kelly size for proven edges
+    cex_lead_max_size_frac: float = 2.0        # hard cap on the edge-scaled size multiplier
     # ---- Learned Selectivity Gate v1 (between decision and execution; PAPER ONLY) ----
     # Uses live settled-trade bucket evidence to REJECT proven-losing buckets. Can only make the
     # bot MORE selective; never trades/resizes/bypasses the execution gate.
@@ -290,6 +297,8 @@ class PulseConfig:
             research_interval_s=_envf("PULSE_RESEARCH_INTERVAL_S", 1800.0),
             research_event_min_gap_s=_envf("PULSE_RESEARCH_EVENT_MIN_GAP_S", 600.0),
             research_avoid_max=int(_envf("PULSE_RESEARCH_AVOID_MAX", 14)),
+            research_exploit_max=int(_envf("PULSE_RESEARCH_EXPLOIT_MAX", 10)),
+            research_exploit_size_mult=_envf("PULSE_RESEARCH_EXPLOIT_SIZE_MULT", 1.5),
             research_auto_apply=str(os.getenv("PULSE_RESEARCH_AUTO_APPLY", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             research_max_calls_per_hour=int(_envf("PULSE_RESEARCH_MAX_CALLS_PER_HOUR", 6)),
@@ -332,6 +341,11 @@ class PulseConfig:
             cex_lead_min_divergence=_envf("PULSE_CEX_LEAD_MIN_DIVERGENCE", 0.04),
             cex_lead_confidence_z=_envf("PULSE_CEX_LEAD_CONFIDENCE_Z", 1.64),
             cex_lead_min_edge_vs_market=_envf("PULSE_CEX_LEAD_MIN_EDGE_VS_MARKET", 0.0),
+            cex_lead_tv_strength_thr=_envf("PULSE_CEX_LEAD_TV_STRENGTH_THR", 0.5),
+            cex_lead_decisive_thr=_envf("PULSE_CEX_LEAD_DECISIVE_THR", 0.35),
+            cex_lead_late_ttc_s=_envf("PULSE_CEX_LEAD_LATE_TTC_S", 90.0),
+            cex_lead_kelly_scale=_envf("PULSE_CEX_LEAD_KELLY_SCALE", 0.5),
+            cex_lead_max_size_frac=_envf("PULSE_CEX_LEAD_MAX_SIZE_FRAC", 2.0),
             selectivity_gate_enabled=str(os.getenv("PULSE_SELECTIVITY_GATE_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             selectivity_min_samples=int(_envf("PULSE_SELECTIVITY_MIN_SAMPLES", 30)),
@@ -521,7 +535,12 @@ class PulseEngine:
                 min_samples=self.cfg.cex_lead_min_samples,
                 min_divergence=self.cfg.cex_lead_min_divergence,
                 confidence_z=self.cfg.cex_lead_confidence_z,
-                min_edge_vs_market=self.cfg.cex_lead_min_edge_vs_market)
+                min_edge_vs_market=self.cfg.cex_lead_min_edge_vs_market,
+                tv_strength_thr=self.cfg.cex_lead_tv_strength_thr,
+                decisive_thr=self.cfg.cex_lead_decisive_thr,
+                late_ttc_s=self.cfg.cex_lead_late_ttc_s,
+                kelly_scale=self.cfg.cex_lead_kelly_scale,
+                max_size_frac=self.cfg.cex_lead_max_size_frac)
         self._ev_before_sum = 0.0                 # EV before/after costs (accepted candidates)
         self._ev_after_sum = 0.0
         self._ev_n = 0
@@ -605,6 +624,7 @@ class PulseEngine:
         self.verifier = None
         self.research_loop = None
         self._research_avoid: set = set()      # canonical "dim=bucket" contexts auto-blocked by Claude
+        self._research_exploit: set = set()    # "dim=bucket" contexts Claude flags AND data proves WINNING
         try:
             from engine.pulse.claude_client import anthropic_key
             need_claude = bool(self.cfg.verifier_enabled) or bool(self.cfg.research_loop_enabled)
@@ -735,6 +755,12 @@ class PulseEngine:
             if (d in self._RESEARCH_AVOID_DIMS and b
                     and self._research_rule_evidence_backed(d, b)):
                 self._research_avoid.add("%s=%s" % (d, b))
+        self._research_exploit = set()
+        for k in (acct.get("research_exploit") or []):
+            d, _, b = str(k).partition("=")
+            b = b.lower()
+            if d in self._RESEARCH_AVOID_DIMS and b and self._research_exploit_backed(d, b):
+                self._research_exploit.add("%s=%s" % (d, b))
         self.selectivity_evidence.load_state(acct.get("selectivity_evidence") or {})
         self.selectivity_gate.load_state(acct.get("selectivity_gate") or {})
         self.tv_context_gate.load_state(acct.get("tv_context_gate") or {})
@@ -1020,15 +1046,24 @@ class PulseEngine:
                 _basket_dir = _mom.get("basket_direction")
                 _agreement = _mom.get("exchange_agreement")
                 _ob_imb = ((esnap.orderbook_pressure if esnap else {}) or {}).get("imbalance")
+                # TradingView confirmation (direction + strength) — observe-only signal feed
+                _tv_dir = (tv_feature or {}).get("direction")
+                _tv_str = (tv_feature or {}).get("strength")
+                # Grok news/X sentiment (mispricing confirmation via fresh context)
+                _news = ((self.grok_news.latest() if self.grok_news is not None else None) or {})
+                _news_sent = _news.get("sentiment")
                 cl_sig = self.cex_lead.signal(cex_p_up=cex_p_up, poly_yes=mc.poly_yes,
                                               fair=fair_used, ttc_s=ttc, basket_direction=_basket_dir,
-                                              exchange_agreement=_agreement, ob_imbalance=_ob_imb)
+                                              exchange_agreement=_agreement, ob_imbalance=_ob_imb,
+                                              tv_direction=_tv_dir, tv_strength=_tv_str,
+                                              news_sentiment=_news_sent)
                 dr.cex_lead = cl_sig
                 if cl_sig.get("has_signal"):
                     self._schedule_cex_lead_grade(mc.decision_id, snap.price, w.close_ts, cl_sig)
                 cex_lead_drive = self.cex_lead.decide(
                     cex_p_up=cex_p_up, poly_yes=mc.poly_yes, fair=fair_used, ttc_s=ttc,
-                    basket_direction=_basket_dir, exchange_agreement=_agreement, ob_imbalance=_ob_imb)
+                    basket_direction=_basket_dir, exchange_agreement=_agreement, ob_imbalance=_ob_imb,
+                    tv_direction=_tv_dir, tv_strength=_tv_str, news_sentiment=_news_sent)
             # ---- GROK DECISION ENGINE ("Grok decides, bot executes"; PAPER ONLY) ----
             # Request one decision per window (async, off the tick loop), record it observe-only, and
             # schedule a grade vs the realized close (traded or not). In SHADOW mode this is the only
@@ -1163,8 +1198,11 @@ class PulseEngine:
                 # calibration + EV gate + caps + breaker) below still applies and stays authoritative.
                 cex_lead_active = True
                 side = cex_lead_drive["side"]
-                entry_mode = "cex_lead"
+                entry_mode = ("cex_lead_late" if cex_lead_drive.get("late_decisive") else "cex_lead")
                 cex_oprob = float(cex_lead_drive["outcome_prob"])
+                # D: edge-scaled (fractional-Kelly) sizing for the proven edge, clamped to a sane band
+                grok_size_frac = max(0.25, min(self.cfg.cex_lead_max_size_frac,
+                                               float(cex_lead_drive.get("size_frac") or 1.0)))
                 book = w.up_book if side == "up" else w.down_book
                 ask = book.best_ask if book else None
                 if ask is None:
@@ -1308,6 +1346,13 @@ class PulseEngine:
                                  else "cex_lead")
             else:
                 gate_decision = "explored" if gate_res["decision"] == "explore" else "passed"
+            # B (EXPLOIT side): size UP a proven-winning research exploit-context (baseline opinion
+            # path only; capped). The execution gate + caps below remain authoritative.
+            if (not grok_follow and not cex_lead_active and self.cfg.research_auto_apply
+                    and self._research_exploit_hit(sel_tags)):
+                grok_size_frac = min(self.cfg.cex_lead_max_size_frac,
+                                     grok_size_frac * self.cfg.research_exploit_size_mult)
+                gate_decision = "exploit_" + gate_decision
             # STRICT execution-quality gate (AUTHORITATIVE): EV from the live ask-ladder VWAP, using
             # the CALIBRATED probability so the floor reflects realized edge, not the model's claim.
             book = w.up_book if d.side == "up" else w.down_book
@@ -1966,6 +2011,7 @@ class PulseEngine:
                                    else {"enabled": False})
         if isinstance(report["research_loop"], dict):
             report["research_loop"]["auto_applied_avoid_contexts"] = sorted(self._research_avoid)
+            report["research_loop"]["auto_applied_exploit_contexts"] = sorted(self._research_exploit)
         report["lessons"] = self.lessons.report()
         report["loops"] = self.loops.report()
         report["edge_signal"] = self._edge_signal_report()
@@ -2102,6 +2148,24 @@ class PulseEngine:
         except Exception:  # noqa: BLE001
             return False
 
+    def _research_exploit_backed(self, dim: str, bucket: str) -> bool:
+        """MAKER-CHECKER for the EXPLOIT side: only promote a Claude-proposed exploit-context if the
+        bot's OWN data CONFIDENTLY proves it WINNING — Wilson LOWER bound of win-rate above the
+        bucket's own breakeven AND net-positive PnL. Mirrors the avoid checker; grounds size-ups in
+        evidence, never opinion."""
+        try:
+            from engine.pulse.cex_lead import _wilson_lower
+            from engine.pulse.selectivity import breakeven_win_rate
+            st = self.selectivity_evidence.stat(dim, bucket)
+            if not st or st["n"] < self.selectivity_gate.min_samples or st["pnl_usd"] <= 0:
+                return False
+            n = int(st["n"]); wins = int(round(float(st["win_rate"]) * n))
+            wl = _wilson_lower(wins, n, self.selectivity_gate.confidence_z)
+            be = breakeven_win_rate(st["avg_win"], st["avg_loss"])
+            return wl is not None and wl > be
+        except Exception:  # noqa: BLE001
+            return False
+
     def _research_apply(self, note: dict) -> list:
         """Bounded, evidence-gated, SAFETY-only auto-apply of the research loop's avoid_contexts:
         turn a Claude proposal into a hard block ONLY when the bot's own data confirms it is
@@ -2128,7 +2192,39 @@ class PulseEngine:
             if key not in self._research_avoid and len(self._research_avoid) < self.cfg.research_avoid_max:
                 self._research_avoid.add(key)
                 applied.append(key)
+        # EXPLOIT side (dual of avoid): promote Claude exploit-contexts that the data proves WINNING
+        for ctx in (note.get("exploit_contexts") or []):
+            if "=" not in str(ctx):
+                continue
+            dim, _, bucket = str(ctx).partition("=")
+            dim = dim.strip().lower()
+            bucket = bucket.strip()
+            for sep in (" (", "(", " "):
+                if sep in bucket:
+                    bucket = bucket.split(sep, 1)[0]
+            bucket = bucket.strip().strip(",").strip().lower()
+            cdim = self._RESEARCH_DIM_ALIAS.get(dim, dim)
+            if cdim not in self._RESEARCH_AVOID_DIMS or not bucket:
+                continue
+            if not self._research_exploit_backed(cdim, bucket):
+                continue
+            key = "%s=%s" % (cdim, bucket)
+            if (key not in self._research_exploit
+                    and len(self._research_exploit) < self.cfg.research_exploit_max):
+                self._research_exploit.add(key)
+                applied.append("exploit:" + key)
         return applied
+
+    def _research_exploit_hit(self, sel_tags: dict) -> bool:
+        """True if a candidate's context matches a proven-winning research exploit-rule (never on
+        'direction'). Used to SIZE UP proven-winning contexts (capped)."""
+        if not self._research_exploit:
+            return False
+        for dim, val in (sel_tags or {}).items():
+            if dim != "direction" and val is not None and (
+                    "%s=%s" % (dim, str(val).lower())) in self._research_exploit:
+                return True
+        return False
 
     def _research_avoid_hit(self, sel_tags: dict):
         """Return the first sel_tag that matches an active research avoid-rule, else None. Never
@@ -2364,6 +2460,7 @@ class PulseEngine:
                                            if self.cex_lead is not None else {}),
                               "cex_lead_pending": self._cex_lead_pending[-2000:],
                               "research_avoid": sorted(self._research_avoid),
+                              "research_exploit": sorted(self._research_exploit),
                               "grok_predictor": (self.grok_predictor.to_state()
                                                  if self.grok_predictor is not None else {}),
                               "grok_analyst": (self.grok_analyst.to_state()
