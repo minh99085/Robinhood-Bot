@@ -268,15 +268,28 @@ def test_engine_ev_floor_rejects_overconfident_in_proven_flat_bucket(tmp_path):
     assert eng.status()["paper_only"] is True
 
 
+def test_research_apply_aliases_excludes_direction_and_caps(tmp_path):
+    # self-improving loop: avoid_contexts -> hard-block rules. 'regime' aliases to 'hurst_regime';
+    # unknown dims and 'direction' (too coarse) are ignored; case is normalized.
+    eng, _ = _engine(tmp_path, deep=True, expl=0.0)
+    eng._research_apply({"avoid_contexts": ["regime=Trending", "direction=UP", "bogus=zzz",
+                                            "markov_state=chop_noise"]})
+    assert "hurst_regime=trending" in eng._research_avoid     # aliased + lowercased
+    assert "markov_state=chop_noise" in eng._research_avoid
+    assert not any(k.startswith("direction") for k in eng._research_avoid)   # whole side excluded
+    assert not any(k.startswith("bogus") for k in eng._research_avoid)       # unknown dim ignored
+    # the matcher hits a flagged context but NEVER blocks on direction
+    assert eng._research_avoid_hit({"hurst_regime": "trending", "direction": "up"}) == "hurst_regime=trending"
+    assert eng._research_avoid_hit({"direction": "up"}) is None
+
+
 def test_engine_research_avoid_blocks_flagged_context(tmp_path):
-    # the self-improving loop: a research-flagged avoid-context is hard-blocked before execution.
+    # the self-improving loop end-to-end: a research-flagged context is hard-blocked before execution.
+    from engine.pulse.reporting import spread_bucket
     eng, t0 = _engine(tmp_path, deep=True, expl=0.0)
-    assert eng._research_apply({"avoid_contexts": ["direction=up", "regime=trending",
-                                                   "bogus=zzz"]}) is not None
-    assert "direction=up" in eng._research_avoid              # aliased/known dims added
-    assert "hurst_regime=trending" in eng._research_avoid     # 'regime' aliased to 'hurst_regime'
-    assert not any(k.startswith("bogus") for k in eng._research_avoid)   # unknown dim ignored
-    _drive(eng, t0)                                           # rising price -> candidate dir 'up'
+    # the deep up book has spread 0.05 -> add THAT spread bucket as a research avoid-rule
+    eng._research_avoid = {"spread_bucket=%s" % spread_bucket(0.05)}
+    _drive(eng, t0)
     lc = eng.status()["decision_lifecycle"]
     assert lc["rejected_by_stage"].get("research_avoid", 0) >= 1
     assert eng.ledger.trades == 0                             # the avoided context never trades

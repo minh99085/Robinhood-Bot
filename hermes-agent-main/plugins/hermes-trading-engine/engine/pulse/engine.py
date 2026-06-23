@@ -726,7 +726,12 @@ class PulseEngine:
         if self.cex_lead is not None:
             self.cex_lead.load_state(acct.get("cex_lead") or {})
             self._cex_lead_pending = list(acct.get("cex_lead_pending") or [])
-        self._research_avoid = set(acct.get("research_avoid") or [])
+        # restore research avoid-rules, dropping legacy 'direction=' rules and normalizing case
+        self._research_avoid = set()
+        for k in (acct.get("research_avoid") or []):
+            d, _, b = str(k).partition("=")
+            if d and b and d != "direction":
+                self._research_avoid.add("%s=%s" % (d, b.lower()))
         self.selectivity_evidence.load_state(acct.get("selectivity_evidence") or {})
         self.selectivity_gate.load_state(acct.get("selectivity_gate") or {})
         self.tv_context_gate.load_state(acct.get("tv_context_gate") or {})
@@ -2065,9 +2070,11 @@ class PulseEngine:
                            "edge_quality": "edge_quality_bucket", "confidence": "confidence_tier",
                            "spread": "spread_bucket", "depth": "depth_bucket",
                            "zscore": "zscore_bucket", "ttc": "ttc_bucket"}
+    # NOTE: "direction" is deliberately EXCLUDED — blocking a whole side is too coarse and would
+    # also kill profitable favourite trades on that side; we avoid losing CONTEXTS, not sides.
     _RESEARCH_AVOID_DIMS = {"hurst_regime", "zscore_bucket", "ttc_bucket", "confidence_tier",
                             "spread_bucket", "depth_bucket", "markov_state", "edge_quality_bucket",
-                            "stale_divergence", "direction"}
+                            "stale_divergence"}
 
     def _research_apply(self, note: dict) -> list:
         """Bounded, SAFETY-only auto-apply of the research loop's recommendations: turn Claude's
@@ -2080,7 +2087,7 @@ class PulseEngine:
                 continue
             dim, _, bucket = str(ctx).partition("=")
             dim = dim.strip().lower()
-            bucket = bucket.strip()
+            bucket = bucket.strip().lower()                  # case-insensitive: tags are lowercase
             cdim = self._RESEARCH_DIM_ALIAS.get(dim, dim)
             if cdim not in self._RESEARCH_AVOID_DIMS or not bucket:
                 continue
@@ -2091,12 +2098,15 @@ class PulseEngine:
         return applied
 
     def _research_avoid_hit(self, sel_tags: dict):
-        """Return the first sel_tag that matches an active research avoid-rule, else None."""
+        """Return the first sel_tag that matches an active research avoid-rule, else None. Never
+        blocks on 'direction' (a whole side is too coarse); matching is case-insensitive."""
         if not self._research_avoid:
             return None
         for dim, val in (sel_tags or {}).items():
-            if val is not None and ("%s=%s" % (dim, val)) in self._research_avoid:
-                return "%s=%s" % (dim, val)
+            if dim == "direction" or val is None:
+                continue
+            if ("%s=%s" % (dim, str(val).lower())) in self._research_avoid:
+                return "%s=%s" % (dim, str(val).lower())
         return None
 
     def _register_loops(self) -> None:
