@@ -268,6 +268,35 @@ def test_engine_ev_floor_rejects_overconfident_in_proven_flat_bucket(tmp_path):
     assert eng.status()["paper_only"] is True
 
 
+def test_engine_research_avoid_blocks_flagged_context(tmp_path):
+    # the self-improving loop: a research-flagged avoid-context is hard-blocked before execution.
+    eng, t0 = _engine(tmp_path, deep=True, expl=0.0)
+    assert eng._research_apply({"avoid_contexts": ["direction=up", "regime=trending",
+                                                   "bogus=zzz"]}) is not None
+    assert "direction=up" in eng._research_avoid              # aliased/known dims added
+    assert "hurst_regime=trending" in eng._research_avoid     # 'regime' aliased to 'hurst_regime'
+    assert not any(k.startswith("bogus") for k in eng._research_avoid)   # unknown dim ignored
+    _drive(eng, t0)                                           # rising price -> candidate dir 'up'
+    lc = eng.status()["decision_lifecycle"]
+    assert lc["rejected_by_stage"].get("research_avoid", 0) >= 1
+    assert eng.ledger.trades == 0                             # the avoided context never trades
+    assert eng.light_report()["global_reconciled"] is True
+
+
+def test_engine_underdog_floor_blocks_cheap_side(tmp_path):
+    # buying below the entry-price floor is rejected on the opinion path. The deep up book fills at
+    # 0.55; with the floor set to 0.60 that fill is "underdog" and must be blocked at the exec gate.
+    eng, t0 = _engine(tmp_path, deep=True, expl=0.0, min_entry_price=0.60)
+    _drive(eng, t0)
+    assert eng.ledger.trades == 0
+    assert eng.status()["execution_gate"]["rejected"].get("underdog_price_below_floor", 0) >= 1
+    assert eng.light_report()["global_reconciled"] is True
+    # with a permissive floor (0.0) the same 0.55 fill trades normally
+    eng2, t02 = _engine(tmp_path, deep=True, expl=0.0, min_entry_price=0.0)
+    _drive(eng2, t02)
+    assert eng2.ledger.trades >= 1
+
+
 def test_engine_selectivity_cannot_help_tradingview_bypass_gate(tmp_path):
     # thin book -> execution gate rejects regardless of selectivity decision
     eng, t0 = _engine(tmp_path, deep=False, expl=0.0, tradingview_secret="s3cr3t",

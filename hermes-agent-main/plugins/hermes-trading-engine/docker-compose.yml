@@ -99,7 +99,10 @@ services:
       # this idle floor + min-gap between event runs; cadence matches the rate of meaningful change.
       PULSE_RESEARCH_INTERVAL_S: "${PULSE_RESEARCH_INTERVAL_S:-1800}"
       PULSE_RESEARCH_EVENT_MIN_GAP_S: "${PULSE_RESEARCH_EVENT_MIN_GAP_S:-600}"
-      PULSE_RESEARCH_AUTO_APPLY: "${PULSE_RESEARCH_AUTO_APPLY:-0}"
+      # self-improving loop: bounded auto-apply of the Claude research loop's avoid-contexts as hard
+      # blocks (only-more-selective, capped, deduplicated; never loosens/sizes/goes live).
+      PULSE_RESEARCH_AUTO_APPLY: "${PULSE_RESEARCH_AUTO_APPLY:-1}"
+      PULSE_RESEARCH_AVOID_MAX: "${PULSE_RESEARCH_AVOID_MAX:-14}"
       PULSE_RESEARCH_MAX_CALLS_PER_HOUR: "${PULSE_RESEARCH_MAX_CALLS_PER_HOUR:-6}"
       CLAUDE_BUDGET_DAILY_USD: "${CLAUDE_BUDGET_DAILY_USD:-10}"
       CLAUDE_EST_USD_PER_CALL: "${CLAUDE_EST_USD_PER_CALL:-0.01}"
@@ -136,6 +139,10 @@ services:
       PULSE_EXEC_MIN_ORDER_USD: "${PULSE_EXEC_MIN_ORDER_USD:-1}"
       PULSE_EXEC_MAX_DEPTH_CONSUME_FRAC: "${PULSE_EXEC_MAX_DEPTH_CONSUME_FRAC:-0.5}"
       PULSE_EXEC_MIN_EV: "${PULSE_EXEC_MIN_EV:-0}"
+      # don't BUY the underdog side (VWAP fill below this) on opinion paths — the price is the best
+      # probability estimate and the bot's model has negative edge on cheap/tail sides. Proven edge
+      # sources (CEX-lead) are exempt. Live data: underdog buys ~28% win = the entire net loss.
+      PULSE_MIN_ENTRY_PRICE: "${PULSE_MIN_ENTRY_PRICE:-0.50}"
       # ---- price feed (fastest available) ----
       # 'auto' uses Chainlink Data Streams (the EXACT feed this market resolves on, sub-second,
       # zero basis) when credentials are set, else the Coinbase proxy. A ~1s background sampler

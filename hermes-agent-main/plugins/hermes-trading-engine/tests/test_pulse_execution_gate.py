@@ -9,7 +9,8 @@ from __future__ import annotations
 from engine.pulse.markets import OrderBook, PulseWindow
 from engine.pulse.execution_gate import (evaluate_execution, vwap_fill, ExecResult,
                                           WIDE_SPREAD, INSUFFICIENT_DEPTH, NEGATIVE_EV,
-                                          TOO_CLOSE, MIN_SIZE_OR_TICK, PARTIAL_FILL_RISK)
+                                          TOO_CLOSE, MIN_SIZE_OR_TICK, PARTIAL_FILL_RISK,
+                                          UNDERDOG_PRICE)
 from engine.pulse.executor import PulseLedger
 from engine.pulse.engine import PulseEngine, PulseConfig
 from engine.pulse.price import PulsePriceFeed
@@ -53,6 +54,24 @@ def test_accept_when_depth_deep_and_ev_survives():
                            tick_size=0.01, ttc_s=120.0)
     assert r.accepted is True and r.reason == "accepted"
     assert abs(r.fill_price - 0.50) < 1e-6 and r.ev_after_slippage > 0
+
+
+def test_underdog_price_floor_rejects_cheap_side():
+    # buying a side whose VWAP fill is below the floor (the underdog) is rejected even if EV looks
+    # positive on the bot's (overconfident) probability — the price is the better estimate.
+    book = _book(0.29, 0.30, asks=[(0.30, 1000.0)])
+    r = evaluate_execution(side="up", book=book, outcome_prob=0.45, size_usd=10.0, tick_size=0.01,
+                           ttc_s=120.0, min_fill_price=0.50)
+    assert r.accepted is False and r.reason == UNDERDOG_PRICE and r.vwap is not None and r.vwap < 0.5
+    # the SAME cheap side passes when the floor is disabled (proven-edge path uses min_fill_price=0)
+    r2 = evaluate_execution(side="up", book=book, outcome_prob=0.45, size_usd=10.0, tick_size=0.01,
+                            ttc_s=120.0, min_fill_price=0.0)
+    assert r2.accepted is True and r2.reason == "accepted"
+    # a favourite (fill >= floor) is unaffected by the floor
+    fav = _book(0.59, 0.60, asks=[(0.60, 1000.0)])
+    r3 = evaluate_execution(side="up", book=fav, outcome_prob=0.70, size_usd=10.0, tick_size=0.01,
+                            ttc_s=120.0, min_fill_price=0.50)
+    assert r3.accepted is True and r3.reason == "accepted"
 
 
 # --- every explicit rejection reason fires ---------------------------------------------- #

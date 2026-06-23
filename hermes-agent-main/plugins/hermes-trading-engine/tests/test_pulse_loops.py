@@ -90,6 +90,25 @@ def test_research_loop_adds_lessons_observe_only():
     assert rl2.report()["errors"] == 1
 
 
+def test_research_loop_auto_apply_invokes_apply_fn():
+    # closing the loop: when auto_apply is on, avoid_contexts are passed to apply_fn and the applied
+    # rules are reported (bounded, safety-only).
+    applied_calls = []
+
+    def apply_fn(note):
+        out = [c.replace("hurst=", "hurst_regime=") for c in note.get("avoid_contexts", [])]
+        applied_calls.append(out)
+        return out
+    note = {"summary": "avoid noise", "avoid_contexts": ["hurst=noise", "ttc_bucket=<60s"],
+            "exploit_contexts": [], "knob_recommendations": [], "new_lessons": []}
+    rl = ResearchLoop(research_fn=lambda rep: note, report_provider=lambda: {}, apply_fn=apply_fn,
+                      auto_apply=True)
+    rl.refresh()
+    r = rl.report()
+    assert r["auto_apply"] is True and applied_calls
+    assert "hurst_regime=noise" in r["recent_applied"] and "ttc_bucket=<60s" in r["recent_applied"]
+
+
 def test_research_loop_event_trigger_respects_min_gap():
     # event-triggered run only fires after event_min_gap_s since the last run; interval is the floor.
     rl = ResearchLoop(research_fn=lambda rep: {"summary": "x"}, report_provider=lambda: {},

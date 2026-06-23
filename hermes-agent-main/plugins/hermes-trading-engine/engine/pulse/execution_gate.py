@@ -23,8 +23,9 @@ MIN_SIZE_OR_TICK = "min_size_or_tick_violation"
 PARTIAL_FILL_RISK = "partial_fill_risk"
 MISSING_MARKET_DATA = "missing_market_data"
 STALE_ORDERBOOK = "stale_orderbook"
+UNDERDOG_PRICE = "underdog_price_below_floor"
 REASONS = (WIDE_SPREAD, INSUFFICIENT_DEPTH, NEGATIVE_EV, TOO_CLOSE, MIN_SIZE_OR_TICK,
-           PARTIAL_FILL_RISK, MISSING_MARKET_DATA, STALE_ORDERBOOK)
+           PARTIAL_FILL_RISK, MISSING_MARKET_DATA, STALE_ORDERBOOK, UNDERDOG_PRICE)
 
 
 @dataclass
@@ -84,10 +85,17 @@ def evaluate_execution(*, side: str, book, outcome_prob: float, size_usd: float,
                        min_depth_usd: float = 1.0, min_order_usd: float = 1.0,
                        max_depth_consume_frac: float = 0.5,
                        min_ev_after_slippage: float = 0.0,
+                       min_fill_price: float = 0.0,
                        now: Optional[float] = None,
                        max_book_age_s: float = 30.0) -> ExecResult:
     """Evaluate a candidate against orderbook reality. ``outcome_prob`` is the model
-    probability of the outcome whose token we'd buy (so EV = outcome_prob - fill_price)."""
+    probability of the outcome whose token we'd buy (so EV = outcome_prob - fill_price).
+
+    ``min_fill_price`` rejects buying the UNDERDOG side (VWAP fill below the floor, e.g. 0.50): in
+    a near-efficient 5-min market the price IS the probability, and the bot's model systematically
+    overestimates cheap/tail sides (adverse selection) — live data showed underdog buys at ~28% win
+    for the entire net loss, while favourites (>0.5) were net-positive. Proven edge sources (e.g. the
+    graded CEX-lead) pass ``min_fill_price=0`` since their edge is exactly buying mispriced sides."""
     best_ask = book.best_ask if book else None
     spread = book.spread if book else None
     ask_depth = float(book.ask_depth_usd if book else 0.0)
@@ -127,6 +135,13 @@ def evaluate_execution(*, side: str, book, outcome_prob: float, size_usd: float,
         return rej(PARTIAL_FILL_RISK, fillable_usd=filled_usd, vwap=vwap)
     if ask_depth > 0 and (size_usd / ask_depth) > max_depth_consume_frac:
         return rej(PARTIAL_FILL_RISK, fillable_usd=filled_usd, vwap=vwap)
+    # 5b) underdog-price floor: do not BUY a side whose VWAP fill is below the floor (betting the
+    # less-likely outcome). The market price is the best probability estimate; the bot's opinion has
+    # negative edge on cheap/tail sides. Skipped (floor=0) for proven edge sources.
+    if min_fill_price > 0 and vwap < min_fill_price:
+        return ExecResult(False, UNDERDOG_PRICE, fill_price=None, best_ask=best_ask, vwap=vwap,
+                          slippage=(vwap - best_ask), ev_at_mid=ev_at_mid,
+                          fillable_usd=filled_usd, spread=spread)
     # 6) EV after VWAP/slippage (NOT midpoint)
     slippage = vwap - best_ask
     ev = outcome_prob - vwap

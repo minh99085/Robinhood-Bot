@@ -109,7 +109,8 @@ class PulseConfig:
     research_loop_enabled: bool = False
     research_interval_s: float = 1800.0      # idle FLOOR; the loop is mainly EVENT-triggered
     research_event_min_gap_s: float = 600.0  # min gap between event-triggered research runs
-    research_auto_apply: bool = False        # whitelisted, bounded auto-apply of recommendations
+    research_auto_apply: bool = True         # bounded auto-apply: avoid-contexts -> hard blocks
+    research_avoid_max: int = 14             # cap on active research avoid-context rules
     research_max_calls_per_hour: int = 6
     claude_budget_daily_usd: float = 10.0
     claude_est_usd_per_call: float = 0.01
@@ -131,6 +132,10 @@ class PulseConfig:
     exec_min_order_usd: float = 1.0
     exec_max_depth_consume_frac: float = 0.5
     exec_min_ev_after_slippage: float = 0.02   # require a real calibrated edge buffer (per-share)
+    # don't BUY the underdog side (VWAP fill below this) on opinion paths — the price is the best
+    # probability and the bot's model has negative edge on cheap/tail sides (live: underdog buys
+    # ~28% win = the entire net loss; favourites >0.5 were net-positive). Proven edges are exempt.
+    min_entry_price: float = 0.50
     exec_max_book_age_s: float = 30.0        # reject stale orderbook older than this
     research_features_enabled: bool = True   # OBSERVE-ONLY EP Chan features (never trade)
     # OBSERVE-ONLY BTC Pulse Edge Signal layer (CEX basket momentum + stale-price divergence +
@@ -284,7 +289,8 @@ class PulseConfig:
             .strip().lower() in ("1", "true", "yes", "on"),
             research_interval_s=_envf("PULSE_RESEARCH_INTERVAL_S", 1800.0),
             research_event_min_gap_s=_envf("PULSE_RESEARCH_EVENT_MIN_GAP_S", 600.0),
-            research_auto_apply=str(os.getenv("PULSE_RESEARCH_AUTO_APPLY", "0"))
+            research_avoid_max=int(_envf("PULSE_RESEARCH_AVOID_MAX", 14)),
+            research_auto_apply=str(os.getenv("PULSE_RESEARCH_AUTO_APPLY", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             research_max_calls_per_hour=int(_envf("PULSE_RESEARCH_MAX_CALLS_PER_HOUR", 6)),
             claude_budget_daily_usd=_envf("CLAUDE_BUDGET_DAILY_USD", 10.0),
@@ -307,6 +313,7 @@ class PulseConfig:
             exec_min_order_usd=_envf("PULSE_EXEC_MIN_ORDER_USD", 1.0),
             exec_max_depth_consume_frac=_envf("PULSE_EXEC_MAX_DEPTH_CONSUME_FRAC", 0.5),
             exec_min_ev_after_slippage=_envf("PULSE_EXEC_MIN_EV", 0.02),
+            min_entry_price=_envf("PULSE_MIN_ENTRY_PRICE", 0.50),
             exec_max_book_age_s=_envf("PULSE_EXEC_MAX_BOOK_AGE_S", 30.0),
             research_features_enabled=str(os.getenv("HERMES_RESEARCH_FEATURES_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
@@ -597,6 +604,7 @@ class PulseEngine:
         self.claude_budget = None
         self.verifier = None
         self.research_loop = None
+        self._research_avoid: set = set()      # canonical "dim=bucket" contexts auto-blocked by Claude
         try:
             from engine.pulse.claude_client import anthropic_key
             need_claude = bool(self.cfg.verifier_enabled) or bool(self.cfg.research_loop_enabled)
@@ -617,6 +625,7 @@ class PulseEngine:
                         budget=self.claude_budget, interval_s=self.cfg.research_interval_s,
                         event_min_gap_s=self.cfg.research_event_min_gap_s,
                         report_provider=self._research_report, lessons=self.lessons,
+                        apply_fn=self._research_apply,
                         auto_apply=self.cfg.research_auto_apply).start()
         except Exception:  # noqa: BLE001 — verifier/research never block startup
             logger.exception("claude verifier/research init failed; continuing")
@@ -717,6 +726,7 @@ class PulseEngine:
         if self.cex_lead is not None:
             self.cex_lead.load_state(acct.get("cex_lead") or {})
             self._cex_lead_pending = list(acct.get("cex_lead_pending") or [])
+        self._research_avoid = set(acct.get("research_avoid") or [])
         self.selectivity_evidence.load_state(acct.get("selectivity_evidence") or {})
         self.selectivity_gate.load_state(acct.get("selectivity_gate") or {})
         self.tv_context_gate.load_state(acct.get("tv_context_gate") or {})
@@ -1254,6 +1264,17 @@ class PulseEngine:
             dr.calibration = {"raw_fair_p_up": raw_fp, "calibrated_fair_p_up": cal_fp,
                               "diag": cal_diag, "raw_outcome_prob": raw_op,
                               "calibrated_outcome_prob": cal_op, "outcome_prob_diag": op_diag}
+            # RESEARCH AUTO-APPLY (self-improving loop): hard-block contexts the Claude research loop
+            # flagged as proven-losing. Safety-only / more-selective. Exempt the proven CEX-lead edge.
+            if self.cfg.research_auto_apply and not cex_lead_active:
+                ra_hit = self._research_avoid_hit(sel_tags)
+                if ra_hit is not None:
+                    reason = "research_avoid:" + ra_hit
+                    dr.action = RejectAction(stage="research_avoid", reason=reason)
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason=reason, stage="research_avoid")
+                    continue
             gate_res = self.selectivity_gate.evaluate(sel_tags, self.selectivity_evidence)
             dr.selectivity = {"decision": gate_res["decision"], "reasons": gate_res["reasons"],
                               "bad_buckets": gate_res["bad_buckets"]}
@@ -1283,6 +1304,7 @@ class PulseEngine:
                 min_order_usd=self.cfg.exec_min_order_usd,
                 max_depth_consume_frac=self.cfg.exec_max_depth_consume_frac,
                 min_ev_after_slippage=self.cfg.exec_min_ev_after_slippage,
+                min_fill_price=(0.0 if cex_lead_active else self.cfg.min_entry_price),
                 now=now, max_book_age_s=self.cfg.exec_max_book_age_s)
             self.ledger.record_exec(ex.accepted, ex.reason)
             # observe what the gate actually SEES (drives the zero-reject diagnostic)
@@ -1925,6 +1947,8 @@ class PulseEngine:
                               else {"enabled": False})
         report["research_loop"] = (self.research_loop.report() if self.research_loop is not None
                                    else {"enabled": False})
+        if isinstance(report["research_loop"], dict):
+            report["research_loop"]["auto_applied_avoid_contexts"] = sorted(self._research_avoid)
         report["lessons"] = self.lessons.report()
         report["loops"] = self.loops.report()
         report["edge_signal"] = self._edge_signal_report()
@@ -2035,6 +2059,45 @@ class PulseEngine:
             return rep
         except Exception:  # noqa: BLE001
             return {"lessons": self.lessons.recent(20)}
+
+    # research dimensions -> selectivity-tag dimensions (so Claude's avoid_contexts map to live tags)
+    _RESEARCH_DIM_ALIAS = {"regime": "hurst_regime", "hurst": "hurst_regime",
+                           "edge_quality": "edge_quality_bucket", "confidence": "confidence_tier",
+                           "spread": "spread_bucket", "depth": "depth_bucket",
+                           "zscore": "zscore_bucket", "ttc": "ttc_bucket"}
+    _RESEARCH_AVOID_DIMS = {"hurst_regime", "zscore_bucket", "ttc_bucket", "confidence_tier",
+                            "spread_bucket", "depth_bucket", "markov_state", "edge_quality_bucket",
+                            "stale_divergence", "direction"}
+
+    def _research_apply(self, note: dict) -> list:
+        """Bounded, SAFETY-only auto-apply of the research loop's recommendations: turn Claude's
+        avoid_contexts into hard blocks (only-more-selective, capped, deduplicated). Never loosens a
+        gate, changes size, enables live, or applies exploit/knob nudges automatically. This closes
+        the self-improving loop: the strategy tightens itself against proven-losing contexts."""
+        applied = []
+        for ctx in (note.get("avoid_contexts") or []):
+            if "=" not in str(ctx):
+                continue
+            dim, _, bucket = str(ctx).partition("=")
+            dim = dim.strip().lower()
+            bucket = bucket.strip()
+            cdim = self._RESEARCH_DIM_ALIAS.get(dim, dim)
+            if cdim not in self._RESEARCH_AVOID_DIMS or not bucket:
+                continue
+            key = "%s=%s" % (cdim, bucket)
+            if key not in self._research_avoid and len(self._research_avoid) < self.cfg.research_avoid_max:
+                self._research_avoid.add(key)
+                applied.append(key)
+        return applied
+
+    def _research_avoid_hit(self, sel_tags: dict):
+        """Return the first sel_tag that matches an active research avoid-rule, else None."""
+        if not self._research_avoid:
+            return None
+        for dim, val in (sel_tags or {}).items():
+            if val is not None and ("%s=%s" % (dim, val)) in self._research_avoid:
+                return "%s=%s" % (dim, val)
+        return None
 
     def _register_loops(self) -> None:
         """Formalize the sub-loops for uniform observability (#3)."""
@@ -2257,6 +2320,7 @@ class PulseEngine:
                               "cex_lead": (self.cex_lead.to_state()
                                            if self.cex_lead is not None else {}),
                               "cex_lead_pending": self._cex_lead_pending[-2000:],
+                              "research_avoid": sorted(self._research_avoid),
                               "grok_predictor": (self.grok_predictor.to_state()
                                                  if self.grok_predictor is not None else {}),
                               "grok_analyst": (self.grok_analyst.to_state()
