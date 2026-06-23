@@ -85,6 +85,8 @@ services:
       # FOLLOW exploration: when Grok abstains, trade its view at this rate (paper data-gathering).
       PULSE_GROK_DECIDER_EXPLORE_RATE: "${PULSE_GROK_DECIDER_EXPLORE_RATE:-0}"
       PULSE_GROK_DECIDER_EXPLORE_SIZE_FRACTION: "${PULSE_GROK_DECIDER_EXPLORE_SIZE_FRACTION:-0.5}"
+      # adaptive self-improvement loop: exploit proven-edge contexts, avoid proven-losing ones.
+      PULSE_GROK_DECIDER_ADAPTIVE: "${PULSE_GROK_DECIDER_ADAPTIVE:-1}"
       PULSE_GROK_NEWS_REFRESH_S: "${PULSE_GROK_NEWS_REFRESH_S:-300}"
       # ---- BTC 5-min pulse engine (LOOSENED quality gates; PAPER ONLY) ----
       # Loose edge/depth so it actively takes PAPER trades on btc-up-or-down-5m windows.

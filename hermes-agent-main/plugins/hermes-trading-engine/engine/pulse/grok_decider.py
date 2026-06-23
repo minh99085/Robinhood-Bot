@@ -50,6 +50,18 @@ def _wilson_lower(correct: int, n: int, z: float = 1.64) -> Optional[float]:
     return max(0.0, center - margin)
 
 
+def _wilson_upper(correct: int, n: int, z: float = 1.64) -> Optional[float]:
+    """One-sided upper Wilson bound — used to flag a context as proven-LOSING (upper < 0.5)."""
+    if n <= 0:
+        return None
+    import math
+    phat = correct / n
+    denom = 1.0 + z * z / n
+    center = (phat + z * z / (2 * n)) / denom
+    margin = (z * math.sqrt((phat * (1.0 - phat) + z * z / (4 * n)) / n)) / denom
+    return min(1.0, center + margin)
+
+
 def _clamp01(v, default: Optional[float] = None) -> Optional[float]:
     try:
         return max(0.0, min(1.0, float(v)))
@@ -253,8 +265,11 @@ class GrokDecider:
                  max_consecutive_losses: int = 4, daily_loss_cap_usd: float = 30.0,
                  max_latency_s: float = 20.0, cooldown_s: float = 1800.0,
                  view_promote_min_samples: int = 25,
+                 adaptive_min_samples: int = 20, adaptive_margin: float = 0.0,
                  max_pending: int = 200, max_results: int = 5000):
         self.view_promote_min_samples = int(view_promote_min_samples)
+        self.adaptive_min_samples = int(adaptive_min_samples)
+        self.adaptive_margin = float(adaptive_margin)
         self._fn = decider_fn if decider_fn is not None else make_decider_fn()
         self._budget = budget
         self.mode = mode if mode in ("off", "shadow", "follow") else "off"
@@ -499,6 +514,39 @@ class GrokDecider:
                                 "accuracy_lower_ci": round(lo, 4)})
         out.sort(key=lambda r: r["accuracy_lower_ci"], reverse=True)
         return out
+
+    def context_policy(self, context: Optional[dict], *, min_samples: Optional[int] = None,
+                       margin: Optional[float] = None) -> dict:
+        """Self-improving closed loop: from the live per-context VIEW accuracy decide how to act in
+        THIS context — ``exploit`` (proven edge: Wilson lower > 0.5+margin -> act on Grok's view,
+        size up by edge strength), ``avoid`` (proven losing: Wilson upper < 0.5-margin -> skip), or
+        ``explore`` (uncertain/cold -> sample). This concentrates trading where edge is proven and
+        stops wasting trades where it isn't — active learning, not blind exploration."""
+        ms = self.adaptive_min_samples if min_samples is None else int(min_samples)
+        mg = self.adaptive_margin if margin is None else float(margin)
+        best = None       # (dim, bucket, n, lower)
+        worst_upper = None
+        with self._lock:
+            for dim, bucket in (context or {}).items():
+                if bucket is None:
+                    continue
+                s = self.by_context.get(dim, {}).get(str(bucket))
+                if not s or s["n"] < ms:
+                    continue
+                lo = _wilson_lower(s["correct"], s["n"], 1.64)
+                up = _wilson_upper(s["correct"], s["n"], 1.64)
+                if lo is not None and (best is None or lo > best[3]):
+                    best = (dim, str(bucket), s["n"], lo)
+                if up is not None and (worst_upper is None or up < worst_upper[2]):
+                    worst_upper = (dim, str(bucket), up, s["n"])
+        if best is not None and best[3] > 0.5 + mg:
+            size_mult = min(2.0, 1.0 + (best[3] - 0.5) * 4.0)
+            return {"mode": "exploit", "dimension": best[0], "bucket": best[1], "n": best[2],
+                    "accuracy_lower_ci": round(best[3], 4), "size_mult": round(size_mult, 2)}
+        if worst_upper is not None and worst_upper[2] < 0.5 - mg:
+            return {"mode": "avoid", "dimension": worst_upper[0], "bucket": worst_upper[1],
+                    "n": worst_upper[3], "accuracy_upper_ci": round(worst_upper[2], 4)}
+        return {"mode": "explore"}
 
     def report(self) -> dict:
         with self._lock:

@@ -139,13 +139,20 @@ def test_is_actionable_freshness_and_confidence():
 # ============================ engine end-to-end =========================================== #
 class _FakeDecider:
     """Deterministic stand-in (no network): returns a fixed decision and records grades."""
-    def __init__(self, mode, decision, *, follow_ok=True):
+    def __init__(self, mode, decision, *, follow_ok=True, policy_mode="explore"):
         self.mode = mode
         self._decision = decision
         self._follow_ok = follow_ok
+        self._policy_mode = policy_mode
         self.graded = []
         self.requested = 0
         self.follow_results = []
+
+    def context_policy(self, context, **kw):
+        return ({"mode": "exploit", "size_mult": 1.5, "dimension": "hurst_regime", "bucket": "x"}
+                if self._policy_mode == "exploit"
+                else ({"mode": "avoid", "dimension": "hurst_regime", "bucket": "x"}
+                      if self._policy_mode == "avoid" else {"mode": "explore"}))
 
     def request(self, decision_id, bundle, context=None):
         self.requested += 1
@@ -241,7 +248,7 @@ def test_news_digest_refresh_failopen_and_expiry():
     assert nd.latest() is None
 
 
-def _engine(tmp_path, *, mode, decision, follow_ok=True, **over):
+def _engine(tmp_path, *, mode, decision, follow_ok=True, policy_mode="explore", **over):
     t0 = 9_980_000.0
     win = PulseWindow(event_id="e1", market_id="m1", slug="s", title="BTC Up or Down",
                       open_ts=t0, close_ts=t0 + 300, up_token_id="U", down_token_id="D")
@@ -257,7 +264,8 @@ def _engine(tmp_path, *, mode, decision, follow_ok=True, **over):
                       settle_grace_s=0.0, exec_max_depth_consume_frac=0.9,
                       grok_decider_mode=mode, data_dir=str(tmp_path), **over)
     eng = PulseEngine(cfg, market_feed=_Mkt(win), price_feed=feed)
-    eng.grok_decider = _FakeDecider(mode, decision, follow_ok=follow_ok)   # inject (no network)
+    eng.grok_decider = _FakeDecider(mode, decision, follow_ok=follow_ok,
+                                    policy_mode=policy_mode)               # inject (no network)
     return eng, t0
 
 
@@ -355,6 +363,23 @@ def test_recent_windows_view_summary():
     assert v["n"] == 4 and v["up_rate"] == 0.75 and v["current_streak"] == "upx3"
 
 
+def test_context_policy_exploit_avoid_explore():
+    g = GrokDecider(mode="follow", adaptive_min_samples=20)
+    # build a proven-edge context (trending: 30 views, 24 correct ~0.8 -> Wilson lower > 0.5)
+    for i in range(30):
+        g.grade_fields(action="no_trade", p_up=(0.7 if i < 24 else 0.3),
+                       context={"hurst_regime": "trending"}, outcome_up=True)
+    pol = g.context_policy({"hurst_regime": "trending"})
+    assert pol["mode"] == "exploit" and pol["size_mult"] >= 1.0
+    # build a proven-LOSING context (noise: 30 views, 6 correct ~0.2 -> Wilson upper < 0.5)
+    for i in range(30):
+        g.grade_fields(action="no_trade", p_up=0.7,
+                       context={"hurst_regime": "noise"}, outcome_up=(i < 6))
+    assert g.context_policy({"hurst_regime": "noise"})["mode"] == "avoid"
+    # an unseen / under-sampled context -> explore
+    assert g.context_policy({"hurst_regime": "mean_reverting"})["mode"] == "explore"
+
+
 def test_engine_follow_explore_trades_view_when_grok_abstains(tmp_path):
     # Grok abstains (no_trade) but its p_up view leans up; explore_rate=1.0 -> bot trades the view
     eng, t0 = _engine(tmp_path, mode="follow",
@@ -374,6 +399,30 @@ def test_engine_follow_explore_off_still_abstains(tmp_path):
                       grok_decider_explore_rate=0.0)
     _drive(eng, t0)
     assert eng.ledger.trades == 0
+
+
+def test_engine_adaptive_exploits_proven_edge_context(tmp_path):
+    # Grok abstains, explore OFF; policy says EXPLOIT (proven-edge context) -> adaptive auto-trades
+    eng, t0 = _engine(tmp_path, mode="follow",
+                      decision={"action": "no_trade", "p_up": 0.7, "confidence": 0.4, "ttl_s": 240},
+                      grok_decider_explore_rate=0.0, grok_decider_adaptive=True,
+                      policy_mode="exploit")
+    _drive(eng, t0)
+    assert eng.ledger.trades >= 1
+    assert any((p.research or {}).get("entry_mode") == "grok_adaptive"
+               for p in eng.ledger.positions.values())
+    assert eng.status()["grok_decider"]["adaptive_policy_counts"]["exploit"] >= 1
+    assert eng.light_report()["global_reconciled"] is True
+
+
+def test_engine_adaptive_avoids_proven_bad_context(tmp_path):
+    # policy says AVOID (proven-losing context) -> no trade even though Grok gave a p_up view
+    eng, t0 = _engine(tmp_path, mode="follow",
+                      decision={"action": "no_trade", "p_up": 0.7, "confidence": 0.4, "ttl_s": 240},
+                      grok_decider_explore_rate=1.0, grok_decider_adaptive=True, policy_mode="avoid")
+    _drive(eng, t0)
+    assert eng.ledger.trades == 0                       # avoid suppresses even exploration
+    assert eng.status()["grok_decider"]["adaptive_policy_counts"]["avoid"] >= 1
 
 
 def test_engine_follow_fraction_zero_uses_baseline(tmp_path):

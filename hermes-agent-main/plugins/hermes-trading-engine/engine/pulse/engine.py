@@ -99,6 +99,9 @@ class PulseConfig:
     # gathering so the bot keeps trading + learns action-level P&L). 0 = never (pure follow).
     grok_decider_explore_rate: float = 0.0
     grok_decider_explore_size_fraction: float = 0.5
+    # adaptive self-improvement loop: auto-EXPLOIT contexts with a proven view-edge (Wilson lower >
+    # 0.5), AVOID proven-losing contexts, and only EXPLORE the uncertain ones. Default ON.
+    grok_decider_adaptive: bool = True
     grok_news_refresh_s: float = 300.0               # periodic web/X news digest cadence
     # price feed: 'auto' uses Chainlink Data Streams (exact resolution feed) when creds are
     # set, else the Coinbase proxy. A sub-second background sampler keeps the price fresh
@@ -250,6 +253,8 @@ class PulseConfig:
             grok_decider_cooldown_s=_envf("PULSE_GROK_DECIDER_COOLDOWN_S", 1800.0),
             grok_decider_explore_rate=_envf("PULSE_GROK_DECIDER_EXPLORE_RATE", 0.0),
             grok_decider_explore_size_fraction=_envf("PULSE_GROK_DECIDER_EXPLORE_SIZE_FRACTION", 0.5),
+            grok_decider_adaptive=str(os.getenv("PULSE_GROK_DECIDER_ADAPTIVE", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
             grok_news_refresh_s=_envf("PULSE_GROK_NEWS_REFRESH_S", 300.0),
             price_source=(os.getenv("PULSE_PRICE_SOURCE", "auto") or "auto").strip().lower(),
             price_sampler_interval_s=_envf("PULSE_PRICE_SAMPLER_INTERVAL_S", 1.0),
@@ -473,6 +478,7 @@ class PulseEngine:
         self._recent_windows: list = []           # rolling recent BTC 5m window outcomes (for Grok)
         import random as _random
         self._grok_rng = _random.Random()         # exploration sampler (follow-mode data gathering)
+        self._grok_policy_counts = {"exploit": 0, "explore": 0, "avoid": 0}   # adaptive-loop tally
         try:
             from engine.pulse.grok_intel import (GrokBudget, GrokSignalAnalyst,
                                                  GrokSignalPredictor, xai_key)
@@ -914,14 +920,22 @@ class PulseEngine:
                 # (p_up) at a capped rate so the bot keeps trading + gathers action-level P&L data
                 # (paper; breaker-protected) instead of freezing.
                 actionable = self.grok_decider.is_actionable(grok_dec, now=now)
-                explore = (not actionable and grok_dec is not None
-                           and grok_dec.get("p_up") is not None
+                # ADAPTIVE SELF-IMPROVEMENT: when Grok abstains, consult the live per-context policy.
+                pol = ({"mode": "explore"} if (not self.cfg.grok_decider_adaptive or grok_dec is None
+                                               or grok_dec.get("p_up") is None or actionable)
+                       else self.grok_decider.context_policy(grok_dec.get("context") or {}))
+                exploit = (pol["mode"] == "exploit")           # proven-edge context -> act on view
+                explore = (not actionable and not exploit and grok_dec is not None
+                           and grok_dec.get("p_up") is not None and pol["mode"] != "avoid"
                            and self.cfg.grok_decider_explore_rate > 0.0
                            and self._grok_rng.random() < self.cfg.grok_decider_explore_rate)
-                if not actionable and not explore:
-                    reason = ("grok_no_decision" if not grok_dec
-                              else ("grok_abstain" if grok_dec.get("action") == "no_trade"
-                                    else "grok_low_confidence_or_stale"))
+                if not actionable and not exploit and not explore:
+                    if pol["mode"] == "avoid":
+                        self._grok_policy_counts["avoid"] += 1
+                    reason = ("grok_avoid_proven_bad" if pol["mode"] == "avoid"
+                              else ("grok_no_decision" if not grok_dec
+                                    else ("grok_abstain" if grok_dec.get("action") == "no_trade"
+                                          else "grok_low_confidence_or_stale")))
                     dr.candidate = CandidateDecision(side=None, fair_p_up=fair_used,
                                                      outcome_prob=None, model_edge=0.0,
                                                      tradeable=False, reason=reason)
@@ -934,6 +948,13 @@ class PulseEngine:
                     entry_mode = "grok_follow"
                     grok_oprob = float(grok_dec.get("confidence") or 0.5)
                     grok_size_frac = max(0.0, min(1.0, float(grok_dec.get("size_fraction") or 1.0)))
+                elif exploit:                      # proven-edge context: act on Grok's view, sized up
+                    pu = float(grok_dec.get("p_up"))
+                    side = "up" if pu >= 0.5 else "down"
+                    entry_mode = "grok_adaptive"
+                    grok_oprob = pu if side == "up" else (1.0 - pu)
+                    grok_size_frac = max(0.0, min(1.0, 0.5 * float(pol.get("size_mult") or 1.0)))
+                    self._grok_policy_counts["exploit"] += 1
                 else:                              # exploration trade on Grok's directional view
                     pu = float(grok_dec.get("p_up"))
                     side = "up" if pu >= 0.5 else "down"
@@ -941,6 +962,7 @@ class PulseEngine:
                     grok_oprob = pu if side == "up" else (1.0 - pu)
                     grok_size_frac = max(0.0, min(1.0,
                                                   float(self.cfg.grok_decider_explore_size_fraction)))
+                    self._grok_policy_counts["explore"] += 1
                 book = w.up_book if side == "up" else w.down_book
                 ask = book.best_ask if book else None
                 cap = min(self.cfg.max_price, grok_dec.get("max_price") or self.cfg.max_price)
@@ -1292,7 +1314,8 @@ class PulseEngine:
                                                  won=bool(pos.won), pnl=float(pos.pnl_usd or 0.0))
             # feed FOLLOW/EXPLORE trades back to the Grok decider's circuit breaker
             if (self.grok_decider is not None
-                    and (pos.research or {}).get("entry_mode") in ("grok_follow", "grok_explore")):
+                    and (pos.research or {}).get("entry_mode")
+                    in ("grok_follow", "grok_explore", "grok_adaptive")):
                 self.grok_decider.record_follow_result(
                     won=bool(pos.won), pnl=float(pos.pnl_usd or 0.0), now=now)
             ext = pos.external or {}
@@ -1738,6 +1761,9 @@ class PulseEngine:
         rep["pending_grades"] = len(self._grok_pending)
         rep["use_search"] = bool(self.cfg.grok_decider_use_search)
         rep["follow_fraction"] = self.cfg.grok_decider_follow_fraction
+        rep["adaptive_enabled"] = bool(self.cfg.grok_decider_adaptive)
+        rep["adaptive_policy_counts"] = dict(self._grok_policy_counts)
+        rep["explore_rate"] = self.cfg.grok_decider_explore_rate
         rep["news_digest"] = (self.grok_news.report() if self.grok_news is not None
                               else {"enabled": False})
         return rep
