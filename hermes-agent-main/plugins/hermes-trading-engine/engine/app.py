@@ -134,9 +134,14 @@ async function tick(){
  const info=(title,lines)=>{const c=$(`<div class="card"><h2>${title}</h2></div>`);
    lines.forEach(t=>{const r=$(`<div style="padding:4px 0;border-bottom:1px dashed #1c2533">${t}</div>`);c.appendChild(r)});return c};
  // 1) Money (full width)
+ const diff=(onhand!=null&&start0!=null)?(onhand-start0):null;
+ const col=up?'var(--grn)':'var(--red)';
  cards.appendChild($(`<div class="card" style="grid-column:1/-1"><h2>Money on hand (practice money)</h2>`+
-   `<div class="big" style="color:${up?'var(--grn)':'var(--red)'}">${money(onhand)}</div>`+
-   `<div class="sub">Started with ${money(start0)} · Profit/Loss so far ${money(cap.realized_pnl_usd)} (${f(cap.return_pct,1)}%) · This is paper money — no real funds at risk.</div></div>`));
+   `<div class="big" style="color:${col}">$${(onhand||0).toFixed(2)}</div>`+
+   `<div class="sub" style="font-size:14px">$${(onhand||0).toFixed(2)} − $${(start0||0).toFixed(2)} = `+
+   `<b style="color:${col}">${money(diff)} (${f(cap.return_pct,1)}%)</b>`+
+   ` &nbsp;<span style="color:${col}">${up?'▲ winning':'▼ losing'}</span></div>`+
+   `<div class="sub">Practice money — no real funds at risk.</div></div>`));
  // 2) Is it working?
  const trading=(L.open_positions>0)?'Placing a trade right now':'Waiting for a setup it likes';
  const wr=(L.win_rate||0)*100, wrtxt=f(wr,0)+'% of trades won'+((wr>47&&wr<53)?' (about a coin flip)':'');
