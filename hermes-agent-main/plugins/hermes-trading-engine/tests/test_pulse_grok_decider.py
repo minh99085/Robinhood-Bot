@@ -365,6 +365,49 @@ def test_recent_windows_view_summary():
     assert v["n"] == 4 and v["up_rate"] == 0.75 and v["current_streak"] == "upx3"
 
 
+def test_full_report_md_is_comprehensive():
+    from engine.pulse.reporting import build_full_report_md
+    light = {
+        "live_trading_enabled": False, "global_reconciled": True,
+        "capital": {"on_hand_capital_usd": 417.55, "starting_capital_usd": 500.0,
+                    "return_pct": -16.49, "open_exposure_usd": 0.0, "open_positions": 0},
+        "ledger": {"trades": 290, "settled": 290, "win_rate": 0.5276,
+                   "realized_pnl_usd": -76.8, "profit_factor": 0.82},
+        "reconciliation": {"global_reconciled": True, "rejected_before_execution": 15273},
+        "candidate_lifecycle": {"created": 16351, "terminals": {"accepted": 139},
+                                "rejected_by_stage": {"grok_decider": 6979}},
+        "execution_stats": {"candidates": 245, "accepted": 245}, "reject_reasons": {},
+        "calibration": {"brier": 0.23, "samples": 290},
+        "pnl_by_hurst_regime": {"trending": {"n": 7, "win_rate": 0.57}},
+        "pnl_by_entry_mode": {"grok_explore": {"n": 3, "win_rate": 0.33}},
+        "learned_selectivity_gate": {"decision_rule": "confidently_below_breakeven", "rejected": 837,
+                                     "bucket_evidence": {"buckets": [{"dimension": "direction",
+                                     "bucket": "down", "n": 127, "win_rate": 0.49,
+                                     "breakeven_win_rate": 0.58, "win_rate_upper_ci": 0.56,
+                                     "ev_per_trade": -0.72, "confidently_losing": True}]}},
+        "tradingview": {"context_gate": {"enabled": True, "blocked": 190, "block_reasons": {}},
+                        "signal_learning": {"settled_with_signal": 43},
+                        "rsi_trend": {"signal_direction_hit_rate": 0.47}},
+        "late_window_entry": {"gate": {"enabled": False}, "edge_measurement": {"verdict": "x"}},
+        "grok_decider": {"mode": "follow", "decided": 104, "view_accuracy": 0.46,
+                         "aggression": {"aggression": 0.1}, "adaptive_policy_counts": {"exploit": 0},
+                         "view_edge_candidates": [], "circuit_breaker": {"tripped": False}},
+        "grok_signal_intel": {"budget": {}, "predictor_B": {"accuracy": 0.49}, "analyst_A": {}},
+        "edge_signal": {"enabled": True}, "readiness": {"status": "not_ready"},
+        "ev_before_after_costs": {"avg_ev_after_costs": 0.1},
+    }
+    ledger = {"positions": [{"title": "BTC Up or Down", "side": "up", "entry_price": 0.55,
+                             "fair_at_entry": 0.6, "won": True, "outcome_up": True, "pnl_usd": 2.9,
+                             "research": {"entry_mode": "grok_explore"}}]}
+    md = build_full_report_md(light, {"ticks": 200}, ledger)
+    for section in ("Capital & P&L", "reconciliation", "Candidate lifecycle", "Execution gate",
+                    "PnL by bucket", "Learned selectivity gate", "Entry gates",
+                    "Grok Decision Engine", "Grok signal intel", "TradingView learning",
+                    "Recent paper positions"):
+        assert section in md, section
+    assert "417.55" in md and "grok_explore" in md and "follow" in md   # capital, positions, decider
+
+
 def test_aggression_loosens_on_profit_tightens_on_loss():
     c = AggressionController(start=0.2, step_up=0.05, step_down=0.1, eval_window=12, max_aggr=1.0)
     base = c.aggression

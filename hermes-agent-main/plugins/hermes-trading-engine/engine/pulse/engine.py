@@ -1679,6 +1679,7 @@ class PulseEngine:
         report["readiness"] = self.readiness()
         report["tradingview"] = self._tradingview_report()
         report["learning"] = self._learning_report()
+        report["capital"] = self._capital_status()
         report["grok_signal_intel"] = self._grok_intel_report()
         report["grok_decider"] = self._grok_decider_report()
         report["edge_signal"] = self._edge_signal_report()
