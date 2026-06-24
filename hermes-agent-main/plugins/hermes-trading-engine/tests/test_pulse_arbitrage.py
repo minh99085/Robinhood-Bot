@@ -60,12 +60,22 @@ def test_partial_fill_rejected_without_cap():
     assert opp is not None and opp.actionable is False and opp.reason == "partial_fill"
 
 
-def test_sell_both_detected_logonly():
-    # bids sum > 1 + eps -> sell-both detected but NOT actionable (no paper short)
-    up = _book(0.60, 0.62, asks=[(0.62, 100.0)])
-    dn = _book(0.50, 0.52, asks=[(0.52, 100.0)])     # ask sum 1.14 (no buy arb); bids 1.10 > 1.05
-    opp = detect_arbitrage(up, dn, size_usd=5.0, epsilon=0.05)
-    assert opp is not None and opp.kind == "sell_both" and opp.actionable is False
+def test_sell_both_actionable_via_mint_and_sell():
+    # bids sum 1.10 > 1 + eps -> mint a $1 set and sell both legs into the bids for a risk-free 0.10
+    up = _book(0.60, 0.62, asks=[(0.62, 100000.0)], bids=[(0.60, 100000.0)])
+    dn = _book(0.50, 0.52, asks=[(0.52, 100000.0)], bids=[(0.50, 100000.0)])  # ask sum 1.14 (no buy)
+    opp = detect_arbitrage(up, dn, size_usd=5.0, epsilon=0.05, max_depth_consume_frac=0.9)
+    assert opp is not None and opp.kind == "sell_both" and opp.actionable is True
+    assert abs(opp.ask_sum - 1.10) < 1e-9 and opp.vwap_residual > 0 and opp.guaranteed_profit_usd > 0
+    # cost is the $1/set mint collateral (NOT a naked short); profit = (bid_sum-1)*shares
+    assert abs(opp.cost_usd - opp.shares) < 1e-6
+
+
+def test_no_sell_arb_when_bids_sum_at_or_below_one():
+    up = _book(0.50, 0.52, asks=[(0.52, 100000.0)], bids=[(0.50, 100000.0)])
+    dn = _book(0.46, 0.49, asks=[(0.49, 100000.0)], bids=[(0.46, 100000.0)])  # bids 0.96 < 1
+    opp = detect_arbitrage(up, dn, size_usd=5.0, epsilon=0.05, max_depth_consume_frac=0.9)
+    assert opp is None or opp.actionable is False
 
 
 def test_stale_book_rejected():
@@ -111,11 +121,14 @@ class _ArbMkt:
 
     def hydrate_books(self, w):
         a_up = 0.45 if self._arb else 0.55
-        a_dn = 0.45 if self._arb else 0.55       # 0.90 -> arb; 1.10 -> none
-        w.up_book = OrderBook(best_bid=a_up - 0.01, best_ask=a_up, ask_depth_usd=50000,
-                              bid_depth_usd=50000, asks=[(a_up, 100000.0)], bids=[(a_up - 0.01, 100000.0)])
-        w.down_book = OrderBook(best_bid=a_dn - 0.01, best_ask=a_dn, ask_depth_usd=50000,
-                                bid_depth_usd=50000, asks=[(a_dn, 100000.0)], bids=[(a_dn - 0.01, 100000.0)])
+        a_dn = 0.45 if self._arb else 0.55       # asks 0.90 -> buy arb; 1.10 -> none
+        # tight 0.05 spread (passes the exec gate) but bids sum <= 1 so no sell-both in the no-arb case
+        b_up = a_up - 0.05
+        b_dn = a_dn - 0.05
+        w.up_book = OrderBook(best_bid=b_up, best_ask=a_up, ask_depth_usd=50000,
+                              bid_depth_usd=50000, asks=[(a_up, 100000.0)], bids=[(b_up, 100000.0)])
+        w.down_book = OrderBook(best_bid=b_dn, best_ask=a_dn, ask_depth_usd=50000,
+                                bid_depth_usd=50000, asks=[(a_dn, 100000.0)], bids=[(b_dn, 100000.0)])
         return w
 
     def fetch_resolution(self, market_id):
@@ -165,6 +178,36 @@ def test_engine_no_arb_when_books_not_crossed(tmp_path):
     eng, t0 = _arb_engine(tmp_path, arb=False)             # ask sum 1.10 -> no dutch book
     _drive(eng, t0)
     assert eng.status()["arbitrage"]["executed"] == 0
+    assert eng.light_report()["global_reconciled"] is True
+
+
+class _SellArbMkt:
+    """Books where asks sum > 1 (no buy arb) but bids sum > 1 (sell-both via mint-and-sell)."""
+    def __init__(self, w):
+        self._w = w
+
+    def active_windows(self, now=None, **kw):
+        return [self._w]
+
+    def hydrate_books(self, w):
+        w.up_book = OrderBook(best_bid=0.60, best_ask=0.62, ask_depth_usd=50000, bid_depth_usd=50000,
+                              asks=[(0.62, 100000.0)], bids=[(0.60, 100000.0)])
+        w.down_book = OrderBook(best_bid=0.50, best_ask=0.52, ask_depth_usd=50000, bid_depth_usd=50000,
+                                asks=[(0.52, 100000.0)], bids=[(0.50, 100000.0)])  # bids 1.10 > 1
+        return w
+
+    def fetch_resolution(self, market_id):
+        return True
+
+
+def test_engine_executes_sell_both_arb(tmp_path):
+    import tempfile
+    eng, t0 = _arb_engine(tmp_path, arb=False)         # build engine, then swap in the sell market
+    eng.market = _SellArbMkt(eng.market._w)
+    _drive(eng, t0)
+    arb = eng.status()["arbitrage"]
+    assert arb["executed_sell"] >= 1 and arb["realized_profit_usd"] > 0
+    assert eng.ledger.trades == 0                        # directional skipped on the arb window
     assert eng.light_report()["global_reconciled"] is True
 
 

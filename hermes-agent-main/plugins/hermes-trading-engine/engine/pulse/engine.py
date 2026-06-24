@@ -1040,7 +1040,11 @@ class PulseEngine:
             # ---- ARB-FIRST: within-window RISK-FREE dutch book (Roan). Runs BEFORE the directional
             # path; bypasses view gates (it's risk-free, not a view) but uses VWAP/depth realism.
             # Booked in a SEPARATE ledger so its P&L is never blended with directional stats. ----
-            if self.arb_ledger is not None and not self.arb_ledger.has_arb(w.event_id):
+            if self.arb_ledger is not None and self.arb_ledger.has_arb(w.event_id):
+                # window already has a risk-free arb position -> never also trade directional on it
+                _finalize(dr, "skipped", reason="arbitrage_taken")
+                continue
+            if self.arb_ledger is not None:
                 from engine.pulse.arbitrage import detect_arbitrage
                 opp = detect_arbitrage(
                     w.up_book, w.down_book, size_usd=self.cfg.arb_size_usd, fees=self.cfg.arb_fees,
