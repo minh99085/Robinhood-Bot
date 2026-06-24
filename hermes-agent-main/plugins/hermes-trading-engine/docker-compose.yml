@@ -68,7 +68,10 @@ services:
       # ---- Grok DECISION ENGINE ("Grok decides, bot executes"; PAPER ONLY) ----
       # off | shadow (decide+grade only, NO trade — safe default) | follow (engine follows Grok
       # direction/size, subject to the deterministic floor: execution realism, risk caps, freshness).
-      PULSE_GROK_DECIDER_MODE: "${PULSE_GROK_DECIDER_MODE:-off}"
+      # observe-only by default: "shadow" = Grok grades/decides but NEVER affects trading (it cannot
+      # approve, veto, resize, block or bypass the execution gate). The directional edge must come
+      # from proven-winning buckets + risk-free arb, not an LLM opinion. Set to "follow" to let it act.
+      PULSE_GROK_DECIDER_MODE: "${PULSE_GROK_DECIDER_MODE:-shadow}"
       PULSE_GROK_DECIDER_MODEL: "${PULSE_GROK_DECIDER_MODEL:-grok-4.3}"
       PULSE_GROK_DECIDER_TIMEOUT_S: "${PULSE_GROK_DECIDER_TIMEOUT_S:-12}"
       PULSE_GROK_DECIDER_USE_SEARCH: "${PULSE_GROK_DECIDER_USE_SEARCH:-0}"
@@ -191,6 +194,20 @@ services:
       PULSE_CEX_LEAD_LATE_TTC_S: "${PULSE_CEX_LEAD_LATE_TTC_S:-90}"
       PULSE_CEX_LEAD_KELLY_SCALE: "${PULSE_CEX_LEAD_KELLY_SCALE:-0.5}"
       PULSE_CEX_LEAD_MAX_SIZE_FRAC: "${PULSE_CEX_LEAD_MAX_SIZE_FRAC:-2.0}"
+      # Within-window RISK-FREE arbitrage (Roan dutch book): buy 1 up + 1 down for < $1 and collect
+      # $1 at settlement. Runs BEFORE the directional path, bypasses view gates (it's risk-free, not a
+      # view) but uses the same VWAP/depth realism. Booked in a SEPARATE ledger so its P&L is NEVER
+      # blended into directional win-rate/profit-factor. PAPER ONLY.
+      PULSE_ARB_ENABLED: "${PULSE_ARB_ENABLED:-1}"
+      PULSE_ARB_FEES: "${PULSE_ARB_FEES:-0.0}"
+      PULSE_ARB_EPSILON: "${PULSE_ARB_EPSILON:-0.05}"
+      PULSE_ARB_MIN_PROFIT_USD: "${PULSE_ARB_MIN_PROFIT_USD:-0.0}"
+      # Directional de-risk: the directional model is structurally negative-EV in a near-efficient
+      # market. Keep it enabled but, when REQUIRE_WINNING=1, only take a directional trade in a
+      # Wilson-PROVEN-winning bucket (pre-execution block, never advisory). Arb runs standalone.
+      PULSE_DIRECTIONAL_ENABLED: "${PULSE_DIRECTIONAL_ENABLED:-1}"
+      PULSE_DIRECTIONAL_REQUIRE_WINNING: "${PULSE_DIRECTIONAL_REQUIRE_WINNING:-1}"
+      PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES: "${PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES:-30}"
       # Learned Selectivity Gate v1: reject proven-losing buckets (live evidence) between decision
       # and execution. Only makes the bot MORE selective; never trades/resizes/bypasses the gate.
       PULSE_SELECTIVITY_GATE_ENABLED: "${PULSE_SELECTIVITY_GATE_ENABLED:-1}"

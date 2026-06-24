@@ -84,7 +84,7 @@ class PulseConfig:
     # ---- Grok DECISION ENGINE ("Grok decides, bot executes"; PAPER ONLY) ----
     # mode: off | shadow (decide+grade only, no trade — safe default) | follow (engine follows Grok
     # direction/size subject to the deterministic floor: execution realism, risk caps, freshness).
-    grok_decider_mode: str = "off"
+    grok_decider_mode: str = "shadow"        # observe-only by default (grades, never affects trading)
     grok_decider_model: str = "grok-4.3"
     grok_decider_timeout_s: float = 12.0
     grok_decider_use_search: bool = False            # enable xAI live web/X news search (slower/$$)
@@ -168,6 +168,17 @@ class PulseConfig:
     cex_lead_late_ttc_s: float = 90.0          # ttc <= this => late-window convergence-lag zone
     cex_lead_kelly_scale: float = 0.5          # fractional-Kelly size for proven edges
     cex_lead_max_size_frac: float = 2.0        # hard cap on the edge-scaled size multiplier
+    # ---- within-window RISK-FREE arbitrage (Roan dutch book up_vwap+down_vwap<1; PAPER ONLY) ----
+    arbitrage_enabled: bool = True
+    arb_fees: float = 0.0                       # modelled taker fee per $ (Polymarket BTC ~0)
+    arb_epsilon: float = 0.05                   # min edge below $1 to act (Roan's $0.05 threshold)
+    arb_min_profit_usd: float = 0.0
+    # ---- directional de-risk (separate strategy; arb can run standalone) ----
+    directional_enabled: bool = True            # PULSE_DIRECTIONAL_ENABLED
+    # default OFF in code (backward-compatible); enabled via env on the live bot. When on, a
+    # directional trade is allowed ONLY in a Wilson-proven-winning bucket (pre-execution block).
+    directional_require_winning_bucket: bool = False
+    directional_winning_min_samples: int = 30
     # ---- Learned Selectivity Gate v1 (between decision and execution; PAPER ONLY) ----
     # Uses live settled-trade bucket evidence to REJECT proven-losing buckets. Can only make the
     # bot MORE selective; never trades/resizes/bypasses the execution gate.
@@ -277,7 +288,7 @@ class PulseConfig:
             grok_est_usd_per_call=_envf("GROK_EST_USD_PER_CALL", 0.02),
             grok_predictor_max_calls_per_hour=int(_envf("GROK_PREDICTOR_MAX_CALLS_PER_HOUR", 30)),
             grok_analyst_max_calls_per_hour=int(_envf("GROK_ANALYST_MAX_CALLS_PER_HOUR", 4)),
-            grok_decider_mode=(os.getenv("PULSE_GROK_DECIDER_MODE", "off") or "off").strip().lower(),
+            grok_decider_mode=(os.getenv("PULSE_GROK_DECIDER_MODE", "shadow") or "shadow").strip().lower(),
             grok_decider_model=(os.getenv("PULSE_GROK_DECIDER_MODEL", "grok-4.3")
                                 or "grok-4.3").strip(),
             grok_decider_timeout_s=_envf("PULSE_GROK_DECIDER_TIMEOUT_S", 12.0),
@@ -360,6 +371,16 @@ class PulseConfig:
             cex_lead_late_ttc_s=_envf("PULSE_CEX_LEAD_LATE_TTC_S", 90.0),
             cex_lead_kelly_scale=_envf("PULSE_CEX_LEAD_KELLY_SCALE", 0.5),
             cex_lead_max_size_frac=_envf("PULSE_CEX_LEAD_MAX_SIZE_FRAC", 2.0),
+            arbitrage_enabled=str(os.getenv("PULSE_ARB_ENABLED", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            arb_fees=_envf("PULSE_ARB_FEES", 0.0),
+            arb_epsilon=_envf("PULSE_ARB_EPSILON", 0.05),
+            arb_min_profit_usd=_envf("PULSE_ARB_MIN_PROFIT_USD", 0.0),
+            directional_enabled=str(os.getenv("PULSE_DIRECTIONAL_ENABLED", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            directional_require_winning_bucket=str(os.getenv("PULSE_DIRECTIONAL_REQUIRE_WINNING", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            directional_winning_min_samples=int(_envf("PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES", 30)),
             selectivity_gate_enabled=str(os.getenv("PULSE_SELECTIVITY_GATE_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             selectivity_min_samples=int(_envf("PULSE_SELECTIVITY_MIN_SAMPLES", 30)),
@@ -549,6 +570,11 @@ class PulseEngine:
         # CEX-lead latency edge (grades CEX-implied P(up) vs the market; PAPER ONLY, shadow default).
         self.cex_lead = None
         self._cex_lead_pending: list = []
+        # within-window RISK-FREE arbitrage (separate ledger -> P&L NEVER blended with directional)
+        self.arb_ledger = None
+        if bool(getattr(self.cfg, "arbitrage_enabled", True)):
+            from engine.pulse.arbitrage import ArbLedger
+            self.arb_ledger = ArbLedger()
         # market-beating benchmark for the learning blend: grade the edge model's P(up) vs the MARKET
         # price (poly_yes) per window; the blend only activates when the model actually beats the
         # market out-of-sample (kills phantom edge — calibrated != more accurate than the market).
@@ -775,6 +801,8 @@ class PulseEngine:
         self._mkt_bench_pending = list(acct.get("mkt_bench_pending") or [])
         self._mkt_bench_recent = deque((tuple(x) for x in (acct.get("mkt_bench_recent") or [])),
                                        maxlen=400)
+        if self.arb_ledger is not None:
+            self.arb_ledger.load_state(acct.get("arb_ledger") or {})
         # restore research avoid-rules, but RE-VALIDATE each against current evidence (drops legacy
         # 'direction=', excluded liquidity dims, and any rule no longer confidently losing).
         self._research_avoid = set()
@@ -916,6 +944,8 @@ class PulseEngine:
         self._grade_grok_decisions(now)   # grade prior Grok decisions vs realized window close
         self._grade_cex_lead(now)         # grade prior CEX-lead signals vs realized window close
         self._grade_market_benchmark(now) # grade model-vs-market accuracy (learning-blend gate)
+        if self.arb_ledger is not None:   # settle risk-free arb positions at window close (deterministic)
+            self.arb_ledger.settle_due(now)
         ov = self.overlay.current(now) if self.overlay is not None else None
         ov_blackout = bool(ov and ov.get("blackout"))
         ov_vol_mult = float(ov.get("vol_multiplier", 1.0)) if ov else 1.0
@@ -988,6 +1018,34 @@ class PulseEngine:
             mc.best_ask = w.up_book.best_ask if w.up_book else None
             mc.spread = w.up_book.spread if w.up_book else None
             mc.ask_depth_usd = w.up_book.ask_depth_usd if w.up_book else None
+            # ---- ARB-FIRST: within-window RISK-FREE dutch book (Roan). Runs BEFORE the directional
+            # path; bypasses view gates (it's risk-free, not a view) but uses VWAP/depth realism.
+            # Booked in a SEPARATE ledger so its P&L is never blended with directional stats. ----
+            if self.arb_ledger is not None and not self.arb_ledger.has_arb(w.event_id):
+                from engine.pulse.arbitrage import detect_arbitrage
+                opp = detect_arbitrage(
+                    w.up_book, w.down_book, size_usd=self.cfg.size_usd, fees=self.cfg.arb_fees,
+                    epsilon=self.cfg.arb_epsilon,
+                    max_depth_consume_frac=self.cfg.exec_max_depth_consume_frac,
+                    tick_size=w.tick_size, now=now, max_book_age_s=self.cfg.exec_max_book_age_s,
+                    min_profit_usd=self.cfg.arb_min_profit_usd)
+                if opp is not None:
+                    dr.arbitrage = opp.to_dict()
+                    if opp.kind == "sell_both":
+                        self.arb_ledger.sell_both_detected += 1
+                    if opp.actionable:
+                        self.arb_ledger.detected += 1
+                        if self.arb_ledger.book(w.event_id, opp, close_ts=w.close_ts, now=now):
+                            self.loops.beat("arbitrage", now)
+                            # classify as 'skipped' for the DIRECTIONAL lifecycle (it took no
+                            # directional trade) so directional reconciliation stays exact; the arb
+                            # itself is tracked in the SEPARATE arb_ledger.
+                            _finalize(dr, "skipped", reason="arbitrage_taken")
+                            continue           # took the risk-free arb; skip directional for this window
+            # directional strategy can be disabled (arb runs standalone) — Loop-Eng scope lock
+            if not self.cfg.directional_enabled:
+                _finalize(dr, "skipped", reason="directional_disabled")
+                continue
             # ---- entry-time features (computed BEFORE the decision so the bot's learned
             #      experience can inform it). These never place/size/bypass a trade themselves. ----
             rfeat = None
@@ -1397,6 +1455,19 @@ class PulseEngine:
                         self.markov.record_terminal(state=cand_state, accepted=False)
                     _finalize(dr, "rejected", reason=reason, stage="research_avoid")
                     continue
+            # DIRECTIONAL ALLOWLIST (de-risk): the directional model is structurally negative-EV in a
+            # near-efficient market, so only take a directional trade in a CONFIDENTLY-WINNING bucket
+            # (Wilson lower-bound > breakeven, n>=min). Pre-execution BLOCK, not advisory. Driven
+            # strategies (grok-follow / cex-lead) and arb are exempt (they have their own proof).
+            if (self.cfg.directional_require_winning_bucket and not grok_follow
+                    and not cex_lead_active and not self._any_winning_bucket(sel_tags)):
+                dr.action = RejectAction(stage="directional_allowlist",
+                                         reason="no_proven_winning_bucket")
+                if self.markov is not None:
+                    self.markov.record_terminal(state=cand_state, accepted=False)
+                _finalize(dr, "rejected", reason="no_proven_winning_bucket",
+                          stage="directional_allowlist")
+                continue
             gate_res = self.selectivity_gate.evaluate(sel_tags, self.selectivity_evidence)
             dr.selectivity = {"decision": gate_res["decision"], "reasons": gate_res["reasons"],
                               "bad_buckets": gate_res["bad_buckets"]}
@@ -2154,6 +2225,8 @@ class PulseEngine:
         report["edge_signal"] = self._edge_signal_report()
         report["cex_lead_edge"] = (self.cex_lead.report() if self.cex_lead is not None
                                    else {"enabled": False})
+        report["arbitrage"] = (self.arb_ledger.report() if self.arb_ledger is not None
+                               else {"enabled": False})
         report["learned_selectivity_gate"] = self._selectivity_report()
         report["late_window_entry"] = self._late_window_report()
         return report
@@ -2363,6 +2436,17 @@ class PulseEngine:
                 applied.append("exploit:" + key)
         return applied
 
+    def _any_winning_bucket(self, sel_tags: dict) -> bool:
+        """True if ANY of the candidate's buckets is CONFIDENTLY WINNING (Wilson lower-bound win-rate
+        above its breakeven, n>=min) per live evidence — the directional allowlist (Roan/loop-eng:
+        only trade proven edges, not opinion). Reuses the same maker-checker test as research-exploit."""
+        for dim, val in (sel_tags or {}).items():
+            if dim == "direction" or val is None:
+                continue
+            if self._research_exploit_backed(dim, str(val)):
+                return True
+        return False
+
     def _research_exploit_hit(self, sel_tags: dict) -> bool:
         """True if a candidate's context matches a proven-winning research exploit-rule (never on
         'direction'). Used to SIZE UP proven-winning contexts (capped)."""
@@ -2403,6 +2487,11 @@ class PulseEngine:
                    status_fn=(lambda: self.verifier.report()) if self.verifier else None)
         r.register("execution", role="execute", trigger="per_decision",
                    skill="execution-quality gate (authoritative)", stop_condition="fill or reject")
+        if self.arb_ledger is not None:
+            r.register("arbitrage", role="risk_free_arb", trigger="per_window",
+                       skill="within-window dutch book (up+down<1)",
+                       stop_condition="guaranteed_profit>0",
+                       status_fn=lambda: self.arb_ledger.report())
         r.register("risk_monitor", role="risk", trigger="per_settlement",
                    skill="breaker + reconciliation",
                    status_fn=(lambda: self.grok_decider.breaker_status()) if self.grok_decider else None)
@@ -2579,6 +2668,8 @@ class PulseEngine:
             "edge_signal": self._edge_signal_report(),
             "cex_lead_edge": (self.cex_lead.report() if self.cex_lead is not None
                               else {"enabled": False}),
+            "arbitrage": (self.arb_ledger.report() if self.arb_ledger is not None
+                          else {"enabled": False}),
             "learned_selectivity_gate": self._selectivity_report(),
             "late_window_entry": self._late_window_report(),
             "tradingview": self._tradingview_report(),
@@ -2609,6 +2700,8 @@ class PulseEngine:
                               "cex_lead_pending": self._cex_lead_pending[-2000:],
                               "mkt_bench_pending": self._mkt_bench_pending[-2000:],
                               "mkt_bench_recent": [list(x) for x in self._mkt_bench_recent],
+                              "arb_ledger": (self.arb_ledger.to_state()
+                                             if self.arb_ledger is not None else {}),
                               "research_avoid": sorted(self._research_avoid),
                               "research_exploit": sorted(self._research_exploit),
                               "grok_predictor": (self.grok_predictor.to_state()

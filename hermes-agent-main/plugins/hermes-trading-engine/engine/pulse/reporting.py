@@ -299,6 +299,15 @@ def build_full_report_md(light: dict, status: Optional[dict] = None,
                   header=["divergence", "n", "acc", "brier_cex", "brier_mkt", "beats_mkt",
                           "avg_pnl/u", "proven"])
         out.append("_promotion: %s_" % cl.get("promotion_rule"))
+    arb = light.get("arbitrage", {}) or {}
+    if arb.get("paper_only") or arb.get("executed") is not None:
+        out.append("\n**Within-window risk-free arbitrage** (Roan dutch book `up_vwap+down_vwap<1`; "
+                   "P&L SEGREGATED from directional, never blended): detected_actionable %s · "
+                   "sell_both_detected %s · executed %s · settled %s · open %s · "
+                   "realized_profit **$%s** (risk-free)"
+                   % (arb.get("detected_actionable"), arb.get("sell_both_detected"),
+                      arb.get("executed"), arb.get("settled"), arb.get("open"),
+                      arb.get("realized_profit_usd")))
     out.append("\nreadiness `%s`" % (light.get("readiness", {})))
 
     h("13. Recent paper positions")
