@@ -183,6 +183,24 @@ def test_directional_allowlist_blocks_unproven_then_allows_winning(tmp_path):
     assert eng2.ledger.trades >= 1
 
 
+def test_allowlist_explore_carveout_keeps_bot_active(tmp_path):
+    # with the allowlist ON and NO proven-winning bucket, a 0% explore rate blocks ALL directional
+    # trades (the frozen-bot deadlock), but a positive explore rate lets some through (un-frozen).
+    eng0, t0 = _arb_engine(tmp_path, arb=False, directional_require_winning_bucket=True,
+                           directional_explore_rate=0.0, selectivity_min_samples=30)
+    _drive(eng0, t0)
+    assert eng0.ledger.trades == 0                      # 0% explore -> fully blocked (the bug)
+    assert eng0.status()["directional_allowlist"]["blocked"] >= 1
+    # full explore rate -> the carve-out lets eligible candidates through -> bot trades again
+    import tempfile
+    eng1, t1 = _arb_engine(tempfile.mkdtemp(), arb=False, directional_require_winning_bucket=True,
+                           directional_explore_rate=1.0, selectivity_min_samples=30)
+    _drive(eng1, t1)
+    assert eng1.ledger.trades >= 1                      # un-frozen via exploration
+    assert eng1.status()["directional_allowlist"]["explored"] >= 1
+    assert eng1.light_report()["global_reconciled"] is True
+
+
 def test_grok_decider_observe_only_by_default(tmp_path):
     # default mode is observe-only (shadow): Grok may grade but must NOT affect trading.
     eng, _ = _arb_engine(tmp_path, arb=False)

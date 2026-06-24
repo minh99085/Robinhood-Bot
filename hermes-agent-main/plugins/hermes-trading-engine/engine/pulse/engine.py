@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -179,6 +180,11 @@ class PulseConfig:
     # directional trade is allowed ONLY in a Wilson-proven-winning bucket (pre-execution block).
     directional_require_winning_bucket: bool = False
     directional_winning_min_samples: int = 30
+    # cold-start carve-out: the allowlist would otherwise block EVERY directional trade until a
+    # bucket is Wilson-proven-winning, but proving needs trades -> deadlock (bot looks frozen).
+    # Allow this capped fraction of otherwise-eligible candidates through as exploration so the bot
+    # keeps learning and can DISCOVER winning buckets. 0 = strict block-all; 1 = effectively off.
+    directional_explore_rate: float = 0.15
     # ---- Learned Selectivity Gate v1 (between decision and execution; PAPER ONLY) ----
     # Uses live settled-trade bucket evidence to REJECT proven-losing buckets. Can only make the
     # bot MORE selective; never trades/resizes/bypasses the execution gate.
@@ -381,6 +387,7 @@ class PulseConfig:
             directional_require_winning_bucket=str(os.getenv("PULSE_DIRECTIONAL_REQUIRE_WINNING", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
             directional_winning_min_samples=int(_envf("PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES", 30)),
+            directional_explore_rate=_envf("PULSE_DIRECTIONAL_EXPLORE_RATE", 0.15),
             selectivity_gate_enabled=str(os.getenv("PULSE_SELECTIVITY_GATE_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             selectivity_min_samples=int(_envf("PULSE_SELECTIVITY_MIN_SAMPLES", 30)),
@@ -570,6 +577,10 @@ class PulseEngine:
         # CEX-lead latency edge (grades CEX-implied P(up) vs the market; PAPER ONLY, shadow default).
         self.cex_lead = None
         self._cex_lead_pending: list = []
+        # directional allowlist cold-start exploration (avoids the proven-winning deadlock/freeze)
+        self._allowlist_rng = random.Random(1729)
+        self._allowlist_explored = 0
+        self._allowlist_blocked = 0
         # within-window RISK-FREE arbitrage (separate ledger -> P&L NEVER blended with directional)
         self.arb_ledger = None
         if bool(getattr(self.cfg, "arbitrage_enabled", True)):
@@ -803,6 +814,8 @@ class PulseEngine:
                                        maxlen=400)
         if self.arb_ledger is not None:
             self.arb_ledger.load_state(acct.get("arb_ledger") or {})
+        self._allowlist_explored = int(acct.get("allowlist_explored", 0) or 0)
+        self._allowlist_blocked = int(acct.get("allowlist_blocked", 0) or 0)
         # restore research avoid-rules, but RE-VALIDATE each against current evidence (drops legacy
         # 'direction=', excluded liquidity dims, and any rule no longer confidently losing).
         self._research_avoid = set()
@@ -1461,13 +1474,19 @@ class PulseEngine:
             # strategies (grok-follow / cex-lead) and arb are exempt (they have their own proof).
             if (self.cfg.directional_require_winning_bucket and not grok_follow
                     and not cex_lead_active and not self._any_winning_bucket(sel_tags)):
-                dr.action = RejectAction(stage="directional_allowlist",
-                                         reason="no_proven_winning_bucket")
-                if self.markov is not None:
-                    self.markov.record_terminal(state=cand_state, accepted=False)
-                _finalize(dr, "rejected", reason="no_proven_winning_bucket",
-                          stage="directional_allowlist")
-                continue
+                # cold-start carve-out: let a small capped fraction through as EXPLORATION so the
+                # bot keeps trading + learning (otherwise it deadlocks — no trades => no bucket can
+                # ever be proven-winning => permanent block => looks frozen). The rest stay blocked.
+                if self._allowlist_rng.random() >= float(self.cfg.directional_explore_rate):
+                    self._allowlist_blocked += 1
+                    dr.action = RejectAction(stage="directional_allowlist",
+                                             reason="no_proven_winning_bucket")
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason="no_proven_winning_bucket",
+                              stage="directional_allowlist")
+                    continue
+                self._allowlist_explored += 1   # kept active for learning (exploration trade)
             gate_res = self.selectivity_gate.evaluate(sel_tags, self.selectivity_evidence)
             dr.selectivity = {"decision": gate_res["decision"], "reasons": gate_res["reasons"],
                               "bad_buckets": gate_res["bad_buckets"]}
@@ -2227,6 +2246,10 @@ class PulseEngine:
                                    else {"enabled": False})
         report["arbitrage"] = (self.arb_ledger.report() if self.arb_ledger is not None
                                else {"enabled": False})
+        report["directional_allowlist"] = {
+            "enabled": bool(self.cfg.directional_require_winning_bucket),
+            "explore_rate": self.cfg.directional_explore_rate,
+            "explored": self._allowlist_explored, "blocked": self._allowlist_blocked}
         report["learned_selectivity_gate"] = self._selectivity_report()
         report["late_window_entry"] = self._late_window_report()
         return report
@@ -2670,6 +2693,10 @@ class PulseEngine:
                               else {"enabled": False}),
             "arbitrage": (self.arb_ledger.report() if self.arb_ledger is not None
                           else {"enabled": False}),
+            "directional_allowlist": {
+                "enabled": bool(self.cfg.directional_require_winning_bucket),
+                "explore_rate": self.cfg.directional_explore_rate,
+                "explored": self._allowlist_explored, "blocked": self._allowlist_blocked},
             "learned_selectivity_gate": self._selectivity_report(),
             "late_window_entry": self._late_window_report(),
             "tradingview": self._tradingview_report(),
@@ -2702,6 +2729,8 @@ class PulseEngine:
                               "mkt_bench_recent": [list(x) for x in self._mkt_bench_recent],
                               "arb_ledger": (self.arb_ledger.to_state()
                                              if self.arb_ledger is not None else {}),
+                              "allowlist_explored": self._allowlist_explored,
+                              "allowlist_blocked": self._allowlist_blocked,
                               "research_avoid": sorted(self._research_avoid),
                               "research_exploit": sorted(self._research_exploit),
                               "grok_predictor": (self.grok_predictor.to_state()

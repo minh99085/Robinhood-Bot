@@ -208,6 +208,10 @@ services:
       PULSE_DIRECTIONAL_ENABLED: "${PULSE_DIRECTIONAL_ENABLED:-1}"
       PULSE_DIRECTIONAL_REQUIRE_WINNING: "${PULSE_DIRECTIONAL_REQUIRE_WINNING:-1}"
       PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES: "${PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES:-30}"
+      # cold-start carve-out so the allowlist does NOT freeze the bot: without proven-winning
+      # buckets it would block every directional trade forever (no trades => nothing to prove).
+      # This lets a small capped fraction through as exploration to keep learning. 0=block-all.
+      PULSE_DIRECTIONAL_EXPLORE_RATE: "${PULSE_DIRECTIONAL_EXPLORE_RATE:-0.15}"
       # Learned Selectivity Gate v1: reject proven-losing buckets (live evidence) between decision
       # and execution. Only makes the bot MORE selective; never trades/resizes/bypasses the gate.
       PULSE_SELECTIVITY_GATE_ENABLED: "${PULSE_SELECTIVITY_GATE_ENABLED:-1}"
