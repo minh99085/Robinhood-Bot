@@ -116,6 +116,7 @@ class PulseConfig:
     research_auto_apply: bool = True         # bounded auto-apply: avoid-contexts -> hard blocks
     research_avoid_max: int = 14             # cap on active research avoid-context rules
     research_exploit_max: int = 10           # cap on active research EXPLOIT-context rules
+    lessons_revalidate_ttl_s: float = 21600.0  # avoid/exploit lesson retracts if unconfirmed this long
     research_exploit_size_mult: float = 1.5  # size-up multiplier for proven-winning exploit contexts
     research_max_calls_per_hour: int = 6
     claude_budget_daily_usd: float = 10.0
@@ -308,6 +309,7 @@ class PulseConfig:
             research_event_min_gap_s=_envf("PULSE_RESEARCH_EVENT_MIN_GAP_S", 600.0),
             research_avoid_max=int(_envf("PULSE_RESEARCH_AVOID_MAX", 14)),
             research_exploit_max=int(_envf("PULSE_RESEARCH_EXPLOIT_MAX", 10)),
+            lessons_revalidate_ttl_s=_envf("PULSE_LESSONS_REVALIDATE_TTL_S", 21600.0),
             research_exploit_size_mult=_envf("PULSE_RESEARCH_EXPLOIT_SIZE_MULT", 1.5),
             research_auto_apply=str(os.getenv("PULSE_RESEARCH_AUTO_APPLY", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
@@ -641,7 +643,7 @@ class PulseEngine:
         # ---- #2 compounding lessons + #3 loop registry ----
         from engine.pulse.lessons import LessonsBook
         from engine.pulse.loops import LoopRegistry
-        self.lessons = LessonsBook()
+        self.lessons = LessonsBook(revalidate_ttl_s=self.cfg.lessons_revalidate_ttl_s)
         self.loops = LoopRegistry()
         # ---- #1 independent Claude maker-checker verifier + #4 research meta-loop ----
         self.claude_budget = None
@@ -844,6 +846,8 @@ class PulseEngine:
         now = float(now if now is not None else time.time())
         self.ticks += 1
         self.last_tick_ts = now
+        self.loops.beat("heartbeat", now)      # liveness watchdog: main loop alive
+        self.loops.beat("data_ingestion", now)
         self.price.poll(now)               # oracle: RTDS Chainlink ref price
         self.leads.poll(now)               # lead predictors (Binance/Coinbase) — features only
         if self.edge_signal is not None:   # feed the OBSERVE-ONLY CEX basket (lead feeds + extras)
@@ -1113,6 +1117,7 @@ class PulseEngine:
             grok_size_frac = 1.0
             grok_verdict = None
             if self.grok_decider is not None:
+                self.loops.beat("signal_generation", now)
                 self.grok_decider.request(
                     mc.decision_id,
                     self._grok_decision_bundle(mc, dr, w, fair_used, ttc, tv_feature),
@@ -1122,6 +1127,7 @@ class PulseEngine:
                 if grok_dec is not None:
                     self._schedule_grok_grade(mc.decision_id, snap.price, w.close_ts, grok_dec)
                     if self.verifier is not None:
+                        self.loops.beat("verifier", now)
                         self.verifier.request(mc.decision_id, {
                             "decision": {k: grok_dec.get(k) for k in
                                          ("action", "p_up", "confidence", "size_fraction",
@@ -2209,21 +2215,29 @@ class PulseEngine:
         exploit proven-edge contexts, and note breaker trips. Fed back to maker + checker."""
         try:
             new_lesson = False
+            now = self.last_tick_ts or time.time()
+            self.loops.beat("lessons", now)
+            self.loops.beat("risk_monitor", now)
+            active_keys = set()              # (kind,key) currently evidence-backed -> not retracted
             be = self.selectivity_gate.bucket_evidence(self.selectivity_evidence, top=8)
             for r in be.get("buckets", []):
                 if r.get("confidently_losing"):
+                    key = "sel:%s=%s" % (r["dimension"], r["bucket"])
+                    active_keys.add(("avoid", key))
                     new_lesson |= self.lessons.add(
-                        kind="avoid", key="sel:%s=%s" % (r["dimension"], r["bucket"]),
+                        kind="avoid", key=key,
                         rule=("AVOID %s=%s — confidently below breakeven (WR %s vs %s, n %s, "
                               "EV/trade %s)." % (r["dimension"], r["bucket"], r.get("win_rate"),
-                              r.get("breakeven_win_rate"), r.get("n"), r.get("ev_per_trade"))))
+                              r.get("breakeven_win_rate"), r.get("n"), r.get("ev_per_trade"))), now=now)
             if self.grok_decider is not None:
                 for c in (self.grok_decider.report().get("view_edge_candidates") or []):
+                    key = "edge:%s=%s" % (c["dimension"], c["bucket"])
+                    active_keys.add(("exploit", key))
                     if self.lessons.add(
-                            kind="exploit", key="edge:%s=%s" % (c["dimension"], c["bucket"]),
+                            kind="exploit", key=key,
                             rule=("EXPLOIT %s=%s — Grok's directional view is a real edge (acc %s, "
                                   "lowerCI %s, n %s)." % (c["dimension"], c["bucket"], c.get("accuracy"),
-                                  c.get("accuracy_lower_ci"), c.get("n")))):
+                                  c.get("accuracy_lower_ci"), c.get("n"))), now=now):
                         new_lesson = True
                         if self.research_loop is not None:
                             self.research_loop.request_run("new_edge")
@@ -2236,10 +2250,13 @@ class PulseEngine:
                         new_lesson = True
                         if self.research_loop is not None:
                             self.research_loop.request_run("breaker")
-            # event-trigger the research meta-loop on any new lesson, and on a fresh-sample cadence
+            # RETRACT avoid/exploit lessons no longer backed by live evidence (regime changed) so the
+            # maker/checker stop reading stale rules. Risk (breaker) lessons are historical, not synced.
+            retracted = self.lessons.sync(active_keys=active_keys, now=now).get("n", 0)
+            # event-trigger the research meta-loop on any new/retracted lesson + a fresh-sample cadence
             if self.research_loop is not None:
-                if new_lesson:
-                    self.research_loop.request_run("new_lesson")
+                if new_lesson or retracted:
+                    self.research_loop.request_run("new_lesson" if new_lesson else "lesson_retracted")
                 elif int(self.ledger.stats().get("settled", 0) or 0) % 15 == 0:
                     self.research_loop.request_run("fresh_samples")
         except Exception:  # noqa: BLE001 — lessons never break settlement

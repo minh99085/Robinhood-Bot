@@ -49,15 +49,38 @@ def test_verifier_fail_open_and_failclosed():
 
 
 # ------------------------------- #2 lessons ----------------------------------------------- #
-def test_lessons_compound_dedupe_persist():
+def test_lessons_compound_update_persist():
     lb = LessonsBook(max_lessons=5)
-    assert lb.add(kind="avoid", key="sel:direction=down", rule="avoid down") is True
-    assert lb.add(kind="avoid", key="sel:direction=down", rule="dup") is False    # deduped
+    assert lb.add(kind="avoid", key="sel:direction=down", rule="avoid down v1") is True
+    # re-add the same (kind,key) UPDATES the rule + re-confirms (not locked), returns False (not new)
+    assert lb.add(kind="avoid", key="sel:direction=down", rule="avoid down v2") is False
+    assert lb._idx[("avoid", "sel:direction=down")]["rule"] == "avoid down v2"   # updated, not locked
     assert lb.add(kind="exploit", key="edge:hurst=trending", rule="exploit trending") is True
-    assert len(lb.recent(10)) == 2 and "avoid down" in lb.to_markdown()
+    assert len(lb.recent(10)) == 2 and "avoid down v2" in lb.to_markdown()
     lb2 = LessonsBook()
     lb2.load_state(lb.to_state())
     assert len(lb2.lessons) == 2 and lb2.add(kind="avoid", key="sel:direction=down", rule="x") is False
+
+
+def test_lessons_sync_retracts_stale_and_reactivates():
+    lb = LessonsBook(max_lessons=20, revalidate_ttl_s=100.0)
+    lb.add(kind="avoid", key="sel:markov=chop", rule="avoid chop", now=1000.0)
+    lb.add(kind="exploit", key="edge:hurst=trending", rule="exploit trending", now=1000.0)
+    lb.add(kind="risk", key="breaker:loss:1", rule="breaker tripped", now=1000.0)
+    # at t=1050 (within TTL), chop no longer active -> NOT yet retracted (grace within ttl)
+    assert lb.sync(active_keys={("exploit", "edge:hurst=trending")}, now=1050.0)["n"] == 0
+    # at t=1200 (>ttl since last_seen 1000), chop is stale + not active -> RETRACTED
+    out = lb.sync(active_keys={("exploit", "edge:hurst=trending")}, now=1200.0)
+    assert out["n"] == 1 and "sel:markov=chop" in out["retracted"]
+    actkeys = [(l["kind"], l["key"]) for l in lb.active()]
+    assert ("avoid", "sel:markov=chop") not in actkeys              # retracted -> not active
+    assert ("exploit", "edge:hurst=trending") in actkeys           # still active (was in active_keys)
+    assert ("risk", "breaker:loss:1") in actkeys                   # risk kind never synced/retracted
+    assert lb.recent(10) and all(l["status"] == "active" for l in lb.recent(10))   # prompts get active only
+    # re-confirming a retracted lesson REACTIVATES it
+    assert lb.add(kind="avoid", key="sel:markov=chop", rule="avoid chop again", now=1300.0) is False
+    assert lb._idx[("avoid", "sel:markov=chop")]["status"] == "active"
+    assert lb.report()["retracted_total"] == 1
 
 
 # ------------------------------- #3 loop registry ----------------------------------------- #
@@ -69,6 +92,24 @@ def test_loop_registry_reports_loops():
     rep = r.report()
     assert rep["count"] == 2 and rep["loops"]["verifier"]["role"] == "verify"
     assert rep["loops"]["verifier"]["status"]["verified"] == 3
+
+
+def test_loop_registry_watchdog_flags_stalled():
+    r = LoopRegistry(stall_grace_s=60.0, stall_factor=3.0)
+    r.register("heartbeat", role="automation", trigger="tick", interval_s=4.0)
+    r.register("news", role="context", trigger="interval", interval_s=300.0)
+    r.beat("heartbeat", now=1000.0)
+    r.beat("news", now=1000.0)
+    # fresh: nothing stalled
+    rep = r.report(now=1003.0)
+    assert rep["all_live"] is True and rep["loops"]["heartbeat"]["stalled"] is False
+    assert rep["loops"]["heartbeat"]["last_beat_age_s"] == 3.0
+    # heartbeat cadence 4s -> stalled threshold max(60, 12)=60; at +120s it's stalled
+    rep2 = r.report(now=1120.0)
+    assert rep2["loops"]["heartbeat"]["stalled"] is True and "heartbeat" in rep2["stalled"]
+    # news cadence 300s -> threshold max(60,900)=900; at +120s NOT stalled
+    assert rep2["loops"]["news"]["stalled"] is False
+    assert rep2["all_live"] is False
 
 
 # ------------------------------- #4 research loop ----------------------------------------- #
