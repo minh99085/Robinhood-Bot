@@ -71,6 +71,21 @@ def test_sell_both_actionable_via_mint_and_sell():
     assert abs(opp.cost_usd - opp.shares) < 1e-6
 
 
+def test_size_to_depth_captures_more_than_fixed_floor():
+    # deep books: with max_usd > size_usd, the detector sizes to the depth cap (not the small floor),
+    # booking far more guaranteed profit per crossing — while staying risk-free (depth-capped, full fill).
+    up = _book(0.44, 0.45, asks=[(0.45, 1_000_000.0)])   # ample depth
+    dn = _book(0.44, 0.45, asks=[(0.45, 1_000_000.0)])
+    small = detect_arbitrage(up, dn, size_usd=5.0, epsilon=0.05, max_depth_consume_frac=0.5)
+    big = detect_arbitrage(up, dn, size_usd=5.0, max_usd=300.0, epsilon=0.05,
+                           max_depth_consume_frac=0.5)
+    assert small is not None and big is not None and big.actionable and small.actionable
+    assert big.shares > small.shares * 10                # sized up to the $300 ceiling, not $5
+    assert big.guaranteed_profit_usd > small.guaranteed_profit_usd * 10
+    # never exceeds the depth cap (0.5 * depth); here depth is huge so the $300 ceiling binds
+    assert big.cost_usd <= 2 * 300.0 + 1e-6 and big.depth_capped is False
+
+
 def test_no_sell_arb_when_bids_sum_at_or_below_one():
     up = _book(0.50, 0.52, asks=[(0.52, 100000.0)], bids=[(0.50, 100000.0)])
     dn = _book(0.46, 0.49, asks=[(0.49, 100000.0)], bids=[(0.46, 100000.0)])  # bids 0.96 < 1

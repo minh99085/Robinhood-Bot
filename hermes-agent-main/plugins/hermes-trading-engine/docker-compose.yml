@@ -202,9 +202,12 @@ services:
       PULSE_ARB_FEES: "${PULSE_ARB_FEES:-0.0}"
       # 0.02 risk-free edge below $1 (was 0.05) captures more dutch books; still a safety buffer over
       # ~0 Polymarket BTC taker fees. arb is risk-free so size it bigger than directional (depth-capped).
-      PULSE_ARB_EPSILON: "${PULSE_ARB_EPSILON:-0.02}"
+      PULSE_ARB_EPSILON: "${PULSE_ARB_EPSILON:-0.01}"
       PULSE_ARB_MIN_PROFIT_USD: "${PULSE_ARB_MIN_PROFIT_USD:-0.0}"
       PULSE_ARB_SIZE_USD: "${PULSE_ARB_SIZE_USD:-100.0}"
+      # size-to-depth ceiling: capture the full available depth (still depth-capped + full-fill =>
+      # risk-free) up to this per dutch book. Bigger = more guaranteed profit per crossing.
+      PULSE_ARB_MAX_USD: "${PULSE_ARB_MAX_USD:-300.0}"
       # Directional de-risk: the directional model is structurally negative-EV in a near-efficient
       # market. Keep it enabled but, when REQUIRE_WINNING=1, only take a directional trade in a
       # Wilson-PROVEN-winning bucket (pre-execution block, never advisory). Arb runs standalone.

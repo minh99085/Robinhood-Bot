@@ -172,13 +172,15 @@ class PulseConfig:
     # ---- within-window RISK-FREE arbitrage (Roan dutch book up_vwap+down_vwap<1; PAPER ONLY) ----
     arbitrage_enabled: bool = True
     arb_fees: float = 0.0                       # modelled taker fee per $ (Polymarket BTC ~0)
-    arb_epsilon: float = 0.02                   # min risk-free edge below $1 to act (must exceed real
-    #                                             fees+slippage; Polymarket BTC taker fee ~0 so 0.02
-    #                                             still leaves a safety buffer for non-atomic fills)
+    arb_epsilon: float = 0.01                   # min risk-free edge below $1 to act (must exceed real
+    #                                             fees+slippage; Polymarket BTC taker fee ~0 so 0.01
+    #                                             still leaves a safety buffer for non-atomic fills).
+    #                                             Lower = capture more frequent shallower dutch books.
     arb_min_profit_usd: float = 0.0
-    arb_size_usd: float = 100.0                 # arb is RISK-FREE -> size bigger than directional
-    #                                             (still hard-capped at max_depth_consume_frac of the
-    #                                             thinner leg + full-fill required, so never over-consumes)
+    arb_size_usd: float = 100.0                 # fallback target when book depth is unknown
+    arb_max_usd: float = 300.0                  # SIZE-TO-DEPTH ceiling: take the full available depth
+    #                                             (capped at max_depth_consume_frac of the thinner leg
+    #                                             + full-fill required, so still RISK-FREE) up to this
     # ---- directional de-risk (separate strategy; arb can run standalone) ----
     directional_enabled: bool = True            # PULSE_DIRECTIONAL_ENABLED
     # default OFF in code (backward-compatible); enabled via env on the live bot. When on, a
@@ -385,9 +387,10 @@ class PulseConfig:
             arbitrage_enabled=str(os.getenv("PULSE_ARB_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             arb_fees=_envf("PULSE_ARB_FEES", 0.0),
-            arb_epsilon=_envf("PULSE_ARB_EPSILON", 0.02),
+            arb_epsilon=_envf("PULSE_ARB_EPSILON", 0.01),
             arb_min_profit_usd=_envf("PULSE_ARB_MIN_PROFIT_USD", 0.0),
-            arb_size_usd=_envf("PULSE_ARB_SIZE_USD", 50.0),
+            arb_size_usd=_envf("PULSE_ARB_SIZE_USD", 100.0),
+            arb_max_usd=_envf("PULSE_ARB_MAX_USD", 300.0),
             directional_enabled=str(os.getenv("PULSE_DIRECTIONAL_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             directional_require_winning_bucket=str(os.getenv("PULSE_DIRECTIONAL_REQUIRE_WINNING", "0"))
@@ -1097,7 +1100,7 @@ class PulseEngine:
                     epsilon=self.cfg.arb_epsilon,
                     max_depth_consume_frac=self.cfg.exec_max_depth_consume_frac,
                     tick_size=w.tick_size, now=now, max_book_age_s=self.cfg.exec_max_book_age_s,
-                    min_profit_usd=self.cfg.arb_min_profit_usd)
+                    min_profit_usd=self.cfg.arb_min_profit_usd, max_usd=self.cfg.arb_max_usd)
                 if opp is not None:
                     dr.arbitrage = opp.to_dict()
                     if opp.kind == "sell_both":

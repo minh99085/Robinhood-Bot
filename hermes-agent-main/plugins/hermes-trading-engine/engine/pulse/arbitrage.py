@@ -51,7 +51,8 @@ def detect_arbitrage(up_book, down_book, *, size_usd: float = 5.0, fees: float =
                      epsilon: float = 0.05, max_depth_consume_frac: float = 0.5,
                      tick_size: float = 0.01, now: Optional[float] = None,
                      max_book_age_s: float = 30.0,
-                     min_profit_usd: float = 0.0) -> Optional[ArbOpportunity]:
+                     min_profit_usd: float = 0.0,
+                     max_usd: Optional[float] = None) -> Optional[ArbOpportunity]:
     """Detect a risk-free within-window dutch book on the up/down ladders. Returns the best
     actionable opportunity (or a non-actionable one for diagnostics, or None).
 
@@ -65,6 +66,9 @@ def detect_arbitrage(up_book, down_book, *, size_usd: float = 5.0, fees: float =
     and on tick. Reuses the strict execution-gate VWAP/depth math (no top-of-book fantasy)."""
     if up_book is None or down_book is None:
         return None
+    # size‑to‑depth: take the full available depth (capped at max_depth_consume_frac of the thinner
+    # leg) up to a max_usd ceiling. Defaults to size_usd so legacy callers keep the old behavior.
+    max_usd = float(max_usd) if max_usd is not None else float(size_usd)
     up_asks = getattr(up_book, "asks", None) or []
     dn_asks = getattr(down_book, "asks", None) or []
     up_bids = getattr(up_book, "bids", None) or []
@@ -84,8 +88,8 @@ def detect_arbitrage(up_book, down_book, *, size_usd: float = 5.0, fees: float =
         up_depth = float(getattr(up_book, "ask_depth_usd", 0.0) or 0.0)
         dn_depth = float(getattr(down_book, "ask_depth_usd", 0.0) or 0.0)
         cap_notional = max_depth_consume_frac * min(up_depth, dn_depth)
-        target = min(float(size_usd), cap_notional) if cap_notional > 0 else float(size_usd)
-        depth_capped = bool(cap_notional > 0 and target < float(size_usd))
+        target = min(cap_notional, max_usd) if cap_notional > 0 else float(max_usd)
+        depth_capped = bool(cap_notional > 0 and cap_notional < max_usd)
         vwu, spent_u, sh_u, full_u = vwap_fill(up_asks, target)
         vwd, spent_d, sh_d, full_d = vwap_fill(dn_asks, target)
         if vwu is not None and vwd is not None:
@@ -110,8 +114,8 @@ def detect_arbitrage(up_book, down_book, *, size_usd: float = 5.0, fees: float =
         up_bdepth = float(getattr(up_book, "bid_depth_usd", 0.0) or 0.0)
         dn_bdepth = float(getattr(down_book, "bid_depth_usd", 0.0) or 0.0)
         cap_b = max_depth_consume_frac * min(up_bdepth, dn_bdepth)
-        target_b = min(float(size_usd), cap_b) if cap_b > 0 else float(size_usd)
-        depth_capped_b = bool(cap_b > 0 and target_b < float(size_usd))
+        target_b = min(cap_b, max_usd) if cap_b > 0 else float(max_usd)
+        depth_capped_b = bool(cap_b > 0 and cap_b < max_usd)
         bvu, bspent_u, bsh_u, bfull_u = vwap_fill(up_bids, target_b)
         bvd, bspent_d, bsh_d, bfull_d = vwap_fill(dn_bids, target_b)
         if bvu is not None and bvd is not None:
