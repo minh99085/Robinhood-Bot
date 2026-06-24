@@ -751,6 +751,7 @@ class PulseEngine:
             self._load_state()
         elif self._ledger_path.exists():
             self._archive_prior_state()
+        self._maybe_reset_capital()   # token-gated SURGICAL capital reset (keeps all learning)
         self._resolve_baseline()
 
     @staticmethod
@@ -772,6 +773,51 @@ class PulseEngine:
                 rows.append({"tags": self._selectivity_tags_from_pos(pos),
                              "won": bool(pos.won), "pnl": float(pos.pnl_usd or 0.0)})
         return rows
+
+    def _maybe_reset_capital(self) -> None:
+        """Token-gated SURGICAL reset: zero the paper CAPITAL / ledger / arbitrage / reconciliation
+        back to a fresh ``starting_capital_usd`` while KEEPING everything the bot has LEARNED
+        (probability models, calibration, selectivity evidence, lessons, signal gradings, research
+        rules, CEX-lead/TV/Grok learning). Runs exactly ONCE per new ``PULSE_RESET_CAPITAL_TOKEN``
+        (idempotent across restarts via a marker file). PAPER ONLY."""
+        token = (os.getenv("PULSE_RESET_CAPITAL_TOKEN") or "").strip()
+        if not token:
+            return
+        marker = self._data_dir / ".capital_reset_token"
+        try:
+            prior = marker.read_text(encoding="utf-8").strip() if marker.exists() else ""
+        except Exception:  # noqa: BLE001
+            prior = ""
+        if prior == token:
+            return                      # this reset token was already applied — do nothing
+        # --- reset ONLY money/operational state to fresh instances ---
+        self.ledger = PulseLedger()
+        self.gate_obs = GateObservations()
+        self.reconciler = LifecycleReconciler()
+        if self.arb_ledger is not None:
+            from engine.pulse.arbitrage import ArbLedger
+            self.arb_ledger = ArbLedger()
+        self._ev_before_sum = 0.0
+        self._ev_after_sum = 0.0
+        self._ev_n = 0
+        self._allowlist_explored = 0
+        self._allowlist_blocked = 0
+        self._baseline = empty_baseline()
+        self._reasons = {}
+        self._last_eval = []
+        # KEPT (learning, untouched): self.calib, self.edge_model, self.selectivity_evidence,
+        #   self.selectivity_gate, self.lessons, self._research_avoid/_exploit, self.cex_lead,
+        #   self._tv_edge/_rsi_model/_tv_learner, self.edge_signal, self.grok_*, self.verifier,
+        #   self.research_loop, self._mkt_bench_*, tv_context_gate, late_window_* .
+        try:
+            self._data_dir.mkdir(parents=True, exist_ok=True)
+            marker.write_text(token, encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            pass
+        logger.warning("PULSE_RESET_CAPITAL applied (token=%s): capital/ledger/arbitrage/"
+                       "reconciliation reset to fresh $%.2f; ALL learning retained.",
+                       token, float(self.cfg.starting_capital_usd))
+        self._persist()
 
     def _resolve_baseline(self) -> None:
         """Establish the one-time accounting baseline. If a baseline was persisted, keep it. Else,

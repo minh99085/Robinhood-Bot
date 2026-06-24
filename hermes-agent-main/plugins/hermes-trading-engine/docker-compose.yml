@@ -218,6 +218,10 @@ services:
       # buckets it would block every directional trade forever (no trades => nothing to prove).
       # This lets a small capped fraction through as exploration to keep learning. 0=block-all.
       PULSE_DIRECTIONAL_EXPLORE_RATE: "${PULSE_DIRECTIONAL_EXPLORE_RATE:-0.05}"
+      # SURGICAL capital reset: set to a NEW unique token to zero P&L/ledger/arbitrage/reconciliation
+      # back to a fresh $500 while KEEPING all learning (models, selectivity evidence, lessons,
+      # gradings). Applies exactly once per new token (idempotent). Empty = no reset.
+      PULSE_RESET_CAPITAL_TOKEN: "${PULSE_RESET_CAPITAL_TOKEN:-}"
       # Learned Selectivity Gate v1: reject proven-losing buckets (live evidence) between decision
       # and execution. Only makes the bot MORE selective; never trades/resizes/bypasses the gate.
       PULSE_SELECTIVITY_GATE_ENABLED: "${PULSE_SELECTIVITY_GATE_ENABLED:-1}"
