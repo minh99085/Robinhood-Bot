@@ -1,0 +1,111 @@
+# Hermes BTC Pulse — LESSONS (auto-generated, compounding + self-retracting)
+
+_Rules survive only while live evidence keeps proving them; stale rules are retracted and not fed to the maker/checker. PAPER ONLY._
+
+
+## Active
+
+- **2026-06-24 13:40** [`research`]: Execution gate correctly blocking 89 trades post-slippage; spread/depth model working
+- **2026-06-24 13:40** [`research`]: Brier 0.226 vs baseline 0.25, but profit factor 0.89; model directionally OK, execution poor
+- **2026-06-24 13:40** [`research`]: 11 no-signal trades: 36.4% win, -$4.94 PnL; never trade without TradingView signal
+- **2026-06-24 13:40** [`research`]: TradingView DOWN signals hit 61.6% vs 42.3% base rate; exploit DOWN only, avoid UP
+- **2026-06-24 13:10** [`research`]: TradingView DOWN signals hit 61.6% vs 42.3% baseline; UP signals 47.8% (below baseline)—use directionally
+- **2026-06-24 13:10** [`research`]: Avg loss $4.02 vs win $3.09 (30% larger); tighten stops or raise entry bar to fix asymmetry
+- **2026-06-24 13:10** [`research`]: 245/603 (41%) execution candidates rejected; underdog_price_below_floor (95) and negative_ev (89) dominate—review pricing logic
+- **2026-06-24 13:10** [`research`]: 0.3-0.4 confidence bucket shows 28.2% empirical vs 35% expected; recalibrate or avoid this bucket
+- **2026-06-24 13:10** [`research`]: DOWN trades show 61.6% TradingView signal hit vs 47.8% UP; favor DOWN in signal alignment scoring
+- **2026-06-24 12:39** [`research`]: Bucket 0.3-0.4 shows 28.2% empirical_up (n=39) vs 35% expected; model overestimates UP in low-confidence zone—recalibrate or avoid
+- **2026-06-24 12:39** [`research`]: 1-min signals (n=17, 58.8%) vs 5-min (n=128, 57.0%) show no material difference; consolidate to 5-min to reduce noise
+- **2026-06-24 12:39** [`research`]: 89 negative-EV + 95 underdog-floor rejections prove gate prevents bad trades; maintain strict thresholds, no loosening
+- **2026-06-24 12:09** [`research`]: Brier 0.226 vs baseline 0.25 (9.6% improvement). Edge model somewhat calibrated but not translating to PnL. Issue is execution costs and UP direction drag, not prediction.
+- **2026-06-24 12:09** [`research`]: 49% execution gate reject rate (245/497): 95 underdog_price_below_floor, 89 negative_ev_after_slippage, 55 wide_spread. Underdog floor too conservative; relax to 0.38 to capture real DOWN edge.
+- **2026-06-24 12:09** [`research`]: Avg loss $4.02 vs avg win $3.09 (30% worse). Adverse selection or poor exit discipline on losing trades. Tighten entry edge threshold and consider loss-size cap.
+- **2026-06-24 12:09** [`research`]: TradingView DOWN signals: 61.6% hit rate, 99 samples, +$27.87 PnL vs UP 47.8%, 46 samples, -$40.16 PnL. Exploit DOWN, avoid UP until sample parity and profitability.
+- **2026-06-24 11:39** [`research`]: rsi_trend signal_hit_rate 50.46% and prediction_accuracy 48.3% show no edge; disable or de-weight in feature stack
+- **2026-06-24 11:39** [`research`]: 95 underdog_price_below_floor rejections with avg_ev_before_costs 0.106; execution gate blocking edge—relax floor 2-3 cents
+- **2026-06-24 11:39** [`research`]: TradingView UP signals hit 47.8% (n=46, -$40.16 PnL); avoid or fade when signal_direction=UP
+- **2026-06-24 11:08** [`research`]: 403 settled trades, 53.6% WR (±4.9% 95%CI spans 50%), -$64.81 PnL, 0.89 PF → statistically zero edge; do NOT scale until PF>1.1 and PnL>+$100 over n≥500
+- **2026-06-24 11:08** [`research`]: 89 rejects for negative_ev_after_slippage, 55 for wide_spread → 144/245 (59%) execution rejects are cost-driven → tighten spread threshold or avoid low-liquidity windows
+- **2026-06-24 11:08** [`research`]: Avg EV before costs 0.106 → after costs 0.101, but realized edge only 0.0037 → slippage/fees consume model edge; need EV≥0.15 post-cost to survive friction
+- **2026-06-24 11:08** [`research`]: DOWN signals (n=99) hit 61.6% vs 42.3% base, +$27.87 PnL; UP signals (n=46) hit 47.8%, -$40.16 PnL → accept only DOWN≥0.75 strength until UP proves itself
+- **2026-06-24 10:38** [`research`]: Fails 6/9 readiness gates (win_rate, PnL, profit_factor, drawdown, loss_size); max drawdown -$151 vs -$64 net suggests regime instability
+- **2026-06-24 10:38** [`research`]: 95 trades rejected for underdog_price_below_floor; if blocking profitable setups, relax floor or analyze rejected outcomes
+- **2026-06-24 10:38** [`research`]: 0.3-0.4 edge bucket predicts 35% but realizes 28.2% (n=39); systematically overconfident in weak-bullish setups
+- **2026-06-24 10:08** [`research`]: confidence_tier A/A+/B all n=0 => model rarely confident; avoid any tier-based exploit until tier populations emerge
+- **2026-06-24 10:08** [`research`]: 0.4-0.6 buckets show ~48-52% empirical; edge_model not wildly miscalibrated but no strong predictive power outside DOWN signals
+- **2026-06-24 10:08** [`research`]: 245 exec rejects (89 negative_EV, 95 underdog_floor, 55 wide_spread) => revisit floor/spread params for DOWN-biased flow
+- **2026-06-24 10:08** [`research`]: avg_loss ($4.02) > avg_win ($3.09) => net drag even at 53.6% WR; need tighter stop-loss or higher win-rate contexts
+- **2026-06-24 10:08** [`research`]: TradingView DOWN signals (n=99) hit 61.6% vs 42.3% base => exploit; UP signals (n=46) hit 47.8% => avoid
+- **2026-06-24 09:37** [`research`]: 95 underdog_price_below_floor rejects; strategy hunting value but finding only mispriced losers
+- **2026-06-24 09:37** [`research`]: edge_model 0.3-0.4 bucket empirical_up=28% (n=39) vs 0.6-0.7=20% (n=5); model inverted, untrusted
+- **2026-06-24 09:37** [`research`]: avg_loss $4.02 > avg_win $3.09; slippage/spread (89+55 rejects) erase 10bp theoretical edge
+- **2026-06-24 09:37** [`research`]: TradingView UP signals (n=46) at 47.8% hit, below 50%; avoid UP-direction trades entirely
+- **2026-06-24 09:37** [`research`]: TradingView DOWN signals (n=99) show 61.6% 5-min hit vs 42.3% base; exploit directional asymmetry
+- **2026-06-24 09:07** [`research`]: 0.89 profit factor; no edge confirmed, continue paper only, no live trading
+- **2026-06-24 09:07** [`research`]: 34,568 directional rejects vs 252 accepted; filter is selective, no evidence to loosen
+- **2026-06-24 09:07** [`research`]: 89 negative EV after slippage rejections; current costing model working, keep strict
+- **2026-06-24 09:07** [`research`]: DOWN signals 61.6% hit rate (n=99) vs UP 47.8% (n=46); weight DOWN 1.15x
+- **2026-06-24 08:37** [`research`]: RSI signal direction hit 50.35%, prediction accuracy 46.77%; provides no edge; deprioritize
+- **2026-06-24 08:37** [`research`]: Brier=0.226 vs baseline 0.25 shows model knows probabilities but edge_realized=0.0037 means no betting advantage; do not confuse calibration with profitability
+- **2026-06-24 08:37** [`research`]: 245 execution rejections (89 negative_ev_after_slippage, 95 underdog_price_floor, 55 wide_spread) vs 252 fills; tighten entry
+- **2026-06-24 08:37** [`research`]: 53.6% winrate insufficient when avg_loss/avg_win = 1.30; reject unless loss capping or higher winrate tier identified
+- **2026-06-24 08:06** [`research`]: 0.37% realized edge vs 10.1% EV suggests model-reality gap or cost underestimate. Do not scale until reconciled.
+- **2026-06-24 08:06** [`research`]: 245/603 exec candidates rejected (wide spread, neg EV, underdog floor). Gate is critical filter; do not loosen without data.
+- **2026-06-24 08:06** [`research`]: 39 trades in 0.3-0.4 bucket: 28.2% empirical vs 35% expected. Model overconfident in this range; avoid or recalibrate.
+- **2026-06-24 08:06** [`research`]: TradingView DOWN signals show 61.6% hit vs 42.3% base; UP signals 47.8% (coin-flip). Restrict UP or demand higher strength.
+- **2026-06-24 07:36** [`research`]: 53.6% win-rate, 0.89 profit-factor, -$64.81 PNL over 403 settled trades. 5-min BTC is efficient; no broad exploitable edge exists.
+- **2026-06-24 07:36** [`research`]: 0.3-0.4 confidence bucket: 28% empirical UP vs 35% predicted (n=39, -20% error). Retrain or exclude this tier.
+- **2026-06-24 07:36** [`research`]: Gate rejected 49% of sent candidates (245/497): 95 underdog-floor, 89 negative-EV-slippage, 55 wide-spread. Tighten upstream to reduce wasted compute.
+- **2026-06-24 07:36** [`research`]: TradingView DOWN signals: 61.6% hit-rate, +$0.28/trade (n=99); UP signals: 47.8%, -$0.87/trade (n=46). Exploit DOWN, avoid/disable UP.
+- **2026-06-24 07:06** [`research`]: No dimension/bucket pair shows sustained edge across sample sizes ≥30; 5-min BTC direction remains near-efficient
+- **2026-06-24 07:06** [`research`]: 0.3-0.4 bucket: 28.2% empirical vs 35% predicted (39n); 0.6-0.7 bucket: 20% empirical vs 65% predicted (5n); model miscalibrated
+- **2026-06-24 07:06** [`research`]: 245/603 execution gate rejects (95 underdog price floor, 89 negative EV post-slippage); tighten pre-gate filtering to preserve capital
+- **2026-06-24 07:06** [`research`]: TradingView DOWN signals 61.6% hit (99n) vs UP 47.8% (46n); 2:1 sample imbalance, net negative PnL; insufficient evidence for exploitation
+- **2026-06-24 06:35** [`research`]: 95 trades rejected for underdog_price_below_floor; this gate is essential—never lower floor below 0.45 as it protects from severely mispriced entries
+- **2026-06-24 06:35** [`research`]: trades without TradingView signal (n=11) won 36.4%, lost -$4.94/trade; never trade without external confirmation signal
+- **2026-06-24 06:35** [`research`]: UP signals (n=46) hit only 47.8%, lost -$40; completely avoid UP direction until 100+ sample revalidation shows >=55% hit rate
+- **2026-06-24 06:35** [`research`]: DOWN signals (n=99) hit 61.6% vs 42.3% baseline but still -$12 PnL on 5-min; edge exists directionally but execution costs dominate—only trade if strength>=0.65 and spread tight
+- **2026-06-24 06:05** [`research`]: 95 underdog_price_below_floor rejects; verify floor not set too high or signals too weak
+- **2026-06-24 06:05** [`research`]: Brier 0.226 vs baseline 0.25 shows model works, but execution costs + loss asymmetry erase edge
+- **2026-06-24 06:05** [`research`]: Avg EV after costs 0.1006 yields -$0.16/trade; min_ev must exceed 0.12 to survive variance
+- **2026-06-24 06:05** [`research`]: Avg loss $4.02 > avg win $3.09; any edge dies to fat-tail losses; enforce max_loss < avg_win
+- **2026-06-24 06:05** [`research`]: TradingView DOWN signals hit 61.6% (n=99, +$27.87 PnL); exploit when signal_direction=DOWN and timeframe=5
+- **2026-06-24 05:35** [`research`]: Max drawdown $151.73 on -$64.81 net suggests streak risk; implement dynamic position sizing or circuit breaker after 3 consecutive losses
+- **2026-06-24 05:35** [`research`]: 89 rejects for negative_ev_after_slippage; review slippage model—may underestimate true cost or signal selection flawed
+- **2026-06-24 05:35** [`research`]: Edge model 0.3-0.4 bucket: n=39, empirical 28.2% up (expect ~35%); recalibrate or penalize this range
+- **2026-06-24 05:35** [`research`]: 245/603 candidates rejected at execution (41%); tighten pre-gate filters to save compute and avoid borderline -EV
+- **2026-06-24 05:35** [`research`]: Avg loss $4.02 > avg win $3.08 (ratio 1.30); must reject wider tails or reduce position on uncertain setups
+- **2026-06-24 05:35** [`research`]: TradingView UP signals (n=46) hit 47.8%, lose -$40.16; avoid until n>=100 shows win_rate>0.55
+- **2026-06-24 05:35** [`research`]: TradingView DOWN signals (n=99) hit 61.6% vs 42.3% baseline; isolate and size up when strength>=0.75
+- **2026-06-24 05:04** [`research`]: 245 execution rejects (95 underdog_price_floor, 89 negative_ev_slippage); tighten pre-gate filters to reduce wasted compute
+- **2026-06-24 05:04** [`research`]: treat any context with n<20 as exploratory; current max slice n=13 insufficient for confident edge claims
+- **2026-06-24 05:04** [`research`]: avoid markov_state=chop_noise: 40% WR, -$16.20 (n=10); no predictability in high-frequency chop
+- **2026-06-24 05:04** [`research`]: reject ttc>=120s; 50% WR -$8.58 (n=12) vs 100% WR +$5 for <60s (n=1); decay kills edge
+- **2026-06-24 05:04** [`research`]: require conviction>=0.6; sub-0.6 trades are 29% WR with -$16.38 loss across n=7
+- **2026-06-24 04:34** [`research`]: 397 trades at 53.9% WR, -$52.75 PnL, profit factor 0.9: no exploitable edge shown
+- **2026-06-24 04:34** [`research`]: trending/high-edge 8 trades at 75% WR is sample noise, not exploitable edge
+- **2026-06-24 04:34** [`research`]: zscore_bucket=-2..-1: 0% WR (1 trade), avoid until 30+ profitable samples
+- **2026-06-24 04:34** [`research`]: hurst_regime=noise: 0% WR (1 trade), avoid until 30+ profitable samples
+- **2026-06-24 04:04** [`research`]: hurst_regime=noise: 0% WR (n=1) and -$5 PnL—even tiny samples warrant immediate avoid until n≥30 proves otherwise
+- **2026-06-24 04:04** [`research`]: 57.4% signal hit rate vs 43.5% baseline (n=136) suggests mild predictive value, but net PnL is negative—signal quality ≠ profitability without execution precision
+- **2026-06-24 04:04** [`research`]: 41% rejection rate (243/593) with correct negative-EV filtering is protective, not obstructive—validate floors via shadow fills
+- **2026-06-24 04:04** [`research`]: When avg_loss > avg_win, even 54% WR bleeds capital—enforce loss/win ratio ≤1.0 or raise WR threshold to 58%+
+- **2026-06-24 04:04** [`research`]: n<30 per bucket is noise, not signal—require ≥50 settled trades before claiming bucket-level edge
+- **2026-06-24 03:33** [`research`]: 0.6-0.7 conviction bucket (n=5) empirical 20%, 0.3-0.4 bucket (n=36) empirical 30.6%—model inverted on sparse data
+- **2026-06-24 03:33** [`research`]: Avg loss ($4.02) exceeds avg win ($3.09) by 30%; win rate must exceed 56.5% to breakeven, currently at 53.6%
+- **2026-06-24 03:33** [`research`]: All context buckets have n<=1 except baseline; no bucket has statistical power to claim edge
+- **2026-06-24 03:33** [`research`]: TradingView DOWN signals (n=95) hit 60% vs 44% baseline; UP signals (n=37) at 51% show no edge
+- **2026-06-24 03:05** [`research`]: realized_edge=0.0036 (0.36%) on 53.1% avg entry price. Not enough to cover slippage/costs. Need 1-2% realized edge minimum for profitability.
+- **2026-06-24 03:05** [`research`]: Brier 0.226 vs baseline 0.25; calibration error 0.072 is OK. Model is calibrated but not finding enough edge to overcome costs.
+- **2026-06-24 03:05** [`research`]: 236/581 exec gate rejects (41%): 88 negative EV, 87 underdog price floor, 55 wide spread—gate is protective
+- **2026-06-24 03:05** [`research`]: Avg loss $3.99 vs avg win $3.06. Even at 53.5% WR, profit factor 0.88 < 1. Must cap loss size or raise win size to break even.
+- **2026-06-24 03:05** [`research`]: TradingView DOWN signals: 60% hit rate, +$0.12/trade (n=95); UP signals: 50%, -$0.65/trade (n=36). Trade DOWN only or wait for larger UP sample.
+- **2026-06-24 02:34** [`research`]: 228/570 rejected at execution (wide_spread 55, negative_ev 81, underdog_floor 86); tighten pre-gate filters
+- **2026-06-24 02:34** [`research`]: chop_noise: 3 samples, 66.7% win, +$1.53; trending: same stats but label mismatch—need 100+ samples
+- **2026-06-24 02:34** [`research`]: spread buckets show 1 sample each; ignore until n>=30 per bucket
+- **2026-06-24 02:34** [`research`]: DOWN signals outperform UP 2:1 sample-wise and PnL-wise; exploit cautiously, avoid UP
+- **2026-06-24 02:34** [`research`]: predicted 0.6-0.7 shows 20% empirical (5 samples); recalibrate or distrust high-conviction bins
+
+## Retracted (no longer evidence-backed)
+
+- ~~[`avoid`] AVOID ttc_bucket=120-240s — confidently below breakeven (WR 0.5152 vs 0.6209, n 66, EV/trade -0.8264).~~

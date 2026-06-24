@@ -1,0 +1,19 @@
+HERMES VPS STATE PROOF
+Wed Jun 24 01:51:44 PM UTC 2026
+
+== git HEAD (VPS) ==
+b00fd7feb4d46123d7c458fa4d1b988911b5d39c
+
+== docker ps ==
+hermes-training hermes-trading-engine-hermes-training Up 8 hours (healthy)
+hermes-trading-engine hermes-trading-engine-hermes-trading-engine Up 8 hours (healthy)
+hermes-dashboard hermes-agent Up 2 days
+hermes hermes-agent Up 2 days
+
+== key env (training) ==
+HTE_DATA_DIR=/data
+PULSE_ARB_ENABLED=1
+PULSE_CEX_LEAD_MODE=shadow
+PULSE_DIRECTIONAL_REQUIRE_WINNING=1
+PULSE_GROK_DECIDER_MODEL=grok-4.3
+PULSE_GROK_DECIDER_MODE=shadow
