@@ -23,6 +23,12 @@ pulse paper engine profitable, fast.
   API/dashboard. Rebuild + recreate BOTH services (`docker compose build` with NO service arg, then
   `up -d`). Rebuilding only `hermes-trading-engine` leaves the loop on stale code and `/data` keeps
   the OLD report schema — verify the new code is live in `hermes-training`, not just the API.**
+- **MEMORY — ALWAYS MERGE AND SYNC IN BOTH THE REPO AND THE VPS.** On every change, MERGE the work
+  into `main` (do not leave it stranded on a feature branch) AND deploy/sync the SAME code to the
+  live VPS, so the GitHub `main` repo and the VPS run identical code every turn. After deploying,
+  reconcile the VPS to a clean `git` state at that commit and verify `git rev-parse HEAD` on the VPS
+  equals `origin/main`. Never leave `main` and the VPS diverged, and never leave a change merged in
+  one place but not the other — merge + sync both, every time.
 - **ALWAYS push every full report to the `vps_full_reports/` directory on `main`** (the repo's
   `vps_full_reports/` tree). Whenever you pull a
   full report, refresh `vps_full_reports/latest/` (`btc_pulse_light_report.json`,
