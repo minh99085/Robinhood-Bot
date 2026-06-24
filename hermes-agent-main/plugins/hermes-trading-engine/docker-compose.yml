@@ -206,7 +206,10 @@ services:
       # market. Keep it enabled but, when REQUIRE_WINNING=1, only take a directional trade in a
       # Wilson-PROVEN-winning bucket (pre-execution block, never advisory). Arb runs standalone.
       PULSE_DIRECTIONAL_ENABLED: "${PULSE_DIRECTIONAL_ENABLED:-1}"
-      PULSE_DIRECTIONAL_REQUIRE_WINNING: "${PULSE_DIRECTIONAL_REQUIRE_WINNING:-1}"
+      # OFF by default: the hard Wilson-winning allowlist deadlocks/freezes the directional engine
+      # (no proven-winning bucket => block all => never trade => never prove one). Opt in with =1
+      # ONLY together with a non-zero PULSE_DIRECTIONAL_EXPLORE_RATE so it keeps learning.
+      PULSE_DIRECTIONAL_REQUIRE_WINNING: "${PULSE_DIRECTIONAL_REQUIRE_WINNING:-0}"
       PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES: "${PULSE_DIRECTIONAL_WINNING_MIN_SAMPLES:-30}"
       # cold-start carve-out so the allowlist does NOT freeze the bot: without proven-winning
       # buckets it would block every directional trade forever (no trades => nothing to prove).
