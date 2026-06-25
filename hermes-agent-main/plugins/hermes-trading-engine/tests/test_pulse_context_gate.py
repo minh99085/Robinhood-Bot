@@ -35,6 +35,26 @@ def test_blocks_noise_regime():
     assert g.evaluate(hurst_regime="mean_reverting", ttc_s=60)["decision"] == "pass"
 
 
+def test_blocks_liquidation_spike():
+    g = TradingViewContextGate(enabled=True, blocked_volume_states=(), blocked_hurst_regimes=(),
+                               max_ttc_s=None, block_liquidation_spike=True, exploration_rate=0.0)
+    assert g.evaluate(liquidation_spike=True)["reasons"] == ["tv_context_liquidation_spike"]
+    assert g.evaluate(liquidation_spike=False)["decision"] == "pass"
+
+
+def test_blocks_event_blackout():
+    g = TradingViewContextGate(enabled=True, blocked_volume_states=(), blocked_hurst_regimes=(),
+                               max_ttc_s=None, block_event_blackout=True, exploration_rate=0.0)
+    assert g.evaluate(event_blackout=True)["reasons"] == ["tv_context_event_blackout"]
+
+
+def test_blocks_grok_event_risk_high():
+    g = TradingViewContextGate(enabled=True, blocked_volume_states=(), blocked_hurst_regimes=(),
+                               max_ttc_s=None, block_grok_event_risk_high=True, exploration_rate=0.0)
+    assert g.evaluate(grok_event_risk="high")["reasons"] == ["tv_context_grok_event_risk_high"]
+    assert g.evaluate(grok_event_risk="low")["decision"] == "pass"
+
+
 def test_blocks_far_ttc():
     g = TradingViewContextGate(enabled=True, blocked_volume_states=(), blocked_hurst_regimes=(),
                                max_ttc_s=240.0, exploration_rate=0.0)

@@ -105,7 +105,7 @@ class PulseConfig:
     # 0.5), AVOID proven-losing contexts, and only EXPLORE the uncertain ones. Default ON.
     grok_decider_adaptive: bool = True
     # ---- #1 maker-checker VERIFIER (independent Claude model) + #4 research meta-loop ----
-    verifier_enabled: bool = False
+    verifier_enabled: bool = True          # maker-checker ON for paper by default (needs ANTHROPIC key)
     verifier_fail_open: bool = True          # no verdict in time -> approve (don't freeze) but log
     # FOLLOW trades wait for the actual Claude verdict (fail-CLOSED on pending) so the maker-checker
     # genuinely gates them rather than fail-opening before the async worker finishes.
@@ -211,7 +211,16 @@ class PulseConfig:
     tv_context_blocked_volume_states: tuple = ("spike",)
     tv_context_blocked_hurst_regimes: tuple = ("noise",)
     tv_context_max_ttc_s: float = 240.0
+    tv_context_block_liquidation_spike: bool = True
+    tv_context_block_event_blackout: bool = True
+    tv_context_block_grok_event_risk_high: bool = True
     tv_context_exploration_rate: float = 0.05
+    # ---- verifiable stop conditions (agent-independent kill switches; Loop Eng #6) ----
+    stop_enabled: bool = True
+    stop_rolling_n: int = 50
+    stop_min_samples: int = 30
+    stop_min_profit_factor: float = 0.85
+    stop_max_drawdown_pct: float = 25.0
     # ---- Late-window high-conviction entry mode (time-decay edge; PAPER ONLY) ----
     # When enabled, only late-window AND high-conviction setups may trade (restrict-only). The edge
     # is ALWAYS measured observe-only (cohort vs other) so it can be graded before being enabled.
@@ -320,7 +329,7 @@ class PulseConfig:
             grok_decider_explore_size_fraction=_envf("PULSE_GROK_DECIDER_EXPLORE_SIZE_FRACTION", 0.5),
             grok_decider_adaptive=str(os.getenv("PULSE_GROK_DECIDER_ADAPTIVE", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
-            verifier_enabled=str(os.getenv("PULSE_VERIFIER_ENABLED", "0"))
+            verifier_enabled=str(os.getenv("PULSE_VERIFIER_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             verifier_fail_open=str(os.getenv("PULSE_VERIFIER_FAIL_OPEN", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
@@ -414,7 +423,22 @@ class PulseConfig:
                 s.strip().lower() for s in os.getenv("PULSE_TV_CONTEXT_BLOCK_HURST", "noise")
                 .split(",") if s.strip()),
             tv_context_max_ttc_s=_envf("PULSE_TV_CONTEXT_MAX_TTC_S", 240.0),
+            tv_context_block_liquidation_spike=str(
+                os.getenv("PULSE_TV_CONTEXT_BLOCK_LIQUIDATION", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            tv_context_block_event_blackout=str(
+                os.getenv("PULSE_TV_CONTEXT_BLOCK_EVENT_BLACKOUT", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            tv_context_block_grok_event_risk_high=str(
+                os.getenv("PULSE_TV_CONTEXT_BLOCK_GROK_EVENT_RISK", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
             tv_context_exploration_rate=_envf("PULSE_TV_CONTEXT_EXPLORATION_RATE", 0.05),
+            stop_enabled=str(os.getenv("PULSE_STOP_ENABLED", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            stop_rolling_n=int(_envf("PULSE_STOP_ROLLING_N", 50)),
+            stop_min_samples=int(_envf("PULSE_STOP_MIN_SAMPLES", 30)),
+            stop_min_profit_factor=_envf("PULSE_STOP_MIN_PROFIT_FACTOR", 0.85),
+            stop_max_drawdown_pct=_envf("PULSE_STOP_MAX_DRAWDOWN_PCT", 25.0),
             late_window_entry_enabled=str(os.getenv("PULSE_LATE_WINDOW_ENTRY", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
             late_window_max_ttc_s=_envf("PULSE_LATE_WINDOW_MAX_TTC_S", 120.0),
@@ -544,7 +568,17 @@ class PulseEngine:
             blocked_volume_states=self.cfg.tv_context_blocked_volume_states,
             blocked_hurst_regimes=self.cfg.tv_context_blocked_hurst_regimes,
             max_ttc_s=self.cfg.tv_context_max_ttc_s,
+            block_liquidation_spike=self.cfg.tv_context_block_liquidation_spike,
+            block_event_blackout=self.cfg.tv_context_block_event_blackout,
+            block_grok_event_risk_high=self.cfg.tv_context_block_grok_event_risk_high,
             exploration_rate=self.cfg.tv_context_exploration_rate)
+        from engine.pulse.stop_conditions import StrategyStopMonitor, StopConfig
+        self.stop_monitor = StrategyStopMonitor(cfg=StopConfig(
+            enabled=bool(self.cfg.stop_enabled),
+            rolling_n=self.cfg.stop_rolling_n,
+            min_samples=self.cfg.stop_min_samples,
+            min_profit_factor=self.cfg.stop_min_profit_factor,
+            max_drawdown_pct=self.cfg.stop_max_drawdown_pct))
         from engine.pulse.selectivity import SelectivityEvidence, LearnedSelectivityGate
         self.selectivity_evidence = SelectivityEvidence()
         self.selectivity_gate = LearnedSelectivityGate(
@@ -1017,6 +1051,14 @@ class PulseEngine:
         ov = self.overlay.current(now) if self.overlay is not None else None
         ov_blackout = bool(ov and ov.get("blackout"))
         ov_vol_mult = float(ov.get("vol_multiplier", 1.0)) if ov else 1.0
+        # verifiable stop conditions (agent-independent; refreshed each tick from ledger evidence)
+        self.stop_monitor.refresh(
+            directional_positions=list(self.ledger.positions.values()),
+            arb_positions=(self.arb_ledger.positions if self.arb_ledger is not None else {}),
+            directional_stats=self.ledger.stats(),
+            arb_report=(self.arb_ledger.report() if self.arb_ledger is not None else {}),
+            starting_capital=self.cfg.starting_capital_usd)
+        _grok_news = ((self.grok_news.latest() if self.grok_news is not None else None) or {})
 
         def _bump(r):
             reasons[r] = reasons.get(r, 0) + 1
@@ -1093,7 +1135,7 @@ class PulseEngine:
                 # window already has a risk-free arb position -> never also trade directional on it
                 _finalize(dr, "skipped", reason="arbitrage_taken")
                 continue
-            if self.arb_ledger is not None:
+            if self.arb_ledger is not None and not self.stop_monitor.is_halted("arbitrage"):
                 from engine.pulse.arbitrage import detect_arbitrage
                 opp = detect_arbitrage(
                     w.up_book, w.down_book, size_usd=self.cfg.arb_size_usd, fees=self.cfg.arb_fees,
@@ -1117,6 +1159,9 @@ class PulseEngine:
             # directional strategy can be disabled (arb runs standalone) — Loop-Eng scope lock
             if not self.cfg.directional_enabled:
                 _finalize(dr, "skipped", reason="directional_disabled")
+                continue
+            if self.stop_monitor.is_halted("directional"):
+                _finalize(dr, "skipped", reason="directional_stop_halted")
                 continue
             # ---- entry-time features (computed BEFORE the decision so the bot's learned
             #      experience can inform it). These never place/size/bypass a trade themselves. ----
@@ -1458,7 +1503,10 @@ class PulseEngine:
                     continue
                 ctx_res = self.tv_context_gate.evaluate(
                     volume_state=(tv_feature or {}).get("volume_state"),
-                    hurst_regime=(rfeat.hurst_regime if rfeat else None), ttc_s=ttc)
+                    hurst_regime=(rfeat.hurst_regime if rfeat else None), ttc_s=ttc,
+                    liquidation_spike=(tv_feature or {}).get("liquidation_spike"),
+                    event_blackout=(tv_feature or {}).get("event_blackout"),
+                    grok_event_risk=_grok_news.get("event_risk"))
                 dr.context_gate = {"decision": ctx_res["decision"], "reasons": ctx_res["reasons"]}
                 if ctx_res["decision"] == "block":
                     dr.action = RejectAction(stage="context_gate", reason=ctx_res["reasons"][0])
@@ -2301,7 +2349,7 @@ class PulseEngine:
             report["research_loop"]["auto_applied_avoid_contexts"] = sorted(self._research_avoid)
             report["research_loop"]["auto_applied_exploit_contexts"] = sorted(self._research_exploit)
         report["lessons"] = self.lessons.report()
-        report["loops"] = self.loops.report()
+        report["loops"] = self._loops_report()
         report["edge_signal"] = self._edge_signal_report()
         report["cex_lead_edge"] = (self.cex_lead.report() if self.cex_lead is not None
                                    else {"enabled": False})
@@ -2313,6 +2361,7 @@ class PulseEngine:
             "explored": self._allowlist_explored, "blocked": self._allowlist_blocked}
         report["learned_selectivity_gate"] = self._selectivity_report()
         report["late_window_entry"] = self._late_window_report()
+        report["stop_conditions"] = self.stop_monitor.report()
         return report
 
     def _late_window_report(self) -> dict:
@@ -2554,12 +2603,26 @@ class PulseEngine:
                 return "%s=%s" % (dim, str(val).lower())
         return None
 
+    def _loops_report(self) -> dict:
+        """Loop registry with live verified stop-condition strings (refreshed each tick)."""
+        rep = self.loops.report()
+        loops = rep.get("loops") or {}
+        for name, strat in (("directional", "directional"), ("arbitrage", "arbitrage")):
+            if name in loops:
+                loops[name]["stop_condition"] = self.stop_monitor.verified_stop_line(strat)
+        return rep
+
     def _register_loops(self) -> None:
         """Formalize the sub-loops for uniform observability (#3)."""
         r = self.loops
         r.register("heartbeat", role="automation", trigger="tick",
                    interval_s=self.cfg.tick_seconds, skill="AGENTS.md",
                    stop_condition="process running")
+        r.register("directional", role="strategy", trigger="per_window",
+                   skill="digital model + allowlist",
+                   stop_condition=self.stop_monitor.verified_stop_line("directional"),
+                   status_fn=lambda: {"enabled": self.cfg.directional_enabled,
+                                      "halted": self.stop_monitor.is_halted("directional")})
         r.register("data_ingestion", role="data", trigger="tick", skill="price/book/CEX/RTDS",
                    status_fn=lambda: {"enabled": True})
         r.register("signal_generation", role="signal", trigger="per_window",
@@ -2574,7 +2637,7 @@ class PulseEngine:
         if self.arb_ledger is not None:
             r.register("arbitrage", role="risk_free_arb", trigger="per_window",
                        skill="within-window dutch book (up+down<1)",
-                       stop_condition="guaranteed_profit>0",
+                       stop_condition=self.stop_monitor.verified_stop_line("arbitrage"),
                        status_fn=lambda: self.arb_ledger.report())
         r.register("risk_monitor", role="risk", trigger="per_settlement",
                    skill="breaker + reconciliation",
@@ -2756,7 +2819,8 @@ class PulseEngine:
             "research_loop": (self.research_loop.report() if self.research_loop is not None
                               else {"enabled": False}),
             "lessons": self.lessons.report(),
-            "loops": self.loops.report(),
+            "loops": self._loops_report(),
+            "stop_conditions": self.stop_monitor.report(),
             "edge_signal": self._edge_signal_report(),
             "cex_lead_edge": (self.cex_lead.report() if self.cex_lead is not None
                               else {"enabled": False}),
@@ -2837,6 +2901,12 @@ class PulseEngine:
                     build_full_report_md(lr, self.status(), self.ledger.to_dict()), encoding="utf-8")
                 (self._data_dir / "LESSONS.md").write_text(self.lessons.to_markdown(),
                                                            encoding="utf-8")
+                from engine.pulse.state import build_state_md
+                (self._data_dir / "STATE.md").write_text(
+                    build_state_md(status=self.status(), ledger=self.ledger.to_dict(),
+                                   stop_conditions=self.stop_monitor.report(),
+                                   lessons=self.lessons.report()),
+                    encoding="utf-8")
             except Exception:  # noqa: BLE001 — report writing never breaks the loop
                 pass
             from engine.pulse.meta_learning import build_bundle

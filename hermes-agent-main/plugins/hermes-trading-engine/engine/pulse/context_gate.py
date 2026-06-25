@@ -40,11 +40,17 @@ class TradingViewContextGate:
                  blocked_volume_states=("spike",),
                  blocked_hurst_regimes=("noise",),
                  max_ttc_s: Optional[float] = 240.0,
+                 block_liquidation_spike: bool = True,
+                 block_event_blackout: bool = True,
+                 block_grok_event_risk_high: bool = True,
                  exploration_rate: float = 0.05, seed: Optional[int] = None):
         self.enabled = bool(enabled)
         self.blocked_volume_states = _norm_set(blocked_volume_states)
         self.blocked_hurst_regimes = _norm_set(blocked_hurst_regimes)
         self.max_ttc_s = (float(max_ttc_s) if max_ttc_s is not None else None)
+        self.block_liquidation_spike = bool(block_liquidation_spike)
+        self.block_event_blackout = bool(block_event_blackout)
+        self.block_grok_event_risk_high = bool(block_grok_event_risk_high)
         # hard cap exploration at 5% so the gate can never quietly become permissive
         self.exploration_rate = max(0.0, min(0.05, float(exploration_rate)))
         self.passed = 0
@@ -56,7 +62,9 @@ class TradingViewContextGate:
 
     # -- pure rule evaluation (no counters / RNG) --------------------------- #
     def violations(self, *, volume_state=None, hurst_regime=None,
-                   ttc_s: Optional[float] = None) -> "list[str]":
+                   ttc_s: Optional[float] = None,
+                   liquidation_spike=None, event_blackout=None,
+                   grok_event_risk=None) -> "list[str]":
         reasons = []
         vs = str(volume_state or "").strip().lower()
         if vs and vs in self.blocked_volume_states:
@@ -67,13 +75,25 @@ class TradingViewContextGate:
         if (self.max_ttc_s is not None and ttc_s is not None
                 and float(ttc_s) >= self.max_ttc_s):
             reasons.append("tv_context_ttc_too_far")
+        if self.block_liquidation_spike and liquidation_spike is True:
+            reasons.append("tv_context_liquidation_spike")
+        if self.block_event_blackout and event_blackout is True:
+            reasons.append("tv_context_event_blackout")
+        if self.block_grok_event_risk_high:
+            er = str(grok_event_risk or "").strip().lower()
+            if er == "high":
+                reasons.append("tv_context_grok_event_risk_high")
         return reasons
 
     def evaluate(self, *, volume_state=None, hurst_regime=None,
-                 ttc_s: Optional[float] = None) -> dict:
+                 ttc_s: Optional[float] = None,
+                 liquidation_spike=None, event_blackout=None,
+                 grok_event_risk=None) -> dict:
         if not self.enabled:
             return {"decision": "pass", "reasons": [], "active": False}
-        v = self.violations(volume_state=volume_state, hurst_regime=hurst_regime, ttc_s=ttc_s)
+        v = self.violations(volume_state=volume_state, hurst_regime=hurst_regime, ttc_s=ttc_s,
+                            liquidation_spike=liquidation_spike, event_blackout=event_blackout,
+                            grok_event_risk=grok_event_risk)
         if not v:
             self.passed += 1
             return {"decision": "pass", "reasons": [], "active": True}
@@ -96,6 +116,9 @@ class TradingViewContextGate:
             "blocked_volume_states": list(self.blocked_volume_states),
             "blocked_hurst_regimes": list(self.blocked_hurst_regimes),
             "max_ttc_s": self.max_ttc_s,
+            "block_liquidation_spike": self.block_liquidation_spike,
+            "block_event_blackout": self.block_event_blackout,
+            "block_grok_event_risk_high": self.block_grok_event_risk_high,
             "exploration_rate": self.exploration_rate,
             "passed": self.passed, "blocked": self.blocked, "explored": self.explored,
             "block_reasons": dict(self.block_reasons),
