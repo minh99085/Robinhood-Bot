@@ -59,7 +59,10 @@ if ($vpsHead -eq $origin) {
     # rebuild-only path
 } else {
     Write-Host "Creating bundle $vpsHead..$origin ..."
-    git bundle create $bundle "$vpsHead..$origin"
+    & git bundle create $bundle "HEAD" "^$vpsHead"
+    if (-not (Test-Path $bundle)) {
+        Write-Error "Bundle creation failed (empty range?). VPS=$vpsHead origin=$origin"
+    }
     scp -i $SshKey -o StrictHostKeyChecking=no $bundle "${VpsUser}@${VpsHost}:/tmp/grok-bot2-sync.bundle"
     $remote = @"
 set -e
