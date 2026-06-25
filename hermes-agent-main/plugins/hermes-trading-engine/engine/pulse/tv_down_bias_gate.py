@@ -99,32 +99,16 @@ class TradingViewDownBiasGate:
         }
 
     def to_state(self) -> dict:
-        return {
-            "enabled": self.enabled,
-            "block_bullish_aligned_up": self.block_bullish_aligned_up,
-            "block_up_without_bearish": self.block_up_without_bearish,
-            "block_up_against_confirmed_down": self.block_up_against_confirmed_down,
-            "exploration_rate": self.exploration_rate,
-            "passed": self.passed,
-            "blocked": self.blocked,
-            "explored": self.explored,
-            "block_reasons": dict(self.block_reasons),
-            "explore_reasons": dict(self.explore_reasons),
-        }
+        return {"passed": self.passed, "blocked": self.blocked, "explored": self.explored,
+                "block_reasons": dict(self.block_reasons),
+                "explore_reasons": dict(self.explore_reasons)}
 
     def load_state(self, data: dict) -> None:
         if not data:
             return
-        self.enabled = bool(data.get("enabled", self.enabled))
-        self.block_bullish_aligned_up = bool(
-            data.get("block_bullish_aligned_up", self.block_bullish_aligned_up))
-        self.block_up_without_bearish = bool(
-            data.get("block_up_without_bearish", self.block_up_without_bearish))
-        self.block_up_against_confirmed_down = bool(
-            data.get("block_up_against_confirmed_down", self.block_up_against_confirmed_down))
-        self.exploration_rate = max(0.0, min(0.05, float(data.get("exploration_rate", self.exploration_rate))))
         self.passed = int(data.get("passed", 0) or 0)
         self.blocked = int(data.get("blocked", 0) or 0)
         self.explored = int(data.get("explored", 0) or 0)
-        self.block_reasons = dict(data.get("block_reasons") or {})
-        self.explore_reasons = dict(data.get("explore_reasons") or {})
+        self.block_reasons = {k: int(v or 0) for k, v in (data.get("block_reasons") or {}).items()}
+        self.explore_reasons = {k: int(v or 0)
+                                for k, v in (data.get("explore_reasons") or {}).items()}
