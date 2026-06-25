@@ -7,12 +7,12 @@
   "git_remote": "origin",
   "git_main_branch": "main",
 
-  "vps_host": "YOUR.VPS.IP.OR.HOST",
-  "vps_user": "ubuntu",
+  "vps_host": "45.32.224.147",
+  "vps_user": "root",
   "vps_port": 22,
-  "vps_ssh_key": "C:\\Users\\you\\.ssh\\hermes_vps_ed25519",
+  "vps_ssh_key": "C:\\Users\\you\\.ssh\\hermes_vps_operator_nopass_ed25519",
 
-  "runtime_source": "ubuntu@YOUR.VPS.IP.OR.HOST:/opt/hermes/plugins/hermes-trading-engine/runtime_data/",
+  "runtime_source": "root@45.32.224.147:/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine/runtime_data/",
 
   "_coordinator_README": "Fields below are used by scripts/laptop_agent_coordinator.py (Phase 2 operator handoff).",
   "repo_root": "C:\\hermes-agent\\hermes-agent-main\\plugins\\hermes-trading-engine",

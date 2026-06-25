@@ -100,13 +100,17 @@ VPS deploy procedure (the VPS cannot `git fetch origin` — use a git bundle):
 4. Verify: both containers `healthy`, `/data/btc_pulse_status.json` fresh (<120s), and
    VPS HEAD == `origin/main`. Clean up `/tmp/*.bundle`.
 
-### VPS access
-- Host `45.32.227.242`, user `linuxuser`, port `22`, repo root `/opt/hermes-agent-main`, plugin
-  at `/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine`, containers
-  `hermes-training` (the loop) + `hermes-trading-engine` (the API).
-- SSH key on the agent VM: `/home/ubuntu/.ssh/cursor-temp-vps`. Connect with
-  `ssh -i /home/ubuntu/.ssh/cursor-temp-vps -o BatchMode=yes linuxuser@45.32.227.242`.
-- The key is also a Cloud Agent secret so new agent VMs retain VPS access.
+### VPS access (operator set 2026-06-24 — **canonical**)
+- Host `45.32.224.147`, user `root`, port `22`.
+- Connect: `ssh root@45.32.224.147` (or `ssh -i <key> root@45.32.224.147`).
+- **Retired:** `45.32.227.242` / `linuxuser` — do not use unless the operator explicitly
+  reverts.
+- Repo root and plugin path: discover on first login (`find /opt -name hermes-trading-engine
+  -type d 2>/dev/null`). Previous host used `/opt/hermes-agent-main` with plugin at
+  `/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine`.
+- Containers: `hermes-training` (pulse loop) + `hermes-trading-engine` (API).
+- Windows operator key (if configured): `%USERPROFILE%\.ssh\hermes_vps_operator_nopass_ed25519`.
+- The VPS cannot `git fetch origin` — sync via git bundle (procedure above).
 
 ## Run it
 
