@@ -91,14 +91,27 @@ The fast loop + entrypoint are `engine/pulse/engine.py` + `scripts/run_btc_pulse
 keep them identical (SHA-for-SHA: `origin/main` == VPS `git rev-parse HEAD`).** Never advance
 one without the other; verify the SHAs match before calling a task done.
 
-VPS deploy procedure (the VPS cannot `git fetch origin` — use a git bundle):
-1. `git bundle create /tmp/u.bundle ^<vps_head_sha> HEAD`, then `scp` it over.
-2. On the VPS: `git -C /opt/hermes-agent-main fetch /tmp/u.bundle HEAD` then
-   `git -C /opt/hermes-agent-main merge --ff-only <sha>`.
-3. If code changed: in `/opt/hermes-agent-main/hermes-agent-main/plugins/hermes-trading-engine`
-   run `docker compose up -d --build --remove-orphans`.
-4. Verify: both containers `healthy`, `/data/btc_pulse_status.json` fresh (<120s), and
-   VPS HEAD == `origin/main`. Clean up `/tmp/*.bundle`.
+VPS deploy procedure (the VPS cannot `git fetch origin` — use a git bundle or the sync script):
+
+**One command (Windows, from repo root):**
+```powershell
+git push origin main
+.\scripts\sync-vps.ps1              # code sync only
+.\scripts\sync-vps.ps1 -Rebuild     # sync + docker down/build/up (required after plugin code changes)
+.\scripts\verify-sync.ps1           # check only; exit 1 if diverged
+```
+
+**Manual bundle (if script unavailable):**
+1. `git push origin main` — GitHub must lead or match local `main`.
+2. `git bundle create /tmp/u.bundle <vps_head_sha>..origin/main`, then `scp` to VPS.
+3. On VPS: `git -C /opt/Grok-Bot-2 fetch /tmp/u.bundle HEAD:refs/remotes/bundle/main`
+   then `git -C /opt/Grok-Bot-2 reset --hard bundle/main`.
+4. If plugin code changed: in `/opt/Grok-Bot-2/hermes-agent-main/plugins/hermes-trading-engine`
+   run `docker compose down --remove-orphans` → `docker compose build` →
+   `docker compose up -d --remove-orphans`.
+5. Verify: `git -C /opt/Grok-Bot-2 rev-parse HEAD` == `git rev-parse origin/main` on your
+   machine; both containers `healthy`; `/data/btc_pulse_status.json` fresh (<120s).
+   Clean up `/tmp/*.bundle`.
 
 ### VPS access (operator set 2026-06-24 — **canonical**)
 - Host `45.32.224.147`, user `root`, port `22`.

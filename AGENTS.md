@@ -6,6 +6,9 @@
 - **Do not** clone, commit, or push to `hermes-agent-cursor` or any other repo unless the operator explicitly overrides this in the current message.
 - **Local workspace:** prefer `C:\Users\tieut\Grok-Bot-2` when working from this machine.
 - **Default branch:** `main`.
+- **VPS sync:** after every push to `main`, run `.\scripts\sync-vps.ps1` (add `-Rebuild` when
+  `hermes-trading-engine` code changed). Goal: `origin/main` SHA == VPS `/opt/Grok-Bot-2` HEAD.
+  Check anytime: `.\scripts\verify-sync.ps1`.
 
 ## Project layout
 
