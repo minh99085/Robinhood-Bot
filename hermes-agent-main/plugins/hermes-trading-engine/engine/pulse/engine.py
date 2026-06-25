@@ -215,6 +215,9 @@ class PulseConfig:
     tv_context_block_event_blackout: bool = True
     tv_context_block_grok_event_risk_high: bool = True
     tv_context_exploration_rate: float = 0.05
+    # ---- TradingView DOWN-bias gate (Townhall P3; restrict-only) ----
+    tv_down_bias_gate_enabled: bool = False
+    tv_down_bias_exploration_rate: float = 0.02
     # ---- verifiable stop conditions (agent-independent kill switches; Loop Eng #6) ----
     stop_enabled: bool = True
     stop_rolling_n: int = 50
@@ -433,6 +436,9 @@ class PulseConfig:
                 os.getenv("PULSE_TV_CONTEXT_BLOCK_GROK_EVENT_RISK", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             tv_context_exploration_rate=_envf("PULSE_TV_CONTEXT_EXPLORATION_RATE", 0.05),
+            tv_down_bias_gate_enabled=str(os.getenv("PULSE_TV_DOWN_BIAS_GATE", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            tv_down_bias_exploration_rate=_envf("PULSE_TV_DOWN_BIAS_EXPLORE_RATE", 0.02),
             stop_enabled=str(os.getenv("PULSE_STOP_ENABLED", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             stop_rolling_n=int(_envf("PULSE_STOP_ROLLING_N", 50)),
@@ -572,6 +578,12 @@ class PulseEngine:
             block_event_blackout=self.cfg.tv_context_block_event_blackout,
             block_grok_event_risk_high=self.cfg.tv_context_block_grok_event_risk_high,
             exploration_rate=self.cfg.tv_context_exploration_rate)
+        from engine.pulse.tv_down_bias_gate import TradingViewDownBiasGate
+        self.tv_down_bias_gate = TradingViewDownBiasGate(
+            enabled=bool(self.cfg.tv_down_bias_gate_enabled),
+            exploration_rate=self.cfg.tv_down_bias_exploration_rate)
+        from engine.pulse.down_stack import DownStackGrader
+        self.down_stack = DownStackGrader()
         from engine.pulse.stop_conditions import StrategyStopMonitor, StopConfig
         self.stop_monitor = StrategyStopMonitor(cfg=StopConfig(
             enabled=bool(self.cfg.stop_enabled),
@@ -930,6 +942,8 @@ class PulseEngine:
         self.selectivity_evidence.load_state(acct.get("selectivity_evidence") or {})
         self.selectivity_gate.load_state(acct.get("selectivity_gate") or {})
         self.tv_context_gate.load_state(acct.get("tv_context_gate") or {})
+        self.tv_down_bias_gate.load_state(acct.get("tv_down_bias_gate") or {})
+        self.down_stack.load_state(acct.get("down_stack") or {})
         self.late_window_gate.load_state(acct.get("late_window_gate") or {})
         self.late_window_edge.load_state(acct.get("late_window_edge") or {})
         # one-time bootstrap: if no evidence persisted yet, seed it from the existing settled
@@ -1150,6 +1164,7 @@ class PulseEngine:
                     max_depth_consume_frac=self.cfg.exec_max_depth_consume_frac,
                     tick_size=w.tick_size, now=now, max_book_age_s=self.cfg.exec_max_book_age_s,
                     min_profit_usd=self.cfg.arb_min_profit_usd, max_usd=self.cfg.arb_max_usd)
+                self.arb_ledger.record_scan(opp, near_miss_eps=max(0.02, self.cfg.arb_epsilon))
                 if opp is not None:
                     dr.arbitrage = opp.to_dict()
                     if opp.kind == "sell_both":
@@ -1526,6 +1541,18 @@ class PulseEngine:
                     _finalize(dr, "rejected", reason=ctx_res["reasons"][0], stage="context_gate")
                     continue
                 context_explored = (ctx_res["decision"] == "explore")
+                db_res = self.tv_down_bias_gate.evaluate(
+                    side=d.side,
+                    mtf_alignment=(tv_feature or {}).get("mtf_alignment"),
+                    tv_direction=(tv_feature or {}).get("direction"),
+                )
+                dr.down_bias_gate = {"decision": db_res["decision"], "reasons": db_res["reasons"]}
+                if db_res["decision"] == "block":
+                    dr.action = RejectAction(stage="down_bias_gate", reason=db_res["reasons"][0])
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason=db_res["reasons"][0], stage="down_bias_gate")
+                    continue
                 lw_res = self.late_window_gate.evaluate(ttc_s=ttc, p_up=fair_used)
                 dr.late_window = {"decision": lw_res["decision"], "reason": lw_res["reason"],
                                   "conviction": lw_res["conviction"], "late": lw_res["late"],
@@ -1883,8 +1910,18 @@ class PulseEngine:
             # OBSERVE-ONLY bucketed learning: if this traded window carried a TradingView signal,
             # record win/PnL/EV by every signal + market-context bucket (for promotion diagnostics).
             # OBSERVE-ONLY edge-signal bucketed learning for EVERY settled trade (CEX/stale/OB).
+            from engine.pulse.down_stack import classify_down_stack
+            rt = pos.research or {}
+            ext = pos.external or {}
+            stack_bucket = classify_down_stack(
+                mtf_alignment=ext.get("mtf_alignment"),
+                stale_divergence=rt.get("edge_stale_divergence"),
+                ttc_s=rt.get("entry_ttc_s"),
+            )
+            self.down_stack.record(
+                bucket=stack_bucket, won=bool(pos.won), pnl=float(pos.pnl_usd or 0.0),
+                entry_price=pos.entry_price)
             if self.edge_signal is not None:
-                rt = pos.research or {}
                 self.edge_signal.record_settled(
                     {"stale_divergence": rt.get("edge_stale_divergence"),
                      "ttc_bucket": rt.get("edge_ttc_bucket"),
@@ -2375,6 +2412,7 @@ class PulseEngine:
             gate_thresholds=self._gate_thresholds(), gate_observations=self.gate_obs.ranges())
         report["readiness"] = self.readiness()
         report["tradingview"] = self._tradingview_report()
+        report["down_stack"] = self.down_stack.report()
         report["learning"] = self._learning_report()
         report["capital"] = self._capital_status()
         report["grok_signal_intel"] = self._grok_intel_report()
@@ -2810,6 +2848,7 @@ class PulseEngine:
             "note": ("when active, a paper trade is taken only if a fresh TradingView signal agrees "
                      "with the side; it can only PREVENT trades, never force or bypass them.")}
         rep["context_gate"] = self.tv_context_gate.report()
+        rep["down_bias_gate"] = self.tv_down_bias_gate.report()
         return rep
 
     def _tier_report(self) -> dict:
@@ -2952,6 +2991,8 @@ class PulseEngine:
                               "selectivity_evidence": self.selectivity_evidence.to_state(),
                               "selectivity_gate": self.selectivity_gate.to_state(),
                               "tv_context_gate": self.tv_context_gate.to_state(),
+                              "tv_down_bias_gate": self.tv_down_bias_gate.to_state(),
+                              "down_stack": self.down_stack.to_state(),
                               "late_window_gate": self.late_window_gate.to_state(),
                               "late_window_edge": self.late_window_edge.to_state(),
                               "baseline": (self._baseline or empty_baseline())}}

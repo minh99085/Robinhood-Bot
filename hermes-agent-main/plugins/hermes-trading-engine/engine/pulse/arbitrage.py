@@ -157,6 +157,20 @@ class ArbLedger:
         self.settled = 0
         self.realized_profit_usd = 0.0
         self.guaranteed_booked_usd = 0.0   # sum of guaranteed profit at book time
+        self.scans = 0
+        self.near_miss = 0                  # vwap ask-sum within epsilon of 1 (diagnostic)
+        self.min_vwap_residual: Optional[float] = None
+
+    def record_scan(self, opp: Optional["ArbOpportunity"], *, near_miss_eps: float = 0.02) -> None:
+        """P1 instrumentation: track every dutch-book scan for capacity planning."""
+        self.scans += 1
+        if opp is None:
+            return
+        vr = abs(float(opp.vwap_residual))
+        if self.min_vwap_residual is None or vr < self.min_vwap_residual:
+            self.min_vwap_residual = round(vr, 6)
+        if (not opp.actionable) and vr <= float(near_miss_eps):
+            self.near_miss += 1
 
     def has_arb(self, window_key: str) -> bool:
         return window_key in self.positions
@@ -201,6 +215,9 @@ class ArbLedger:
                 "settled": self.settled, "open": len(self.open_positions()),
                 "realized_profit_usd": round(self.realized_profit_usd, 4),
                 "guaranteed_booked_usd": round(self.guaranteed_booked_usd, 4),
+                "scans": self.scans,
+                "near_miss_within_eps": self.near_miss,
+                "min_vwap_ask_residual": self.min_vwap_residual,
                 "note": ("risk-free dutch book: BUY-both (asks<$1) + SELL-both (mint $1 set, sell "
                          "bids>$1); deterministic P&L; NEVER blended into directional. PAPER ONLY.")}
 
@@ -210,7 +227,9 @@ class ArbLedger:
                 "executed": self.executed, "executed_buy": self.executed_buy,
                 "executed_sell": self.executed_sell, "settled": self.settled,
                 "realized_profit_usd": self.realized_profit_usd,
-                "guaranteed_booked_usd": self.guaranteed_booked_usd}
+                "guaranteed_booked_usd": self.guaranteed_booked_usd,
+                "scans": self.scans, "near_miss": self.near_miss,
+                "min_vwap_residual": self.min_vwap_residual}
 
     def load_state(self, data: dict) -> None:
         if not data:
@@ -224,3 +243,7 @@ class ArbLedger:
         self.settled = int(data.get("settled", 0) or 0)
         self.realized_profit_usd = float(data.get("realized_profit_usd", 0.0) or 0.0)
         self.guaranteed_booked_usd = float(data.get("guaranteed_booked_usd", 0.0) or 0.0)
+        self.scans = int(data.get("scans", 0) or 0)
+        self.near_miss = int(data.get("near_miss", 0) or 0)
+        mvr = data.get("min_vwap_residual")
+        self.min_vwap_residual = (float(mvr) if mvr is not None else None)

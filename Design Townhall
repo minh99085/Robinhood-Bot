@@ -161,7 +161,12 @@ Correct here only with a cited counter‑measurement.
 
 | # | Decision | Rationale (evidence) | Owner | Success metric | Kill‑switch | Status |
 |---|---|---|---|---|---|---|
-| _pending R4_ | | | | | | |
+| D1 | Arb-first primary; maximize depth-capped dutch book | Only proven +EV edge (+$3.45 segregated); P1 | CURSOR | arb realized_profit > 0 sustained | stop if guaranteed_profit <= 0 on booked fills | **live** |
+| D2 | Directional quarantine: Wilson allowlist + market-Brier veto | Structural negative-EV directional; P2 | CURSOR | directional trades near-zero until bucket proven | stop_conditions halt directional | **live** |
+| D3 | DOWN-bias gate blocks bullish_aligned UP | bearish +$30 vs bullish -$20; P3 | CURSOR | UP bleed shrinks; DOWN stack grades OOS | retract if blocked-UP Wilson WR > breakeven | **live** |
+| D4 | Grok/Claude permanent shadow | view_accuracy ~50%; maker-checker | CURSOR | Grok never affects_trading | PULSE_GROK_DECIDER_MODE=shadow | **live** |
+| D5 | Payoff floor: reward/risk 0.25 + high-entry margin guard | avg_loss > avg_win; P5 | CURSOR | avg_win >= avg_loss @ 300 trades | readiness gate | **live** |
+| D6 | Cross-market combinatorial arb (P6) | OUT OF SCOPE for 2-outcome window | — | — | — | **deferred** |
 
 ---
 

@@ -130,7 +130,7 @@ services:
       PULSE_MAX_PRICE: "${PULSE_MAX_PRICE:-0.97}"
       # Min reward-to-risk for an entry: (1-price)/price. 0=off. e.g. 0.25 skips entries above ~0.80
       # (which win < ~$1.25 per $5 risked) so one loss can't wipe ~10 tiny wins.
-      PULSE_MIN_REWARD_RISK: "${PULSE_MIN_REWARD_RISK:-0}"
+      PULSE_MIN_REWARD_RISK: "${PULSE_MIN_REWARD_RISK:-0.25}"
       PULSE_MAX_OPEN_LAG_S: "${PULSE_MAX_OPEN_LAG_S:-20}"
       PULSE_VOL_WINDOW_S: "${PULSE_VOL_WINDOW_S:-900}"
       PULSE_SETTLE_GRACE_S: "${PULSE_SETTLE_GRACE_S:-180}"
@@ -287,6 +287,9 @@ services:
       PULSE_TV_CONTEXT_BLOCK_HURST: "${PULSE_TV_CONTEXT_BLOCK_HURST:-noise}"
       PULSE_TV_CONTEXT_MAX_TTC_S: "${PULSE_TV_CONTEXT_MAX_TTC_S:-240}"
       PULSE_TV_CONTEXT_EXPLORATION_RATE: "${PULSE_TV_CONTEXT_EXPLORATION_RATE:-0.05}"
+      # DOWN-bias gate (Townhall P3): block proven-losing UP / bullish_aligned stacks
+      PULSE_TV_DOWN_BIAS_GATE: "${PULSE_TV_DOWN_BIAS_GATE:-1}"
+      PULSE_TV_DOWN_BIAS_EXPLORE_RATE: "${PULSE_TV_DOWN_BIAS_EXPLORE_RATE:-0.02}"
       # Late-window high-conviction entry mode (time-decay edge). Restrict-only; edge always measured
       # observe-only. Can only PREVENT trades; never forces/sizes/bypasses the execution gate.
       PULSE_LATE_WINDOW_ENTRY: "${PULSE_LATE_WINDOW_ENTRY:-0}"

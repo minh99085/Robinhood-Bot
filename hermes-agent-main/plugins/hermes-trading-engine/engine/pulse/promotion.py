@@ -25,6 +25,29 @@ DEFAULT_FEATURES = ("research_features", "signal_engine", "factor_model", "marko
                     "edge_model", "tier_classifier", "kelly_sizing")
 
 
+def can_promote_proven_edge(
+    *,
+    n: int,
+    min_samples: int,
+    wilson_lower: Optional[float],
+    breakeven_wr: Optional[float],
+    edge_margin: float = 0.04,
+    model_brier: Optional[float] = None,
+    market_brier: Optional[float] = None,
+) -> "tuple[bool, list]":
+    """Townhall validation bar: Wilson lower > breakeven + margin AND beats market Brier."""
+    reasons = []
+    if n < min_samples:
+        reasons.append("insufficient_samples")
+    if wilson_lower is None or breakeven_wr is None:
+        reasons.append("insufficient_wilson_or_breakeven")
+    elif wilson_lower <= float(breakeven_wr) + float(edge_margin):
+        reasons.append("wilson_below_breakeven_margin")
+    if model_brier is not None and market_brier is not None and model_brier >= market_brier:
+        reasons.append("model_brier_not_beating_market")
+    return (len(reasons) == 0), reasons
+
+
 def can_promote(*, config_flag: bool, samples: int, min_samples: int,
                 ev_after_costs: Optional[float], reconciled: bool,
                 report_evidence: bool) -> "tuple[bool, list]":
