@@ -1592,9 +1592,10 @@ class PulseEngine:
                         _finalize(dr, "rejected", reason=db_res["reasons"][0],
                                   stage="down_bias_gate")
                         continue
-                # #1 MAKER-CHECKER: an independent Claude verdict can VETO or shrink (never enlarge)
+                # #1 MAKER-CHECKER: an independent Claude verdict can VETO or shrink (never enlarge).
+                # mispricing_follow is CEX-stack authority (not Grok opinion) — skip the verifier.
                 grok_verdict = None
-                if self.verifier is not None:
+                if self.verifier is not None and entry_mode != "mispricing_follow":
                     if self.cfg.verifier_follow_require_verdict:
                         # fail-CLOSED on a pending verdict: WAIT for the real maker-checker (it's
                         # cached per decision_id, so a later tick on this same window proceeds).
