@@ -119,6 +119,7 @@ From `plugins/hermes-trading-engine`:
 ```bash
 docker compose up -d --build      # build + start the pulse loop + API
 docker compose logs -f hermes-training        # watch the pulse loop
+# Dashboard (browser): http://<vps-ip>/dashboard when PULSE_DASHBOARD_PUBLISH=0.0.0.0:80
 # status:  curl http://localhost:8800/api/polymarket/training/btc_pulse
 # ledger:  curl http://localhost:8800/api/polymarket/training/btc_pulse/ledger
 ```

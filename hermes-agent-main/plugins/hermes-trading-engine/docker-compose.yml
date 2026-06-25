@@ -10,8 +10,10 @@ services:
   hermes-trading-engine:
     build: .
     container_name: hermes-trading-engine
+    # Public dashboard/API. On VPS set PULSE_DASHBOARD_PUBLISH=0.0.0.0:80 so the URL is
+    # http://<host>/dashboard (Vultr/cloud firewalls usually allow 80, not 8800).
     ports:
-      - "8800:8800"
+      - "${PULSE_DASHBOARD_PUBLISH:-0.0.0.0:8800}:8800"
     volumes:
       - hte_data:/data
     environment:
