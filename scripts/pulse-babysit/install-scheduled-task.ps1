@@ -11,14 +11,21 @@ if (-not $grok) {
     Write-Error "grok CLI not found in PATH. Install Grok CLI or use /loop in TUI instead."
 }
 
-$action = New-ScheduledTaskAction -Execute $grok -Argument @(
+$argList = @(
     "-p", "/pulse-babysit cycle",
     "--yolo",
     "--cwd", $RepoRoot,
     "--max-turns", "45"
-) -WorkingDirectory $RepoRoot
+)
+$argString = ($argList | ForEach-Object {
+    if ($_ -match '\s') { "`"$_`"" } else { $_ }
+}) -join ' '
+$action = New-ScheduledTaskAction -Execute $grok -Argument $argString -WorkingDirectory $RepoRoot
 
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) -RepetitionDuration ([TimeSpan]::MaxValue)
+$startAt = (Get-Date).AddMinutes(2)
+$trigger = New-ScheduledTaskTrigger -Once -At $startAt `
+    -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
+    -RepetitionDuration (New-TimeSpan -Days 3650)
 
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 
