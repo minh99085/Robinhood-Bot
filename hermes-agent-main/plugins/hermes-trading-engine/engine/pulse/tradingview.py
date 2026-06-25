@@ -265,7 +265,8 @@ class TradingViewEdge:
         self.n_no_signal = 0
         self.signal_evaluated = 0      # UP/DOWN signals only (FLAT/none excluded)
         self.signal_correct = 0
-        self.dims: dict = {"direction": {}, "timeframe": {}, "symbol": {}, "alignment": {}}
+        self.dims: dict = {"direction": {}, "timeframe": {}, "symbol": {}, "alignment": {},
+                           "tf_confirm": {}}     # 1m+5m cross-timeframe confirmation (observe-only)
 
     def _b(self, dim: str, key: str) -> dict:
         return self.dims[dim].setdefault(str(key), {"n": 0, "sig_eval": 0, "sig_correct": 0,
@@ -312,6 +313,7 @@ class TradingViewEdge:
         bump("timeframe", tf or "none")
         bump("symbol", sym or "none")
         bump("alignment", align_key)
+        bump("tf_confirm", tv.get("tf_confirm") or "none")   # graded 1m+5m cross-confirmation
 
     @staticmethod
     def _bucket(b: dict) -> dict:
@@ -767,6 +769,11 @@ class TradingViewIntake:
         # per-source tracking (e.g. Coinbase BTCUSD + Binance BTCUSDT used together)
         self.latest_by_symbol: dict = {}
         self.valid_by_symbol: dict = {}
+        # per-(symbol,timeframe) latest so multiple alert timeframes (e.g. 1m + 5m) can be
+        # CROSS-CONFIRMED instead of overwriting each other. value = (event, received_ts).
+        self.latest_by_tf: dict = {}
+        # a 5m bar is valid up to ~5min; allow a 6min window so a fresh 1m + the current 5m align
+        self.confirm_window_s: float = 360.0
         self._path = (Path(data_dir) / "btc_pulse_tradingview.json") if data_dir else None
         self._load_state()
 
@@ -909,6 +916,7 @@ class TradingViewIntake:
             self.valid += 1
             self.latest = ev
             self.latest_by_symbol[ev.symbol] = ev
+            self.latest_by_tf[(ev.symbol, str(ev.timeframe or "?"))] = (ev, float(now))
             self.valid_by_symbol[ev.symbol] = self.valid_by_symbol.get(ev.symbol, 0) + 1
             self._pending.append(ev)
             self._persist_locked()
@@ -926,15 +934,60 @@ class TradingViewIntake:
             self.consumed += len(out)
             return out
 
+    def mtf_confirmation(self, *, symbol: Optional[str] = None,
+                         now: Optional[float] = None) -> dict:
+        """CROSS-TIMEFRAME confirmation between the latest fresh 1m and 5m signals for a symbol.
+        Returns {confirm, direction, tf_1m, tf_5m, ages}. ``confirm`` is one of:
+          confirmed_up / confirmed_down (1m & 5m both fresh & agree),
+          conflict (both fresh, disagree), single_tf (only one fresh), none (neither fresh).
+        OBSERVE-ONLY — used as a graded feature, never to place/size/bypass a trade."""
+        # NOTE: lock-free on purpose — it's called both from report() (which holds self._lock) and
+        # from latest_feature(); dict reads are atomic under the GIL and this is observe-only.
+        now = now if now is not None else time.time()
+        sym = (str(symbol).strip().upper() if symbol else (self.latest.symbol if self.latest else None))
+        one = self.latest_by_tf.get((sym, "1")) if sym else None
+        five = self.latest_by_tf.get((sym, "5")) if sym else None
+
+        def _fresh(entry):
+            if not entry:
+                return None
+            ev, ts = entry
+            return ev if (now - float(ts)) <= self.confirm_window_s else None
+        e1, e5 = _fresh(one), _fresh(five)
+        d1 = e1.direction if e1 else None
+        d5 = e5.direction if e5 else None
+        out = {"symbol": sym, "tf_1m_dir": d1, "tf_5m_dir": d5,
+               "tf_1m_age_s": (round(now - one[1], 1) if one else None),
+               "tf_5m_age_s": (round(now - five[1], 1) if five else None)}
+        if d1 and d5:
+            if d1 == d5 and d1 in ("UP", "DOWN"):
+                out["confirm"] = "confirmed_up" if d1 == "UP" else "confirmed_down"
+                out["direction"] = d1
+            else:
+                out["confirm"] = "conflict"
+                out["direction"] = None
+        elif d1 or d5:
+            out["confirm"] = "single_tf"
+            out["direction"] = (d1 or d5)
+        else:
+            out["confirm"] = "none"
+            out["direction"] = None
+        return out
+
     def latest_feature(self, *, now: Optional[float] = None, symbol: Optional[str] = None) -> Optional[dict]:
         with self._lock:
             ev = self.latest
         if ev is None:
             return None
-        if symbol is not None and self.allowed_symbols and ev.symbol != str(symbol).strip().upper():
-            # latest signal is for a different (still-allowed) symbol — still observe-only
-            pass
-        return ev.as_feature(now=now)
+        feat = ev.as_feature(now=now)
+        # attach the cross-timeframe (1m+5m) confirmation so the engine can SEE and GRADE both
+        # signals together, not just whichever alert arrived last. Observe-only.
+        mtf = self.mtf_confirmation(symbol=(symbol or ev.symbol), now=now)
+        feat["tf_confirm"] = mtf.get("confirm")
+        feat["tf_confirm_direction"] = mtf.get("direction")
+        feat["tf_1m_dir"] = mtf.get("tf_1m_dir")
+        feat["tf_5m_dir"] = mtf.get("tf_5m_dir")
+        return feat
 
     def report(self) -> dict:
         with self._lock:
@@ -950,6 +1003,10 @@ class TradingViewIntake:
                 "tradingview_latest_by_symbol": {s: e.to_dict()
                                                  for s, e in self.latest_by_symbol.items()},
                 "tradingview_valid_by_symbol": dict(self.valid_by_symbol),
+                "tradingview_latest_by_timeframe": {
+                    "%s@%s" % (s, tf): {"direction": e.direction, "strength": e.strength}
+                    for (s, tf), (e, _ts) in self.latest_by_tf.items()},
+                "tradingview_mtf_confirmation": self.mtf_confirmation(),
                 "allowed_symbols": sorted(self.allowed_symbols),
                 "bot_name": self.bot_name,
                 "dedupe_tracked": len(self._seen_set),
@@ -970,6 +1027,8 @@ class TradingViewIntake:
                 "seen_ids": list(self._seen),
                 "latest": (self.latest.to_dict() if self.latest else None),
                 "latest_by_symbol": {s: e.to_dict() for s, e in self.latest_by_symbol.items()},
+                "latest_by_tf": [{"symbol": s, "tf": tf, "ts": ts, "ev": e.to_dict()}
+                                 for (s, tf), (e, ts) in self.latest_by_tf.items()],
                 "valid_by_symbol": dict(self.valid_by_symbol),
             }, default=str, indent=1), encoding="utf-8")
         except Exception:  # noqa: BLE001 — persistence never breaks intake
@@ -999,3 +1058,8 @@ class TradingViewIntake:
                 self.latest_by_symbol[sym] = ev
         self.valid_by_symbol = {k: int(v or 0)
                                 for k, v in (data.get("valid_by_symbol") or {}).items()}
+        self.latest_by_tf = {}
+        for row in (data.get("latest_by_tf") or []):
+            ev = _event_from_dict(row.get("ev"))
+            if ev is not None:
+                self.latest_by_tf[(row.get("symbol"), str(row.get("tf")))] = (ev, float(row.get("ts") or 0.0))

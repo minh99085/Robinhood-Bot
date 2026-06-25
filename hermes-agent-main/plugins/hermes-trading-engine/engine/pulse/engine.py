@@ -1652,6 +1652,8 @@ class PulseEngine:
                 pos.external = {"source": "tradingview",
                                 "direction": tv_feature.get("direction"),
                                 "timeframe": tv_feature.get("timeframe"),
+                                "tf_confirm": tv_feature.get("tf_confirm"),
+                                "tf_confirm_direction": tv_feature.get("tf_confirm_direction"),
                                 "symbol": _sym,
                                 "indicator_name": tv_feature.get("indicator_name"),
                                 "strength": tv_feature.get("strength"),
