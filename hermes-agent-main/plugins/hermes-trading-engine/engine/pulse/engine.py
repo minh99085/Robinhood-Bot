@@ -58,6 +58,8 @@ class PulseConfig:
     # loss costs the full stake. 0.0 = off (default). e.g. 0.25 => skip entries priced above ~0.80
     # (which would win < ~$1.25 per $5 risked) so one loss can't wipe ~10 tiny wins. PAPER ONLY.
     min_reward_risk: float = 0.0
+    # extra reward/risk floor for UP entries (asymmetric bleed guard; DOWN keeps base only).
+    min_reward_risk_up_premium: float = 0.15
     max_open_lag_s: float = 20.0
     vol_window_s: float = 900.0
     settle_grace_s: float = 180.0          # prefer authoritative Polymarket(Chainlink) before proxy
@@ -103,6 +105,8 @@ class PulseConfig:
     grok_decider_explore_size_fraction: float = 0.5
     # Minimum |p_up - 0.5| required before an explore trade on Grok's abstain view (blocks coin-flip).
     grok_decider_explore_min_view_margin: float = 0.08
+    # minimum P(UP wins) before any Grok-owned UP trade (follow/explore/adaptive/mispricing).
+    grok_up_min_p_win: float = 0.58
     # adaptive self-improvement loop: auto-EXPLOIT contexts with a proven view-edge (Wilson lower >
     # 0.5), AVOID proven-losing contexts, and only EXPLORE the uncertain ones. Default ON.
     grok_decider_adaptive: bool = True
@@ -313,6 +317,7 @@ class PulseConfig:
             edge_buffer=_envf("PULSE_EDGE_BUFFER", 0.01),
             max_price=_envf("PULSE_MAX_PRICE", 0.97),
             min_reward_risk=_envf("PULSE_MIN_REWARD_RISK", 0.0),
+            min_reward_risk_up_premium=_envf("PULSE_MIN_REWARD_RISK_UP_PREMIUM", 0.15),
             max_open_lag_s=_envf("PULSE_MAX_OPEN_LAG_S", 20.0),
             vol_window_s=_envf("PULSE_VOL_WINDOW_S", 900.0),
             settle_grace_s=_envf("PULSE_SETTLE_GRACE_S", 180.0),
@@ -354,6 +359,7 @@ class PulseConfig:
             grok_decider_explore_size_fraction=_envf("PULSE_GROK_DECIDER_EXPLORE_SIZE_FRACTION", 0.5),
             grok_decider_explore_min_view_margin=_envf(
                 "PULSE_GROK_DECIDER_EXPLORE_MIN_VIEW_MARGIN", 0.08),
+            grok_up_min_p_win=_envf("PULSE_GROK_UP_MIN_P_WIN", 0.58),
             grok_decider_adaptive=str(os.getenv("PULSE_GROK_DECIDER_ADAPTIVE", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             verifier_enabled=str(os.getenv("PULSE_VERIFIER_ENABLED", "1"))
@@ -1456,6 +1462,8 @@ class PulseEngine:
                 # self-tuning: aggression raises the exploration rate as acted trades turn profitable
                 eff_explore_rate = self.grok_decider.aggr.effective_explore_rate(
                     self.cfg.grok_decider_explore_rate)
+                if not self._grok_up_side_allowed():
+                    eff_explore_rate = 0.0
                 _pu_view = (float(grok_dec.get("p_up"))
                             if grok_dec is not None and grok_dec.get("p_up") is not None else None)
                 _view_margin = (abs(_pu_view - 0.5) if _pu_view is not None else 0.0)
@@ -1520,6 +1528,17 @@ class PulseEngine:
                                                   float(self.cfg.grok_decider_explore_size_fraction)
                                                   * self.grok_decider.aggr.size_scale()))
                     self._grok_policy_counts["explore"] += 1
+                if side == "up" and grok_oprob is not None:
+                    if float(grok_oprob) < float(self.cfg.grok_up_min_p_win):
+                        dr.candidate = CandidateDecision(side=side, fair_p_up=fair_used,
+                                                         outcome_prob=None, model_edge=0.0,
+                                                         tradeable=False,
+                                                         reason="grok_up_p_win_too_low")
+                        if self.markov is not None:
+                            self.markov.record_terminal(state=cand_state, accepted=False)
+                        _finalize(dr, "rejected", reason="grok_up_p_win_too_low",
+                                  stage="grok_decider")
+                        continue
                 mp_ok, mp_reason = self._mispricing_gate_ok(
                     side=side, cex_sig=dr.cex_lead, ttc_s=ttc, esnap=esnap)
                 if not mp_ok:
@@ -2512,7 +2531,7 @@ class PulseEngine:
         base = float(self.cfg.min_reward_risk or 0.0)
         if base <= 0.0 or not side or str(side).lower() != "up":
             return base
-        return base + 0.10
+        return base + float(self.cfg.min_reward_risk_up_premium or 0.15)
 
     def _ask_reward_risk_ok(self, side: "str | None", ask: "float | None") -> bool:
         floor = self._reward_risk_floor(side)

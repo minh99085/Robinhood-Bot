@@ -126,6 +126,13 @@ def test_decide_reward_risk_floor_skips_tiny_payoff_high_price():
     w2 = _win()
     d2 = decide(w2, 0.80, 1100.0, min_edge=0.05, edge_buffer=0.01, min_reward_risk=0.25)
     assert d2.trade and d2.side == "up" and d2.price == 0.55
+    # stricter UP-only floor rejects 0.72 (rr~0.39) while base 0.25 would allow it
+    w3 = _win()
+    w3.up_book = OrderBook(best_bid=0.70, best_ask=0.72, ask_depth_usd=500, bid_depth_usd=500)
+    w3.down_book = OrderBook(best_bid=0.26, best_ask=0.28, ask_depth_usd=500, bid_depth_usd=500)
+    d_up = decide(w3, 0.85, 1100.0, min_edge=0.05, edge_buffer=0.01,
+                  min_reward_risk=0.25, min_reward_risk_up=0.45)
+    assert d_up.trade is False and d_up.reason == "reward_risk_too_low"
 
 
 def test_decide_quality_gates_early_window_and_basis_buffer():
@@ -390,3 +397,18 @@ def test_engine_skips_window_with_late_open(tmp_path):
         eng.tick(now=t0 + 100 + i)            # first sight is 100s into the window
     assert eng.ledger.trades == 0
     assert eng.reconciler.report()["skipped_by_reason"].get("open_snapshot_late", 0) >= 1
+
+
+def test_reward_risk_floor_up_premium():
+    eng = PulseEngine(PulseConfig(min_reward_risk=0.40, min_reward_risk_up_premium=0.15))
+    assert eng._reward_risk_floor("down") == 0.40
+    assert eng._reward_risk_floor("up") == 0.55
+    assert eng._ask_reward_risk_ok("up", 0.72) is False
+    assert eng._ask_reward_risk_ok("up", 0.55) is True
+
+
+def test_grok_up_side_blocked_at_coin_flip_accuracy():
+    eng = PulseEngine(PulseConfig())
+    eng.grok_decider = type("G", (), {"report": lambda self: {
+        "graded_directional": 42, "direction_accuracy": 0.5}})()
+    assert eng._grok_up_side_allowed() is False
