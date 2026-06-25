@@ -1,35 +1,42 @@
 {
-  "cycle": 0,
-  "phase": "ready",
+  "cycle": 1,
+  "phase": "soak",
   "soak_hours": 4,
-  "deployed_at": null,
-  "soak_until": null,
-  "last_eval_at": "2026-06-25T14:01:58.270265+00:00",
+  "deployed_at": "2026-06-25T19:08:30.000000+00:00",
+  "soak_until": "2026-06-25T23:08:30.000000+00:00",
+  "last_eval_at": "2026-06-25T19:06:42.423656+00:00",
   "last_verdict": "issues",
-  "last_fixes": [],
+  "last_fixes": [
+    "PULSE_MIN_REWARD_RISK=0.40",
+    "PULSE_TV_DOWN_BIAS_EXPLORE_RATE=0",
+    "PULSE_TV_CONTEXT_EXPLORATION_RATE=0"
+  ],
+  "last_health_verdict": "healthy",
+  "vps_sha": "696a4a16187b56546a6ff3eaff040a9e4f3131ee",
   "history": [
     {
-      "ts": "2026-06-25T14:01:58.270265+00:00",
+      "ts": "2026-06-25T19:06:42.423656+00:00",
       "verdict": "issues",
       "metrics": {
-        "settled": 29,
-        "win_rate": 0.6897,
-        "profit_factor": 1.0752,
-        "win_rate_up": 0.5,
-        "win_rate_down": 0.7895,
-        "realized_pnl_usd": 3.38,
-        "tv_valid": 224,
-        "mtf_passed": 0,
-        "mtf_blocked": 66,
-        "context_blocked": 483,
-        "down_bias_blocked": 501,
-        "signal_gate": false,
+        "settled": 31,
+        "win_rate": 0.6452,
+        "profit_factor": 0.9677,
+        "win_rate_up": 0.4545,
+        "win_rate_down": 0.75,
+        "realized_pnl_usd": -1.62,
+        "tv_valid": 371,
         "min_reward_risk": 0.35,
         "global_reconciled": true
       },
       "issue_codes": [
-        "up_side_bleed",
-        "mtf_starved"
+        "grok_no_edge",
+        "profit_factor_low",
+        "up_side_bleed"
+      ],
+      "fixes_applied": [
+        "PULSE_MIN_REWARD_RISK=0.40",
+        "PULSE_TV_DOWN_BIAS_EXPLORE_RATE=0",
+        "PULSE_TV_CONTEXT_EXPLORATION_RATE=0"
       ]
     }
   ]
