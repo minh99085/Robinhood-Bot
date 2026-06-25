@@ -1,10 +1,13 @@
 # Sync GitHub main -> VPS (git bundle). Keeps SHA-for-SHA: origin/main == VPS HEAD.
+# Every deploy rebuilds containers (down --remove-orphans -> build -> up -d --remove-orphans).
 # Usage:
-#   .\scripts\sync-vps.ps1              # sync code only (no docker rebuild)
-#   .\scripts\sync-vps.ps1 -Rebuild      # sync + docker compose down/build/up
-#   .\scripts\sync-vps.ps1 -VerifyOnly   # check SHAs, exit 1 if diverged
+#   .\scripts\sync-vps.ps1              # sync + rebuild (default)
+#   .\scripts\sync-vps.ps1 -SkipRebuild # sync code only (rare)
+#   .\scripts\sync-vps.ps1 -VerifyOnly  # check SHAs, exit 1 if diverged
+#   .\scripts\sync-vps.ps1 -Rebuild     # deprecated alias; rebuild is already default
 
 param(
+    [switch]$SkipRebuild,
     [switch]$Rebuild,
     [switch]$VerifyOnly,
     [string]$SshKey = "$env:USERPROFILE\.ssh\bot2_grok_temp",
@@ -22,6 +25,8 @@ if (-not (Test-Path (Join-Path $RepoRoot ".git"))) {
 Set-Location $RepoRoot
 
 function Get-ShortSha([string]$sha) { if ($sha.Length -ge 7) { $sha.Substring(0, 7) } else { $sha } }
+
+$doRebuild = -not $SkipRebuild
 
 Write-Host "Repo: $RepoRoot"
 $prevEap = $ErrorActionPreference
@@ -44,8 +49,11 @@ Write-Host "VPS HEAD    : $(Get-ShortSha $vpsHead) $vpsHead"
 if ($vpsHead -eq $origin) {
     Write-Host "SYNC OK - VPS already matches origin/main."
     if ($VerifyOnly) { exit 0 }
-    if (-not $Rebuild) { exit 0 }
-    Write-Host "Rebuild requested; running docker compose on VPS..."
+    if (-not $doRebuild) {
+        Write-Host "SkipRebuild set; not recreating containers."
+        exit 0
+    }
+    Write-Host "Rebuilding containers (down --remove-orphans -> build -> up -d --remove-orphans)..."
 } elseif ($VerifyOnly) {
     Write-Error "SYNC FAIL - VPS diverged from origin/main."
 }
@@ -55,9 +63,7 @@ if ($vpsHead -eq "MISSING" -or $vpsHead.Length -lt 40) {
 }
 
 $bundle = Join-Path $env:TEMP "grok-bot2-sync.bundle"
-if ($vpsHead -eq $origin) {
-    # rebuild-only path
-} else {
+if ($vpsHead -ne $origin) {
     Write-Host "Creating bundle $vpsHead..$origin ..."
     & git bundle create $bundle "HEAD" "^$vpsHead"
     if (-not (Test-Path $bundle)) {
@@ -77,7 +83,7 @@ echo VPS_HEAD=`$(git rev-parse HEAD)
     Remove-Item -Force $bundle -ErrorAction SilentlyContinue
 }
 
-if ($Rebuild) {
+if ($doRebuild) {
     $docker = @"
 set -e
 cd $PluginPath
@@ -96,4 +102,7 @@ if ($vpsAfter -ne $origin) {
 }
 
 Write-Host "SYNC OK - VPS HEAD matches origin/main ($(Get-ShortSha $origin))."
+if ($doRebuild) {
+    Write-Host "Containers rebuilt with --remove-orphans."
+}
 exit 0

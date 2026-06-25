@@ -19,7 +19,7 @@ between cycles. Execute tools yourself. Paper-only — never enable live trading
 |------|------|
 | Workspace | `C:\Users\tieut\Grok-Bot-2` |
 | Plugin | `hermes-agent-main/plugins/hermes-trading-engine` |
-| Deploy | `.\scripts\sync-vps.ps1 -Rebuild` |
+| Deploy | `.\scripts\sync-vps.ps1` (always orphan cleanup + rebuild) |
 | VPS | `root@45.32.224.147` `/opt/Grok-Bot-2` |
 | Dashboard | `http://45.32.224.147/` |
 | State | `scripts/pulse-babysit/state.json` |
@@ -31,7 +31,7 @@ between cycles. Execute tools yourself. Paper-only — never enable live trading
 | `cycle` | Default loop iteration (respects soak timer) |
 | `force-eval` | Pull + evaluate now; skip soak wait |
 | `status` | Print state + last evaluation summary |
-| `deploy` | `git push origin main` + `sync-vps.ps1 -Rebuild` only |
+| `deploy` | `git push origin main` + `sync-vps.ps1` only |
 | `soak <hours>` | Set soak duration (default 4) and reset timer after deploy |
 
 If no argument: run `cycle`.
@@ -51,7 +51,7 @@ DEPLOY → SOAK (4h default) → PULL → EVALUATE → (issues?) → FIX → COM
 6. If `verdict` is `issues`: pick **at most 2** highest-severity issues; fix in plugin code only.
 7. Run targeted tests under `hermes-agent-main/plugins/hermes-trading-engine/tests/`.
 8. Commit with clear message; `git push origin main`.
-9. `.\scripts\sync-vps.ps1 -Rebuild` (includes `docker compose down --remove-orphans`).
+9. `.\scripts\sync-vps.ps1` (default: `down --remove-orphans` → `build` → `up -d --remove-orphans`).
 10. Update state: `phase=soak`, `deployed_at`, `soak_until`, `last_fixes`, increment `cycle`.
 
 ## Evaluation rules (do not override without evidence)
