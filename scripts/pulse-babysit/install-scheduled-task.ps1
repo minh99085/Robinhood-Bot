@@ -1,6 +1,6 @@
 # Register Windows Scheduled Task to run Grok headless pulse-babysit cycle.
 param(
-    [int]$IntervalHours = 4,
+    [int]$IntervalHours = 1,
     [string]$TaskName = "GrokBot2-PulseBabysit",
     [string]$RepoRoot = "C:\Users\tieut\Grok-Bot-2"
 )

@@ -17,4 +17,4 @@
 - Full VPS reports: `vps_full_reports/latest/`
 - Design townhall: `Design Townhall` (repo root)
 - Operator guide for the pulse engine: `hermes-agent-main/plugins/hermes-trading-engine/AGENTS.md`
-- Autonomous closed loop: `/pulse-babysit cycle` or `.\scripts\pulse-babysit\install-scheduled-task.ps1` (see `.grok/skills/pulse-babysit/SKILL.md`)
+- Autonomous closed loop: `/pulse-babysit cycle` or `.\scripts\pulse-babysit\install-scheduled-task.ps1` (1h soak + 1h schedule default; see `.grok/skills/pulse-babysit/SKILL.md`)

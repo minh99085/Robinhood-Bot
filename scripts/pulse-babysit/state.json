@@ -1,9 +1,9 @@
 {
   "cycle": 1,
   "phase": "soak",
-  "soak_hours": 4,
+  "soak_hours": 1,
   "deployed_at": "2026-06-25T19:08:30.000000+00:00",
-  "soak_until": "2026-06-25T23:08:30.000000+00:00",
+  "soak_until": "2026-06-25T20:08:30.000000+00:00",
   "last_eval_at": "2026-06-25T19:06:42.423656+00:00",
   "last_verdict": "issues",
   "last_fixes": [

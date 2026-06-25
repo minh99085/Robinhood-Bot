@@ -1,4 +1,4 @@
-param([double]$Hours = 4)
+param([double]$Hours = 1)
 $statePath = Join-Path $PSScriptRoot "state.json"
 $st = Get-Content $statePath -Raw | ConvertFrom-Json
 $now = [DateTime]::UtcNow

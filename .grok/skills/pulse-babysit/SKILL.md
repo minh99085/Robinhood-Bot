@@ -32,14 +32,14 @@ between cycles. Execute tools yourself. Paper-only — never enable live trading
 | `force-eval` | Pull + evaluate now; skip soak wait |
 | `status` | Print state + last evaluation summary |
 | `deploy` | `git push origin main` + `sync-vps.ps1` only |
-| `soak <hours>` | Set soak duration (default 4) and reset timer after deploy |
+| `soak <hours>` | Set soak duration (default 1) and reset timer after deploy |
 
 If no argument: run `cycle`.
 
 ## State machine
 
 ```
-DEPLOY → SOAK (4h default) → PULL → EVALUATE → (issues?) → FIX → COMMIT → DEPLOY → …
+DEPLOY → SOAK (1h default) → PULL → EVALUATE → (issues?) → FIX → COMMIT → DEPLOY → …
 ```
 
 1. Read `scripts/pulse-babysit/state.json`.
@@ -74,9 +74,8 @@ or large refactors.
 
 | Situation | Hours |
 |-----------|-------|
-| Default after deploy | 4 |
-| After P0 reconciliation fix | 2 |
-| Operator `soak 1` | 1 (debug only) |
+| Default after deploy | **1** (always) |
+| Operator override | `soak <hours>` via `set-soak.ps1` |
 
 ## Todo scaffold (each cycle)
 
@@ -90,13 +89,13 @@ or large refactors.
 
 **Option A — Grok TUI (session open):**
 ```
-/loop 4h /pulse-babysit cycle
+/loop 1h /pulse-babysit cycle
 /always-approve
 ```
 
 **Option B — Windows Task Scheduler (hands-off):**
 ```
-.\scripts\pulse-babysit\install-scheduled-task.ps1 -IntervalHours 4
+.\scripts\pulse-babysit\install-scheduled-task.ps1 -IntervalHours 1
 ```
 
 **Option C — One-shot headless:**
