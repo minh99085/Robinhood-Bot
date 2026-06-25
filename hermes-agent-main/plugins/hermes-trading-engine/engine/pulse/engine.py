@@ -219,6 +219,8 @@ class PulseConfig:
     tv_down_bias_gate_enabled: bool = False
     tv_down_bias_exploration_rate: float = 0.02
     tv_mtf_conflict_gate_enabled: bool = True
+    tv_mtf_require_confirm: bool = True
+    tv_mtf_require_side_align: bool = True
     tv_mtf_conflict_exploration_rate: float = 0.02
     # ---- verifiable stop conditions (agent-independent kill switches; Loop Eng #6) ----
     stop_enabled: bool = True
@@ -445,6 +447,10 @@ class PulseConfig:
             tv_down_bias_exploration_rate=_envf("PULSE_TV_DOWN_BIAS_EXPLORE_RATE", 0.02),
             tv_mtf_conflict_gate_enabled=str(os.getenv("PULSE_TV_MTF_CONFLICT_GATE", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
+            tv_mtf_require_confirm=str(os.getenv("PULSE_TV_MTF_REQUIRE_CONFIRM", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            tv_mtf_require_side_align=str(os.getenv("PULSE_TV_MTF_REQUIRE_SIDE_ALIGN", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
             tv_mtf_conflict_exploration_rate=_envf("PULSE_TV_MTF_CONFLICT_EXPLORE_RATE", 0.02),
             stop_enabled=str(os.getenv("PULSE_STOP_ENABLED", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
@@ -594,6 +600,8 @@ class PulseEngine:
         from engine.pulse.tv_mtf_gate import TradingViewMtfConflictGate
         self.tv_mtf_gate = TradingViewMtfConflictGate(
             enabled=bool(self.cfg.tv_mtf_conflict_gate_enabled),
+            require_confirm=bool(self.cfg.tv_mtf_require_confirm),
+            require_side_align=bool(self.cfg.tv_mtf_require_side_align),
             exploration_rate=self.cfg.tv_mtf_conflict_exploration_rate)
         from engine.pulse.down_stack import DownStackGrader
         self.down_stack = DownStackGrader()
@@ -1570,9 +1578,12 @@ class PulseEngine:
                     _finalize(dr, "rejected", reason=db_res["reasons"][0], stage="down_bias_gate")
                     continue
                 mtf_res = self.tv_mtf_gate.evaluate(
-                    tf_confirm=(tv_feature or {}).get("tf_confirm"))
+                    tf_confirm=(tv_feature or {}).get("tf_confirm"),
+                    tf_confirm_direction=(tv_feature or {}).get("tf_confirm_direction"),
+                    side=d.side)
                 dr.mtf_gate = {"decision": mtf_res["decision"], "reasons": mtf_res["reasons"],
                                "tf_confirm": (tv_feature or {}).get("tf_confirm"),
+                               "tf_confirm_direction": (tv_feature or {}).get("tf_confirm_direction"),
                                "tf_1m_dir": (tv_feature or {}).get("tf_1m_dir"),
                                "tf_5m_dir": (tv_feature or {}).get("tf_5m_dir")}
                 if mtf_res["decision"] == "block":
