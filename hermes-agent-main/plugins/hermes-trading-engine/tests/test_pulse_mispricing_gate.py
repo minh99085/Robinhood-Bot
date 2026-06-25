@@ -82,6 +82,15 @@ def test_edge_ttc_gate_blocks_mid_window_low_score():
     assert ok is True
 
 
+def test_edge_ttc_gate_blocks_late_window_low_score():
+    eng = _gate_engine()
+    ok, reason = eng._edge_ttc_gate_ok(esnap=_FakeEsnap(pulse_edge_score_bucket="medium"),
+                                       ttc_s=250.0)
+    assert ok is False and reason == "edge_ttc_late_window_low_score"
+    ok, _ = eng._edge_ttc_gate_ok(esnap=_FakeEsnap(pulse_edge_score_bucket="high"), ttc_s=250.0)
+    assert ok is True
+
+
 def test_executable_mispricing_margin():
     eng = _gate_engine(mispricing_min_executable_margin=0.03, edge_buffer=0.01)
     ok, reason = eng._executable_mispricing_ok(p_win=0.58, ask=0.55)
@@ -92,11 +101,29 @@ def test_executable_mispricing_margin():
 
 def test_mispricing_follow_entry_on_abstain():
     eng = _gate_engine(mispricing_ttc_min_s=90.0, mispricing_ttc_max_s=300.0)
+    eng.grok_decider = type("G", (), {"report": lambda self: {"graded_directional": 30,
+                                                               "direction_accuracy": 0.55}})()
     sig = {"has_signal": True, "side": "up", "divergence": 0.12, "confirmed": True,
            "cex_p_up": 0.62}
-    entry = eng._mispricing_follow_entry(sig, 250.0, _FakeEsnap("stale_polymarket_up"))
+    esnap = _FakeEsnap("not_stale")
+    esnap.pulse_edge_score_bucket = "high"
+    esnap.cex_agreement_bucket = "strong"
+    entry = eng._mispricing_follow_entry(sig, 210.0, esnap)
     assert entry is not None and entry["side"] == "up" and entry["p_win"] == 0.62
-    assert eng._mispricing_follow_entry(sig, 50.0, _FakeEsnap()) is None
+    assert eng._mispricing_follow_entry(sig, 50.0, esnap) is None
+
+
+def test_mispricing_follow_up_requires_high_edge_and_strong_cex():
+    eng = _gate_engine(mispricing_ttc_min_s=90.0, mispricing_ttc_max_s=240.0)
+    eng.grok_decider = type("G", (), {"report": lambda self: {"graded_directional": 30,
+                                                               "direction_accuracy": 0.55}})()
+    sig = {"has_signal": True, "side": "up", "divergence": 0.12, "confirmed": True,
+           "cex_p_up": 0.62}
+    weak = _FakeEsnap("not_stale")
+    weak.pulse_edge_score_bucket = "medium"
+    weak.cex_agreement_bucket = "strong"
+    assert eng._mispricing_follow_entry(sig, 200.0, weak) is None
+    assert eng._mispricing_gate_counts.get("misprice_up_low_edge_score") == 1
 
 
 def test_mispricing_follow_entry_disabled():

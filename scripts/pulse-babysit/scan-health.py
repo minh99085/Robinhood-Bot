@@ -89,7 +89,8 @@ def main() -> int:
 
     cfg = status.get("config") or {}
     record("config_follow", cfg.get("grok_decider_mode") == "follow")
-    record("config_reward_risk", float(cfg.get("min_reward_risk") or 0) <= 0.40)
+    _rr = float(cfg.get("min_reward_risk") or 0)
+    record("config_reward_risk", 0.35 <= _rr <= 0.50)
 
     L = status.get("ledger") or {}
     trades = int(L.get("trades") or 0)

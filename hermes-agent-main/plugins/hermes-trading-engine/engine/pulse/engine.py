@@ -1528,8 +1528,7 @@ class PulseEngine:
                                                   float(self.cfg.grok_decider_explore_size_fraction)
                                                   * self.grok_decider.aggr.size_scale()))
                     self._grok_policy_counts["explore"] += 1
-                if (not self.cfg.mispricing_gate_enabled and entry_mode != "mispricing_follow"
-                        and side == "up" and grok_oprob is not None
+                if (entry_mode != "mispricing_follow" and side == "up" and grok_oprob is not None
                         and float(grok_oprob) < float(self.cfg.grok_up_min_p_win)):
                     dr.candidate = CandidateDecision(side=side, fair_p_up=fair_used,
                                                      outcome_prob=None, model_edge=0.0,
@@ -1562,8 +1561,8 @@ class PulseEngine:
                         self.markov.record_terminal(state=cand_state, accepted=False)
                     _finalize(dr, "rejected", reason=et_reason, stage="mispricing_gate")
                     continue
-                if (not self.cfg.mispricing_gate_enabled and entry_mode != "mispricing_follow"
-                        and side == "up" and not self._grok_up_side_allowed()):
+                if (entry_mode != "mispricing_follow" and side == "up"
+                        and not self._grok_up_side_allowed()):
                     dr.candidate = CandidateDecision(side=side, fair_p_up=fair_used,
                                                      outcome_prob=None, model_edge=0.0,
                                                      tradeable=False, reason="grok_no_edge_up")
@@ -1903,6 +1902,9 @@ class PulseEngine:
                 continue
             # STRICT execution-quality gate (AUTHORITATIVE): EV from the live ask-ladder VWAP, using
             # the CALIBRATED probability so the floor reflects realized edge, not the model's claim.
+            # Mispricing-follow buys the CEX-indicated (often underdog) side; waive the favourite
+            # floor the same way as Wilson-proven cex-lead drive entries.
+            _waive_underdog_floor = cex_lead_active or entry_mode == "mispricing_follow"
             ex = evaluate_execution(
                 side=d.side, book=book, outcome_prob=gate_outcome_prob,
                 size_usd=round(self.cfg.size_usd * grok_size_frac, 2),
@@ -1912,7 +1914,7 @@ class PulseEngine:
                 min_order_usd=self.cfg.exec_min_order_usd,
                 max_depth_consume_frac=self.cfg.exec_max_depth_consume_frac,
                 min_ev_after_slippage=self.cfg.exec_min_ev_after_slippage,
-                min_fill_price=(0.0 if cex_lead_active else self.cfg.min_entry_price),
+                min_fill_price=(0.0 if _waive_underdog_floor else self.cfg.min_entry_price),
                 now=now, max_book_age_s=self.cfg.exec_max_book_age_s)
             self.ledger.record_exec(ex.accepted, ex.reason)
             # observe what the gate actually SEES (drives the zero-reject diagnostic)
@@ -1922,6 +1924,10 @@ class PulseEngine:
             dr.cost = ExecutionCostEstimate.from_exec_result(ex)
             dr.mark("execution_costed")
             if not ex.accepted:
+                if entry_mode == "mispricing_follow":
+                    _fk = f"follow_blocked_{ex.reason}"
+                    self._mispricing_gate_counts[_fk] = (
+                        self._mispricing_gate_counts.get(_fk, 0) + 1)
                 dr.action = RejectAction(stage="execution_gate", reason=ex.reason)
                 if self.markov is not None:
                     self.markov.record_terminal(state=cand_state, accepted=False)
@@ -2553,6 +2559,25 @@ class PulseEngine:
             return False
         return True
 
+    def _edge_snap_field(self, esnap, field: str):
+        if esnap is None:
+            return None
+        val = getattr(esnap, field, None)
+        if val is None and isinstance(esnap, dict):
+            val = esnap.get(field)
+        return val
+
+    def _mispricing_follow_up_ok(self, esnap=None) -> "tuple[bool, str]":
+        """UP mispricing-follow needs proven Grok UP edge + high edge score + strong CEX agreement."""
+        if not self._grok_up_side_allowed():
+            return False, "misprice_up_grok_no_edge"
+        bucket = self._edge_snap_field(esnap, "pulse_edge_score_bucket")
+        if bucket not in ("high", "very_high"):
+            return False, "misprice_up_low_edge_score"
+        if self._edge_snap_field(esnap, "cex_agreement_bucket") != "strong":
+            return False, "misprice_up_weak_cex_agreement"
+        return True, ""
+
     def _mispricing_follow_entry(self, cex_sig: "dict | None", ttc_s: "float | None",
                                  esnap=None) -> "dict | None":
         """When Grok abstains, follow a confirmed CEX-lead mispricing stack (gates pre-checked)."""
@@ -2562,6 +2587,12 @@ class PulseEngine:
         side = cl.get("side")
         if side not in ("up", "down"):
             return None
+        if side == "up":
+            up_ok, up_reason = self._mispricing_follow_up_ok(esnap=esnap)
+            if not up_ok:
+                self._mispricing_gate_counts[up_reason] = (
+                    self._mispricing_gate_counts.get(up_reason, 0) + 1)
+                return None
         mp_ok, _ = self._mispricing_gate_ok(side=side, cex_sig=cl, ttc_s=ttc_s, esnap=esnap)
         et_ok, _ = self._edge_ttc_gate_ok(esnap=esnap, ttc_s=ttc_s)
         if not (mp_ok and et_ok):
@@ -2609,12 +2640,12 @@ class PulseEngine:
         if not self.cfg.edge_ttc_gate_enabled or ttc_s is None:
             return True, ""
         ttc_f = float(ttc_s)
+        bucket = self._edge_snap_field(esnap, "pulse_edge_score_bucket")
         if 90.0 <= ttc_f < 180.0:
-            bucket = getattr(esnap, "pulse_edge_score_bucket", None) if esnap is not None else None
-            if bucket is None and isinstance(esnap, dict):
-                bucket = esnap.get("pulse_edge_score_bucket")
             if bucket not in ("high", "very_high"):
                 return False, "edge_ttc_mid_window_low_score"
+        if ttc_f >= 240.0 and bucket not in ("high", "very_high"):
+            return False, "edge_ttc_late_window_low_score"
         return True, ""
 
     def _executable_mispricing_ok(self, *, p_win: "float | None",
