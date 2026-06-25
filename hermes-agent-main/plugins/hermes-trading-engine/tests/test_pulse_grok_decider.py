@@ -468,6 +468,29 @@ def test_engine_follow_explore_off_still_abstains(tmp_path):
     assert eng.ledger.trades == 0
 
 
+def test_engine_follow_explore_blocked_on_coinflip_view(tmp_path):
+    # explore on a near-50/50 p_up view is blocked (no coin-flip trades)
+    eng, t0 = _engine(tmp_path, mode="follow",
+                      decision={"action": "no_trade", "p_up": 0.51, "confidence": 0.4, "ttl_s": 240},
+                      grok_decider_explore_rate=1.0)
+    _drive(eng, t0)
+    assert eng.ledger.trades == 0
+    lc = eng.status()["decision_lifecycle"]
+    assert lc["rejected_by_stage"].get("grok_decider", 0) >= 1
+
+
+def test_engine_grok_follow_blocks_up_on_down_bias(tmp_path):
+    eng, t0 = _engine(tmp_path, mode="follow",
+                      decision={"action": "up", "confidence": 0.8, "size_fraction": 1.0, "ttl_s": 240},
+                      tv_down_bias_gate_enabled=True,
+                      tv_down_bias_block_up_against_confirmed_down=True)
+    eng.tv_down_bias_gate.evaluate = lambda **kw: {
+        "decision": "block", "reasons": ["tv_down_bias_up_against_confirmed_down"], "active": True}
+    _drive(eng, t0)
+    assert eng.ledger.trades == 0
+    assert eng.status()["decision_lifecycle"]["rejected_by_stage"].get("down_bias_gate", 0) >= 1
+
+
 def test_engine_adaptive_exploits_proven_edge_context(tmp_path):
     # Grok abstains, explore OFF; policy says EXPLOIT (proven-edge context) -> adaptive auto-trades
     eng, t0 = _engine(tmp_path, mode="follow",

@@ -101,6 +101,8 @@ class PulseConfig:
     # gathering so the bot keeps trading + learns action-level P&L). 0 = never (pure follow).
     grok_decider_explore_rate: float = 0.0
     grok_decider_explore_size_fraction: float = 0.5
+    # Minimum |p_up - 0.5| required before an explore trade on Grok's abstain view (blocks coin-flip).
+    grok_decider_explore_min_view_margin: float = 0.08
     # adaptive self-improvement loop: auto-EXPLOIT contexts with a proven view-edge (Wilson lower >
     # 0.5), AVOID proven-losing contexts, and only EXPLORE the uncertain ones. Default ON.
     grok_decider_adaptive: bool = True
@@ -338,6 +340,8 @@ class PulseConfig:
             grok_decider_cooldown_s=_envf("PULSE_GROK_DECIDER_COOLDOWN_S", 1800.0),
             grok_decider_explore_rate=_envf("PULSE_GROK_DECIDER_EXPLORE_RATE", 0.0),
             grok_decider_explore_size_fraction=_envf("PULSE_GROK_DECIDER_EXPLORE_SIZE_FRACTION", 0.5),
+            grok_decider_explore_min_view_margin=_envf(
+                "PULSE_GROK_DECIDER_EXPLORE_MIN_VIEW_MARGIN", 0.08),
             grok_decider_adaptive=str(os.getenv("PULSE_GROK_DECIDER_ADAPTIVE", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             verifier_enabled=str(os.getenv("PULSE_VERIFIER_ENABLED", "1"))
@@ -1413,17 +1417,26 @@ class PulseEngine:
                 # self-tuning: aggression raises the exploration rate as acted trades turn profitable
                 eff_explore_rate = self.grok_decider.aggr.effective_explore_rate(
                     self.cfg.grok_decider_explore_rate)
+                _pu_view = (float(grok_dec.get("p_up"))
+                            if grok_dec is not None and grok_dec.get("p_up") is not None else None)
+                _view_margin = (abs(_pu_view - 0.5) if _pu_view is not None else 0.0)
                 explore = (not actionable and not exploit and grok_dec is not None
-                           and grok_dec.get("p_up") is not None and pol["mode"] != "avoid"
+                           and _pu_view is not None and pol["mode"] != "avoid"
+                           and _view_margin >= float(self.cfg.grok_decider_explore_min_view_margin)
                            and eff_explore_rate > 0.0
                            and self._grok_rng.random() < eff_explore_rate)
                 if not actionable and not exploit and not explore:
                     if pol["mode"] == "avoid":
                         self._grok_policy_counts["avoid"] += 1
                     reason = ("grok_avoid_proven_bad" if pol["mode"] == "avoid"
-                              else ("grok_no_decision" if not grok_dec
-                                    else ("grok_abstain" if grok_dec.get("action") == "no_trade"
-                                          else "grok_low_confidence_or_stale")))
+                              else ("grok_explore_view_too_weak"
+                                    if (not actionable and not exploit and grok_dec is not None
+                                        and _pu_view is not None
+                                        and _view_margin < float(
+                                            self.cfg.grok_decider_explore_min_view_margin))
+                                    else ("grok_no_decision" if not grok_dec
+                                          else ("grok_abstain" if grok_dec.get("action") == "no_trade"
+                                                else "grok_low_confidence_or_stale"))))
                     dr.candidate = CandidateDecision(side=None, fair_p_up=fair_used,
                                                      outcome_prob=None, model_edge=0.0,
                                                      tradeable=False, reason=reason)
@@ -1459,6 +1472,26 @@ class PulseEngine:
                                                   float(self.cfg.grok_decider_explore_size_fraction)
                                                   * self.grok_decider.aggr.size_scale()))
                     self._grok_policy_counts["explore"] += 1
+                # Restrict-only DOWN/TV asymmetry gate still applies to Grok-owned UP trades.
+                if side == "up":
+                    db_res = self.tv_down_bias_gate.evaluate(
+                        side=side,
+                        mtf_alignment=(tv_feature or {}).get("mtf_alignment"),
+                        tv_direction=(tv_feature or {}).get("direction"),
+                        tf_confirm=(tv_feature or {}).get("tf_confirm"),
+                    )
+                    if db_res["decision"] == "block":
+                        dr.down_bias_gate = {"decision": db_res["decision"],
+                                             "reasons": db_res["reasons"]}
+                        dr.candidate = CandidateDecision(side=side, fair_p_up=fair_used,
+                                                         outcome_prob=None, model_edge=0.0,
+                                                         tradeable=False,
+                                                         reason=db_res["reasons"][0])
+                        if self.markov is not None:
+                            self.markov.record_terminal(state=cand_state, accepted=False)
+                        _finalize(dr, "rejected", reason=db_res["reasons"][0],
+                                  stage="down_bias_gate")
+                        continue
                 # #1 MAKER-CHECKER: an independent Claude verdict can VETO or shrink (never enlarge)
                 grok_verdict = None
                 if self.verifier is not None:

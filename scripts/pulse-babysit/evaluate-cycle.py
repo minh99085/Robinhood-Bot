@@ -75,6 +75,18 @@ def main() -> int:
     if not ver.get("enabled"):
         issues.append(_issue("verifier_disabled", "P0", "verifier.enabled is false",
                              "ANTHROPIC_API_KEY + PULSE_VERIFIER_ENABLED=1; recreate container"))
+    if float(gd.get("explore_rate") or 0) > 0:
+        issues.append(_issue("grok_explore_on", "P0",
+                             f"explore_rate={gd.get('explore_rate')}",
+                             "PULSE_GROK_DECIDER_EXPLORE_RATE=0 (coin-flip abstain trades lose)"))
+    if float(gd.get("min_confidence") or 0) < 0.62:
+        issues.append(_issue("grok_min_conf_low", "P1",
+                             f"min_confidence={gd.get('min_confidence')}",
+                             "PULSE_GROK_DECIDER_MIN_CONFIDENCE=0.62"))
+    if float(gd.get("direction_accuracy") or 1) < 0.52 and int(gd.get("graded_directional") or 0) >= 20:
+        issues.append(_issue("grok_no_edge", "P1",
+                             f"direction_accuracy={gd.get('direction_accuracy')}",
+                             "Grok at coin-flip — only trade confident follow + block weak UP"))
     if stop.get("any_halted"):
         dir_h = (stop.get("strategies") or {}).get("directional") or {}
         issues.append(_issue("strategy_halted", "P0",

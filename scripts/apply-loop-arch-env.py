@@ -8,7 +8,9 @@ UPDATES = {
     # Loop arch: Grok drives direction (not shadow baseline + TV gates).
     "PULSE_GROK_DECIDER_MODE": "follow",
     "PULSE_GROK_DECIDER_FOLLOW_FRACTION": "1.0",
-    "PULSE_GROK_DECIDER_EXPLORE_RATE": "0.15",
+    "PULSE_GROK_DECIDER_EXPLORE_RATE": "0",
+    "PULSE_GROK_DECIDER_MIN_CONFIDENCE": "0.62",
+    "PULSE_GROK_DECIDER_EXPLORE_MIN_VIEW_MARGIN": "0.08",
     "PULSE_VERIFIER_ENABLED": "1",
     "PULSE_VERIFIER_FAIL_OPEN": "0",
     "PULSE_VERIFIER_FOLLOW_REQUIRE_VERDICT": "1",
@@ -17,13 +19,14 @@ UPDATES = {
     "PULSE_TV_MIN_SIGNAL_STRENGTH": "0",
     "PULSE_TV_MTF_REQUIRE_CONFIRM": "0",
     "PULSE_TV_MTF_REQUIRE_SIDE_ALIGN": "0",
-    "PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN": "0",
+    "PULSE_TV_DOWN_BIAS_GATE": "1",
+    "PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN": "1",
     "PULSE_LATE_WINDOW_ENTRY": "0",
     # Unfreeze baseline-path / allowlist cold-start (Grok follow bypasses most of these).
     "PULSE_TV_CONTEXT_MAX_TTC_S": "240",
     "PULSE_TV_CONTEXT_EXPLORATION_RATE": "0.05",
     "PULSE_TV_DOWN_BIAS_EXPLORE_RATE": "0.05",
-    "PULSE_DIRECTIONAL_EXPLORE_RATE": "0.15",
+    "PULSE_DIRECTIONAL_EXPLORE_RATE": "0",
     "PULSE_MIN_REWARD_RISK": "0.35",
     # Gamma windows often appear >20s after open_ts; min_seconds_since_open=30 already delays entry.
     "PULSE_MAX_OPEN_LAG_S": "45",
