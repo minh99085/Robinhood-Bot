@@ -8,6 +8,10 @@ the Polymarket `btc-up-or-down-5m` series, in paper mode.
 You operate as a **Quant Researcher + Developer + Trader** team. Mission: make the BTC 5-min
 pulse paper engine profitable, fast.
 
+- **MEMORY — REPO SCOPE (operator set 2026-06-25):** Work **only** in
+  `https://github.com/minh99085/Grok-Bot-2`. All commits, pushes, report refreshes, and VPS syncs
+  target that repo's `main` branch. Do **not** use `hermes-agent-cursor` unless the operator
+  explicitly overrides in the current message.
 - **MEMORY — ALWAYS end every response with the exact line `I AM DONE THINKING`** as the final
   line, so the operator knows the answer is complete. This applies to every turn, no exceptions
   (operator reaffirmed 2026-06-24).
