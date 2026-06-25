@@ -186,6 +186,13 @@ _(each seat: confirm or correct §4 with a citation)_
 - proposal/impact: Use §4 as baseline with these timestamped corrections; all R1 proposals should target PF≥1.5 and edge/trade≥0.04 without weakening `execution_gate.py`.
 - confidence: high · cost/risk: low
 
+### [GROK] · R0 · EVIDENCE · GROK-0-1
+- re: CURSOR-0-1, CODEX-0-1
+- claim: §4 thesis holds; I confirm with plugin-path measurements and three timestamped corrections — sell-both count, CEX-lead census, and a stale root-level report copy that must not be used as ground truth.
+- evidence: `plugins/hermes-trading-engine/vps_full_reports/latest/btc_pulse_status.json` (2026-06-24): directional 403 settled, WR 0.536, net −$64.8098, PF 0.8866, avg_win $3.0862 < avg_loss $4.0207, edge_realized +0.0037; calibration Brier 0.226026; `learning.active=False`, reason `model_not_beating_market`, model_brier 0.25929 > market_brier 0.25078 (`engine/pulse/fair_value.py` blended model); arbitrage 5 executed/settled, +$3.452 guaranteed, `sell_both_detected=2` (§4 "9 opportunities" **UNVERIFIED** — latest shows 2); CEX-lead `signals_seen` 17,850 / `graded` 292, `any_proven=False`, top bucket Brier_cex 0.4856 vs market 0.247 (`engine/pulse/cex_lead.py`); TV `bearish_aligned` n=45 WR 0.60 +$30.27 vs `bullish_aligned` n=15 WR 0.40 −$20.34 (`engine/pulse/tradingview.py`); Grok decider `mode=shadow`, `affects_trading=false`, view_accuracy 0.5074 ≈ coin flip (`engine/pulse/grok_decider.py`); edge_signal `not_stale` n=144 WR 0.59 +$21.53 vs stale classes negative (`engine/pulse/edge_signal.py`); **CORRECTION:** root `vps_full_reports/latest/` shows `grok_decider_mode=follow` and learning.active=True — diverges from plugin copy; use plugin path per §9.
+- proposal/impact: Adopt plugin-path status as authoritative baseline; treat §4 sell-both=9 and CEX 19,282/317 as superseded by latest counts above.
+- confidence: high · cost/risk: low
+
 ### ROUND 1 — Independent analysis
 _(each seat: root cause + top‑3 levers; no replies yet)_
 
@@ -209,9 +216,14 @@ _(each seat: root cause + top‑3 levers; no replies yet)_
 - confidence: high (levers 1–2), med (lever 3) · cost/risk: low (1–2), med (3)
 
 ### [GROK] · R1 · ANALYSIS · GROK-1-1
-> _Grok: post your independent root‑cause read + top‑3 levers here. Focus areas: real‑time news/X
-> sentiment as an event‑risk filter, fast lead‑lag microstructure, and where you see exploitable
-> aggression. Cite data or label UNVERIFIED + propose the test._
+- re: —
+- claim: The bot loses because it **misallocates aggression** — trading ~53% directional hits with 1.30× loss:win into an efficient 5‑min book — while the only durable edges are **structural (arb)** and a **DOWN/orderflow microstructure stack**; raw CEX lead‑lag and Grok news/X direction add latency noise, not Brier-beating alpha.
+- evidence: Directional PF 0.8866, edge_realized +0.0037, avg_win $3.09 < avg_loss $4.02 (`btc_pulse_status.json`); CEX-lead `any_proven=False`, Brier_cex 0.486 vs market 0.247 even in `>=0.30` bucket (`cex_lead_edge`); edge_signal `not_stale` +$21.53/59% vs `already_priced` & `stale_polymarket_*` all negative (`edge_signal.by_stale_divergence`); TV DOWN n=91 WR 0.593 +$7.90 vs UP n=36 WR 0.50 −$23.27; bearish_aligned +$30.27 (n=45) vs bullish_aligned −$20.34 (`tradingview.signal_learning`); context_gate already blocks volume_spike (430), hurst noise (130), ttc≥240s (280) — yet grok_decider view_accuracy 0.507 (shadow, n=473) proves news/X synthesis is not a directional edge (`grok_decider`); arb +$3.452 risk-free on 5 fills (`arbitrage`); `engine/pulse/tradingview.py` notes `event_blackout` is observe-only (not wired to restrict); `AggressionController` at 0.55 tracks `recent_net_pnl` while directional bleeds (`grok_decider.aggression`).
+- proposal/impact: Top‑3 levers (GROK seat) →
+  1. **Event-risk blackout as restrict-only filter (P7-new):** Wire Grok `news_digest.event_risk` + TV `liquidation_spike`/`volume_state=spike` into `context_gate.py` (restrict-only, like existing volume_spike block) — not for direction, but to **skip directional entries during adverse-selection regimes** (liquidation waves, macro prints). Kill-switch: if blackout-blocked trades show Wilson-lower WR > breakeven+0.04 over n≥30, retract rule. Expected: shrink avg_loss, move toward avg_win ≥ avg_loss without touching `execution_gate.py`.
+  2. **Late-window stale-divergence stack (observe→gated):** Raw CEX divergence fails Brier, but `180_240s` TTC edge_signal bucket shows +$31/67% WR (n=61) and `not_stale` dominates positive PnL — exploitable aggression is **confirmed TV DOWN + stale_polymarket_down + ttc 90–240s**, not naked CEX lead. Grade composite `bearish_aligned ∧ stale_polymarket_down ∧ ttc∈[90,240]` in `cex_lead.py` shadow mode; promote only if Wilson-lower(win) > avg_entry+0.04 AND Brier_stack < market Brier over n≥60. Expected: path to +0.04 edge/trade on fewer, higher-conviction entries.
+  3. **Re-route aggression budget to structural edges only:** Per `AGENTS.md`, decouple `AggressionController` from directional PnL; allocate size-up aggression exclusively to (a) arb depth-capped fills (`arbitrage.py` ε/size-to-depth) and (b) Wilson-proven DOWN stack (bearish_aligned + range_bottom + dead_volume per analyst_A). Keep Grok decider + predictor_B in permanent shadow until `view_brier < market_brier` OOS. Expected: PF anchor from arb (+EV) + selective DOWN harvest; stops "loosening into losses."
+- confidence: high (lever 1–3 diagnosis), med (lever 2 promotion path) · cost/risk: low (1,3 reporting/gating), med (2 composite grading)
 
 ### [CLAUDE‑CODE] · R1 · ANALYSIS · CLAUDE-CODE-1-1
 > _Claude Code: post your independent read. Focus areas: calibration correctness, risk controls,
