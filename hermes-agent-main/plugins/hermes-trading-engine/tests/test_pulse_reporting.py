@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from engine.pulse.reporting import (spread_bucket, depth_bucket, confidence_tier,
-                                     OutcomeGroups, promotion_demotion, build_light_report)
+                                     OutcomeGroups, promotion_demotion, build_light_report,
+                                     build_report_sections, build_full_report_md)
 from engine.pulse.markets import OrderBook, PulseWindow
 from engine.pulse.price import PulsePriceFeed
 from engine.pulse.fair_value import RollingVol
@@ -65,7 +66,9 @@ def test_light_report_reconciles_with_ledger(tmp_path):
     eng = PulseEngine(PulseConfig(tick_seconds=1.0, size_usd=10.0, min_edge=0.02,
                                   basis_buffer=0.0, min_seconds_since_open=0.0,
                                   sigma_trust_floor=0.0, min_vol_samples=2, settle_grace_s=0.0,
-                                  exec_max_depth_consume_frac=0.9, data_dir=str(tmp_path)),
+                                  exec_max_depth_consume_frac=0.9,
+                                  tv_mtf_conflict_gate_enabled=False,
+                                  data_dir=str(tmp_path)),
                       market_feed=_Mkt(win), price_feed=feed)
     for i in range(12):
         eng.tick(now=t0 - 12 + i)
@@ -94,3 +97,8 @@ def test_light_report_reconciles_with_ledger(tmp_path):
     # the settled trade is grouped under its entry-time tags (sum of n == settled)
     total_n = sum(b["n"] for b in rep["pnl_by_markov_state"].values())
     assert total_n == eng.ledger.settled
+    assert rep.get("schema") == "btc_pulse_light_report/1.2"
+    sec = rep.get("sections") or {}
+    assert "trading_performance" in sec and "operation" in sec and "external_signals" in sec
+    md = build_full_report_md(rep, eng.status(), eng.ledger.to_dict())
+    assert "1. Trading Performance" in md and "2. Operation" in md and "3. External Signals" in md

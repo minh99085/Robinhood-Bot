@@ -101,7 +101,7 @@ def build_light_report(*, lifecycle: dict, execution_gate: dict, ledger_stats: d
         exec_gate=execution_gate, thresholds=gate_thresholds, observations=gate_observations,
         rejected_before_execution=recon.get("rejected_before_execution", 0))
     return {
-        "schema": "btc_pulse_light_report/1.1", "report_only": True, "live_trading_enabled": False,
+        "schema": "btc_pulse_light_report/1.2", "report_only": True, "live_trading_enabled": False,
         # headline integrity flag — true ONLY when every lifecycle/exec/ledger identity holds
         "global_reconciled": recon["global_reconciled"],
         "reconciliation": recon,
@@ -124,209 +124,231 @@ def build_light_report(*, lifecycle: dict, execution_gate: dict, ledger_stats: d
     }
 
 
-def build_full_report_md(light: dict, status: Optional[dict] = None,
-                         ledger: Optional[dict] = None) -> str:
-    """Render a COMPLETE human-readable performance report from the bot's own JSON artifacts so an
-    external reviewer (ChatGPT / Grok) can inspect everything: capital, full P&L, reconciliation,
-    candidate lifecycle, execution gate, calibration, PnL by EVERY bucket, the learned selectivity
-    gate (+ bucket evidence + counterfactual), entry gates, the Grok Decision Engine (view accuracy,
-    per-context accuracy, edge candidates, aggression, policy, breaker, news), Grok intel,
-    TradingView learning, edge signal, readiness, and recent positions. Pure (dict -> markdown)."""
+def _pnl_buckets(light: dict) -> dict:
+    return {k: light[k] for k in (light or {}) if k.startswith("pnl_by_")}
+
+
+def build_report_sections(light: dict, *, status: Optional[dict] = None,
+                          ledger: Optional[dict] = None) -> dict:
+    """Organize the light report into three operator-facing sections."""
     light = light or {}
     status = status or {}
     ledger = ledger or {}
+    cap = light.get("capital", {}) or {}
+    led = light.get("ledger", {}) or {}
+    arb = light.get("arbitrage", {}) or {}
+    sg = light.get("learned_selectivity_gate", {}) or {}
+    tv = light.get("tradingview", {}) or {}
+    gd = light.get("grok_decider", {}) or {}
+
+    dir_pnl = None
+    if cap.get("total_realized_pnl_usd") is not None and cap.get("arb_realized_pnl_usd") is not None:
+        dir_pnl = round(float(cap["total_realized_pnl_usd"]) - float(cap["arb_realized_pnl_usd"]), 4)
+
+    trading_performance = {
+        "headline": {
+            "on_hand_capital_usd": cap.get("on_hand_capital_usd"),
+            "total_on_hand_usd": cap.get("total_on_hand_usd"),
+            "starting_capital_usd": cap.get("starting_capital_usd"),
+            "return_pct": cap.get("return_pct"),
+            "total_return_pct": cap.get("total_return_pct"),
+            "directional_realized_pnl_usd": cap.get("realized_pnl_usd") or dir_pnl,
+            "arb_realized_pnl_usd": cap.get("arb_realized_pnl_usd") or arb.get("realized_profit_usd"),
+            "total_realized_pnl_usd": cap.get("total_realized_pnl_usd"),
+            "win_rate": led.get("win_rate"),
+            "win_rate_up": led.get("win_rate_up"),
+            "win_rate_down": led.get("win_rate_down"),
+            "profit_factor": led.get("profit_factor"),
+            "trades": led.get("trades"),
+            "settled": led.get("settled"),
+        },
+        "capital": cap,
+        "ledger": led,
+        "arbitrage": arb,
+        "reconciliation": light.get("reconciliation"),
+        "execution_stats": light.get("execution_stats"),
+        "reject_reasons": light.get("reject_reasons"),
+        "calibration": light.get("calibration"),
+        "ev_before_after_costs": light.get("ev_before_after_costs"),
+        "execution_realistic_edge": light.get("execution_realistic_edge"),
+        "pnl_by_bucket": _pnl_buckets(light),
+        "selectivity_impact": sg.get("counterfactual"),
+        "selectivity_bucket_evidence": (sg.get("bucket_evidence") or {}).get("buckets"),
+        "promotion_candidates": light.get("promotion_candidates"),
+        "demotion_candidates": light.get("demotion_candidates"),
+        "recent_positions": (ledger.get("positions") or [])[:15],
+    }
+
+    loops = light.get("loops", {}) or {}
+    operation = {
+        "engine": {
+            "ticks": status.get("ticks"),
+            "paper_only": light.get("report_only", True),
+            "live_trading_enabled": light.get("live_trading_enabled", False),
+            "global_reconciled": light.get("global_reconciled"),
+            "sample_sizes": light.get("sample_sizes"),
+        },
+        "candidate_lifecycle": light.get("candidate_lifecycle"),
+        "loops": loops,
+        "verifier": light.get("verifier"),
+        "research_loop": light.get("research_loop"),
+        "lessons": light.get("lessons"),
+        "stop_conditions": light.get("stop_conditions"),
+        "readiness": light.get("readiness"),
+        "learned_selectivity_gate": {
+            k: sg.get(k) for k in ("enabled", "decision_rule", "confidence_z", "accepted",
+                                    "rejected", "explored", "block_reasons")
+        },
+        "directional_allowlist": light.get("directional_allowlist"),
+        "learning_loop": light.get("learning"),
+        "late_window_entry": light.get("late_window_entry"),
+        "missing_data_reasons": light.get("missing_data_reasons"),
+        "grok_decider_ops": {k: gd.get(k) for k in ("mode", "affects_trading", "decided", "errors",
+                                                    "skipped_budget", "avg_latency_s", "abstains",
+                                                    "follow_fraction", "circuit_breaker",
+                                                    "adaptive_policy_counts", "aggression")},
+    }
+
+    edge5 = tv.get("edge_vs_5min_outcome", {}) or {}
+    external_signals = {
+        "impact_summary": {
+            "tv_signal_hit_rate": edge5.get("signal_hit_rate"),
+            "tv_aligned_bot_win_rate": edge5.get("aligned_bot_win_rate"),
+            "tv_opposed_bot_win_rate": edge5.get("opposed_bot_win_rate"),
+            "tv_settled_with_signal": edge5.get("n_settled_with_signal"),
+            "tv_verdict": edge5.get("verdict"),
+            "grok_direction_accuracy": gd.get("direction_accuracy"),
+            "grok_view_accuracy": gd.get("view_accuracy"),
+            "grok_view_edge_candidates": gd.get("view_edge_candidates"),
+            "cex_lead_any_proven": (light.get("cex_lead_edge") or {}).get("any_proven"),
+            "edge_signal_enabled": (light.get("edge_signal") or {}).get("enabled"),
+        },
+        "tradingview": {
+            k: tv.get(k) for k in (
+                "tradingview_alerts_received", "tradingview_alerts_valid",
+                "tradingview_alerts_rejected", "tradingview_mtf_confirmation",
+                "signal_learning", "rsi_trend", "edge_vs_5min_outcome",
+                "context_gate", "down_bias_gate", "mtf_gate", "signal_gate", "webhook")
+            if tv.get(k) is not None
+        },
+        "grok_decider": gd,
+        "grok_signal_intel": light.get("grok_signal_intel"),
+        "cex_lead_edge": light.get("cex_lead_edge"),
+        "edge_signal": light.get("edge_signal"),
+        "down_stack": light.get("down_stack"),
+    }
+
+    return {
+        "schema": "btc_pulse_report_sections/1.0",
+        "trading_performance": trading_performance,
+        "operation": operation,
+        "external_signals": external_signals,
+    }
+
+
+def build_full_report_md(light: dict, status: Optional[dict] = None,
+                         ledger: Optional[dict] = None) -> str:
+    """Render a human-readable report in three sections: Trading Performance, Operation,
+    External Signals. Pure (dict -> markdown)."""
+    light = light or {}
+    status = status or {}
+    ledger = ledger or {}
+    sec = light.get("sections") or build_report_sections(light, status=status, ledger=ledger)
+    tp = sec.get("trading_performance", {}) or {}
+    op = sec.get("operation", {}) or {}
+    ex = sec.get("external_signals", {}) or {}
     out: list = []
 
     def h(t):
         out.append("\n## " + t + "\n")
 
+    def h3(t):
+        out.append("\n### " + t + "\n")
+
     def kv(d, keys=None):
         d = d or {}
-        items = [(k, d.get(k)) for k in (keys or d.keys())]
-        for k, v in items:
+        for k, v in [(k, d.get(k)) for k in (keys or d.keys())]:
             if isinstance(v, (dict, list)):
                 out.append("- **%s:** `%s`" % (k, json.dumps(v, default=str)[:600]))
             else:
                 out.append("- **%s:** %s" % (k, v))
 
     def table(rows, header):
+        if not rows:
+            return
         out.append("| " + " | ".join(header) + " |")
         out.append("|" + "|".join(["---"] * len(header)) + "|")
         for r in rows:
             out.append("| " + " | ".join(str(x) for x in r) + " |")
 
-    led = light.get("ledger", {}) or {}
-    cap = light.get("capital", status.get("capital", {})) or {}
-    rec = light.get("reconciliation", {}) or {}
-    lc = light.get("candidate_lifecycle", {}) or {}
-    gd = light.get("grok_decider", {}) or {}
-    sg = light.get("learned_selectivity_gate", {}) or {}
-    lw = light.get("late_window_entry", {}) or {}
-    gi = light.get("grok_signal_intel", {}) or {}
-    tv = light.get("tradingview", {}) or {}
-    es = light.get("edge_signal", {}) or {}
-    ev = light.get("ev_before_after_costs", {}) or {}
+    eng = op.get("engine", {}) or {}
+    hl = tp.get("headline", {}) or {}
+    cap = tp.get("capital", {}) or {}
+    led = tp.get("ledger", {}) or {}
+    arb = tp.get("arbitrage", {}) or {}
+    ev = tp.get("ev_before_after_costs", {}) or {}
+    imp = ex.get("impact_summary", {}) or {}
 
-    out.append("# BTC 5-Minute Pulse — FULL Performance Report\n")
-    out.append("_PAPER ONLY. `live_trading_enabled=%s` · `global_reconciled=%s` · ticks %s._\n"
-               % (light.get("live_trading_enabled"), light.get("global_reconciled"),
-                  status.get("ticks")))
+    out.append("# BTC 5-Minute Pulse — Performance Report\n")
+    out.append("_PAPER ONLY · `global_reconciled=%s` · ticks %s_\n"
+               % (eng.get("global_reconciled"), eng.get("ticks")))
 
-    h("1. Capital & P&L")
-    table([["On-hand capital", "$%s" % cap.get("on_hand_capital_usd")],
-           ["Starting capital", "$%s" % cap.get("starting_capital_usd")],
-           ["Return", "%s%%" % cap.get("return_pct")],
-           ["Open exposure", "$%s (%s pos)" % (cap.get("open_exposure_usd"),
-                                               cap.get("open_positions"))],
-           ["Trades / settled", "%s / %s" % (led.get("trades"), led.get("settled"))],
-           ["Win rate", led.get("win_rate")],
-           ["Win rate up / down", "%s / %s" % (led.get("win_rate_up"), led.get("win_rate_down"))],
-           ["Realized PnL", "$%s" % led.get("realized_pnl_usd")],
-           ["Profit factor", led.get("profit_factor")],
-           ["Avg win / avg loss", "$%s / $%s" % (led.get("avg_win_usd"), led.get("avg_loss_usd"))],
-           ["Max drawdown", "$%s" % led.get("max_drawdown_usd")],
-           ["Avg PnL/trade", led.get("avg_pnl_per_trade")],
-           ["Side counts", led.get("side_counts")],
-           ["Settle sources", led.get("settle_sources")],
-           ["Proxy vs official", led.get("proxy_official_reconciliation")],
-           ["EV before/after cost", "%s / %s" % (ev.get("avg_ev_before_costs"),
-                                                 ev.get("avg_ev_after_costs"))]],
-          ["metric", "value"])
+    h("1. Trading Performance")
+    table([
+        ["Total on-hand", "$%s" % (hl.get("total_on_hand_usd") or cap.get("total_on_hand_usd"))],
+        ["Directional on-hand", "$%s" % cap.get("on_hand_capital_usd")],
+        ["Starting capital", "$%s" % hl.get("starting_capital_usd")],
+        ["Total return", "%s%%" % (hl.get("total_return_pct") or hl.get("return_pct"))],
+        ["Directional PnL", "$%s" % hl.get("directional_realized_pnl_usd")],
+        ["Arb PnL (segregated)", "$%s" % hl.get("arb_realized_pnl_usd")],
+        ["Total PnL", "$%s" % hl.get("total_realized_pnl_usd")],
+        ["Trades / settled", "%s / %s" % (hl.get("trades"), hl.get("settled"))],
+        ["Win rate", hl.get("win_rate")],
+        ["Win rate up / down", "%s / %s" % (hl.get("win_rate_up"), hl.get("win_rate_down"))],
+        ["Profit factor", hl.get("profit_factor")],
+        ["Avg win / avg loss", "$%s / $%s" % (led.get("avg_win_usd"), led.get("avg_loss_usd"))],
+        ["Max drawdown", "$%s" % led.get("max_drawdown_usd")],
+        ["Avg PnL/trade", led.get("avg_pnl_per_trade")],
+        ["EV before/after cost", "%s / %s" % (ev.get("avg_ev_before_costs"),
+                                              ev.get("avg_ev_after_costs"))],
+    ], ["metric", "value"])
 
-    h("2. Accounting integrity (reconciliation)")
+    h3("Risk-free arbitrage")
+    if arb:
+        kv(arb, ["executed", "settled", "open", "realized_profit_usd", "detected_actionable",
+                 "segregated_from_directional"])
+    else:
+        out.append("_no arb activity_")
+
+    h3("Accounting integrity")
+    rec = tp.get("reconciliation", {}) or {}
     kv(rec, [k for k in rec if not isinstance(rec[k], (dict, list))])
 
-    h("3. Candidate lifecycle")
-    out.append("created %s · terminals `%s`" % (lc.get("created"), lc.get("terminals")))
-    out.append("\nrejected_by_stage `%s`" % lc.get("rejected_by_stage"))
-
-    h("4. Execution gate & calibration")
-    es_stats = light.get("execution_stats", {}) or {}
+    h3("Execution gate & calibration")
+    es_stats = tp.get("execution_stats", {}) or {}
     out.append("candidates %s · accepted %s · rejects `%s`"
-               % (es_stats.get("candidates"), es_stats.get("accepted"), light.get("reject_reasons")))
-    out.append("\ncalibration `%s`" % (light.get("calibration", {})))
+               % (es_stats.get("candidates"), es_stats.get("accepted"), tp.get("reject_reasons")))
+    out.append("\ncalibration `%s`" % (tp.get("calibration", {})))
 
-    h("5. PnL by bucket (all dimensions)")
-    for k in sorted(k for k in light if k.startswith("pnl_by_")):
-        out.append("**%s:** `%s`" % (k, json.dumps(light.get(k), default=str)[:900]))
+    h3("PnL by bucket")
+    pnl_by = tp.get("pnl_by_bucket", {}) or {}
+    if pnl_by:
+        for k in sorted(pnl_by):
+            out.append("**%s:** `%s`" % (k, json.dumps(pnl_by[k], default=str)[:900]))
+    else:
+        out.append("_no bucket PnL yet_")
 
-    h("6. Learned selectivity gate")
-    kv(sg, ["decision_rule", "confidence_z", "accepted", "rejected", "explored"])
-    be = (sg.get("bucket_evidence", {}) or {}).get("buckets", [])
+    h3("Selectivity impact on performance")
+    out.append("counterfactual `%s`" % (tp.get("selectivity_impact", {})))
+    be = tp.get("selectivity_bucket_evidence") or []
     if be:
         table([[r.get("dimension"), r.get("bucket"), r.get("n"), r.get("win_rate"),
-                r.get("breakeven_win_rate"), r.get("win_rate_upper_ci"), r.get("ev_per_trade"),
-                r.get("confidently_losing")] for r in be],
-              ["dim", "bucket", "n", "WR", "breakeven", "WR_upperCI", "EV/trade", "blocked"])
-    out.append("\ncounterfactual `%s`" % (sg.get("counterfactual", {})))
+                r.get("breakeven_win_rate"), r.get("ev_per_trade"), r.get("confidently_losing")]
+               for r in be],
+              ["dim", "bucket", "n", "WR", "breakeven", "EV/trade", "blocked"])
 
-    h("7. Entry gates (context / late-window / reward-risk)")
-    cgx = tv.get("context_gate", {}) or {}
-    out.append("context_gate enabled=%s · blocked %s · `%s`"
-               % (cgx.get("enabled"), cgx.get("blocked"), cgx.get("block_reasons")))
-    out.append("\nlate_window gate=%s · verdict %s · LHC `%s` · other `%s`"
-               % ((lw.get("gate", {}) or {}).get("enabled"),
-                  (lw.get("edge_measurement", {}) or {}).get("verdict"),
-                  (lw.get("edge_measurement", {}) or {}).get("cohort_late_high_conviction"),
-                  (lw.get("edge_measurement", {}) or {}).get("cohort_other")))
-
-    h("8. Grok Decision Engine (decides; bot executes)")
-    kv(gd, ["mode", "affects_trading", "decided", "errors", "skipped_budget", "avg_latency_s",
-            "graded_directional", "direction_accuracy", "brier", "views_graded", "view_accuracy",
-            "view_brier", "abstains", "follow_fraction", "explore_rate", "adaptive_enabled"])
-    out.append("\nby_action `%s`" % gd.get("by_action"))
-    out.append("\nadaptive_policy_counts `%s`" % gd.get("adaptive_policy_counts"))
-    out.append("\naggression `%s`" % gd.get("aggression"))
-    out.append("\naccuracy_by_context `%s`" % json.dumps(gd.get("accuracy_by_context"),
-                                                         default=str)[:1200])
-    out.append("\nview_edge_candidates `%s`" % gd.get("view_edge_candidates"))
-    out.append("\ncircuit_breaker `%s`" % gd.get("circuit_breaker"))
-    out.append("\nnews_digest `%s`" % json.dumps(gd.get("news_digest"), default=str)[:700])
-    out.append("\nrecent_decisions `%s`" % json.dumps(gd.get("recent_decisions"), default=str)[:900])
-
-    h("9. Grok signal intel (analyst + predictor + budget)")
-    out.append("budget `%s`" % gi.get("budget"))
-    out.append("\npredictor_B `%s`" % gi.get("predictor_B"))
-    aa = gi.get("analyst_A", {}) or {}
-    out.append("\nanalyst_A last_note `%s`" % json.dumps(aa.get("last_note"), default=str)[:1200])
-
-    h("10. TradingView learning")
-    kv(tv, ["tradingview_alerts_received", "tradingview_alerts_valid", "tradingview_alerts_rejected"])
-    sl = tv.get("signal_learning", {}) or {}
-    out.append("\nsettled_with_signal %s" % sl.get("settled_with_signal"))
-    out.append("\nbest_buckets `%s`" % json.dumps(sl.get("best_buckets"), default=str)[:900])
-    out.append("\nworst_buckets `%s`" % json.dumps(sl.get("worst_buckets"), default=str)[:900])
-    rsi = tv.get("rsi_trend", {}) or {}
-    out.append("\nrsi_trend hit_rate %s (n %s) · pred_acc %s"
-               % (rsi.get("signal_direction_hit_rate"), rsi.get("signals_evaluated"),
-                  rsi.get("prediction_accuracy")))
-
-    h("11. Loop engineering (maker-checker / lessons / loops / research)")
-    ver = light.get("verifier", {}) or {}
-    out.append("**Verifier (independent Claude maker-checker):** `%s`"
-               % json.dumps({k: ver.get(k) for k in
-                             ("enabled", "verified", "approvals", "vetoes", "errors", "approve_rate",
-                              "approved_acted_settled", "avg_latency_s")}, default=str)[:600])
-    rl = light.get("research_loop", {}) or {}
-    out.append("\n**Research meta-loop:** `%s`"
-               % json.dumps({k: rl.get(k) for k in ("enabled", "calls", "auto_apply", "lessons_added")},
-                            default=str)[:400])
-    if rl.get("last_note"):
-        out.append("\n- research summary: %s" % (rl["last_note"] or {}).get("summary"))
-    les = light.get("lessons", {}) or {}
-    out.append("\n**Lessons (compounding rules):** count %s" % les.get("count"))
-    for ln in (les.get("recent") or [])[-10:]:
-        out.append("- [`%s`] %s" % (ln.get("kind"), ln.get("rule")))
-    loops = (light.get("loops", {}) or {}).get("loops", {})
-    if loops:
-        out.append("\n**Sub-loops:** " + ", ".join(sorted(loops.keys())))
-
-    h("12. Execution-realistic edge (Roan Part IV)")
-    ere = light.get("execution_realistic_edge", {}) or {}
-    out.append("candidates_scored %s · avg_exec_ev_usd %s · avg_kl %s"
-               % (ere.get("candidates_scored"), ere.get("avg_execution_realistic_ev_usd"),
-                  ere.get("avg_kl_model_vs_market")))
-    out.append("\npayoff_guards `%s`" % ere.get("payoff_guards"))
-    out.append("\nsimplex_diagnostics `%s`" % light.get("simplex_diagnostics"))
-    samples = ere.get("recent_samples") or []
-    if samples:
-        table([[s.get("side"), s.get("calibrated_fair_p"), s.get("market_price"),
-                s.get("vwap_entry_price"), s.get("calibrated_probability_margin"),
-                s.get("execution_realistic_ev"), s.get("kl_model_vs_market")]
-               for s in samples[-8:]],
-              ["side", "cal_p", "mkt", "vwap", "margin", "exec_ev", "kl"])
-
-    h("13. Edge signal & readiness")
-    out.append("edge_signal `%s`" % json.dumps({k: es.get(k) for k in list(es)[:8]},
-                                               default=str)[:700])
-    cl = light.get("cex_lead_edge", {}) or {}
-    if cl.get("enabled"):
-        out.append("\n**CEX-lead latency edge** (grades CEX-implied P(up) vs the MARKET price): "
-                   "mode `%s` · affects_trading %s · signals_seen %s · graded %s · drove %s · "
-                   "any_proven (beats market) **%s**"
-                   % (cl.get("mode"), cl.get("affects_trading"), cl.get("signals_seen"),
-                      cl.get("graded"), cl.get("drove_entries"), cl.get("any_proven")))
-        rows = cl.get("buckets") or []
-        if rows:
-            table([[b.get("bucket"), b.get("n"), b.get("accuracy"), b.get("brier_cex"),
-                    b.get("brier_market"), b.get("beats_market"), b.get("avg_pnl_per_trade"),
-                    b.get("proven")] for b in rows[:6]],
-                  header=["divergence", "n", "acc", "brier_cex", "brier_mkt", "beats_mkt",
-                          "avg_pnl/u", "proven"])
-        out.append("_promotion: %s_" % cl.get("promotion_rule"))
-    arb = light.get("arbitrage", {}) or {}
-    if arb.get("paper_only") or arb.get("executed") is not None:
-        out.append("\n**Within-window risk-free arbitrage** (Roan dutch book `up_vwap+down_vwap<1`; "
-                   "P&L SEGREGATED from directional, never blended): detected_actionable %s · "
-                   "sell_both_detected %s · executed %s · settled %s · open %s · "
-                   "realized_profit **$%s** (risk-free)"
-                   % (arb.get("detected_actionable"), arb.get("sell_both_detected"),
-                      arb.get("executed"), arb.get("settled"), arb.get("open"),
-                      arb.get("realized_profit_usd")))
-    out.append("\nreadiness `%s`" % (light.get("readiness", {})))
-
-    h("14. Recent paper positions")
-    positions = (ledger.get("positions") or [])[:15]
+    h3("Recent positions")
+    positions = tp.get("recent_positions") or []
     if positions:
         table([[(p.get("title") or "")[-18:], p.get("side"),
                 (p.get("research") or {}).get("entry_mode", "—"),
@@ -337,4 +359,124 @@ def build_full_report_md(light: dict, status: Optional[dict] = None,
               ["window", "side", "entry_mode", "entry", "fair", "outcome", "won", "pnl"])
     else:
         out.append("_no positions_")
+
+    h("2. Operation")
+    h3("Engine health")
+    kv(eng, ["ticks", "global_reconciled", "paper_only", "live_trading_enabled", "sample_sizes"])
+    kv(op.get("readiness", {}), ["status", "reason", "checks"] if op.get("readiness") else None)
+
+    h3("Candidate lifecycle")
+    lc = op.get("candidate_lifecycle", {}) or {}
+    out.append("created %s · terminals `%s`" % (lc.get("created"), lc.get("terminals")))
+    out.append("\nrejected_by_stage `%s`" % lc.get("rejected_by_stage"))
+
+    h3("Looping engine (sub-loops)")
+    loops = (op.get("loops", {}) or {}).get("loops", {})
+    if loops:
+        rows = []
+        for name, info in sorted(loops.items()):
+            st = info.get("status") or info.get("last_status") or {}
+            rows.append([name, info.get("role", "—"), info.get("trigger", "—"),
+                         info.get("interval_s", "—"), info.get("stop_condition", "—"),
+                         st.get("enabled", st.get("halted", "—"))])
+        table(rows, ["loop", "role", "trigger", "interval_s", "stop", "status"])
+    else:
+        out.append("_no loop registry_")
+
+    h3("Maker-checker verifier")
+    kv(op.get("verifier", {}), ["enabled", "verified", "approvals", "vetoes", "errors",
+                                "approve_rate", "avg_latency_s"])
+
+    h3("Research meta-loop")
+    rl = op.get("research_loop", {}) or {}
+    kv(rl, ["enabled", "calls", "auto_apply", "lessons_added"])
+    if rl.get("last_note"):
+        out.append("- **summary:** %s" % (rl["last_note"] or {}).get("summary"))
+
+    h3("Compounding lessons")
+    les = op.get("lessons", {}) or {}
+    out.append("count %s" % les.get("count"))
+    for ln in (les.get("recent") or [])[-10:]:
+        out.append("- [`%s`] %s" % (ln.get("kind"), ln.get("rule")))
+
+    h3("Internal gates & allowlist")
+    kv(op.get("learned_selectivity_gate", {}),
+       ["decision_rule", "accepted", "rejected", "explored", "block_reasons"])
+    kv(op.get("directional_allowlist", {}), ["enabled", "explore_rate", "explored", "blocked"])
+    kv(op.get("learning_loop", {}), ["enabled", "active", "weight", "reason"])
+    kv(op.get("stop_conditions", {}), ["enabled", "halted_directional", "halted_arbitrage",
+                                       "rolling_profit_factor", "rolling_win_rate"])
+
+    h3("Grok decider (operations)")
+    kv(op.get("grok_decider_ops", {}), ["mode", "affects_trading", "decided", "errors",
+                                        "avg_latency_s", "abstains", "circuit_breaker"])
+
+    h("3. External Signals")
+    h3("Signal impact on trading performance")
+    table([
+        ["TV aligned bot WR", imp.get("tv_aligned_bot_win_rate")],
+        ["TV opposed bot WR", imp.get("tv_opposed_bot_win_rate")],
+        ["TV signal hit-rate", imp.get("tv_signal_hit_rate")],
+        ["TV settled w/ signal", imp.get("tv_settled_with_signal")],
+        ["TV edge verdict", imp.get("tv_verdict")],
+        ["Grok direction accuracy", imp.get("grok_direction_accuracy")],
+        ["Grok view accuracy", imp.get("grok_view_accuracy")],
+        ["CEX-lead proven edge", imp.get("cex_lead_any_proven")],
+    ], ["signal", "value"])
+
+    h3("TradingView")
+    tv = ex.get("tradingview", {}) or {}
+    kv(tv, ["tradingview_alerts_received", "tradingview_alerts_valid",
+            "tradingview_alerts_rejected", "tradingview_mtf_confirmation"])
+    sl = tv.get("signal_learning", {}) or {}
+    out.append("\nsettled_with_signal %s" % sl.get("settled_with_signal"))
+    out.append("\nbest_buckets `%s`" % json.dumps(sl.get("best_buckets"), default=str)[:900])
+    out.append("\nworst_buckets `%s`" % json.dumps(sl.get("worst_buckets"), default=str)[:900])
+    rsi = tv.get("rsi_trend", {}) or {}
+    out.append("\nrsi_trend hit_rate %s (n %s)" % (rsi.get("signal_direction_hit_rate"),
+                                                  rsi.get("signals_evaluated")))
+    for gate in ("context_gate", "down_bias_gate", "mtf_gate", "signal_gate"):
+        g = tv.get(gate, {}) or {}
+        if g:
+            out.append("\n**%s:** enabled=%s blocked=%s explored=%s `%s`"
+                       % (gate, g.get("enabled"), g.get("blocked"), g.get("explored"),
+                          g.get("block_reasons")))
+
+    h3("Grok Decision Engine (signal quality)")
+    gd = ex.get("grok_decider", {}) or {}
+    kv(gd, ["mode", "affects_trading", "direction_accuracy", "brier", "view_accuracy",
+            "view_brier", "views_graded", "view_edge_candidates"])
+    out.append("\naccuracy_by_context `%s`" % json.dumps(gd.get("accuracy_by_context"),
+                                                         default=str)[:1200])
+    out.append("\nrecent_decisions `%s`" % json.dumps(gd.get("recent_decisions"), default=str)[:900])
+
+    h3("Grok signal intel (analyst + predictor)")
+    gi = ex.get("grok_signal_intel", {}) or {}
+    out.append("budget `%s`" % gi.get("budget"))
+    out.append("\npredictor_B `%s`" % gi.get("predictor_B"))
+    aa = gi.get("analyst_A", {}) or {}
+    out.append("\nanalyst_A last_note `%s`" % json.dumps(aa.get("last_note"), default=str)[:1200])
+
+    h3("CEX-lead latency edge")
+    cl = ex.get("cex_lead_edge", {}) or {}
+    if cl.get("enabled"):
+        kv(cl, ["mode", "affects_trading", "signals_seen", "graded", "drove_entries",
+                "any_proven"])
+        rows = cl.get("buckets") or []
+        if rows:
+            table([[b.get("bucket"), b.get("n"), b.get("accuracy"), b.get("beats_market"),
+                    b.get("avg_pnl_per_trade"), b.get("proven")] for b in rows[:6]],
+                  ["divergence", "n", "acc", "beats_mkt", "avg_pnl/u", "proven"])
+    else:
+        out.append("_disabled_")
+
+    h3("Pulse edge signal")
+    es = ex.get("edge_signal", {}) or {}
+    out.append("`%s`" % json.dumps({k: es.get(k) for k in list(es)[:10]}, default=str)[:800])
+
+    ds = ex.get("down_stack", {}) or {}
+    if ds:
+        h3("DOWN stack grader")
+        out.append("`%s`" % json.dumps(ds, default=str)[:600])
+
     return "\n".join(out) + "\n"

@@ -2502,6 +2502,10 @@ class PulseEngine:
             kl_aggregate=kl_agg,
         )
         report["simplex_diagnostics"] = self._last_simplex
+        from engine.pulse.reporting import build_report_sections
+        report["schema"] = "btc_pulse_light_report/1.2"
+        report["sections"] = build_report_sections(
+            report, status={"ticks": self.ticks}, ledger=self.ledger.to_dict())
         return report
 
     def _late_window_report(self) -> dict:

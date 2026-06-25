@@ -400,10 +400,8 @@ def test_full_report_md_is_comprehensive():
                              "fair_at_entry": 0.6, "won": True, "outcome_up": True, "pnl_usd": 2.9,
                              "research": {"entry_mode": "grok_explore"}}]}
     md = build_full_report_md(light, {"ticks": 200}, ledger)
-    for section in ("Capital & P&L", "reconciliation", "Candidate lifecycle", "Execution gate",
-                    "PnL by bucket", "Learned selectivity gate", "Entry gates",
-                    "Grok Decision Engine", "Grok signal intel", "TradingView learning",
-                    "Recent paper positions"):
+    for section in ("1. Trading Performance", "2. Operation", "3. External Signals",
+                    "Signal impact on trading performance", "Looping engine", "Recent positions"):
         assert section in md, section
     assert "417.55" in md and "grok_explore" in md and "follow" in md   # capital, positions, decider
 
