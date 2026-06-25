@@ -1,160 +1,248 @@
-# BTC 5-Minute Pulse — FULL Performance Report
+# BTC 5-Minute Pulse — Performance Report
 
-_PAPER ONLY. `live_trading_enabled=False` · `global_reconciled=True` · ticks 229._
+_PAPER ONLY · `global_reconciled=True` · ticks 22_
 
 
-## 1. Capital & P&L
+## 1. Trading Performance
 
 | metric | value |
 |---|---|
-| On-hand capital | $500.0 |
+| Total on-hand | $537.84 |
+| Directional on-hand | $503.38 |
 | Starting capital | $500.0 |
-| Return | 0.0% |
-| Open exposure | $0.0 (0 pos) |
-| Trades / settled | 0 / 0 |
-| Win rate | None |
-| Win rate up / down | None / None |
-| Realized PnL | $0.0 |
-| Profit factor | None |
-| Avg win / avg loss | $None / $None |
-| Max drawdown | $0.0 |
-| Avg PnL/trade | None |
-| Side counts | {'up': 0, 'down': 0} |
-| Settle sources | {'polymarket_resolution': 0, 'rtds_chainlink_proxy': 0} |
-| Proxy vs official | {'both': 0, 'agree': 0, 'disagree': 0} |
-| EV before/after cost | None / None |
+| Total return | 7.57% |
+| Directional PnL | $3.38 |
+| Arb PnL (segregated) | $34.46 |
+| Total PnL | $37.84 |
+| Trades / settled | 29 / 29 |
+| Win rate | 0.6897 |
+| Win rate up / down | 0.5 / 0.7895 |
+| Profit factor | 1.0752 |
+| Avg win / avg loss | $2.4192 / $5.0 |
+| Max drawdown | $23.6305 |
+| Avg PnL/trade | 0.1167 |
+| EV before/after cost | 0.166438 / 0.160784 |
 
-## 2. Accounting integrity (reconciliation)
+### Risk-free arbitrage
+
+- **executed:** 4
+- **settled:** 4
+- **open:** 0
+- **realized_profit_usd:** 34.4564
+- **detected_actionable:** 4
+- **segregated_from_directional:** True
+
+### Accounting integrity
 
 - **global_reconciled:** True
 - **scope_note:** lifecycle counts are cumulative since canonical accounting began; baseline counts are legacy ledger totals that predate it; ledger/gate totals == baseline + accounted.
-- **rejected_before_execution:** 765
+- **rejected_before_execution:** 4622
 
-## 3. Candidate lifecycle
+### Execution gate & calibration
 
-created 1015 · terminals `{'accepted': 0, 'rejected': 745, 'skipped': 263, 'expired': 0, 'missing_data': 7}`
+candidates 43 · accepted 29 · rejects `{'wide_spread': 1, 'insufficient_depth': 0, 'negative_ev_after_slippage': 0, 'too_close_to_resolution': 0, 'min_size_or_tick_violation': 0, 'partial_fill_risk': 0, 'missing_market_data': 0, 'stale_orderbook': 0, 'underdog_price_below_floor': 13}`
 
-rejected_by_stage `{'directional': 495, 'execution_gate': 0, 'context_gate': 62, 'directional_allowlist': 188}`
+calibration `{'samples': 29, 'brier': 0.191124, 'log_loss': 0.549514, 'base_rate_up': 0.3103, 'baseline_brier_0_5': 0.25}`
 
-## 4. Execution gate & calibration
+### PnL by bucket
 
-candidates 0 · accepted 0 · rejects `{'wide_spread': 0, 'insufficient_depth': 0, 'negative_ev_after_slippage': 0, 'too_close_to_resolution': 0, 'min_size_or_tick_violation': 0, 'partial_fill_risk': 0, 'missing_market_data': 0, 'stale_orderbook': 0, 'underdog_price_below_floor': 0}`
+_no bucket PnL yet_
 
-calibration `{'samples': 0, 'brier': None, 'log_loss': None, 'base_rate_up': None, 'baseline_brier_0_5': 0.25}`
+### Selectivity impact on performance
 
-## 5. PnL by bucket (all dimensions)
+counterfactual `{'replayed': 29, 'trades_rejected': 0, 'losses_avoided': 0, 'pnl_removed_by_rejects': 0.0, 'counterfactual_trades': 29, 'counterfactual_win_rate': 0.6897, 'counterfactual_pnl_usd': 3.3833, 'baseline_trades': 29, 'baseline_win_rate': 0.6897, 'baseline_pnl_usd': 3.3833, 'reject_reasons_by_bucket': {}, 'note': 'in-sample replay using final accumulated bucket evidence (diagnostic estimate)'}`
+
+### Recent positions
+
+| window | side | entry_mode | entry | fair | outcome | won | pnl |
+|---|---|---|---|---|---|---|---|
+| , 8:05AM-8:10AM ET | up | late_window | 0.72 | 0.8328718228109104 | down | ✗ | -5.0 |
+| , 8:00AM-8:05AM ET | down | standard | 0.72 | 0.18240622115358818 | down | ✓ | 1.944444 |
+| , 7:50AM-7:55AM ET | up | standard | 0.7 | 0.9030710586046534 | up | ✓ | 2.142857 |
+| , 7:45AM-7:50AM ET | down | standard | 0.62 | 0.2251145883614551 | down | ✓ | 3.064516 |
+| , 7:30AM-7:35AM ET | up | standard | 0.64 | 0.7472949242068506 | up | ✓ | 2.8125 |
+| , 7:05AM-7:10AM ET | down | standard | 0.59 | 0.29264451498117605 | down | ✓ | 3.474576 |
+| , 7:00AM-7:05AM ET | down | late_window | 0.72 | 0.1619836960000252 | down | ✓ | 1.944444 |
+| , 6:55AM-7:00AM ET | down | standard | 0.6 | 0.16445391935970327 | down | ✓ | 3.333333 |
+| , 6:50AM-6:55AM ET | up | late_window | 0.68 | 0.8403378609050882 | up | ✓ | 2.352941 |
+| , 6:45AM-6:50AM ET | down | late_window | 0.77 | 0.04894328884259325 | down | ✓ | 1.493506 |
+| , 6:35AM-6:40AM ET | down | standard | 0.62 | 0.29680232882896285 | down | ✓ | 3.064516 |
+| , 6:30AM-6:35AM ET | up | standard | 0.53 | 0.620297710082628 | down | ✗ | -5.0 |
+| , 6:25AM-6:30AM ET | up | standard | 0.51 | 0.6842232752648798 | down | ✗ | -5.0 |
+| , 6:10AM-6:15AM ET | down | standard | 0.59 | 0.1263368085175739 | up | ✗ | -5.0 |
+| , 6:00AM-6:05AM ET | up | standard | 0.57 | 0.7509556645610314 | down | ✗ | -5.0 |
+
+## 2. Operation
 
 
-## 6. Learned selectivity gate
+### Engine health
+
+- **ticks:** 22
+- **global_reconciled:** True
+- **paper_only:** True
+- **live_trading_enabled:** False
+- **sample_sizes:** `{"accepted": 29, "settled": 29, "candidates": 7016, "edge_model_labeled": 29}`
+- **status:** not_ready
+- **reason:** None
+- **checks:** None
+
+### Candidate lifecycle
+
+created 7016 · terminals `{'accepted': 29, 'rejected': 6380, 'skipped': 590, 'expired': 0, 'missing_data': 17}`
+
+rejected_by_stage `{'directional': 4015, 'execution_gate': 14, 'context_gate': 480, 'directional_allowlist': 1324, 'down_bias_gate': 501, 'mtf_gate': 46}`
+
+### Looping engine (sub-loops)
+
+| loop | role | trigger | interval_s | stop | status |
+|---|---|---|---|---|---|
+| arbitrage | risk_free_arb | per_window | None | ok | — |
+| data_ingestion | data | tick | None | None | True |
+| directional | strategy | per_window | None | warming_up(n<30) | True |
+| execution | execute | per_decision | None | fill or reject | — |
+| heartbeat | automation | tick | 4.0 | process running | — |
+| lessons | memory | per_settlement | None | None | — |
+| news | context | interval | 300.0 | None | — |
+| research_meta | research(/goal) | interval | 1800.0 | verifiable metric improvement | — |
+| risk_monitor | risk | per_settlement | None | None | — |
+| signal_generation | signal | per_window | None | None | True |
+| verifier | verify(maker-checker) | per_decision | None | approve/veto verdict | — |
+
+### Maker-checker verifier
+
+- **enabled:** False
+- **verified:** None
+- **approvals:** None
+- **vetoes:** None
+- **errors:** None
+- **approve_rate:** None
+- **avg_latency_s:** None
+
+### Research meta-loop
+
+- **enabled:** False
+- **calls:** None
+- **auto_apply:** None
+- **lessons_added:** None
+
+### Compounding lessons
+
+count 0
+
+### Internal gates & allowlist
 
 - **decision_rule:** confidently_below_breakeven
-- **confidence_z:** 1.64
-- **accepted:** 0
+- **accepted:** 43
 - **rejected:** 0
 - **explored:** 0
+- **block_reasons:** None
+- **enabled:** True
+- **explore_rate:** 0.0
+- **explored:** 43
+- **blocked:** 1324
+- **enabled:** False
+- **active:** False
+- **weight:** 0.0
+- **reason:** disabled
+- **enabled:** None
+- **halted_directional:** None
+- **halted_arbitrage:** None
+- **rolling_profit_factor:** None
+- **rolling_win_rate:** None
 
-counterfactual `{'replayed': 0, 'trades_rejected': 0, 'losses_avoided': 0, 'pnl_removed_by_rejects': 0.0, 'counterfactual_trades': 0, 'counterfactual_win_rate': None, 'counterfactual_pnl_usd': 0, 'baseline_trades': 0, 'baseline_win_rate': None, 'baseline_pnl_usd': 0, 'reject_reasons_by_bucket': {}, 'note': 'in-sample replay using final accumulated bucket evidence (diagnostic estimate)'}`
-
-## 7. Entry gates (context / late-window / reward-risk)
-
-context_gate enabled=True · blocked 62 · `{'tv_context_ttc_too_far': 40, 'tv_context_hurst_noise': 22}`
-
-late_window gate=False · verdict insufficient_evidence · LHC `{'n': 0, 'win_rate': None, 'pnl_usd': 0.0, 'avg_pnl_usd': None, 'avg_ev_after_cost': None}` · other `{'n': 0, 'win_rate': None, 'pnl_usd': 0.0, 'avg_pnl_usd': None, 'avg_ev_after_cost': None}`
-
-## 8. Grok Decision Engine (decides; bot executes)
+### Grok decider (operations)
 
 - **mode:** shadow
 - **affects_trading:** False
-- **decided:** 13
-- **errors:** 1
-- **skipped_budget:** 0
-- **avg_latency_s:** 8.022
-- **graded_directional:** 7
-- **direction_accuracy:** 0.8571
-- **brier:** 0.1324
-- **views_graded:** 12
-- **view_accuracy:** 0.6667
-- **view_brier:** 0.1916
-- **abstains:** 5
-- **follow_fraction:** 1.0
-- **explore_rate:** 0.0
-- **adaptive_enabled:** True
+- **decided:** 87
+- **errors:** 2
+- **avg_latency_s:** 6.6
+- **abstains:** 60
+- **circuit_breaker:** `{"tripped": false, "reason": null, "consecutive_losses": 0, "daily_follow_loss_usd": 0.0, "daily_loss_cap_usd": 30.0, "trips": 0, "cooldown_remaining_s": 0, "max_consecutive_losses": 4, "max_latency_s": 20.0}`
 
-by_action `{'no_trade': {'n': 5, 'direction_accuracy': None, 'pnl_usd': 0.0}, 'up': {'n': 7, 'direction_accuracy': 0.8571, 'pnl_usd': 0.0}}`
+## 3. External Signals
 
-adaptive_policy_counts `{'exploit': 0, 'explore': 0, 'avoid': 0}`
 
-aggression `{'aggression': 0.0, 'min': 0.0, 'max': 1.0, 'step_up': 0.05, 'step_down': 0.1, 'recent_net_pnl': 0, 'updates': 0, 'note': 'loosens (more explore/looser exploit/larger size) as acted trades profit; tightens on losses; circuit breaker is the hard floor.'}`
+### Signal impact on trading performance
 
-accuracy_by_context `{"hurst_regime": {"insufficient_data": {"n": 5, "accuracy": 0.8}, "trending": {"n": 6, "accuracy": 0.5}, "noise": {"n": 1, "accuracy": 1.0}}, "markov_state": {"stale_polymarket_up": {"n": 8, "accuracy": 0.75}, "stale_polymarket_down": {"n": 2, "accuracy": 1.0}, "chop_noise": {"n": 2, "accuracy": 0.0}}, "ttc_bucket": {">=240s": {"n": 12, "accuracy": 0.6667}}, "conviction_bucket": {"coinflip": {"n": 12, "accuracy": 0.6667}}}`
+| signal | value |
+|---|---|
+| TV aligned bot WR | 0.8889 |
+| TV opposed bot WR | 0.5556 |
+| TV signal hit-rate | 0.6667 |
+| TV settled w/ signal | 18 |
+| TV edge verdict | insufficient_evidence |
+| Grok direction accuracy | 0.56 |
+| Grok view accuracy | 0.5059 |
+| CEX-lead proven edge | False |
 
-view_edge_candidates `[]`
+### TradingView
 
-circuit_breaker `{'tripped': False, 'reason': None, 'consecutive_losses': 0, 'daily_follow_loss_usd': 0.0, 'daily_loss_cap_usd': 30.0, 'trips': 0, 'cooldown_remaining_s': 0, 'max_consecutive_losses': 4, 'max_latency_s': 20.0}`
+- **tradingview_alerts_received:** 235
+- **tradingview_alerts_valid:** 224
+- **tradingview_alerts_rejected:** 11
+- **tradingview_mtf_confirmation:** `{"symbol": "BTCUSDT", "tf_1m_dir": "DOWN", "tf_5m_dir": null, "tf_1m_age_s": 259.5, "tf_5m_age_s": 672.2, "confirm": "single_tf", "direction": "DOWN"}`
 
-news_digest `{"enabled": false}`
+settled_with_signal 18
 
-recent_decisions `[{"action": "no_trade", "p_up": 0.53, "confidence": 0.0, "outcome_up": false, "view_correct": false, "context": {"hurst_regime": "insufficient_data", "markov_state": "stale_polymarket_up", "ttc_bucket": ">=240s", "conviction_bucket": "coinflip"}}, {"action": "up", "p_up": 0.72, "confidence": 0.0, "outcome_up": true, "view_correct": true, "context": {"hurst_regime": "insufficient_data", "markov_state": "stale_polymarket_up", "ttc_bucket": ">=240s", "conviction_bucket": "coinflip"}}, {"action": "up", "p_up": 0.78, "confidence": 0.0, "outcome_up": true, "view_correct": true, "context": {"hurst_regime": "insufficient_data", "markov_state": "stale_polymarket_up", "ttc_bucket": ">=240s", "conviction_bucket": "coinflip"}}, {"action": "up", "p_up": 0.78, "confidence": 0.0, "outcome_up": true, "view_correct": true, "context": {"hurst_regime": "trending", "markov_state": "stale_polymarket_up", "tt`
+best_buckets `[{"dimension": "cvd_state", "bucket": "buy_pressure", "n": 4, "win_rate": 0.5, "pnl_usd": -5.2431, "avg_ev_after_cost": 0.21195, "all_reconciled": true}, {"dimension": "direction", "bucket": "UP", "n": 3, "win_rate": 0.6667, "pnl_usd": 0.2231, "avg_ev_after_cost": 0.20738, "all_reconciled": true}, {"dimension": "supertrend_direction", "bucket": "bullish", "n": 3, "win_rate": 0.6667, "pnl_usd": 0.2231, "avg_ev_after_cost": 0.20738, "all_reconciled": true}, {"dimension": "mtf_alignment", "bucket": "mixed", "n": 8, "win_rate": 0.625, "pnl_usd": -2.8679, "avg_ev_after_cost": 0.206063, "all_reconciled": true}, {"dimension": "ttc_bucket", "bucket": "120-240s", "n": 9, "win_rate": 0.8889, "pnl_usd": 17.78, "avg_ev_after_cost": 0.204727, "all_reconciled": true}]`
 
-## 9. Grok signal intel (analyst + predictor + budget)
+worst_buckets `[{"dimension": "htf_bias", "bucket": "bearish", "n": 8, "win_rate": 0.875, "pnl_usd": 13.7167, "avg_ev_after_cost": 0.143338, "all_reconciled": true}, {"dimension": "vwap_state", "bucket": "below", "n": 8, "win_rate": 0.875, "pnl_usd": 13.7167, "avg_ev_after_cost": 0.143338, "all_reconciled": true}, {"dimension": "range_state", "bucket": "range_middle", "n": 5, "win_rate": 0.8, "pnl_usd": 3.9478, "avg_ev_after_cost": 0.1455, "all_reconciled": true}, {"dimension": "mtf_alignment", "bucket": "bearish_aligned", "n": 7, "win_rate": 1.0, "pnl_usd": 18.7167, "avg_ev_after_cost": 0.147686, "all_reconciled": true}, {"dimension": "cvd_state", "bucket": "neutral", "n": 6, "win_rate": 0.5, "pnl_usd": -8.4635, "avg_ev_after_cost": 0.153917, "all_reconciled": true}]`
 
-budget `{'daily_usd_cap': 5.0, 'est_usd_per_call': 0.02, 'spent_today_usd': 0.18, 'calls_today': 9, 'per_feature_hourly': {'predictor': 30, 'analyst': 4, 'overlay': 20, 'decider': 60, 'news': 30}}`
+rsi_trend hit_rate 0.4888 (n 223)
 
-predictor_B `{'enabled': True, 'observe_only': True, 'affects_trading': False, 'off_hot_path': True, 'requested': 0, 'predicted': 0, 'errors': 0, 'skipped_budget': 0, 'scored': 0, 'accuracy': None, 'brier': None, 'pending': 0, 'note': 'observe-only Grok P(up) per signal; graded vs realized BTC move before it could ever be trusted; never places/sizes/bypasses a trade.'}`
+**context_gate:** enabled=True blocked=480 explored=27 `{'tv_context_ttc_too_far': 407, 'tv_context_hurst_noise': 73}`
 
-analyst_A last_note `{"summary": "After five analyses the bot remains at zero settled trades, signals, and evaluations across every source, so no bucket, regime, or signal meets the n>=8 or min_samples=30 thresholds required for confirmation or rejection. All learned metrics stay at baseline null values with context_gate continuing to block solely on ttc_too_far and hurst_noise. The system is still in its initial observe-only state with no observable patterns.", "working": [], "failing": [], "warnings": ["all evidence buckets empty (n=0)", "no win-rate or EV estimates possible", "observe-only mode prevents any trading authority"], "changes_since_last": ["no new settled trades, signals, or evaluations since prior analysis; all metrics unchanged at baseline null"], "focus_next": ["accumulate settled trades until n>=30 in any regime/z-score/conviction bucket", "monitor context_gate blocks for ttc distribution", "wait for signal_learning and edge_vs_5min_outcome to reach min_evidence"]}`
+**down_bias_gate:** enabled=True blocked=501 explored=15 `{'tv_down_bias_up_without_bearish': 501, 'tv_down_bias_bullish_aligned_up': 228}`
 
-## 10. TradingView learning
+**mtf_gate:** enabled=True blocked=46 explored=0 `{'tv_mtf_opposes_side': 17, 'tv_mtf_single_tf_only': 29}`
 
-- **tradingview_alerts_received:** 0
-- **tradingview_alerts_valid:** 0
-- **tradingview_alerts_rejected:** 0
+**signal_gate:** enabled=False blocked=None explored=None `None`
 
-settled_with_signal 0
+### Grok Decision Engine (signal quality)
 
-best_buckets `[]`
+- **mode:** shadow
+- **affects_trading:** False
+- **direction_accuracy:** 0.56
+- **brier:** 0.2411
+- **view_accuracy:** 0.5059
+- **view_brier:** 0.2499
+- **views_graded:** 85
+- **view_edge_candidates:** `[]`
 
-worst_buckets `[]`
+accuracy_by_context `{"hurst_regime": {"insufficient_data": {"n": 9, "accuracy": 0.6667}, "trending": {"n": 73, "accuracy": 0.4795}, "noise": {"n": 3, "accuracy": 0.6667}}, "markov_state": {"stale_polymarket_up": {"n": 25, "accuracy": 0.52}, "stale_polymarket_down": {"n": 26, "accuracy": 0.5385}, "chop_noise": {"n": 34, "accuracy": 0.4706}}, "ttc_bucket": {">=240s": {"n": 85, "accuracy": 0.5059}}, "conviction_bucket": {"coinflip": {"n": 85, "accuracy": 0.5059}}}`
 
-rsi_trend hit_rate None (n 0) · pred_acc None
+recent_decisions `[{"action": "no_trade", "p_up": 0.47, "confidence": 0.0, "outcome_up": false, "view_correct": true, "context": {"hurst_regime": "trending", "markov_state": "stale_polymarket_down", "ttc_bucket": ">=240s", "conviction_bucket": "coinflip"}}, {"action": "no_trade", "p_up": 0.4, "confidence": 0.0, "outcome_up": true, "view_correct": false, "context": {"hurst_regime": "trending", "markov_state": "stale_polymarket_down", "ttc_bucket": ">=240s", "conviction_bucket": "coinflip"}}, {"action": "no_trade", "p_up": 0.47, "confidence": 0.0, "outcome_up": false, "view_correct": true, "context": {"hurst_regime": "trending", "markov_state": "stale_polymarket_down", "ttc_bucket": ">=240s", "conviction_bucket": "coinflip"}}, {"action": "no_trade", "p_up": 0.49, "confidence": 0.0, "outcome_up": false, "view_correct": true, "context": {"hurst_regime": "insufficient_data", "markov_state": "chop_noise", "ttc_`
 
-## 11. Loop engineering (maker-checker / lessons / loops / research)
+### Grok signal intel (analyst + predictor)
 
-**Verifier (independent Claude maker-checker):** `{"enabled": false, "verified": null, "approvals": null, "vetoes": null, "errors": null, "approve_rate": null, "approved_acted_settled": null, "avg_latency_s": null}`
+budget `{'daily_usd_cap': 5.0, 'est_usd_per_call': 0.02, 'spent_today_usd': 0.06, 'calls_today': 3, 'per_feature_hourly': {'predictor': 30, 'analyst': 4, 'overlay': 20, 'decider': 60, 'news': 30}}`
 
-**Research meta-loop:** `{"enabled": false, "calls": null, "auto_apply": null, "lessons_added": null}`
+predictor_B `{'enabled': True, 'observe_only': True, 'affects_trading': False, 'off_hot_path': True, 'requested': 224, 'predicted': 140, 'errors': 0, 'skipped_budget': 84, 'scored': 131, 'accuracy': 0.4962, 'brier': 0.2518, 'pending': 0, 'note': 'observe-only Grok P(up) per signal; graded vs realized BTC move before it could ever be trusted; never places/sizes/bypasses a trade.'}`
 
-**Lessons (compounding rules):** count 0
+analyst_A last_note `{"summary": "With only 18 settled trades (all DOWN-heavy), overall win-rate 0.722 and positive EV after costs, but n<8 in most sub-buckets means almost nothing is yet confirmed; the few n>=8 slices that clear the bar (DOWN, 120-240s TTC, below VWAP, normal BB, sell-pressure CVD, strong ADX trend, bearish HTF) show positive realized PnL and EV. No prior analysis exists so all patterns are new.", "working": ["direction=DOWN (n=15, WR=0.733, +8.9 PnL)", "ttc=120-240s (n=9, WR=0.889, +17.8 PnL)", "vwap_state=below (n=8, WR=0.875, +13.7 PnL)", "bb_state=normal (n=9, WR=1.0, +21.2 PnL)", "cvd_state=sell_pressure (n=8, WR=1.0, +22.8 PnL)", "adx_state=strong_trend (n=13, WR=0.769, +11.0 PnL)"], "failing": ["zscore=-1..1 (n=13, negative PnL)", "vwap_state=above (n=10, negative PnL)", "mtf_alignment=mixed (n=8, negative PnL)", "bb_state=expansion_down/expansion_up (negative PnL)"], "warnings": ["total n=18 is tiny; every bucket except the top-level aggregates has n<8 and must be ignored", "observe-only mode, no promotion possible", "all trades in trending regime and neutral funding only"], "changes_since_last": ["first analysis; no prior baseline"], "focus_next": ["accumulate samples specifi`
 
-**Sub-loops:** arbitrage, data_ingestion, directional, execution, heartbeat, lessons, news, research_meta, risk_monitor, signal_generation, verifier
+### CEX-lead latency edge
 
-## 12. Execution-realistic edge (Roan Part IV)
+- **mode:** shadow
+- **affects_trading:** False
+- **signals_seen:** 5942
+- **graded:** 108
+- **drove_entries:** 0
+- **any_proven:** False
+| divergence | n | acc | beats_mkt | avg_pnl/u | proven |
+|---|---|---|---|---|---|
+| >=0.30 | 107 | 0.4673 | False | -0.0256 | False |
+| ttc=>=0.30|240_300s | 107 | 0.4673 | False | -0.0256 | False |
+| news=>=0.30|neutral | 107 | 0.4673 | False | -0.0256 | False |
+| late=>=0.30|indecisive | 107 | 0.4673 | False | -0.0256 | False |
+| tv=>=0.30|unconfirmed | 79 | 0.5063 | False | 0.0101 | False |
+| conf=>=0.30|unconfirmed | 62 | 0.4516 | False | -0.0467 | False |
 
-candidates_scored 0 · avg_exec_ev_usd None · avg_kl None
+### Pulse edge signal
 
-payoff_guards `{'rejected_tiny_upside': 35, 'rejected_bad_reward_to_risk': 45, 'rejected_high_entry_insufficient_margin': 0}`
+`{"enabled": true, "observe_only": true, "report_only": true, "affects_trading": false, "settled": 29, "by_stale_divergence": {"not_stale": {"n": 27, "win_rate": 0.6667, "pnl_usd": 0.0405, "avg_ev_after_cost": 0.161824, "all_reconciled": true}, "already_priced": {"n": 1, "win_rate": 1.0, "pnl_usd": 1.8493, "avg_ev_after_cost": 0.1124, "all_reconciled": true}, "stale_polymarket_up": {"n": 1, "win_rate": 1.0, "pnl_usd": 1.4935, "avg_ev_after_cost": 0.1811, "all_reconciled": true}}, "by_ttc_bucket": {"180_240s": {"n": 10, "win_rate": 0.9, "pnl_usd": 19.8638, "avg_ev_after_cost": 0.1817, "all_reconciled": true}, "90_180s": {"n": 11, "win_rate": 0.5455, "pnl_usd": -12.8972, "avg_ev_after_cost": 0.166622, "all_reconciled": true}, "30_90s": {"n": 6, "win_rate": 0.6667, "pnl_usd": -2.0579, "avg_ev_`
 
-simplex_diagnostics `{}`
+### DOWN stack grader
 
-## 13. Edge signal & readiness
-
-edge_signal `{"enabled": true, "observe_only": true, "report_only": true, "affects_trading": false, "settled": 0, "by_stale_divergence": {}, "by_ttc_bucket": {}, "by_ob_pressure": {}}`
-
-**CEX-lead latency edge** (grades CEX-implied P(up) vs the MARKET price): mode `shadow` · affects_trading False · signals_seen 649 · graded 13 · drove 0 · any_proven (beats market) **False**
-| divergence | n | acc | brier_cex | brier_mkt | beats_mkt | avg_pnl/u | proven |
-|---|---|---|---|---|---|---|---|
-| >=0.30 | 13 | 0.6154 | 0.3118 | 0.2622 | False | 0.1412 | False |
-| ttc=>=0.30|240_300s | 13 | 0.6154 | 0.3118 | 0.2622 | False | 0.1412 | False |
-| tv=>=0.30|unconfirmed | 13 | 0.6154 | 0.3118 | 0.2622 | False | 0.1412 | False |
-| news=>=0.30|neutral | 13 | 0.6154 | 0.3118 | 0.2622 | False | 0.1412 | False |
-| late=>=0.30|indecisive | 13 | 0.6154 | 0.3118 | 0.2622 | False | 0.1412 | False |
-| conf=>=0.30|confirmed | 8 | 0.75 | 0.209 | 0.2651 | True | 0.2812 | False |
-_promotion: n>=min AND wilson_lower(win_rate)>breakeven AND Brier_cex<Brier_market AND avg_pnl>0_
-
-**Within-window risk-free arbitrage** (Roan dutch book `up_vwap+down_vwap<1`; P&L SEGREGATED from directional, never blended): detected_actionable 2 · sell_both_detected 352 · executed 2 · settled 2 · open 0 · realized_profit **$16.5179** (risk-free)
-
-readiness `{'report_only': True, 'status': 'not_ready', 'ready_to_claim_80pct': False, 'gates': {'accepted_ge_100': False, 'accepted_ge_500': False, 'accepted_ge_1000': False, 'win_rate_ge_80': False, 'positive_net_paper_pnl': False, 'profit_factor_ok': False, 'calibration_error_ok': False, 'max_drawdown_ok': True, 'loss_size_le_win_size': True, 'no_reconciliation_failures': True, 'no_missing_settlement_data': True, 'no_unmodeled_fill_assumptions': True, 'no_safety_bypass': True}, 'metrics': {'accepted': 0, 'win_rate': None, 'net_pnl_usd': 0.0, 'profit_factor': None, 'calibration_error': None, 'max_drawdown_usd': 0.0, 'avg_win_usd': None, 'avg_loss_usd': None}}`
-
-## 14. Recent paper positions
-
-_no positions_
+`{"observe_only": true, "affects_trading": false, "min_samples": 30, "edge_margin": 0.04, "buckets": [{"bucket": "bearish_only", "n": 7, "win_rate": 1.0, "wilson_lower": 0.7224, "avg_entry": 0.6557, "breakeven_wr": 0.6557, "pnl_usd": 18.7167, "proven": false}, {"bucket": "other", "n": 22, "win_rate": 0.5909, "wilson_lower": 0.4184, "avg_entry": 0.6502, "breakeven_wr": 0.6502, "pnl_usd": -15.3333, "proven": false}], "any_proven": false, "proven_buckets": [], "promotion_rule": "n>=30 AND wilson_lower>avg_entry+0.04 AND pnl>0"}`

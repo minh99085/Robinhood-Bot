@@ -4,24 +4,26 @@ host: 45.32.224.147
 user: root
 repo: /opt/Grok-Bot-2
 plugin: /opt/Grok-Bot-2/hermes-agent-main/plugins/hermes-trading-engine
-git_head: 52615f2d8d17c2ec464aa0d71e7a3d783d0288b0 (origin/main)
+git_head: 56848f1d4ba95e12141970baff35d294b60ca829 (origin/main)
 deploy: git bundle sync + docker compose down/build/up --remove-orphans
 
 containers:
   hermes-training         Up (healthy)  ports 127.0.0.1:8787, 127.0.0.1:18787
   hermes-trading-engine   Up (healthy)  port 0.0.0.0:80->8800 (dashboard)
 
-pulse_status (2026-06-25 05:32 UTC):
-  ticks: 229
+pulse_status (pulled 2026-06-25 UTC):
+  ticks: 22 (status snapshot; loop restarted after deploy)
+  report schema: btc_pulse_light_report/1.2 (3 sections)
   grok_decider: mode=shadow affects_trading=false
-  context_gate: enabled=true (ttc_too_far, hurst_noise blocks)
-  tv_down_bias_gate: enabled (docker-compose)
-  directional: 0 settled (Wilson allowlist quarantine active)
-  arbitrage: 2 executed/settled, +$16.52 realized
+  context_gate: enabled=true
+  tv_down_bias_gate: enabled explore=0
+  tv_mtf_gate: enabled require_confirm+side_align explore=0
+  directional: 29 settled WR=69% (+$3.38); UP 50% / DOWN 79%
+  arbitrage: 4 executed/settled, +$34.46 realized (segregated)
+  total PnL: +$37.84 on $537.84 on-hand
   stop_conditions: any_halted=false
   global_reconciled: true
-  readiness: not_ready (warming up)
 
 artifacts in /data: STATE.md, LESSONS.md, MANIFEST.txt, validation_*.txt,
 btc_pulse_status.json, btc_pulse_ledger.json, btc_pulse_light_report.json,
-btc_pulse_meta_bundle.json, report.md
+btc_pulse_meta_bundle.json, btc_pulse_tradingview.json, report.md
