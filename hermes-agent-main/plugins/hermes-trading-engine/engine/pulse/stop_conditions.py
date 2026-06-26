@@ -77,10 +77,10 @@ def _directional_metrics(positions, *, rolling_n: int, confidence_z: float = 1.6
             gross_loss += -pnl_usd
     wr = wins / n
     breakeven = entry_sum / n
-    pf = (gross_win / gross_loss) if gross_loss > 0 else None
+    pf = (round(gross_win / gross_loss, 4) if gross_loss > 0 else None)
     return {"n": n, "wins": wins, "win_rate": round(wr, 4),
             "wilson_lower": (_wilson_lower(wins, n, z=confidence_z) if n else None),
-            "breakeven_wr": round(breakeven, 4), "profit_factor": (round(pf, 4) if pf else None),
+            "breakeven_wr": round(breakeven, 4), "profit_factor": pf,
             "pnl_usd": round(pnl, 4)}
 
 
@@ -106,10 +106,10 @@ def evaluate_directional(*, positions, ledger_stats: dict, starting_capital: flo
     be = metrics.get("breakeven_wr")
     wr = metrics.get("win_rate")
     pf = metrics.get("profit_factor")
-    # Wilson alone can false-halt when avg entry price is high (wide CI) but realized WR/PF are ok.
+    # Wilson CI can sit below breakeven on high avg-entry prices even when WR≈BE and PF≥1.
+    # Only Wilson-halt when the lower bound AND realized profit-factor both say we're losing.
     if (wl is not None and be is not None and wl < be
-            and ((wr is not None and wr < be)
-                 or (pf is not None and pf < cfg.min_profit_factor))):
+            and pf is not None and pf < cfg.min_profit_factor):
         reasons.append("wilson_wr_below_breakeven")
     if pf is not None and pf < cfg.min_profit_factor:
         reasons.append("profit_factor_below_floor")
