@@ -14,7 +14,11 @@ class _FakeEsnap:
 
 
 def _gate_engine(**cfg_kw) -> PulseEngine:
-    defaults = {"mispricing_gate_enabled": True, "edge_ttc_gate_enabled": True}
+    defaults = {
+        "mispricing_gate_enabled": True,
+        "edge_ttc_gate_enabled": True,
+        "baseline_up_tv_gate_enabled": True,
+    }
     defaults.update(cfg_kw)
     cfg = PulseConfig(**defaults)
     eng = object.__new__(PulseEngine)

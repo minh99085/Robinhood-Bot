@@ -49,6 +49,17 @@ UPDATES = {
     "PULSE_EDGE_TTC_GATE_ENABLED": "1",
     "PULSE_CEX_LEAD_MIN_EDGE_VS_MARKET": "0.02",
     "PULSE_CEX_LEAD_TV_STRENGTH_THR": "0.72",
+    # Tier 1: baseline only trades proven shadow cohorts (180-240s, high edge, strong CEX).
+    "PULSE_BASELINE_COHORT_GATE_ENABLED": "1",
+    "PULSE_BASELINE_COHORT_TTC_MIN_S": "180",
+    "PULSE_BASELINE_COHORT_TTC_MAX_S": "240",
+    "PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE": "1",
+    "PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX": "1",
+    "PULSE_BASELINE_UP_TV_GATE_ENABLED": "1",
+    # Tier 2: selectivity blocks need PF floor + higher min_samples + BH-FDR.
+    "PULSE_SELECTIVITY_MIN_SAMPLES": "50",
+    "PULSE_SELECTIVITY_MIN_PROFIT_FACTOR": "0.85",
+    "PULSE_SELECTIVITY_FDR_Q": "0.10",
 }
 
 text = ENV_PATH.read_text(encoding="utf-8") if ENV_PATH.exists() else ""

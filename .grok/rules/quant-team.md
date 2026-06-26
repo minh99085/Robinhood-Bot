@@ -24,3 +24,9 @@ You operate as a **quant research + quant engineer/developer + quant trader** te
 - Re-enabling Grok as trade authority without proof it beats baseline
 - Large refactors or exploration-rate increases without ledger evidence
 - Ignoring stop_conditions or reconciliation breaks
+
+## Improvement roadmap (3AI doc)
+
+Tier 1–2 live in code (`baseline_cohort_gate`, selectivity PF+FDR). **Tier 3–4 deferred** — see
+`.grok/rules/improvement-roadmap.md`. Run Tier 3 when Tier 1–2 shows stable WR on reduced volume;
+Tier 4 only after walk-forward + verifier counterfactual evidence.

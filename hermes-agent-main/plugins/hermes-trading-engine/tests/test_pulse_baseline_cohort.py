@@ -1,0 +1,59 @@
+"""Tier-1 baseline quant cohort gate."""
+
+from engine.pulse.engine import PulseEngine, PulseConfig
+
+
+class _FakeEsnap:
+    def __init__(self, **kw):
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+
+def _eng(**kw):
+    defaults = {
+        "baseline_cohort_gate_enabled": True,
+        "baseline_up_tv_gate_enabled": True,
+        "baseline_cohort_ttc_min_s": 180.0,
+        "baseline_cohort_ttc_max_s": 240.0,
+    }
+    defaults.update(kw)
+    return PulseEngine(PulseConfig(**defaults))
+
+
+def test_blocks_medium_edge_and_late_ttc():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="medium", cex_agreement_bucket="strong"),
+        ttc_s=200.0, tv_feature=None)
+    assert not ok and r == "baseline_cohort_edge_not_high"
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=260.0, tv_feature=None)
+    assert not ok and r == "baseline_cohort_ttc_too_late"
+
+
+def test_allows_proven_down_cohort():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=200.0, tv_feature=None)
+    assert ok and r == ""
+
+
+def test_up_requires_tv_strong():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="up",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=200.0,
+        tv_feature={"direction": "UP", "strength": 0.9, "signal_level": "UP_STRONG"})
+    assert ok
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="up",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=200.0,
+        tv_feature={"direction": "UP", "strength": 0.5, "signal_level": "UP_WEAK"})
+    assert not ok

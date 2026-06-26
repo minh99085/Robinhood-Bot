@@ -29,6 +29,51 @@ def _wilson_upper(wins: int, n: int, z: float) -> float:
     return min(1.0, center + margin)
 
 
+def profit_factor_from_stat(st: dict) -> Optional[float]:
+    """Bucket profit factor from aggregate win-rate and avg win/loss."""
+    n = int(st.get("n") or 0)
+    if n <= 0:
+        return None
+    wr = float(st.get("win_rate") or 0.0)
+    wins = int(round(wr * n))
+    losses = n - wins
+    gross_win = wins * float(st.get("avg_win") or 0.0)
+    gross_loss = losses * float(st.get("avg_loss") or 0.0)
+    if gross_loss <= 0:
+        return None if gross_win <= 0 else 999.0
+    return round(gross_win / gross_loss, 4)
+
+
+def _binom_cdf_le(k: int, n: int, p: float) -> float:
+    """P(X <= k) for Binomial(n, p) — conservative, exact for small n."""
+    if n <= 0:
+        return 1.0
+    p = min(max(float(p), 1e-9), 1.0 - 1e-9)
+    total = 0.0
+    for i in range(int(k) + 1):
+        total += math.comb(n, i) * (p ** i) * ((1.0 - p) ** (n - i))
+    return min(1.0, max(0.0, total))
+
+
+def benjamini_hochberg(p_values: list, *, q: float = 0.10) -> list:
+    """Return bool mask (same length) — True where null is rejected at FDR level q."""
+    m = len(p_values)
+    if m == 0:
+        return []
+    order = sorted(range(m), key=lambda i: p_values[i])
+    rejected = [False] * m
+    max_i = -1
+    for rank, idx in enumerate(order, start=1):
+        if p_values[idx] <= (rank / m) * float(q):
+            max_i = rank
+    if max_i < 0:
+        return rejected
+    for rank, idx in enumerate(order, start=1):
+        if rank <= max_i:
+            rejected[idx] = True
+    return rejected
+
+
 def breakeven_win_rate(avg_win: float, avg_loss: float) -> float:
     """The win-rate at which a bucket is EV-neutral given its OWN realized payoff: a win nets
     ``avg_win`` while a loss costs ``avg_loss`` (full stake), so breakeven = avg_loss/(avg_win+avg_loss).
@@ -175,11 +220,14 @@ class LearnedSelectivityGate:
     Never trades, resizes, or bypasses the execution gate."""
 
     def __init__(self, *, enabled: bool = True, min_samples: int = 30, min_win_rate: float = 0.52,
-                 exploration_rate: float = 0.05, confidence_z: float = 1.64,
+                 min_profit_factor: float = 0.85, exploration_rate: float = 0.05,
+                 confidence_z: float = 1.64, fdr_q: float = 0.10,
                  seed: Optional[int] = None):
         self.enabled = bool(enabled)
         self.min_samples = int(min_samples)
         self.min_win_rate = float(min_win_rate)
+        self.min_profit_factor = float(min_profit_factor)
+        self.fdr_q = float(fdr_q)
         self.confidence_z = float(confidence_z)        # one-sided z for the "confidently losing" test
         self.exploration_rate = max(0.0, min(0.05, float(exploration_rate)))   # hard cap 5%
         self.accepted = 0
@@ -200,26 +248,53 @@ class LearnedSelectivityGate:
         be = breakeven_win_rate(st["avg_win"], st["avg_loss"])
         upper = _wilson_upper(wins, n, self.confidence_z)
         ev_per_trade = round(wr * float(st["avg_win"]) - (1.0 - wr) * float(st["avg_loss"]), 4)
-        confidently_losing = (st["pnl_usd"] < 0) and (upper < be)
+        pf = profit_factor_from_stat(st)
+        pf_ok = (pf is not None and pf < self.min_profit_factor)
+        confidently_losing = (st["pnl_usd"] < 0) and (upper < be) and pf_ok
+        p_below_breakeven = _binom_cdf_le(wins, n, be) if n > 0 else 1.0
         return {"n": n, "win_rate": round(wr, 4), "pnl_usd": st["pnl_usd"],
                 "avg_win": st["avg_win"], "avg_loss": st["avg_loss"],
-                "breakeven_win_rate": round(be, 4), "win_rate_upper_ci": round(upper, 4),
-                "ev_per_trade": ev_per_trade, "confidently_losing": confidently_losing}
+                "profit_factor": pf, "breakeven_win_rate": round(be, 4),
+                "win_rate_upper_ci": round(upper, 4),
+                "ev_per_trade": ev_per_trade, "p_value_vs_breakeven": round(p_below_breakeven, 6),
+                "confidently_losing": confidently_losing,
+                "block_rule": ("pnl<0 AND wilson_upper<breakeven AND pf<%.2f" % self.min_profit_factor)}
+
+    def _eligible_block_buckets(self, evidence: SelectivityEvidence) -> dict:
+        """(dimension, bucket) -> assess row for buckets permitted to block (PF + Wilson + BH-FDR)."""
+        rows, keys = [], []
+        for d in evidence.dims:
+            for b in evidence.buckets.get(d, {}):
+                st = evidence.stat(d, b)
+                if not st or st["n"] < self.min_samples:
+                    continue
+                a = self._assess(st)
+                if not a.get("confidently_losing"):
+                    continue
+                rows.append(a)
+                keys.append((d, str(b)))
+        if not rows:
+            return {}
+        flags = benjamini_hochberg([r["p_value_vs_breakeven"] for r in rows], q=self.fdr_q)
+        out = {}
+        for (d, b), a, ok in zip(keys, rows, flags):
+            a = dict(a)
+            a["fdr_significant"] = bool(ok)
+            a["block_allowed"] = bool(ok)
+            out[(d, b)] = {"dimension": d, "bucket": b, **a}
+        return out
 
     def _bad_buckets(self, tags: dict, evidence: SelectivityEvidence) -> list:
-        """Buckets that are CONFIDENTLY losing (enough samples + win-rate confidently below their own
-        breakeven). Pure; no counters/RNG. Coin-flip / not-significant buckets are NOT rejected."""
+        """Buckets matching this candidate that are permitted to block live."""
+        allowed = self._eligible_block_buckets(evidence)
         bad = []
         for d in evidence.dims:
             b = (tags or {}).get(d)
             if b is None:
                 continue
-            st = evidence.stat(d, b)
-            if not st or st["n"] < self.min_samples:
-                continue
-            a = self._assess(st)
-            if a["confidently_losing"]:
-                bad.append({"dimension": d, "bucket": str(b), **a})
+            hit = allowed.get((d, str(b)))
+            if hit:
+                bad.append(hit)
         return bad
 
     def evaluate(self, tags: dict, evidence: SelectivityEvidence) -> dict:
@@ -297,7 +372,9 @@ class LearnedSelectivityGate:
             "enabled": self.enabled, "observe_only_metrics": True, "affects_trading": self.enabled,
             "can_force_trade": False, "execution_gate_still_authoritative": True,
             "min_samples": self.min_samples, "min_win_rate": self.min_win_rate,
-            "confidence_z": self.confidence_z, "decision_rule": "confidently_below_breakeven",
+            "min_profit_factor": self.min_profit_factor, "fdr_q": self.fdr_q,
+            "confidence_z": self.confidence_z,
+            "decision_rule": "confidently_below_breakeven_and_pf_floor_fdr",
             "exploration_rate": self.exploration_rate,
             "accepted": self.accepted, "rejected": self.rejected, "explored": self.explored,
             "reject_reasons": dict(self.reject_reasons),
@@ -312,6 +389,7 @@ class LearnedSelectivityGate:
             out["bucket_evidence"] = self.bucket_evidence(evidence)
         if evidence is not None and positions is not None:
             out["counterfactual"] = self.counterfactual_replay(evidence, positions)
+            out["live_block_audit"] = self.audit_live_blocks(evidence, positions)
         return out
 
     def bucket_evidence(self, evidence: SelectivityEvidence, *, min_samples: Optional[int] = None,
@@ -321,16 +399,63 @@ class LearnedSelectivityGate:
         'confidently_losing'. Lets the operator see WHY a bucket is (or is NOT) blocked — resolving
         apparent contradictions with sub-sample reports (e.g. signal-only by_hurst_regime)."""
         ms = self.min_samples if min_samples is None else int(min_samples)
+        allowed = self._eligible_block_buckets(evidence)
         rows = []
         for d in evidence.dims:
             for b in evidence.buckets.get(d, {}):
                 st = evidence.stat(d, b)
                 if not st or st["n"] < ms:
                     continue
-                rows.append({"dimension": d, "bucket": str(b), **self._assess(st)})
-        rows.sort(key=lambda r: (not r["confidently_losing"], r["ev_per_trade"]))
-        return {"min_samples": ms, "rule": "blocked iff confidently_losing",
+                a = self._assess(st)
+                hit = allowed.get((d, str(b)))
+                if hit:
+                    a["fdr_significant"] = hit.get("fdr_significant")
+                    a["block_allowed"] = hit.get("block_allowed")
+                else:
+                    a["fdr_significant"] = False
+                    a["block_allowed"] = False
+                rows.append({"dimension": d, "bucket": str(b), **a})
+        rows.sort(key=lambda r: (not r.get("block_allowed"), r["ev_per_trade"]))
+        return {"min_samples": ms,
+                "rule": ("blocked iff confidently_losing AND fdr_significant "
+                         "(Wilson upper < breakeven, PF < min, BH-FDR q=%.2f)" % self.fdr_q),
+                "min_profit_factor": self.min_profit_factor,
+                "fdr_q": self.fdr_q,
                 "buckets": rows[:top]}
+
+    def audit_live_blocks(self, evidence: SelectivityEvidence, positions: list) -> list:
+        """Per-bucket counterfactual: trades that would be skipped, losses avoided, wins skipped."""
+        allowed = self._eligible_block_buckets(evidence)
+        audits = []
+        for (d, b), assess in allowed.items():
+                skipped = losses_avoided = wins_skipped = 0
+                pnl_removed = 0.0
+                for p in positions:
+                    tags = p.get("tags") or {}
+                    if str(tags.get(d)) != str(b):
+                        continue
+                    won = bool(p.get("won"))
+                    pnl = float(p.get("pnl") or 0.0)
+                    skipped += 1
+                    pnl_removed += pnl
+                    if won:
+                        wins_skipped += 1
+                    else:
+                        losses_avoided += 1
+                st = evidence.stat(d, b) or {}
+                audits.append({
+                    "dimension": d, "bucket": str(b),
+                    **{k: assess[k] for k in (
+                        "n", "win_rate", "pnl_usd", "breakeven_win_rate", "win_rate_upper_ci",
+                        "profit_factor", "ev_per_trade", "block_allowed", "fdr_significant")},
+                    "trades_skipped": skipped,
+                    "losses_avoided": losses_avoided,
+                    "wins_skipped": wins_skipped,
+                    "pnl_removed_usd": round(pnl_removed, 4),
+                    "pnl_if_block_off": round(float(st.get("pnl_usd") or 0.0), 4),
+                })
+        audits.sort(key=lambda r: r.get("pnl_removed_usd", 0.0))
+        return audits
 
     def to_state(self) -> dict:
         return {"accepted": self.accepted, "rejected": self.rejected, "explored": self.explored,

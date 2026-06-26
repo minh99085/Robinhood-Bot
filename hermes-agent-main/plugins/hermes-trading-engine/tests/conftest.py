@@ -23,3 +23,21 @@ os.environ["HTE_AUTOTRADE"] = "0"
 os.environ["HTE_MODE"] = "paper"
 for _k in ("GROK_API_KEY", "XAI_API_KEY"):
     os.environ.pop(_k, None)
+
+# Tier-1 baseline_cohort_gate defaults ON in production; legacy integration tests tick early
+# (TTC >>240s) and lack edge/CEX tags — disable unless a test passes baseline_cohort_gate_enabled=True.
+import dataclasses
+
+import engine.pulse.engine as _engine_mod
+
+_OriginalPulseConfig = _engine_mod.PulseConfig
+
+
+@dataclasses.dataclass
+class _PulseConfigTestDefault(_OriginalPulseConfig):
+    baseline_cohort_gate_enabled: bool = False
+    baseline_up_tv_gate_enabled: bool = False
+    selectivity_min_samples: int = 30
+
+
+_engine_mod.PulseConfig = _PulseConfigTestDefault

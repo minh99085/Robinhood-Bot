@@ -183,6 +183,13 @@ class PulseConfig:
     mispricing_require_stale_down: bool = True
     mispricing_min_executable_margin: float = 0.03
     edge_ttc_gate_enabled: bool = False
+    # Tier-1 baseline cohort gate: trade only proven shadow buckets on the quant path.
+    baseline_cohort_gate_enabled: bool = True
+    baseline_cohort_ttc_min_s: float = 180.0
+    baseline_cohort_ttc_max_s: float = 240.0
+    baseline_cohort_require_high_edge: bool = True
+    baseline_cohort_require_strong_cex: bool = True
+    baseline_up_tv_gate_enabled: bool = True
     # When Grok abstains, still follow a Wilson-aligned CEX-lead mispricing stack (not coin-flip explore).
     mispricing_follow_on_abstain: bool = False
     mispricing_follow_size_fraction: float = 0.5
@@ -213,8 +220,10 @@ class PulseConfig:
     # Uses live settled-trade bucket evidence to REJECT proven-losing buckets. Can only make the
     # bot MORE selective; never trades/resizes/bypasses the execution gate.
     selectivity_gate_enabled: bool = True
-    selectivity_min_samples: int = 30
+    selectivity_min_samples: int = 50
     selectivity_min_win_rate: float = 0.52
+    selectivity_min_profit_factor: float = 0.85
+    selectivity_fdr_q: float = 0.10
     selectivity_confidence_z: float = 1.64   # one-sided z for "confidently below breakeven" test
     selectivity_exploration_rate: float = 0.05
     calibration_min_samples: int = 30
@@ -441,6 +450,20 @@ class PulseConfig:
                 "PULSE_MISPRICING_MIN_EXECUTABLE_MARGIN", 0.03),
             edge_ttc_gate_enabled=str(os.getenv("PULSE_EDGE_TTC_GATE_ENABLED", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
+            baseline_cohort_gate_enabled=str(
+                os.getenv("PULSE_BASELINE_COHORT_GATE_ENABLED", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            baseline_cohort_ttc_min_s=_envf("PULSE_BASELINE_COHORT_TTC_MIN_S", 180.0),
+            baseline_cohort_ttc_max_s=_envf("PULSE_BASELINE_COHORT_TTC_MAX_S", 240.0),
+            baseline_cohort_require_high_edge=str(
+                os.getenv("PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            baseline_cohort_require_strong_cex=str(
+                os.getenv("PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            baseline_up_tv_gate_enabled=str(
+                os.getenv("PULSE_BASELINE_UP_TV_GATE_ENABLED", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
             mispricing_follow_on_abstain=str(
                 os.getenv("PULSE_MISPRICING_FOLLOW_ON_ABSTAIN", "0")).strip().lower()
             in ("1", "true", "yes", "on"),
@@ -460,8 +483,10 @@ class PulseConfig:
             directional_explore_rate=_envf("PULSE_DIRECTIONAL_EXPLORE_RATE", 0.05),
             selectivity_gate_enabled=str(os.getenv("PULSE_SELECTIVITY_GATE_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
-            selectivity_min_samples=int(_envf("PULSE_SELECTIVITY_MIN_SAMPLES", 30)),
+            selectivity_min_samples=int(_envf("PULSE_SELECTIVITY_MIN_SAMPLES", 50)),
             selectivity_min_win_rate=_envf("PULSE_SELECTIVITY_MIN_WIN_RATE", 0.52),
+            selectivity_min_profit_factor=_envf("PULSE_SELECTIVITY_MIN_PROFIT_FACTOR", 0.85),
+            selectivity_fdr_q=_envf("PULSE_SELECTIVITY_FDR_Q", 0.10),
             selectivity_confidence_z=_envf("PULSE_SELECTIVITY_CONFIDENCE_Z", 1.64),
             selectivity_exploration_rate=_envf("PULSE_SELECTIVITY_EXPLORATION_RATE", 0.05),
             calibration_min_samples=int(_envf("PULSE_CALIB_MIN_SAMPLES", 30)),
@@ -677,6 +702,8 @@ class PulseEngine:
             enabled=bool(self.cfg.selectivity_gate_enabled),
             min_samples=self.cfg.selectivity_min_samples,
             min_win_rate=self.cfg.selectivity_min_win_rate,
+            min_profit_factor=self.cfg.selectivity_min_profit_factor,
+            fdr_q=self.cfg.selectivity_fdr_q,
             confidence_z=self.cfg.selectivity_confidence_z,
             exploration_rate=self.cfg.selectivity_exploration_rate)
         self.reconciler = LifecycleReconciler()   # GS-Quant-style candidate lifecycle audit
@@ -764,6 +791,7 @@ class PulseEngine:
         self._grok_rng = _random.Random()         # exploration sampler (follow-mode data gathering)
         self._grok_policy_counts = {"exploit": 0, "explore": 0, "avoid": 0}   # adaptive-loop tally
         self._mispricing_gate_counts: dict = {}
+        self._baseline_cohort_gate_counts: dict = {}
         try:
             from engine.pulse.grok_intel import (GrokBudget, GrokSignalAnalyst,
                                                  GrokSignalPredictor, xai_key)
@@ -1749,6 +1777,17 @@ class PulseEngine:
             # the quant's directional opinion; in FOLLOW / CEX-LEAD-DRIVE mode the direction is owned
             # by the proven driver so they are bypassed. The deterministic FLOOR (selectivity +
             # calibration + execution-quality gate + caps) below still applies in every mode.
+            if not grok_follow and not cex_lead_active:
+                cohort_ok, cohort_reason = self._baseline_quant_cohort_ok(
+                    side=d.side, esnap=esnap, ttc_s=ttc, tv_feature=tv_feature)
+                if not cohort_ok:
+                    self._baseline_cohort_gate_counts[cohort_reason] = (
+                        self._baseline_cohort_gate_counts.get(cohort_reason, 0) + 1)
+                    dr.action = RejectAction(stage="baseline_cohort_gate", reason=cohort_reason)
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason=cohort_reason, stage="baseline_cohort_gate")
+                    continue
             if (not grok_follow and not cex_lead_active and d.side == "up"
                     and not self._grok_up_side_allowed()):
                 dr.action = RejectAction(stage="grok_decider", reason="grok_no_edge_up")
@@ -2714,8 +2753,51 @@ class PulseEngine:
             return False
         return True
 
+    def _baseline_quant_cohort_ok(self, *, side: str, esnap=None, ttc_s: "float | None",
+                                  tv_feature: "dict | None") -> "tuple[bool, str]":
+        """Tier-1: baseline trades only in high-edge + strong-CEX + 180-240s TTC; UP needs TV proof."""
+        if not self.cfg.baseline_cohort_gate_enabled:
+            return True, ""
+        if side not in ("up", "down"):
+            return False, "baseline_cohort_bad_side"
+        if ttc_s is None:
+            return False, "baseline_cohort_ttc_unknown"
+        ttc_f = float(ttc_s)
+        if ttc_f > float(self.cfg.baseline_cohort_ttc_max_s):
+            return False, "baseline_cohort_ttc_too_late"
+        if ttc_f < float(self.cfg.baseline_cohort_ttc_min_s):
+            return False, "baseline_cohort_ttc_too_early"
+        edge_bucket = self._edge_snap_field(esnap, "pulse_edge_score_bucket")
+        if self.cfg.baseline_cohort_require_high_edge:
+            if edge_bucket not in ("high", "very_high"):
+                return False, "baseline_cohort_edge_not_high"
+        cex_bucket = self._edge_snap_field(esnap, "cex_agreement_bucket")
+        if self.cfg.baseline_cohort_require_strong_cex:
+            if cex_bucket != "strong":
+                return False, "baseline_cohort_cex_not_strong"
+        if side == "up":
+            tv_ok, tv_reason = self._baseline_up_tv_strength_ok(tv_feature)
+            if not tv_ok:
+                return False, tv_reason
+        return True, ""
+
+    def _baseline_cohort_gate_report(self) -> dict:
+        return {
+            "enabled": bool(self.cfg.baseline_cohort_gate_enabled),
+            "ttc_min_s": self.cfg.baseline_cohort_ttc_min_s,
+            "ttc_max_s": self.cfg.baseline_cohort_ttc_max_s,
+            "require_high_edge": self.cfg.baseline_cohort_require_high_edge,
+            "require_strong_cex": self.cfg.baseline_cohort_require_strong_cex,
+            "blocked": sum(self._baseline_cohort_gate_counts.values()),
+            "block_reasons": dict(self._baseline_cohort_gate_counts),
+            "note": ("baseline quant path only: 180-240s TTC, high edge_score, strong CEX; "
+                     "UP also requires TV UP_STRONG"),
+        }
+
     def _baseline_up_tv_strength_ok(self, tv_feature: "dict | None") -> "tuple[bool, str]":
         """Baseline UP requires fresh TV UP_STRONG (direction UP, strength >= 0.8)."""
+        if not self.cfg.baseline_up_tv_gate_enabled:
+            return True, ""
         if not tv_feature:
             return False, "baseline_up_tv_missing"
         direction = str(tv_feature.get("direction") or "").upper()
@@ -2966,6 +3048,7 @@ class PulseEngine:
             "enabled": bool(self.cfg.directional_require_winning_bucket),
             "explore_rate": self.cfg.directional_explore_rate,
             "explored": self._allowlist_explored, "blocked": self._allowlist_blocked}
+        report["baseline_cohort_gate"] = self._baseline_cohort_gate_report()
         report["learned_selectivity_gate"] = self._selectivity_report()
         report["late_window_entry"] = self._late_window_report()
         report["stop_conditions"] = self.stop_monitor.report()
@@ -3497,6 +3580,7 @@ class PulseEngine:
                 "enabled": bool(self.cfg.directional_require_winning_bucket),
                 "explore_rate": self.cfg.directional_explore_rate,
                 "explored": self._allowlist_explored, "blocked": self._allowlist_blocked},
+            "baseline_cohort_gate": self._baseline_cohort_gate_report(),
             "learned_selectivity_gate": self._selectivity_report(),
             "late_window_entry": self._late_window_report(),
             "tradingview": self._tradingview_report(),
