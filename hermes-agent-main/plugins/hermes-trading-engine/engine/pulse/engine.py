@@ -2515,11 +2515,23 @@ class PulseEngine:
                   if v is not None and v != "unknown" and k not in ("observe_only", "source")}
         series_label = getattr(w, "series_label", mc.series_label)
         mtf = None
+        tv_trend = None
         if self.tradingview is not None:
             mtf = self.tradingview.mtf_confirmation(
                 symbol=self.cfg.tradingview_feature_symbol, now=self.last_tick_ts)
+            tv_rep = self.tradingview.report()
+            from engine.pulse.grok_bundle import tv_trend_snapshot
+            tv_trend = tv_trend_snapshot(
+                mtf=mtf,
+                latest_by_timeframe=tv_rep.get("tradingview_latest_by_timeframe") or {},
+                feature_symbol=tv_rep.get("tradingview_feature_symbol")
+                or self.cfg.tradingview_feature_symbol,
+            )
+        from engine.pulse.grok_bundle import gate_funnel_top
+        from engine.pulse.reporting import ledger_stats_by_market_series
+        lifecycle = self.reconciler.report()
         return {
-            "schema_version": "grok_decision_bundle/1.2",
+            "schema_version": "grok_decision_bundle/1.3",
             "market": "polymarket_btc_%s_up_or_down" % series_label,
             "series_slug": getattr(w, "series_slug", mc.series_slug),
             "series_label": series_label,
@@ -2527,6 +2539,9 @@ class PulseEngine:
             "objective": ("settles UP if BTC Chainlink close >= window open (%s window); "
                           "pick up/down/no_trade") % series_label,
             "decision_id": mc.decision_id,
+            "by_market_series": ledger_stats_by_market_series(self.ledger.positions),
+            "gate_funnel": gate_funnel_top(lifecycle.get("rejected_by_stage") or {}),
+            "tradingview_trend": tv_trend,
             "timing": {"seconds_to_close": self._r(ttc, 1),
                        "window_seconds": int(getattr(w, "window_seconds", mc.window_seconds) or 300),
                        "utc_minute_of_hour": int((self.last_tick_ts or time.time()) // 60 % 60)},

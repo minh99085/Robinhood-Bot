@@ -197,6 +197,10 @@ def make_decider_fn(*, model: str = "grok-4.3", timeout_s: float = 12.0,
             "loss costs the full stake, so breakeven win-rate is ~p; only choose up/down when your "
             "probability clears that bar after costs AND a confirmed mispricing favors that side, "
             "else no_trade. "
+            "Use 'by_market_series' (5m vs 15m win-rate/PF/PnL) to favor the stronger market. "
+            "Read 'gate_funnel.top_blockers' — if UP bleeds, avoid weak UP when down_bias/context "
+            "gates dominate. 'tradingview_trend' has all four chart TFs (1/5/10/15m) with strength "
+            "and confirm_4tf — trust multi-TF trend over a single stale alert. "
             "LEARN from your own track record in 'decider_track_record' (direction accuracy overall, "
             "by context, and 'recent_decisions' hits/misses) AND from 'trade_decision_history' (last "
             "50 settled bot trades with per-trade grok alignment + rolling aggregates): lean into "
@@ -207,7 +211,7 @@ def make_decider_fn(*, model: str = "grok-4.3", timeout_s: float = 12.0,
             "JSON ONLY: {\"action\":\"up|down|no_trade\",\"p_up\":<0-1>,\"confidence\":<0-1>,"
             "\"size_fraction\":<0-1>,\"max_price\":<0-1 optional>,\"key_risks\":[\"...\"],"
             "\"rationale\":\"<short>\",\"ttl_s\":<seconds this decision stays valid>}.\nBUNDLE: "
-            + json.dumps(bundle, default=str)[:11000])
+            + json.dumps(bundle, default=str)[:12000])
         content = chat(prompt, model=model, timeout_s=timeout_s, box=box, extra_body=extra)
         return normalize_decision(_parse_json(content), default_ttl_s=default_ttl_s)
     return _decide
