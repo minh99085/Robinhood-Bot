@@ -77,17 +77,21 @@ class OutcomeGroups:
         return out
 
 
+def _pos_field(pos, name: str, default=None):
+    """Read a field from a PulsePosition or a persisted position dict."""
+    if isinstance(pos, dict):
+        return pos.get(name, default)
+    return getattr(pos, name, default)
+
+
 def ledger_stats_by_market_series(positions: dict) -> dict:
     """Concise per-series performance (5m vs 15m) from settled ledger positions."""
     rows = {}
     for pos in (positions or {}).values():
-        if getattr(pos, "status", None) == "settled":
-            p = pos
-        elif isinstance(pos, dict) and pos.get("status") == "settled":
-            p = pos
-        else:
+        status = _pos_field(pos, "status")
+        if status != "settled":
             continue
-        research = (p.research if hasattr(p, "research") else None) or p.get("research") or {}
+        research = _pos_field(pos, "research") or {}
         series = str(research.get("market_series") or research.get("series_slug")
                      or "btc-up-or-down-5m")
         label = str(research.get("series_label") or ("15m" if "15m" in series else "5m"))
@@ -98,9 +102,9 @@ def ledger_stats_by_market_series(positions: dict) -> dict:
             "gross_win": 0.0, "gross_loss": 0.0,
             "side_n": {"up": 0, "down": 0}, "side_wins": {"up": 0, "down": 0},
         })
-        pnl = float((p.pnl_usd if hasattr(p, "pnl_usd") else None) or p.get("pnl_usd") or 0.0)
-        won = bool(p.won if hasattr(p, "won") else p.get("won"))
-        side = str((p.side if hasattr(p, "side") else None) or p.get("side") or "").lower()
+        pnl = float(_pos_field(pos, "pnl_usd") or 0.0)
+        won = bool(_pos_field(pos, "won"))
+        side = str(_pos_field(pos, "side") or "").lower()
         st["settled"] += 1
         st["wins"] += int(won)
         st["pnl_usd"] = round(st["pnl_usd"] + pnl, 4)

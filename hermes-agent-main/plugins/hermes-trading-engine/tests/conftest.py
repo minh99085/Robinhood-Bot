@@ -35,9 +35,15 @@ _OriginalPulseConfig = _engine_mod.PulseConfig
 
 @dataclasses.dataclass
 class _PulseConfigTestDefault(_OriginalPulseConfig):
+    """Relaxed defaults for legacy integration tests (not testing production gates)."""
     baseline_cohort_gate_enabled: bool = False
     baseline_up_tv_gate_enabled: bool = False
     selectivity_min_samples: int = 30
+    # WS2 UP hard-block breaks synthetic rising-price integration paths; gate tests opt in.
+    directional_block_up_until_promoted: bool = False
+    directional_require_winning_bucket: bool = False
+    # No MTF stub in most integration harnesses — conflict gate would veto every candidate.
+    tv_mtf_conflict_gate_enabled: bool = False
 
 
 _engine_mod.PulseConfig = _PulseConfigTestDefault
