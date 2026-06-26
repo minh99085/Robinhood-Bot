@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from engine.pulse.tv_down_bias_gate import TradingViewDownBiasGate
 
+_STRONG_UP_EDGE = {"edge_score_bucket": "high", "cex_agreement_bucket": "strong"}
+
 
 def test_blocks_bullish_aligned_up():
     g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0)
@@ -39,14 +41,15 @@ def test_allows_up_tv_down_bearish_when_stack_rule_off():
                                 block_up_on_bearish_down_stack=False,
                                 block_up_without_bearish=False)
     assert g.evaluate(side="up", mtf_alignment="bearish_aligned",
-                      tv_direction="DOWN")["decision"] == "pass"
+                      tv_direction="DOWN", **_STRONG_UP_EDGE)["decision"] == "pass"
 
 
 def test_allows_down_and_bearish_up_when_stack_rule_off():
     g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
                                 block_up_on_bearish_down_stack=False)
     assert g.evaluate(side="down", mtf_alignment="bearish_aligned")["decision"] == "pass"
-    assert g.evaluate(side="up", mtf_alignment="bearish_aligned", tv_direction="DOWN")["decision"] == "pass"
+    assert g.evaluate(side="up", mtf_alignment="bearish_aligned", tv_direction="DOWN",
+                      **_STRONG_UP_EDGE)["decision"] == "pass"
 
 
 def test_blocks_up_against_confirmed_down():
@@ -60,7 +63,8 @@ def test_blocks_up_against_confirmed_down():
 def test_allows_up_when_confirmed_up():
     g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
                                 block_up_without_bearish=False)
-    assert g.evaluate(side="up", tf_confirm="confirmed_up")["decision"] == "pass"
+    assert g.evaluate(side="up", tf_confirm="confirmed_up",
+                      **_STRONG_UP_EDGE)["decision"] == "pass"
 
 
 def test_disabled_passes():
@@ -191,12 +195,51 @@ def test_blocks_up_bear_close_near_low():
     assert "tv_down_bias_up_bear_close_near_low" in r["reasons"]
 
 
-def test_allows_up_mid_ttc_window():
+def test_blocks_up_medium_edge():
+    g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
+                                block_up_without_bearish=False,
+                                block_mixed_mtf_up=False,
+                                block_up_markov_chop_noise=False,
+                                block_up_weak_cex=False)
+    r = g.evaluate(side="up", mtf_alignment="bearish_aligned",
+                   tv_direction="DOWN", edge_score_bucket="medium")
+    assert r["decision"] == "block"
+    assert "tv_down_bias_up_medium_edge" in r["reasons"]
+
+
+def test_blocks_up_weak_cex():
+    g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
+                                block_up_without_bearish=False,
+                                block_mixed_mtf_up=False,
+                                block_up_markov_chop_noise=False,
+                                block_up_medium_edge=False)
+    r = g.evaluate(side="up", mtf_alignment="bearish_aligned",
+                   tv_direction="DOWN", cex_agreement_bucket="na")
+    assert r["decision"] == "block"
+    assert "tv_down_bias_up_weak_cex" in r["reasons"]
+
+
+def test_allows_up_high_edge_strong_cex():
     g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
                                 block_up_without_bearish=False,
                                 block_up_on_bearish_down_stack=False,
                                 block_up_tv_down_non_bearish=False,
                                 block_mixed_mtf_up=False,
                                 block_up_markov_chop_noise=False)
+    assert g.evaluate(side="up", mtf_alignment="bearish_aligned",
+                      tv_direction="DOWN", ttc_s=180.0,
+                      edge_score_bucket="high",
+                      cex_agreement_bucket="strong")["decision"] == "pass"
+
+
+def test_allows_up_mid_ttc_window():
+    g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
+                                block_up_without_bearish=False,
+                                block_up_on_bearish_down_stack=False,
+                                block_up_tv_down_non_bearish=False,
+                                block_mixed_mtf_up=False,
+                                block_up_markov_chop_noise=False,
+                                block_up_medium_edge=False,
+                                block_up_weak_cex=False)
     assert g.evaluate(side="up", mtf_alignment="bearish_aligned",
                       tv_direction="DOWN", ttc_s=180.0)["decision"] == "pass"
