@@ -12,10 +12,15 @@ changes → measure on 15-min soak. See `.grok/rules/quant-team.md`.
 - **Do not** clone, commit, or push to `hermes-agent-cursor` or any other repo unless the operator explicitly overrides this in the current message.
 - **Local workspace:** prefer `C:\Users\tieut\Grok-Bot-2` when working from this machine.
 - **Default branch:** `main`.
-- **VPS sync:** after every push to `main`, run `.\scripts\sync-vps.ps1` (always syncs code +
-  `docker compose down --remove-orphans` → `build` → `up -d --remove-orphans`). Use `-SkipRebuild`
-  only for rare code-only checks. Goal: `origin/main` SHA == VPS `/opt/Grok-Bot-2` HEAD.
-  Check anytime: `.\scripts\verify-sync.ps1`.
+- **VPS deploy (MANDATORY after every push to `main`):** You MUST run the full deploy yourself —
+  never push and stop. Sequence:
+  1. `git push origin main`
+  2. `.\scripts\sync-vps.ps1` — always default (sync + `down --remove-orphans` → `build` →
+     `up -d --remove-orphans`). **Never** `-SkipRebuild` unless operator explicitly requests it.
+  3. SSH: `python3 scripts/apply-loop-arch-env.py` when env/gates changed
+  4. SSH: `docker compose up -d --force-recreate hermes-training` in the plugin dir
+  5. `.\scripts\verify-sync.ps1` — VPS HEAD must equal `origin/main`
+  See `.grok/rules/repo-scope.md`.
 
 ## Project layout
 

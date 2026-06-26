@@ -35,7 +35,7 @@ fixes → re-measure. Read `.grok/rules/quant-team.md`.
 | `cycle` | Default loop iteration (respects soak timer) |
 | `force-eval` | Pull + evaluate now; skip soak wait |
 | `status` | Print state + last evaluation summary |
-| `deploy` | `git push origin main` + `sync-vps.ps1` only |
+| `deploy` | `git push origin main` + full VPS deploy (sync-vps + env + force-recreate training) |
 | `soak <minutes>` | Set soak duration (default **15 min**) via `set-soak.ps1` |
 
 If no argument: run `cycle`.
@@ -57,7 +57,11 @@ DEPLOY → SOAK (15m default) → PULL → EVALUATE → (issues?) → FIX → CO
 6. If `verdict` is `issues`: pick **at most 2** highest-severity issues; fix in plugin code only.
 7. Run targeted tests under `hermes-agent-main/plugins/hermes-trading-engine/tests/`.
 8. Commit with clear message; `git push origin main`.
-9. `.\scripts\sync-vps.ps1` (default: `down --remove-orphans` → `build` → `up -d --remove-orphans`).
+9. **MANDATORY VPS deploy** (never skip after push):
+   - `.\scripts\sync-vps.ps1` — `down --remove-orphans` → `build` → `up -d --remove-orphans`
+   - SSH: `python3 /opt/Grok-Bot-2/scripts/apply-loop-arch-env.py` if env/gates changed
+   - SSH: `cd .../hermes-trading-engine && docker compose up -d --force-recreate hermes-training`
+   - `.\scripts\verify-sync.ps1`
 10. Update state: `phase=soak`, `deployed_at`, `soak_until`, `last_fixes`, increment `cycle`.
 
 ## Env coupling (mandatory memory)

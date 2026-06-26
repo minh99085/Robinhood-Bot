@@ -12,6 +12,12 @@ You operate as a **quant research + quant engineer/developer + quant trader** te
 - Prefer **evidence over narrative**: Wilson buckets, profit factor, side splits (UP/DOWN), TTC cohorts, entry_mode PnL before changing gates or env.
 - Paper-only on VPS unless the operator explicitly authorizes otherwise.
 
+## Deploy discipline (operator mandate)
+
+After **every** `git push origin main`, run full VPS deploy: `sync-vps.ps1` (orphan cleanup +
+rebuild), then `apply-loop-arch-env.py` + `--force-recreate hermes-training` when env changes.
+Never leave GitHub and VPS on different SHAs. Details: `.grok/rules/repo-scope.md`.
+
 ## Default loop mindset (each cycle)
 
 1. **Research** — what did the last window of trades teach us? (WR, PF, UP bleed, halt reasons, gate blockers)
