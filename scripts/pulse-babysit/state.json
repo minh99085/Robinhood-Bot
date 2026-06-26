@@ -1,17 +1,17 @@
 {
-  "cycle": 13,
+  "cycle": 14,
   "phase": "soak",
   "soak_hours": 1,
-  "deployed_at": "2026-06-26T16:24:20.193318+00:00",
-  "soak_until": "2026-06-26T17:24:20.193318+00:00",
-  "last_eval_at": "2026-06-26T16:22:45.783951+00:00",
+  "deployed_at": "2026-06-26T18:25:34.180007+00:00",
+  "soak_until": "2026-06-26T19:25:34.180007+00:00",
+  "last_eval_at": "2026-06-26T18:22:51.969640+00:00",
   "last_verdict": "issues",
   "last_fixes": [
-    "down_bias: block UP when range_state=breakout_down (0% WR, -12.50 PnL)",
-    "down_bias: block UP when bb_state=squeeze (33% WR, -10.82 PnL)"
+    "down_bias: block UP when ttc>=240s (25% WR, -13.32 PnL, n=8)",
+    "down_bias: block UP when ttc<120s (weak early-window UP entries)"
   ],
-  "last_health_verdict": "healthy",
-  "vps_sha": "5016c293619951464bf174938b0c9b32e255d3f0",
+  "last_health_verdict": "issues",
+  "vps_sha": "610d32d87da7fd45b13fd2151c18a02939d4f8cf",
   "history": [
     {
       "ts": "2026-06-25T19:06:42.423656+00:00",
@@ -681,6 +681,92 @@
       "fixes_applied": [
         "down_bias: block UP when range_state=breakout_down (0% WR, -12.50 PnL)",
         "down_bias: block UP when bb_state=squeeze (33% WR, -10.82 PnL)"
+      ]
+    },
+    {
+      "ts": "2026-06-26T17:07:55.730340+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 55,
+        "win_rate": 0.6364,
+        "profit_factor": 1.0714,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7143,
+        "realized_pnl_usd": 6.07,
+        "tv_valid": 34,
+        "mtf_passed": 98,
+        "mtf_blocked": 275,
+        "context_blocked": 875,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.42,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-26T17:25:35.786126+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 59,
+        "win_rate": 0.661,
+        "profit_factor": 1.2091,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7436,
+        "realized_pnl_usd": 17.77,
+        "tv_valid": 51,
+        "mtf_passed": 102,
+        "mtf_blocked": 275,
+        "context_blocked": 875,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.42,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-26T18:22:51.969640+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 66,
+        "win_rate": 0.6515,
+        "profit_factor": 1.1572,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7174,
+        "realized_pnl_usd": 15.72,
+        "tv_valid": 54,
+        "mtf_passed": 109,
+        "mtf_blocked": 275,
+        "context_blocked": 875,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.42,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-26T18:25:34.180007+00:00",
+      "verdict": "deploy",
+      "metrics": {
+        "commit": "610d32d",
+        "settled": 66,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7174
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ],
+      "fixes_applied": [
+        "down_bias: block UP when ttc>=240s (25% WR, -13.32 PnL, n=8)",
+        "down_bias: block UP when ttc<120s (weak early-window UP entries)"
       ]
     }
   ],
