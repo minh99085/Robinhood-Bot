@@ -20,6 +20,20 @@ def _eng(**kw):
     return PulseEngine(PulseConfig(**defaults))
 
 
+def test_15m_window_scales_ttc_band():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=800.0, tv_feature=None, window_seconds=900)
+    assert not ok and r == "baseline_cohort_ttc_too_late"
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=650.0, tv_feature=None, window_seconds=900)
+    assert ok and r == ""
+
+
 def test_blocks_medium_edge_and_late_ttc():
     eng = _eng()
     ok, r = eng._baseline_quant_cohort_ok(

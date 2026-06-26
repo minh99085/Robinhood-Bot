@@ -77,6 +77,63 @@ class OutcomeGroups:
         return out
 
 
+def ledger_stats_by_market_series(positions: dict) -> dict:
+    """Concise per-series performance (5m vs 15m) from settled ledger positions."""
+    rows = {}
+    for pos in (positions or {}).values():
+        if getattr(pos, "status", None) == "settled":
+            p = pos
+        elif isinstance(pos, dict) and pos.get("status") == "settled":
+            p = pos
+        else:
+            continue
+        research = (p.research if hasattr(p, "research") else None) or p.get("research") or {}
+        series = str(research.get("market_series") or research.get("series_slug")
+                     or "btc-up-or-down-5m")
+        label = str(research.get("series_label") or ("15m" if "15m" in series else "5m"))
+        key = series
+        st = rows.setdefault(key, {
+            "series_slug": series, "series_label": label,
+            "settled": 0, "wins": 0, "pnl_usd": 0.0,
+            "gross_win": 0.0, "gross_loss": 0.0,
+            "side_n": {"up": 0, "down": 0}, "side_wins": {"up": 0, "down": 0},
+        })
+        pnl = float((p.pnl_usd if hasattr(p, "pnl_usd") else None) or p.get("pnl_usd") or 0.0)
+        won = bool(p.won if hasattr(p, "won") else p.get("won"))
+        side = str((p.side if hasattr(p, "side") else None) or p.get("side") or "").lower()
+        st["settled"] += 1
+        st["wins"] += int(won)
+        st["pnl_usd"] = round(st["pnl_usd"] + pnl, 4)
+        if pnl > 0:
+            st["gross_win"] = round(st["gross_win"] + pnl, 4)
+        elif pnl < 0:
+            st["gross_loss"] = round(st["gross_loss"] + (-pnl), 4)
+        if side in st["side_n"]:
+            st["side_n"][side] += 1
+            if won:
+                st["side_wins"][side] += 1
+    out = {}
+    for series, st in rows.items():
+        n = st["settled"]
+        wr = round(st["wins"] / n, 4) if n else None
+        pf = None
+        if st["gross_loss"] > 0:
+            pf = round(st["gross_win"] / st["gross_loss"], 4)
+        elif st["gross_win"] > 0:
+            pf = 999.0
+        out[series] = {
+            **st,
+            "win_rate": wr,
+            "profit_factor": pf,
+            "avg_pnl_per_trade": (round(st["pnl_usd"] / n, 4) if n else None),
+            "win_rate_up": (round(st["side_wins"]["up"] / st["side_n"]["up"], 4)
+                            if st["side_n"]["up"] else None),
+            "win_rate_down": (round(st["side_wins"]["down"] / st["side_n"]["down"], 4)
+                              if st["side_n"]["down"] else None),
+        }
+    return out
+
+
 def promotion_demotion(tier_table: dict) -> dict:
     """From the report-only tier table, list promotion (A+/A) and demotion (C/D) candidates."""
     table = (tier_table or {}).get("table", {})
@@ -145,6 +202,7 @@ def build_report_sections(light: dict, *, status: Optional[dict] = None,
     if cap.get("total_realized_pnl_usd") is not None and cap.get("arb_realized_pnl_usd") is not None:
         dir_pnl = round(float(cap["total_realized_pnl_usd"]) - float(cap["arb_realized_pnl_usd"]), 4)
 
+    by_series = light.get("by_market_series") or {}
     trading_performance = {
         "headline": {
             "on_hand_capital_usd": cap.get("on_hand_capital_usd"),
@@ -162,6 +220,7 @@ def build_report_sections(light: dict, *, status: Optional[dict] = None,
             "trades": led.get("trades"),
             "settled": led.get("settled"),
         },
+        "by_market_series": by_series,
         "capital": cap,
         "ledger": led,
         "arbitrage": arb,
@@ -294,7 +353,7 @@ def build_full_report_md(light: dict, status: Optional[dict] = None,
     ev = tp.get("ev_before_after_costs", {}) or {}
     imp = ex.get("impact_summary", {}) or {}
 
-    out.append("# BTC 5-Minute Pulse — Performance Report\n")
+    out.append("# BTC Pulse — 5m + 15m Performance Report\n")
     out.append("_PAPER ONLY · `global_reconciled=%s` · ticks %s_\n"
                % (eng.get("global_reconciled"), eng.get("ticks")))
 
@@ -340,6 +399,15 @@ def build_full_report_md(light: dict, status: Optional[dict] = None,
                                               ev.get("avg_ev_after_costs"))],
     ], ["metric", "value"])
 
+    by_series = tp.get("by_market_series") or light.get("by_market_series") or {}
+    if by_series:
+        h3("Performance by market (concise)")
+        table([
+            [v.get("series_label"), v.get("settled"), v.get("win_rate"), v.get("profit_factor"),
+             "$%s" % v.get("pnl_usd"), v.get("win_rate_up"), v.get("win_rate_down")]
+            for v in sorted(by_series.values(), key=lambda r: r.get("series_label") or "")
+        ], ["market", "settled", "WR", "PF", "PnL", "UP WR", "DOWN WR"])
+
     h3("Risk-free arbitrage")
     if arb:
         kv(arb, ["executed", "settled", "open", "realized_profit_usd", "detected_actionable",
@@ -377,13 +445,14 @@ def build_full_report_md(light: dict, status: Optional[dict] = None,
     h3("Recent positions")
     positions = tp.get("recent_positions") or []
     if positions:
-        table([[(p.get("title") or "")[-18:], p.get("side"),
+        table([[(p.get("research") or {}).get("series_label", "5m"),
+                (p.get("title") or "")[-18:], p.get("side"),
                 (p.get("research") or {}).get("entry_mode", "—"),
                 p.get("entry_price"), p.get("fair_at_entry"),
                 ("up" if p.get("outcome_up") else "down") if p.get("outcome_up") is not None else "—",
                 ("✓" if p.get("won") else "✗") if p.get("won") is not None else "—",
                 p.get("pnl_usd")] for p in positions],
-              ["window", "side", "entry_mode", "entry", "fair", "outcome", "won", "pnl"])
+              ["mkt", "window", "side", "entry_mode", "entry", "fair", "outcome", "won", "pnl"])
     else:
         out.append("_no positions_")
 

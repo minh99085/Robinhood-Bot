@@ -42,6 +42,20 @@ def test_1m_5m_confirmation_states(tmp_path):
     assert c3["confirm"] == "single_tf" and c3["tf_5m_dir"] is None and c3["tf_1m_dir"] == "UP"
 
 
+def test_15m_aligns_with_1m_5m(tmp_path):
+    ik = _intake(tmp_path)
+    t = 5_000_000.0
+    _send(ik, direction="DOWN", tf="5", now=t)
+    _send(ik, direction="DOWN", tf="1", now=t + 10)
+    _send(ik, direction="DOWN", tf="15", now=t + 20)
+    mtf = ik.mtf_confirmation(symbol="BTCUSD", now=t + 30)
+    assert mtf["tf_15m_dir"] == "DOWN"
+    assert mtf["confirm_3tf"] == "confirmed_down_3tf"
+    feat = ik.latest_feature(now=t + 30, symbol="BTCUSD")
+    assert feat["tf_15m_dir"] == "DOWN"
+    assert feat["tf_confirm_3tf"] == "confirmed_down_3tf"
+
+
 def test_confirmation_flows_into_feature_and_grades(tmp_path):
     ik = _intake(tmp_path)
     t = 2_000_000.0

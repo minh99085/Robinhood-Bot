@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from engine.pulse.markets import PulseMarketFeed
+from engine.pulse.markets import PulseMarketFeed, MultiSeriesMarketFeed, SERIES_SLUG_5M, SERIES_SLUG_15M
 from engine.pulse.price import PulsePriceFeed, build_price_source
 from engine.pulse.fair_value import RollingVol, digital_p_up
 from engine.pulse.strategy import decide
@@ -296,7 +296,11 @@ class PulseConfig:
     tradingview_webhook_port: int = 8787
     tradingview_webhook_path: str = "/webhooks/tradingview"
     tradingview_max_age_s: float = 90.0
-    tradingview_feature_symbol: str = "BTCUSDT"   # TV chart symbol for 1m+5m MTF (BINANCE:BTCUSDT)
+    tradingview_feature_symbol: str = "BTCUSDT"   # TV chart symbol for 1m+5m+15m MTF
+    tradingview_mtf_confirm_window_s: float = 360.0
+    tradingview_mtf_confirm_window_15m_s: float = 960.0
+    # Polymarket series to trade concurrently (5m + 15m BTC up/down).
+    pulse_series_slugs: tuple = (SERIES_SLUG_5M, SERIES_SLUG_15M)
     tradingview_signal_max_feature_age_s: float = 300.0   # only attach signals fresher than this
     # TradingView as the DIRECTIONAL INDICATION SIGNAL (restrict-only): when on, a paper trade is
     # only taken if a FRESH TradingView signal exists and its direction matches the trade side. It
@@ -578,6 +582,12 @@ class PulseConfig:
             tradingview_max_age_s=_envf("TRADINGVIEW_MAX_AGE_S", 90.0),
             tradingview_feature_symbol=normalize_symbol(
                 os.getenv("PULSE_TV_FEATURE_SYMBOL", "BTCUSDT") or "BTCUSDT") or "BTCUSDT",
+            tradingview_mtf_confirm_window_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_S", 360.0),
+            tradingview_mtf_confirm_window_15m_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_15M_S", 960.0),
+            pulse_series_slugs=tuple(
+                s.strip() for s in os.getenv(
+                    "PULSE_SERIES_SLUGS",
+                    "btc-up-or-down-5m,btc-up-or-down-15m").split(",") if s.strip()),
             tradingview_signal_max_feature_age_s=_envf("PULSE_TV_SIGNAL_MAX_FEATURE_AGE_S", 300.0),
             tradingview_signal_gate_enabled=str(os.getenv("PULSE_TRADINGVIEW_SIGNAL_GATE", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
@@ -597,7 +607,13 @@ class PulseEngine:
         # reject classic Chainlink Data Feed / AggregatorV3 as the primary settlement feed
         from engine.pulse.oracle import validate_oracle_feed_type, LeadFeeds
         self.oracle_feed_type = validate_oracle_feed_type(self.cfg.oracle_feed_type)
-        self.market = market_feed or PulseMarketFeed()
+        if market_feed is not None:
+            self.market = market_feed
+        elif len(self.cfg.pulse_series_slugs) > 1:
+            self.market = MultiSeriesMarketFeed(self.cfg.pulse_series_slugs)
+        else:
+            slug = self.cfg.pulse_series_slugs[0] if self.cfg.pulse_series_slugs else SERIES_SLUG_5M
+            self.market = PulseMarketFeed(series_slug=slug)
         self.rtds = None
         if price_feed is not None:
             self.price = price_feed
@@ -900,7 +916,9 @@ class PulseEngine:
                     allowed_symbols=self.cfg.tradingview_allowed_symbols,
                     bot_name=self.cfg.tradingview_bot_name,
                     max_age_s=self.cfg.tradingview_max_age_s, data_dir=self.cfg.data_dir,
-                    feature_symbol=self.cfg.tradingview_feature_symbol)
+                    feature_symbol=self.cfg.tradingview_feature_symbol,
+                    confirm_window_s=self.cfg.tradingview_mtf_confirm_window_s,
+                    confirm_window_15m_s=self.cfg.tradingview_mtf_confirm_window_15m_s)
                 self.webhook = WebhookServer(
                     self.tradingview, host=self.cfg.tradingview_webhook_host,
                     port=self.cfg.tradingview_webhook_port,
@@ -1243,6 +1261,9 @@ class PulseEngine:
             mc = MarketContext(
                 event_id=w.event_id, market_id=w.market_id, title=w.title,
                 decision_id=w.event_id,          # canonical id == window key == ledger position key
+                series_slug=getattr(w, "series_slug", SERIES_SLUG_5M),
+                series_label=getattr(w, "series_label", "5m"),
+                window_seconds=int(getattr(w, "window_seconds", 300) or 300),
                 open_ts=w.open_ts, close_ts=w.close_ts, ttc_s=ttc,
                 s_open=(snap.price if snap else None), s_now=s_now, sigma_per_sec=sigma,
                 lead_prices={k: (v[0] if v else None)
@@ -1779,7 +1800,8 @@ class PulseEngine:
             # calibration + execution-quality gate + caps) below still applies in every mode.
             if not grok_follow and not cex_lead_active:
                 cohort_ok, cohort_reason = self._baseline_quant_cohort_ok(
-                    side=d.side, esnap=esnap, ttc_s=ttc, tv_feature=tv_feature)
+                    side=d.side, esnap=esnap, ttc_s=ttc, tv_feature=tv_feature,
+                    window_seconds=int(getattr(w, "window_seconds", 300) or 300))
                 if not cohort_ok:
                     self._baseline_cohort_gate_counts[cohort_reason] = (
                         self._baseline_cohort_gate_counts.get(cohort_reason, 0) + 1)
@@ -1877,6 +1899,7 @@ class PulseEngine:
             # model claimed ~+0.11 EV/share while realized win-rate was ~0.52, so over-priced
             # favourites in proven-flat/losing buckets used to pass a zero EV floor.
             sel_tags = {
+                "market_series": getattr(w, "series_label", mc.series_label),
                 "hurst_regime": (rfeat.hurst_regime if rfeat else None),
                 "zscore_bucket": (rfeat.zscore_bucket if rfeat else None),
                 "ttc_bucket": ttc_bucket(ttc),
@@ -2049,6 +2072,10 @@ class PulseEngine:
             # OBSERVE-ONLY edge-signal entry tags + EV-after-cost (recorded for every trade)
             if pos.research is None:
                 pos.research = {}
+            pos.research["market_series"] = getattr(w, "series_label", mc.series_label)
+            pos.research["series_slug"] = getattr(w, "series_slug", mc.series_slug)
+            pos.research["series_label"] = getattr(w, "series_label", mc.series_label)
+            pos.research["window_seconds"] = int(getattr(w, "window_seconds", mc.window_seconds) or 300)
             pos.research["ev_after_cost"] = ex.ev_after_slippage
             pos.research["gate_decision"] = gate_decision     # passed | explored (selectivity gate)
             pos.research["context_gate"] = ("explore" if context_explored else "pass")
@@ -2413,6 +2440,51 @@ class PulseEngine:
                 "markov_state": cand_state, "ttc_bucket": ttc_bucket(ttc),
                 "conviction_bucket": conv_bucket}
 
+    def _book_side_snapshot(self, book) -> "dict | None":
+        if book is None:
+            return None
+        return {
+            "mid": self._r(book.mid), "spread": self._r(book.spread),
+            "best_bid": self._r(book.best_bid), "best_ask": self._r(book.best_ask),
+            "bid_depth_usd": self._r(book.bid_depth_usd, 1),
+            "ask_depth_usd": self._r(book.ask_depth_usd, 1),
+            "ask_levels": len(book.asks or []), "bid_levels": len(book.bids or []),
+        }
+
+    def _market_window_snapshot(self, w, *, now=None) -> dict:
+        now = now if now is not None else (self.last_tick_ts or time.time())
+        return {
+            "series_slug": getattr(w, "series_slug", SERIES_SLUG_5M),
+            "series_label": getattr(w, "series_label", "5m"),
+            "window_seconds": int(getattr(w, "window_seconds", 300) or 300),
+            "event_id": w.event_id, "title": w.title,
+            "ttc_s": self._r(w.seconds_to_close(now), 1),
+            "up": self._book_side_snapshot(w.up_book),
+            "down": self._book_side_snapshot(w.down_book),
+        }
+
+    def _active_markets_for_grok(self) -> list:
+        try:
+            windows = self.market.active_windows(now=self.last_tick_ts)
+        except Exception:  # noqa: BLE001
+            return []
+        out = []
+        for win in windows:
+            try:
+                self.market.hydrate_books(win)
+            except Exception:  # noqa: BLE001
+                pass
+            out.append(self._market_window_snapshot(win))
+        return out
+
+    def _cex_prices_snapshot(self) -> dict:
+        out = {}
+        if self.leads is not None:
+            for k, v in (getattr(self.leads, "_latest", {}) or {}).items():
+                px = v[0] if isinstance(v, (tuple, list)) else v
+                out[k] = self._r(px, 2)
+        return out
+
     def _grok_decision_bundle(self, mc, dr, w, fair_used, ttc, tv_feature) -> dict:
         """Fully-structured 'analyze everything' payload for the Grok decider. Numerics rounded,
         nulls allowed, ordered so the decision-critical fields lead. Includes: market microstructure
@@ -2435,22 +2507,41 @@ class PulseEngine:
         if tv_feature:
             tv = {k: v for k, v in tv_feature.items()
                   if v is not None and v != "unknown" and k not in ("observe_only", "source")}
+        series_label = getattr(w, "series_label", mc.series_label)
+        mtf = None
+        if self.tradingview is not None:
+            mtf = self.tradingview.mtf_confirmation(
+                symbol=self.cfg.tradingview_feature_symbol, now=self.last_tick_ts)
         return {
-            "schema_version": "grok_decision_bundle/1.1",
-            "market": "polymarket_btc_5m_up_or_down",
-            "objective": "settles UP if BTC Chainlink close >= window open; pick up/down/no_trade",
+            "schema_version": "grok_decision_bundle/1.2",
+            "market": "polymarket_btc_%s_up_or_down" % series_label,
+            "series_slug": getattr(w, "series_slug", mc.series_slug),
+            "series_label": series_label,
+            "window_seconds": int(getattr(w, "window_seconds", mc.window_seconds) or 300),
+            "objective": ("settles UP if BTC Chainlink close >= window open (%s window); "
+                          "pick up/down/no_trade") % series_label,
             "decision_id": mc.decision_id,
             "timing": {"seconds_to_close": self._r(ttc, 1),
+                       "window_seconds": int(getattr(w, "window_seconds", mc.window_seconds) or 300),
                        "utc_minute_of_hour": int((self.last_tick_ts or time.time()) // 60 % 60)},
             "price": {"btc_now": self._r(mc.s_now, 2), "btc_open": self._r(mc.s_open, 2),
                       "move_from_open": (self._r(mc.s_now - mc.s_open, 2)
                                          if (mc.s_now is not None and mc.s_open is not None) else None),
-                      "sigma_per_sec": self._r(mc.sigma_per_sec, 6)},
+                      "sigma_per_sec": self._r(mc.sigma_per_sec, 6),
+                      "lead_prices": {k: self._r(v, 2) for k, v in (mc.lead_prices or {}).items()
+                                      if v is not None}},
             "digital_fair_p_up": self._r(fair_used),
-            "polymarket": {"yes_mid": self._r(poly_yes), "spread": self._r(mc.spread),
-                           "up_best_ask": self._r(up_ask), "down_best_ask": self._r(dn_ask),
-                           "ask_depth_usd": self._r(mc.ask_depth_usd, 1),
-                           "fair_minus_poly": divergence},
+            "polymarket": {
+                "yes_mid": self._r(poly_yes), "spread": self._r(mc.spread),
+                "up_best_ask": self._r(up_ask), "down_best_ask": self._r(dn_ask),
+                "ask_depth_usd": self._r(mc.ask_depth_usd, 1),
+                "fair_minus_poly": divergence,
+                "up_book": self._book_side_snapshot(w.up_book),
+                "down_book": self._book_side_snapshot(w.down_book),
+            },
+            "active_markets": self._active_markets_for_grok(),
+            "cex_prices": self._cex_prices_snapshot(),
+            "tradingview_mtf": mtf,
             "payoff": {"up": self._reward_risk(up_ask), "down": self._reward_risk(dn_ask),
                        "min_reward_risk_floor": self.cfg.min_reward_risk,
                        "note": "only trade a side if your P(win) clears its breakeven_win_rate after costs"},
@@ -2754,18 +2845,22 @@ class PulseEngine:
         return True
 
     def _baseline_quant_cohort_ok(self, *, side: str, esnap=None, ttc_s: "float | None",
-                                  tv_feature: "dict | None") -> "tuple[bool, str]":
-        """Tier-1: baseline trades only in high-edge + strong-CEX + 180-240s TTC; UP needs TV proof."""
+                                  tv_feature: "dict | None",
+                                  window_seconds: int = 300) -> "tuple[bool, str]":
+        """Tier-1: baseline trades only in high-edge + strong-CEX + scaled TTC band; UP needs TV."""
         if not self.cfg.baseline_cohort_gate_enabled:
             return True, ""
         if side not in ("up", "down"):
             return False, "baseline_cohort_bad_side"
         if ttc_s is None:
             return False, "baseline_cohort_ttc_unknown"
+        scale = float(window_seconds or 300) / 300.0
+        ttc_min = float(self.cfg.baseline_cohort_ttc_min_s) * scale
+        ttc_max = float(self.cfg.baseline_cohort_ttc_max_s) * scale
         ttc_f = float(ttc_s)
-        if ttc_f > float(self.cfg.baseline_cohort_ttc_max_s):
+        if ttc_f > ttc_max:
             return False, "baseline_cohort_ttc_too_late"
-        if ttc_f < float(self.cfg.baseline_cohort_ttc_min_s):
+        if ttc_f < ttc_min:
             return False, "baseline_cohort_ttc_too_early"
         edge_bucket = self._edge_snap_field(esnap, "pulse_edge_score_bucket")
         if self.cfg.baseline_cohort_require_high_edge:
@@ -3048,6 +3143,10 @@ class PulseEngine:
             "enabled": bool(self.cfg.directional_require_winning_bucket),
             "explore_rate": self.cfg.directional_explore_rate,
             "explored": self._allowlist_explored, "blocked": self._allowlist_blocked}
+        from engine.pulse.reporting import ledger_stats_by_market_series
+        report["by_market_series"] = ledger_stats_by_market_series(self.ledger.positions)
+        report["markets_feed"] = (self.market.report() if hasattr(self.market, "report")
+                                  else {"multi_series": False})
         report["baseline_cohort_gate"] = self._baseline_cohort_gate_report()
         report["learned_selectivity_gate"] = self._selectivity_report()
         report["late_window_entry"] = self._late_window_report()
@@ -3511,8 +3610,9 @@ class PulseEngine:
         return tier_report(dims, reconciled=reconciled, safety_ok=reconciled)
 
     def status(self) -> dict:
+        from engine.pulse.reporting import ledger_stats_by_market_series
         return {
-            "schema": "btc_pulse/1.0", "paper_only": True, "live_trading_enabled": False,
+            "schema": "btc_pulse/1.1", "paper_only": True, "live_trading_enabled": False,
             "ts": self.last_tick_ts, "ticks": self.ticks,
             "config": {"tick_seconds": self.cfg.tick_seconds, "size_usd": self.cfg.size_usd,
                        "min_edge": self.cfg.min_edge, "edge_buffer": self.cfg.edge_buffer,
@@ -3580,6 +3680,10 @@ class PulseEngine:
                 "enabled": bool(self.cfg.directional_require_winning_bucket),
                 "explore_rate": self.cfg.directional_explore_rate,
                 "explored": self._allowlist_explored, "blocked": self._allowlist_blocked},
+            "by_market_series": ledger_stats_by_market_series(self.ledger.positions),
+            "markets_feed": (self.market.report() if hasattr(self.market, "report")
+                             else {"multi_series": False}),
+            "pulse_series_slugs": list(self.cfg.pulse_series_slugs),
             "baseline_cohort_gate": self._baseline_cohort_gate_report(),
             "learned_selectivity_gate": self._selectivity_report(),
             "late_window_entry": self._late_window_report(),

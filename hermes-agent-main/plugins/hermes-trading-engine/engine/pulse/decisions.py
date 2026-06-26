@@ -45,6 +45,9 @@ class MarketContext:
     market_id: str
     title: str
     asset: str = "BTC"
+    series_slug: str = "btc-up-or-down-5m"
+    series_label: str = "5m"
+    window_seconds: int = 300
     # canonical decision/trade ID — the SINGLE id that connects this candidate to its feature
     # snapshot, execution estimate, terminal state, paper fill, ledger position, settlement, and
     # the report. One accepted trade == one window == one decision_id (the ledger key).
@@ -70,7 +73,10 @@ class MarketContext:
     def to_dict(self) -> dict:
         return {"decision_id": self.decision_id or self.event_id,
                 "event_id": self.event_id, "market_id": self.market_id, "title": self.title,
-                "asset": self.asset, "ttc_s": (round(self.ttc_s, 1) if self.ttc_s is not None else None),
+                "asset": self.asset,
+                "series_slug": self.series_slug, "series_label": self.series_label,
+                "window_seconds": self.window_seconds,
+                "ttc_s": (round(self.ttc_s, 1) if self.ttc_s is not None else None),
                 "ttc_bucket": self.ttc_bucket, "oracle_source": self.oracle_source,
                 "s_open": self.s_open, "s_now": self.s_now,
                 "sigma_per_sec": self.sigma_per_sec, "poly_yes": self.poly_yes,

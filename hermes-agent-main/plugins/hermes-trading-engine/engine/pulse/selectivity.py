@@ -84,9 +84,9 @@ def breakeven_win_rate(avg_win: float, avg_loss: float) -> float:
     return float(avg_loss) / denom
 
 # entry-time bucket dimensions the gate learns over (all present on the position's research tags)
-DEFAULT_DIMS = ("hurst_regime", "zscore_bucket", "ttc_bucket", "confidence_tier", "spread_bucket",
-                "depth_bucket", "markov_state", "edge_quality_bucket", "stale_divergence",
-                "direction")
+DEFAULT_DIMS = ("market_series", "hurst_regime", "zscore_bucket", "ttc_bucket", "confidence_tier",
+                "spread_bucket", "depth_bucket", "markov_state", "edge_quality_bucket",
+                "stale_divergence", "direction")
 
 
 class SelectivityEvidence:

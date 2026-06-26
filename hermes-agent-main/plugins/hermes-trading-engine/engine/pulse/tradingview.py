@@ -794,7 +794,9 @@ class TradingViewIntake:
                  max_age_s: float = 90.0, future_skew_s: float = 30.0,
                  data_dir: Optional[str] = None, dedupe_capacity: int = 5000,
                  header_name: str = "X-Tradingview-Secret",
-                 feature_symbol: str = "BTCUSDT"):
+                 feature_symbol: str = "BTCUSDT",
+                 confirm_window_s: float = 360.0,
+                 confirm_window_15m_s: float = 960.0):
         self.secret = str(secret or "")
         # Chart symbol the operator feeds (e.g. BINANCE:BTCUSDT -> BTCUSDT). Used for 1m+5m
         # cross-confirmation lookups — distinct from the Chainlink oracle slug (btc/usd).
@@ -822,8 +824,10 @@ class TradingViewIntake:
         # per-(symbol,timeframe) latest so multiple alert timeframes (e.g. 1m + 5m) can be
         # CROSS-CONFIRMED instead of overwriting each other. value = (event, received_ts).
         self.latest_by_tf: dict = {}
-        # a 5m bar is valid up to ~5min; allow a 6min window so a fresh 1m + the current 5m align
-        self.confirm_window_s: float = 360.0
+        # 1m+5m: ~6min window so a fresh 1m aligns with the current 5m bar.
+        self.confirm_window_s: float = float(confirm_window_s)
+        # 15m chart alerts stay fresh up to ~16min for 3-TF alignment.
+        self.confirm_window_15m_s: float = float(confirm_window_15m_s)
         self._path = (Path(data_dir) / "btc_pulse_tradingview.json") if data_dir else None
         self._load_state()
 
@@ -1030,29 +1034,38 @@ class TradingViewIntake:
 
     def mtf_confirmation(self, *, symbol: Optional[str] = None,
                          now: Optional[float] = None) -> dict:
-        """CROSS-TIMEFRAME confirmation between the latest fresh 1m and 5m signals for a symbol.
-        Returns {confirm, direction, tf_1m, tf_5m, ages}. ``confirm`` is one of:
-          confirmed_up / confirmed_down (1m & 5m both fresh & agree),
-          conflict (both fresh, disagree), single_tf (only one fresh), none (neither fresh).
-        OBSERVE-ONLY — used as a graded feature, never to place/size/bypass a trade."""
-        # NOTE: lock-free on purpose — it's called both from report() (which holds self._lock) and
-        # from latest_feature(); dict reads are atomic under the GIL and this is observe-only.
+        """Cross-timeframe confirmation across fresh 1m, 5m, and 15m signals.
+
+        ``confirm`` — 1m+5m (legacy): confirmed_up/down, conflict, single_tf, none.
+        ``confirm_3tf`` — all three: confirmed_up_3tf / confirmed_down_3tf,
+          conflict_15m (1m+5m agree, 15m opposes), partial_3tf (1m+5m agree, 15m missing),
+          plus conflict/single_tf/none when 1m+5m not aligned.
+        OBSERVE-ONLY — graded feature only."""
         now = now if now is not None else time.time()
         sym = self._mtf_symbol(symbol)
         one = self.latest_by_tf.get((sym, "1")) if sym else None
         five = self.latest_by_tf.get((sym, "5")) if sym else None
+        fifteen = self.latest_by_tf.get((sym, "15")) if sym else None
 
-        def _fresh(entry):
+        def _fresh(entry, window_s: float):
             if not entry:
                 return None
             ev, ts = entry
-            return ev if (now - float(ts)) <= self.confirm_window_s else None
-        e1, e5 = _fresh(one), _fresh(five)
+            return ev if (now - float(ts)) <= float(window_s) else None
+
+        e1, e5 = _fresh(one, self.confirm_window_s), _fresh(five, self.confirm_window_s)
+        e15 = _fresh(fifteen, self.confirm_window_15m_s)
         d1 = e1.direction if e1 else None
         d5 = e5.direction if e5 else None
-        out = {"symbol": sym, "tf_1m_dir": d1, "tf_5m_dir": d5,
-               "tf_1m_age_s": (round(now - one[1], 1) if one else None),
-               "tf_5m_age_s": (round(now - five[1], 1) if five else None)}
+        d15 = e15.direction if e15 else None
+        out = {
+            "symbol": sym, "tf_1m_dir": d1, "tf_5m_dir": d5, "tf_15m_dir": d15,
+            "tf_1m_age_s": (round(now - one[1], 1) if one else None),
+            "tf_5m_age_s": (round(now - five[1], 1) if five else None),
+            "tf_15m_age_s": (round(now - fifteen[1], 1) if fifteen else None),
+            "confirm_window_s": self.confirm_window_s,
+            "confirm_window_15m_s": self.confirm_window_15m_s,
+        }
         if d1 and d5:
             if d1 == d5 and d1 in ("UP", "DOWN"):
                 out["confirm"] = "confirmed_up" if d1 == "UP" else "confirmed_down"
@@ -1066,6 +1079,26 @@ class TradingViewIntake:
         else:
             out["confirm"] = "none"
             out["direction"] = None
+        # 3-TF alignment (1m + 5m + 15m chart alerts)
+        if d1 and d5 and d1 == d5 and d1 in ("UP", "DOWN"):
+            if d15 == d1:
+                out["confirm_3tf"] = "confirmed_up_3tf" if d1 == "UP" else "confirmed_down_3tf"
+                out["direction_3tf"] = d1
+            elif d15 and d15 != d1:
+                out["confirm_3tf"] = "conflict_15m"
+                out["direction_3tf"] = None
+            else:
+                out["confirm_3tf"] = "partial_3tf"
+                out["direction_3tf"] = d1
+        elif d15 and (d1 or d5):
+            out["confirm_3tf"] = "partial_3tf"
+            out["direction_3tf"] = d15 if not (d1 and d5) else None
+        elif d15:
+            out["confirm_3tf"] = "single_tf_15m"
+            out["direction_3tf"] = d15
+        else:
+            out["confirm_3tf"] = out["confirm"]
+            out["direction_3tf"] = out.get("direction")
         return out
 
     def latest_feature(self, *, now: Optional[float] = None, symbol: Optional[str] = None) -> Optional[dict]:
@@ -1081,6 +1114,10 @@ class TradingViewIntake:
         feat["tf_confirm_direction"] = mtf.get("direction")
         feat["tf_1m_dir"] = mtf.get("tf_1m_dir")
         feat["tf_5m_dir"] = mtf.get("tf_5m_dir")
+        feat["tf_15m_dir"] = mtf.get("tf_15m_dir")
+        feat["tf_15m_age_s"] = mtf.get("tf_15m_age_s")
+        feat["tf_confirm_3tf"] = mtf.get("confirm_3tf")
+        feat["tf_confirm_3tf_direction"] = mtf.get("direction_3tf")
         return feat
 
     def report(self) -> dict:

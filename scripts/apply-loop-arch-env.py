@@ -56,6 +56,11 @@ UPDATES = {
     "PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE": "1",
     "PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX": "1",
     "PULSE_BASELINE_UP_TV_GATE_ENABLED": "1",
+    # Dual-market: 5m + 15m Polymarket BTC up/down series.
+    "PULSE_SERIES_SLUGS": "btc-up-or-down-5m,btc-up-or-down-15m",
+    # TradingView 1m + 5m + 15m chart alerts (operator feeds all three).
+    "PULSE_TV_MTF_CONFIRM_WINDOW_S": "360",
+    "PULSE_TV_MTF_CONFIRM_WINDOW_15M_S": "960",
     # Tier 2: selectivity blocks need PF floor + higher min_samples + BH-FDR.
     "PULSE_SELECTIVITY_MIN_SAMPLES": "50",
     "PULSE_SELECTIVITY_MIN_PROFIT_FACTOR": "0.85",
