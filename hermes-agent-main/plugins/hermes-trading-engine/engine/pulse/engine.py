@@ -236,6 +236,7 @@ class PulseConfig:
     tv_down_bias_gate_enabled: bool = False
     tv_down_bias_exploration_rate: float = 0.0
     tv_down_bias_block_up_on_bearish_down_stack: bool = True
+    tv_down_bias_block_up_tv_down_non_bearish: bool = True
     tv_down_bias_block_up_against_confirmed_down: bool = False
     tv_mtf_conflict_gate_enabled: bool = True
     tv_mtf_require_confirm: bool = False   # loop arch: conflict veto only, not 1m+5m trade authority
@@ -490,6 +491,9 @@ class PulseConfig:
             tv_down_bias_block_up_on_bearish_down_stack=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_ON_BEARISH_DOWN_STACK", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
+            tv_down_bias_block_up_tv_down_non_bearish=str(
+                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_TV_DOWN_NON_BEARISH", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
             tv_down_bias_block_up_against_confirmed_down=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN", "0")).strip().lower()
             in ("1", "true", "yes", "on"),
@@ -647,6 +651,8 @@ class PulseEngine:
             enabled=bool(self.cfg.tv_down_bias_gate_enabled),
             block_up_on_bearish_down_stack=bool(
                 self.cfg.tv_down_bias_block_up_on_bearish_down_stack),
+            block_up_tv_down_non_bearish=bool(
+                self.cfg.tv_down_bias_block_up_tv_down_non_bearish),
             block_up_against_confirmed_down=bool(
                 self.cfg.tv_down_bias_block_up_against_confirmed_down),
             exploration_rate=self.cfg.tv_down_bias_exploration_rate)
@@ -1483,7 +1489,8 @@ class PulseEngine:
                            and eff_explore_rate > 0.0
                            and self._grok_rng.random() < eff_explore_rate)
                 misprice_entry = (None if (actionable or exploit or explore)
-                                  else self._mispricing_follow_entry(dr.cex_lead, ttc, esnap))
+                                  else self._mispricing_follow_entry(
+                                      dr.cex_lead, ttc, esnap, tv_feature))
                 if not actionable and not exploit and not explore and misprice_entry is None:
                     if pol["mode"] == "avoid":
                         self._grok_policy_counts["avoid"] += 1
@@ -1580,6 +1587,16 @@ class PulseEngine:
                         self.markov.record_terminal(state=cand_state, accepted=False)
                     _finalize(dr, "rejected", reason="grok_no_edge_up", stage="grok_decider")
                     continue
+                if side == "up":
+                    up_tv_ok, up_tv_reason = self._baseline_up_tv_strength_ok(tv_feature)
+                    if not up_tv_ok:
+                        dr.candidate = CandidateDecision(side=side, fair_p_up=fair_used,
+                                                         outcome_prob=None, model_edge=0.0,
+                                                         tradeable=False, reason=up_tv_reason)
+                        if self.markov is not None:
+                            self.markov.record_terminal(state=cand_state, accepted=False)
+                        _finalize(dr, "rejected", reason=up_tv_reason, stage="grok_decider")
+                        continue
                 # Restrict-only DOWN/TV asymmetry gate applies to all Grok-owned UP trades.
                 if side == "up":
                     db_res = self.tv_down_bias_gate.evaluate(
@@ -2710,6 +2727,9 @@ class PulseEngine:
             return False, "baseline_up_tv_strength_missing"
         if strength < 0.8:
             return False, "baseline_up_tv_weak"
+        level = str(tv_feature.get("signal_level") or "").upper()
+        if level != "UP_STRONG":
+            return False, "baseline_up_tv_not_strong"
         return True, ""
 
     def _edge_snap_field(self, esnap, field: str):
@@ -2720,8 +2740,12 @@ class PulseEngine:
             val = esnap.get(field)
         return val
 
-    def _mispricing_follow_up_ok(self, esnap=None) -> "tuple[bool, str]":
-        """UP mispricing-follow needs proven Grok UP edge + high edge score + strong CEX agreement."""
+    def _mispricing_follow_up_ok(self, esnap=None,
+                                 tv_feature: "dict | None" = None) -> "tuple[bool, str]":
+        """UP mispricing-follow needs TV UP_STRONG + proven Grok UP edge + high score + CEX agree."""
+        tv_ok, tv_reason = self._baseline_up_tv_strength_ok(tv_feature)
+        if not tv_ok:
+            return False, f"misprice_{tv_reason}"
         if not self._grok_up_side_allowed():
             return False, "misprice_up_grok_no_edge"
         bucket = self._edge_snap_field(esnap, "pulse_edge_score_bucket")
@@ -2732,7 +2756,7 @@ class PulseEngine:
         return True, ""
 
     def _mispricing_follow_entry(self, cex_sig: "dict | None", ttc_s: "float | None",
-                                 esnap=None) -> "dict | None":
+                                 esnap=None, tv_feature: "dict | None" = None) -> "dict | None":
         """When Grok abstains, follow a confirmed CEX-lead mispricing stack (gates pre-checked)."""
         if not self.cfg.mispricing_follow_on_abstain:
             return None
@@ -2741,7 +2765,7 @@ class PulseEngine:
         if side not in ("up", "down"):
             return None
         if side == "up":
-            up_ok, up_reason = self._mispricing_follow_up_ok(esnap=esnap)
+            up_ok, up_reason = self._mispricing_follow_up_ok(esnap=esnap, tv_feature=tv_feature)
             if not up_ok:
                 self._mispricing_gate_counts[up_reason] = (
                     self._mispricing_gate_counts.get(up_reason, 0) + 1)

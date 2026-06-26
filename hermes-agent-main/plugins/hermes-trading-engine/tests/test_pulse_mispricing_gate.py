@@ -29,6 +29,10 @@ def _cex_sig(**kw):
     return base
 
 
+def _up_strong_tv():
+    return {"direction": "UP", "strength": 0.85, "signal_level": "UP_STRONG"}
+
+
 def test_mispricing_gate_disabled_passes():
     eng = _gate_engine(mispricing_gate_enabled=False)
     ok, _ = eng._mispricing_gate_ok(side="up", cex_sig={}, ttc_s=50.0)
@@ -109,9 +113,10 @@ def test_mispricing_follow_entry_on_abstain():
     esnap = _FakeEsnap("not_stale")
     esnap.pulse_edge_score_bucket = "high"
     esnap.cex_agreement_bucket = "strong"
-    entry = eng._mispricing_follow_entry(sig, 210.0, esnap)
+    tv = _up_strong_tv()
+    entry = eng._mispricing_follow_entry(sig, 210.0, esnap, tv)
     assert entry is not None and entry["side"] == "up" and entry["p_win"] == 0.62
-    assert eng._mispricing_follow_entry(sig, 50.0, esnap) is None
+    assert eng._mispricing_follow_entry(sig, 50.0, esnap, tv) is None
 
 
 def test_mispricing_follow_up_requires_high_edge_and_strong_cex():
@@ -124,8 +129,29 @@ def test_mispricing_follow_up_requires_high_edge_and_strong_cex():
     weak = _FakeEsnap("not_stale")
     weak.pulse_edge_score_bucket = "medium"
     weak.cex_agreement_bucket = "strong"
-    assert eng._mispricing_follow_entry(sig, 200.0, weak) is None
+    assert eng._mispricing_follow_entry(sig, 200.0, weak, _up_strong_tv()) is None
     assert eng._mispricing_gate_counts.get("misprice_up_low_edge_score") == 1
+
+
+def test_mispricing_follow_up_requires_up_strong_tv():
+    eng = _gate_engine(mispricing_ttc_min_s=90.0, mispricing_ttc_max_s=240.0,
+                       mispricing_follow_on_abstain=True)
+    eng.grok_decider = type("G", (), {"report": lambda self: {"graded_directional": 30,
+                                                               "direction_accuracy": 0.55}})()
+    sig = {"has_signal": True, "side": "up", "divergence": 0.12, "confirmed": True,
+           "cex_p_up": 0.62}
+    esnap = _FakeEsnap("not_stale")
+    esnap.pulse_edge_score_bucket = "high"
+    esnap.cex_agreement_bucket = "strong"
+    assert eng._mispricing_follow_entry(sig, 200.0, esnap, None) is None
+    assert eng._mispricing_gate_counts.get("misprice_baseline_up_tv_missing") == 1
+    assert eng._mispricing_follow_entry(
+        sig, 200.0, esnap, {"direction": "DOWN", "strength": 0.9}) is None
+    assert eng._mispricing_gate_counts.get("misprice_baseline_up_tv_opposes") == 1
+    assert eng._mispricing_follow_entry(
+        sig, 200.0, esnap, {"direction": "UP", "strength": 0.85,
+                             "signal_level": "UP_WEAK"}) is None
+    assert eng._mispricing_gate_counts.get("misprice_baseline_up_tv_not_strong") == 1
 
 
 def test_mispricing_follow_entry_disabled():

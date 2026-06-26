@@ -203,6 +203,33 @@ class _FakeMarket:
         return self.resolution
 
 
+class _StubTradingView:
+    """Minimal TV stub so baseline UP gate sees UP_STRONG during integration ticks."""
+
+    def drain_pending(self):
+        return []
+
+    def latest_feature(self, **kw):
+        return {
+            "direction": "UP",
+            "strength": 0.85,
+            "signal_level": "UP_STRONG",
+            "age_s": 1.0,
+            "mtf_alignment": "bullish_aligned",
+        }
+
+    def report(self):
+        return {
+            "enabled": True,
+            "tradingview_observe_only": True,
+            "tradingview_alerts_received": 1,
+            "tradingview_alerts_valid": 1,
+            "tradingview_alerts_rejected": 0,
+            "tradingview_reject_reasons": {},
+            "tradingview_latest_signal": self.latest_feature(),
+        }
+
+
 def test_engine_full_cycle_trade_and_settle(tmp_path):
     t0 = 1_000_000.0
     win = PulseWindow(event_id="e1", market_id="m1", slug="btc-updown-5m-1000000",
@@ -221,9 +248,11 @@ def test_engine_full_cycle_trade_and_settle(tmp_path):
                                   edge_buffer=0.01, basis_buffer=0.0,
                                   min_seconds_since_open=0.0, sigma_trust_floor=0.0,
                                   min_vol_samples=2,
-                                  tv_mtf_conflict_gate_enabled=False,
+                      tv_mtf_conflict_gate_enabled=False,
+                                  tv_down_bias_gate_enabled=False,
                                   data_dir=str(tmp_path)),
                       market_feed=_FakeMarket(win, resolution=True), price_feed=feed)
+    eng.tradingview = _StubTradingView()
     for i in range(12):                      # warm vol BEFORE the window opens
         eng.tick(now=t0 - 12 + i)
     assert eng.ledger.trades == 0            # window not open yet
@@ -420,7 +449,11 @@ def test_baseline_up_tv_strength_gate():
     assert ok is False and reason == "baseline_up_tv_opposes"
     ok, reason = eng._baseline_up_tv_strength_ok({"direction": "UP", "strength": 0.65})
     assert ok is False and reason == "baseline_up_tv_weak"
-    ok, _ = eng._baseline_up_tv_strength_ok({"direction": "UP", "strength": 0.85})
+    ok, reason = eng._baseline_up_tv_strength_ok(
+        {"direction": "UP", "strength": 0.85, "signal_level": "UP_WEAK"})
+    assert ok is False and reason == "baseline_up_tv_not_strong"
+    ok, _ = eng._baseline_up_tv_strength_ok(
+        {"direction": "UP", "strength": 0.85, "signal_level": "UP_STRONG"})
     assert ok is True
     ok, reason = eng._baseline_up_tv_strength_ok(None)
     assert ok is False and reason == "baseline_up_tv_missing"
