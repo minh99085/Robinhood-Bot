@@ -1,6 +1,6 @@
 # Bot cycle summary (plain English)
 
-_Updated: 2026-06-26 17:07 UTC_
+_Updated: 2026-06-26 17:25 UTC_
 
 ## Last cycle
 
@@ -25,12 +25,12 @@ _Updated: 2026-06-26 17:07 UTC_
 |---|---|
 | **Mode** | Paper only (fake money) |
 | **Started with** | $500.00 |
-| **Total now** | $565.80 (13.16% return) |
+| **Total now** | $577.50 (15.5% return) |
 | **Arb profit** | $59.73 (7 trades) |
-| **Directional profit** | $6.07 |
-| **Win rate** | 63.6% (55 settled trades) |
+| **Directional profit** | $17.77 |
+| **Win rate** | 66.1% (59 settled trades) |
 | **UP win rate** | 50.0% |
-| **DOWN win rate** | 71.4% |
+| **DOWN win rate** | 74.4% |
 | **Bot stopped?** | No — bot is running |
 | **Overall grade** | — (—/100) |
 
@@ -38,17 +38,17 @@ _Updated: 2026-06-26 17:07 UTC_
 
 | Market | Trades | Win rate | PnL |
 |--------|--------|----------|-----|
-| **15m** | 4 | 75.0% | $4.37 |
-| **5m** | 3 | 66.7% | $0.21 |
+| **15m** | 5 | 80.0% | $8.30 |
+| **5m** | 6 | 83.3% | $7.98 |
 
 ### TradingView (INDEX:BTCUSD)
 
-- Alerts received: **34**
-- 5-chart trend: **partial_up_5tf** (2/5 fresh)
+- Alerts received: **51**
+- 5-chart trend: **single_tf** (1/5 fresh)
 
 ## Quick verdict
 
-**Good:** Making money on paper (+13.2%); Arbitrage is doing most of the work; DOWN trades work well; Bot is running normally.
+**Good:** Making money on paper (+15.5%); Arbitrage is doing most of the work; DOWN trades work well; Bot is running normally.
 
 **Watch:** UP trades still weak (coin-flip or worse); Cycle flagged UP-side losses.
 
