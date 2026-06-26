@@ -33,12 +33,12 @@ def test_tv_trend_snapshot_all_four_charts():
         "trend_by_tf": {"1": "DOWN", "5": "UP", "10": "UP", "15": "UP"},
     }
     by_tf = {
-        "BTCUSDT@1": {"direction": "DOWN", "strength": 0.61},
-        "BTCUSDT@5": {"direction": "UP", "strength": 0.75},
-        "BTCUSDT@10": {"direction": "UP", "strength": 0.79},
-        "BTCUSDT@15": {"direction": "UP", "strength": 0.82},
+        "BTCUSD@1": {"direction": "DOWN", "strength": 0.61},
+        "BTCUSD@5": {"direction": "UP", "strength": 0.75},
+        "BTCUSD@10": {"direction": "UP", "strength": 0.79},
+        "BTCUSD@15": {"direction": "UP", "strength": 0.82},
     }
-    snap = tv_trend_snapshot(mtf=mtf, latest_by_timeframe=by_tf, feature_symbol="BTCUSDT")
+    snap = tv_trend_snapshot(mtf=mtf, latest_by_timeframe=by_tf, feature_symbol="BTCUSD")
     assert snap["confirm_4tf"] == "partial_up_4tf"
     assert snap["direction_4tf"] == "UP"
     assert snap["charts"]["10m"]["direction"] == "UP"
@@ -50,7 +50,7 @@ def test_tv_trend_snapshot_all_four_charts():
 def test_tv_trend_stale_fallback():
     mtf = {"tf_5m_dir": None, "tf_10m_dir": "UP", "tf_10m_age_s": 90.0,
            "confirm_4tf": "single_tf", "direction_4tf": "UP", "trend_fresh_count": 1}
-    by_tf = {"BTCUSDT@5": {"direction": "DOWN", "strength": 0.55}}
+    by_tf = {"BTCUSD@5": {"direction": "DOWN", "strength": 0.55}}
     snap = tv_trend_snapshot(mtf=mtf, latest_by_timeframe=by_tf)
     assert snap["charts"]["5m"]["direction"] == "DOWN"
     assert snap["charts"]["5m"]["fresh"] is False

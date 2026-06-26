@@ -51,14 +51,14 @@ def normalize_direction(raw) -> Optional[str]:
     return _DIRECTION_MAP.get(str(raw).strip().lower())
 
 
-# BTC ticker aliases collapsed to ``feature_symbol`` (default BTCUSDT) for storage/dashboard.
-_BTC_SYMBOL_ALIASES = frozenset({"BTC/USD", "BTC", "XBTUSD", "BTCUSD", "BTCUSDT", "BTCUSDT.P"})
+# BTC ticker aliases collapsed to ``feature_symbol`` (default BTCUSD / INDEX) for storage.
+_BTC_SYMBOL_ALIASES = frozenset({"BTC/USD", "BTC", "XBTUSD", "BTCUSD"})
 
 
-def canonical_storage_symbol(symbol: Optional[str], feature_symbol: str = "BTCUSDT") -> str:
+def canonical_storage_symbol(symbol: Optional[str], feature_symbol: str = "BTCUSD") -> str:
     """Map BTC-family tickers to the configured chart symbol for counters/history keys."""
     sym = normalize_symbol(symbol)
-    feat = normalize_symbol(feature_symbol) or "BTCUSDT"
+    feat = normalize_symbol(feature_symbol) or "BTCUSD"
     if sym in _BTC_SYMBOL_ALIASES:
         return feat
     return sym or feat
@@ -66,7 +66,7 @@ def canonical_storage_symbol(symbol: Optional[str], feature_symbol: str = "BTCUS
 
 def normalize_symbol(raw) -> str:
     """Uppercase + strip a leading ``EXCHANGE:`` prefix so TradingView ``{{ticker}}`` values like
-    ``COINBASE:BTCUSD`` / ``BINANCE:BTCUSDT`` match the allow-list (``BTCUSD`` / ``BTCUSDT``)."""
+    ``INDEX:BTCUSD`` / ``COINBASE:BTCUSD`` match the allow-list (``BTCUSD``)."""
     s = str(raw or "").strip().upper()
     if ":" in s:
         s = s.split(":", 1)[1].strip()
@@ -702,7 +702,7 @@ class RSITrendModel:
                 "sig_n": self.sig_n, "sig_correct": self.sig_correct,
                 "sig_by_direction": {k: dict(v) for k, v in self.sig_by_direction.items()}}
 
-    def canonicalize_storage(self, feature_symbol: str = "BTCUSDT") -> None:
+    def canonicalize_storage(self, feature_symbol: str = "BTCUSD") -> None:
         """Merge legacy per-ticker RSI history (e.g. BTCUSD test alerts) into feature_symbol."""
         feat = canonical_storage_symbol(feature_symbol, feature_symbol)
 
@@ -813,16 +813,16 @@ class TradingViewIntake:
                  max_age_s: float = 90.0, future_skew_s: float = 30.0,
                  data_dir: Optional[str] = None, dedupe_capacity: int = 5000,
                  header_name: str = "X-Tradingview-Secret",
-                 feature_symbol: str = "BTCUSDT",
+                 feature_symbol: str = "BTCUSD",
                  confirm_window_s: float = 360.0,
                  confirm_window_10m_s: float = 660.0,
                  confirm_window_15m_s: float = 960.0):
         self.secret = str(secret or "")
-        # Chart symbol the operator feeds (e.g. BINANCE:BTCUSDT -> BTCUSDT). Used for 1m+5m
+        # Chart symbol the operator feeds (INDEX:BTCUSD -> BTCUSD). Used for 1m/5m/10m/15m
         # cross-confirmation lookups — distinct from the Chainlink oracle slug (btc/usd).
-        self.feature_symbol = normalize_symbol(feature_symbol) or "BTCUSDT"
+        self.feature_symbol = normalize_symbol(feature_symbol) or "BTCUSD"
         # normalize allow-list entries the same way incoming symbols are normalized, so
-        # exchange-prefixed aliases (INDEX:BTCUSD, BINANCE:BTCUSDT) match their base symbol.
+        # exchange-prefixed aliases (INDEX:BTCUSD) match their base symbol.
         self.allowed_symbols = {normalize_symbol(s) for s in (allowed_symbols or []) if str(s).strip()}
         self.bot_name = str(bot_name or "").strip().lower()
         self.max_age_s = float(max_age_s)
@@ -838,7 +838,7 @@ class TradingViewIntake:
         self.consumed = 0
         self.reject_reasons: dict = {}
         self.latest: Optional[TradingViewSignalEvent] = None
-        # per-source tracking (e.g. Coinbase BTCUSD + Binance BTCUSDT used together)
+        # per-source tracking (INDEX:BTCUSD alerts stored under feature_symbol)
         self.latest_by_symbol: dict = {}
         self.valid_by_symbol: dict = {}
         # per-(symbol,timeframe) latest so multiple alert timeframes (e.g. 1m + 5m) can be

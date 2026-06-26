@@ -71,7 +71,9 @@ UPDATES = {
     "PULSE_BASELINE_UP_TV_GATE_ENABLED": "1",
     # Dual-market: 5m + 15m Polymarket BTC up/down series.
     "PULSE_SERIES_SLUGS": "btc-up-or-down-5m,btc-up-or-down-15m",
-    # TradingView 1m + 5m + 10m + 15m chart alerts (operator feeds all four).
+    # TradingView INDEX:BTCUSD — 1m + 5m + 10m + 15m chart alerts (four charts, same script).
+    "PULSE_TV_FEATURE_SYMBOL": "BTCUSD",
+    "TRADINGVIEW_ALLOWED_SYMBOLS": "BTCUSD,INDEX:BTCUSD",
     "PULSE_TV_MTF_CONFIRM_WINDOW_S": "360",
     "PULSE_TV_MTF_CONFIRM_WINDOW_10M_S": "660",
     "PULSE_TV_MTF_CONFIRM_WINDOW_15M_S": "960",

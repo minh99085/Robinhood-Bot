@@ -218,7 +218,7 @@ async function tick(){
   if(tvActive){
     const mtf=tv.tradingview_mtf_confirmation||{};
     const byTf=tv.tradingview_latest_by_timeframe||{};
-    const featSym=tv.tradingview_feature_symbol||'BTCUSDT';
+    const featSym=tv.tradingview_feature_symbol||'BTCUSD';
     const mtf4=mtf.confirm_4tf||mtf.confirm_3tf||mtf.confirm||'none';
     const mtfCls=(mtf4.includes('confirmed')?'pos':(mtf4.includes('conflict')?'neg':'neu'));
     const dirMap={'1':'tf_1m_dir','5':'tf_5m_dir','10':'tf_10m_dir','15':'tf_15m_dir'};

@@ -71,7 +71,7 @@ Read `scripts/pulse-babysit/env-coupling.md` before any gate/TTC env change.
 - Status field: `config_coupling.configured_ok` / `effective_s` / `fix_hint`
 - `scan-health.py` flags `gate_coupling_misconfigured` (P0) if `.env` is unsafe
 - Engine auto-clamps at runtime but `.env` must still be fixed
-- Never run `apply-high-wr-env.py` without re-running `apply-loop-arch-env.py`
+- TradingView: **INDEX:BTCUSD only** — four charts (1m/5m/10m/15m), see `tradingview/README.md`
 
 ## Evaluation rules (do not override without evidence)
 

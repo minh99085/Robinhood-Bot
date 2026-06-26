@@ -28,7 +28,7 @@ SECRET = "s3cr3t-token"
 
 
 def _intake(tmp_path=None, **kw):
-    return TradingViewIntake(secret=SECRET, allowed_symbols=["BTCUSD", "BTCUSDT"],
+    return TradingViewIntake(secret=SECRET, allowed_symbols=["BTCUSD", "INDEX:BTCUSD"],
                              bot_name="hermes", max_age_s=90.0,
                              data_dir=(str(tmp_path) if tmp_path else None), **kw)
 
@@ -65,77 +65,85 @@ def test_valid_alert_normalized_event():
 
 
 def test_symbol_normalization_strips_exchange_prefix():
+    assert normalize_symbol("INDEX:BTCUSD") == "BTCUSD"
     assert normalize_symbol("COINBASE:BTCUSD") == "BTCUSD"
-    assert normalize_symbol("BINANCE:BTCUSDT") == "BTCUSDT"
     assert normalize_symbol("btcusd") == "BTCUSD" and normalize_symbol("BTC/USD") == "BTC/USD"
 
 
 def test_btc_aliases_collapse_to_feature_symbol():
-    """BTCUSD + BTCUSDT both accepted but stored under feature_symbol (default BTCUSDT)."""
-    intake = _intake(feature_symbol="BTCUSDT")
+    """INDEX:BTCUSD + BTCUSD both stored under feature_symbol (default BTCUSD)."""
+    intake = _intake(feature_symbol="BTCUSD")
     now = 1_000_000.0
-    cb = json.dumps({"secret": SECRET, "bot_name": "hermes", "symbol": "COINBASE:BTCUSD",
-                     "direction": "UP", "strength": 0.7, "indicator_name": "RSI Divergence",
-                     "event_id": "cb-1"}).encode()
-    bn = json.dumps({"secret": SECRET, "bot_name": "hermes", "symbol": "BINANCE:BTCUSDT",
-                     "direction": "DOWN", "strength": 0.6, "indicator_name": "RSI Divergence",
-                     "event_id": "bn-1"}).encode()
-    assert intake.ingest(cb, now=now)[1]["accepted"] is True
-    assert intake.ingest(bn, now=now + 1)[1]["accepted"] is True
+    idx = json.dumps({"secret": SECRET, "bot_name": "hermes", "symbol": "INDEX:BTCUSD",
+                      "direction": "UP", "strength": 0.7, "indicator_name": "RSI Divergence",
+                      "event_id": "idx-1"}).encode()
+    spot = json.dumps({"secret": SECRET, "bot_name": "hermes", "symbol": "BTCUSD",
+                       "direction": "DOWN", "strength": 0.6, "indicator_name": "RSI Divergence",
+                       "event_id": "usd-1"}).encode()
+    assert intake.ingest(idx, now=now)[1]["accepted"] is True
+    assert intake.ingest(spot, now=now + 1)[1]["accepted"] is True
     rep = intake.report()
     assert rep["tradingview_alerts_valid"] == 2
-    assert rep["tradingview_valid_by_symbol"] == {"BTCUSDT": 2}
+    assert rep["tradingview_valid_by_symbol"] == {"BTCUSD": 2}
     bysym = rep["tradingview_latest_by_symbol"]
-    assert set(bysym) == {"BTCUSDT"}
-    assert bysym["BTCUSDT"]["direction"] == "DOWN" and bysym["BTCUSDT"]["symbol"] == "BTCUSDT"
-    assert intake.ingest(cb, now=now + 2)[1].get("duplicate") is True
-    assert intake.report()["tradingview_valid_by_symbol"] == {"BTCUSDT": 2}
+    assert set(bysym) == {"BTCUSD"}
+    assert bysym["BTCUSD"]["direction"] == "DOWN"
+    assert intake.ingest(idx, now=now + 2)[1].get("duplicate") is True
+    assert intake.report()["tradingview_valid_by_symbol"] == {"BTCUSD": 2}
+
+
+def test_btcusdt_rejected():
+    intake = _intake()
+    raw = json.dumps({"secret": SECRET, "bot_name": "hermes", "symbol": "BINANCE:BTCUSDT",
+                      "direction": "UP", "event_id": "bn-1"}).encode()
+    code, body = intake.ingest(raw, now=1_000_000.0)
+    assert code == 400 and body["reason"] == UNSUPPORTED_SYMBOL
 
 
 def test_per_symbol_state_persists(tmp_path):
-    intake = _intake(tmp_path, feature_symbol="BTCUSDT")
+    intake = _intake(tmp_path, feature_symbol="BTCUSD")
+    intake.ingest(json.dumps({"secret": SECRET, "bot_name": "hermes", "symbol": "INDEX:BTCUSD",
+                              "direction": "UP", "event_id": "idx-x"}).encode(), now=1_000_000.0)
     intake.ingest(json.dumps({"secret": SECRET, "bot_name": "hermes", "symbol": "BTCUSD",
-                              "direction": "UP", "event_id": "cb-x"}).encode(), now=1_000_000.0)
-    intake.ingest(json.dumps({"secret": SECRET, "bot_name": "hermes", "symbol": "BTCUSDT",
-                              "direction": "DOWN", "event_id": "bn-x"}).encode(), now=1_000_001.0)
-    restored = _intake(tmp_path, feature_symbol="BTCUSDT")
+                              "direction": "DOWN", "event_id": "usd-x"}).encode(), now=1_000_001.0)
+    restored = _intake(tmp_path, feature_symbol="BTCUSD")
     rep = restored.report()
-    assert rep["tradingview_valid_by_symbol"] == {"BTCUSDT": 2}
-    assert set(rep["tradingview_latest_by_symbol"]) == {"BTCUSDT"}
+    assert rep["tradingview_valid_by_symbol"] == {"BTCUSD": 2}
+    assert set(rep["tradingview_latest_by_symbol"]) == {"BTCUSD"}
 
 
-def test_legacy_btcusd_storage_merged_on_load(tmp_path):
-    """Stale BTCUSD test webhook rows collapse into BTCUSDT after restart."""
+def test_legacy_storage_merged_on_load(tmp_path):
+    """Legacy per-ticker keys collapse into BTCUSD feature_symbol after restart."""
     state_path = tmp_path / "btc_pulse_tradingview.json"
     state_path.write_text(json.dumps({
         "received": 2, "valid": 2, "rejected": 0, "consumed": 0, "reject_reasons": {},
-        "seen_ids": ["tv-test-1", "bn-1"],
-        "latest": {"event_id": "bn-1", "bot_name": "hermes", "symbol": "BTCUSDT",
+        "seen_ids": ["tv-test-1", "idx-1"],
+        "latest": {"event_id": "idx-1", "bot_name": "hermes", "symbol": "BTCUSD",
                    "direction": "DOWN", "received_at": 2.0, "raw_payload_hash": "a" * 64},
         "latest_by_symbol": {
             "BTCUSD": {"event_id": "tv-test-1", "bot_name": "hermes", "symbol": "BTCUSD",
                        "direction": "UP", "received_at": 1.0, "raw_payload_hash": "b" * 64},
-            "BTCUSDT": {"event_id": "bn-1", "bot_name": "hermes", "symbol": "BTCUSDT",
-                        "direction": "DOWN", "received_at": 2.0, "raw_payload_hash": "a" * 64},
+            "INDEX:BTCUSD": {"event_id": "idx-1", "bot_name": "hermes", "symbol": "BTCUSD",
+                             "direction": "DOWN", "received_at": 2.0, "raw_payload_hash": "a" * 64},
         },
-        "valid_by_symbol": {"BTCUSD": 1, "BTCUSDT": 1},
+        "valid_by_symbol": {"BTCUSD": 1, "INDEX:BTCUSD": 1},
         "latest_by_tf": [],
     }), encoding="utf-8")
-    intake = _intake(tmp_path, feature_symbol="BTCUSDT")
+    intake = _intake(tmp_path, feature_symbol="BTCUSD")
     rep = intake.report()
-    assert rep["tradingview_valid_by_symbol"] == {"BTCUSDT": 2}
-    assert set(rep["tradingview_latest_by_symbol"]) == {"BTCUSDT"}
-    assert rep["tradingview_latest_by_symbol"]["BTCUSDT"]["direction"] == "DOWN"
+    assert rep["tradingview_valid_by_symbol"] == {"BTCUSD": 2}
+    assert set(rep["tradingview_latest_by_symbol"]) == {"BTCUSD"}
+    assert rep["tradingview_latest_by_symbol"]["BTCUSD"]["direction"] == "DOWN"
 
 
-def test_rsi_trend_canonicalize_merges_btcusd(tmp_path):
+def test_rsi_trend_canonicalize_merges_index(tmp_path):
     m = RSITrendModel()
-    m.observe(symbol="BTCUSD", direction="DOWN", ts=1.0)
-    m.observe(symbol="BTCUSDT", direction="UP", ts=2.0)
-    m.canonicalize_storage("BTCUSDT")
-    assert set(m.hist) == {"BTCUSDT"}
-    assert len(m.hist["BTCUSDT"]) == 2
-    assert m.trend("BTCUSDT")["last_direction"] == "UP"
+    m.observe(symbol="INDEX:BTCUSD", direction="DOWN", ts=1.0)
+    m.observe(symbol="BTCUSD", direction="UP", ts=2.0)
+    m.canonicalize_storage("BTCUSD")
+    assert set(m.hist) == {"BTCUSD"}
+    assert len(m.hist["BTCUSD"]) == 2
+    assert m.trend("BTCUSD")["last_direction"] == "UP"
 
 
 def test_secret_via_header_only():
@@ -309,7 +317,7 @@ def test_edge_measurement_insufficient_evidence_and_inverse():
     edge2 = TradingViewEdge()
     for i in range(40):
         down_signal_but_up = True
-        edge2.record(tv={"direction": "DOWN", "timeframe": "5", "symbol": "BTCUSDT"},
+        edge2.record(tv={"direction": "DOWN", "timeframe": "5", "symbol": "BTCUSD"},
                      traded_side="down", outcome_up=down_signal_but_up, won=False, pnl=-5.0)
     r2 = edge2.report()
     assert r2["signal_hit_rate"] == 0.0 and r2["verdict"] == "signal_inverse_edge"

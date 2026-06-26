@@ -51,10 +51,10 @@ def test_10m_stored_separately_not_overriding_other_tfs(tmp_path):
     _send(ik, direction="DOWN", tf="15", now=t + 15)
     rep = ik.report()
     by_tf = rep["tradingview_latest_by_timeframe"]
-    assert by_tf["BTCUSDT@1"]["direction"] == "DOWN"
-    assert by_tf["BTCUSDT@5"]["direction"] == "UP"
-    assert by_tf["BTCUSDT@10"]["direction"] == "UP"
-    assert by_tf["BTCUSDT@15"]["direction"] == "DOWN"
+    assert by_tf["BTCUSD@1"]["direction"] == "DOWN"
+    assert by_tf["BTCUSD@5"]["direction"] == "UP"
+    assert by_tf["BTCUSD@10"]["direction"] == "UP"
+    assert by_tf["BTCUSD@15"]["direction"] == "DOWN"
     mtf = ik.mtf_confirmation(symbol="BTCUSD", now=t + 20)
     assert mtf["tf_1m_dir"] == "DOWN"
     assert mtf["tf_5m_dir"] == "UP"
@@ -70,7 +70,7 @@ def test_10m_timeframe_normalized_from_suffix(tmp_path):
                "event_id": "BTCUSD-10m-%d" % int(t * 1000)}
     code, body = ik.ingest(json.dumps(payload).encode(), now=t)
     assert code == 200 and body.get("accepted")
-    assert "BTCUSDT@10" in ik.report()["tradingview_latest_by_timeframe"]
+    assert "BTCUSD@10" in ik.report()["tradingview_latest_by_timeframe"]
 
 
 def test_4tf_trend_alignment(tmp_path):
@@ -111,9 +111,8 @@ def test_confirmation_flows_into_feature_and_grades(tmp_path):
     # report exposes both timeframes' latest (confirm in report uses wall-clock, so not asserted here)
     rep = ik.report()
     assert "tradingview_mtf_confirmation" in rep
-    # BTCUSD alerts canonicalize to default feature_symbol BTCUSDT for storage keys.
-    assert "BTCUSDT@1" in rep["tradingview_latest_by_timeframe"]
-    assert "BTCUSDT@5" in rep["tradingview_latest_by_timeframe"]
+    assert "BTCUSD@1" in rep["tradingview_latest_by_timeframe"]
+    assert "BTCUSD@5" in rep["tradingview_latest_by_timeframe"]
     # the edge learner grades tf_confirm as its own dimension
     edge = TradingViewEdge()
     edge.record(tv=feat, traded_side="down", outcome_up=False, won=True, pnl=4.0)
@@ -122,19 +121,19 @@ def test_confirmation_flows_into_feature_and_grades(tmp_path):
     assert er["by_tf_confirm"]["confirmed_down"]["n"] == 1
 
 
-def test_btcusdt_mtf_via_feature_symbol(tmp_path):
-    """Operator feeds BINANCE:BTCUSDT; engine oracle is btc/usd — MTF must still resolve BTCUSDT."""
+def test_index_mtf_via_feature_symbol(tmp_path):
+    """Operator feeds INDEX:BTCUSD on 1m+5m charts — MTF resolves under BTCUSD."""
     ik = TradingViewIntake(secret="s3cr3t", bot_name="hermes",
-                           allowed_symbols=("BTCUSDT",), data_dir=str(tmp_path),
-                           feature_symbol="BTCUSDT")
+                           allowed_symbols=("BTCUSD", "INDEX:BTCUSD"), data_dir=str(tmp_path),
+                           feature_symbol="BTCUSD")
     t = 4_000_000.0
     for tf, ts in (("5", t), ("1", t + 10)):
-        payload = {"secret": "s3cr3t", "bot_name": "hermes", "symbol": "BINANCE:BTCUSDT",
+        payload = {"secret": "s3cr3t", "bot_name": "hermes", "symbol": "INDEX:BTCUSD",
                    "direction": "UP", "timeframe": tf,
-                   "bar_time": ts, "event_id": "BTCUSDT-%s-%d-UP" % (tf, int(ts * 1000))}
+                   "bar_time": ts, "event_id": "BTCUSD-%s-%d-UP" % (tf, int(ts * 1000))}
         ik.ingest(json.dumps(payload).encode(), now=ts)
     c = ik.mtf_confirmation(symbol="btc/usd", now=t + 11)
-    assert c["confirm"] == "confirmed_up" and c["symbol"] == "BTCUSDT"
+    assert c["confirm"] == "confirmed_up" and c["symbol"] == "BTCUSD"
     feat = ik.latest_feature(now=t + 11, symbol="btc/usd")
     assert feat["tf_confirm"] == "confirmed_up"
 

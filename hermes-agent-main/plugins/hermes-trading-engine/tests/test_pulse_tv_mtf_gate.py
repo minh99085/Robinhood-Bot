@@ -61,16 +61,16 @@ def _engine(tmp_path, **over):
         tv_mtf_conflict_exploration_rate=0.0,
         tradingview_secret="s3cr3t",
         tradingview_webhook_port=0,
-        tradingview_feature_symbol="BTCUSDT",
-        tradingview_allowed_symbols=("BTCUSDT",),
+        tradingview_feature_symbol="BTCUSD",
+        tradingview_allowed_symbols=("BTCUSD", "INDEX:BTCUSD"),
         data_dir=str(tmp_path), **over)
     return PulseEngine(cfg, market_feed=_Mkt(win, deep=True), price_feed=feed), t0
 
 
 def _ingest(eng, *, direction, tf, now):
-    payload = {"secret": "s3cr3t", "bot_name": "hermes", "symbol": "BTCUSDT",
+    payload = {"secret": "s3cr3t", "bot_name": "hermes", "symbol": "INDEX:BTCUSD",
                "direction": direction, "timeframe": tf,
-               "bar_time": now, "event_id": "BTCUSDT-%s-%d-%s" % (tf, int(now * 1000), direction)}
+               "bar_time": now, "event_id": "BTCUSD-%s-%d-%s" % (tf, int(now * 1000), direction)}
     eng.tradingview.ingest(_json.dumps(payload).encode(), now=now)
 
 

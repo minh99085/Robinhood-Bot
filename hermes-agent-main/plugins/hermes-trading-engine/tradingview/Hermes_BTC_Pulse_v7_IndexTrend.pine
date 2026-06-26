@@ -1,30 +1,23 @@
 //@version=6
 // =====================================================================================
-// Hermes BTC Pulse Composite v6 ProfitGate — tuned for Grok-Bot-2 / Hermes pulse engine
+// Hermes BTC Pulse Composite v7 IndexTrend — tuned for Grok-Bot-2 / Hermes pulse engine
 // =====================================================================================
-// WHAT CHANGED vs v5:
-//   v5 was lead-lag selective but left profit filters OFF by default. v6 turns ON the settings
-//   from docs/tradingview_profit_config.md so alerts only fire in historically winning contexts:
-//     - SuperTrend + ADX trend-strength filters (blocks chop / noise regime)
-//     - Candle pressure + liquidation proxy (blocks whipsaw / spike bars)
-//     - Relative-volume filter with spike suppression (volume_state=spike is the biggest leak)
-//     - Event blackout manual toggle (observe-only field still sent for bot grading)
-//   Inherits v5: calibrated strength, score_ratio, full v2/v3/v4 JSON for tradingview.py parser.
-//   USAGE: same script on TWO charts — both BINANCE:BTCUSDT:
-//     A) 1-MINUTE chart  → fresh lead-lag confirmations (timeframe "1")
-//     B) 5-MINUTE chart → swing bias confirmation (timeframe "5")
-//     Create ONE alert per chart (Any alert() function call). Bot cross-confirms both (6min window).
+// INDEX:BTCUSD only — aligns with Chainlink BTC/USD settlement (no Binance BTCUSDT).
+//   TradingView BTC Index = avg(BITSTAMP, COINBASE, BITFINEX, KRAKEN) spot USD.
+//   USAGE: same script on FOUR charts — all INDEX:BTCUSD:
+//     1m, 5m, 10m, 15m — one alert per chart (Any alert() function call).
+//     Bot builds 4-TF price trend via mtf_confirmation (1/5/10/15).
 //   Webhook → http://<vps-ip>/webhooks/tradingview
 // =====================================================================================
-indicator("Hermes BTC Pulse Composite v6 ProfitGate", overlay=true, max_labels_count=500)
+indicator("Hermes BTC Pulse Composite v7 IndexTrend", overlay=true, max_labels_count=500)
 
 // =====================================================
 // Hermes settings
 // =====================================================
 secretInput = input.string("21b5b67ad74c5ad9d972bc5d90916c7a636767e7366a6d7d", "Hermes webhook secret")
 botName = input.string("hermes", "Bot name")
-indicatorName = input.string("Hermes BTC Pulse Composite v6 ProfitGate", "Indicator name")
-compositeVersion = "v6"
+indicatorName = input.string("Hermes BTC Pulse Composite v7 IndexTrend", "Indicator name")
+compositeVersion = "v7"
 
 sendWeakSignals = input.bool(true, "Send weak signals")
 sendStrongSignals = input.bool(true, "Send strong signals")
@@ -115,26 +108,6 @@ atrRatio = atrAvg > 0 ? atr / atrAvg : na
 atrActive = na(atrRatio) ? true : atrRatio >= atrMinRatio and atrRatio <= atrMaxRatio
 
 // =====================================================
-// Binance BTCUSDT lead confirmation
-// =====================================================
-useLeadConfirm = input.bool(true, "Use Binance BTCUSDT lead confirmation")
-leadSymbol = input.symbol("BINANCE:BTCUSDT", "Lead symbol")
-leadTf = input.timeframe("1", "Lead timeframe")
-
-leadOpen = request.security(leadSymbol, leadTf, open, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-leadClose = request.security(leadSymbol, leadTf, close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-leadVolume = request.security(leadSymbol, leadTf, volume, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-
-leadEmaFast = request.security(leadSymbol, leadTf, ta.ema(close, 9), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-leadEmaSlow = request.security(leadSymbol, leadTf, ta.ema(close, 21), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-
-leadUp = leadClose > leadEmaFast
-leadDown = leadClose < leadEmaFast
-
-leadOkUp = not useLeadConfirm or leadUp
-leadOkDown = not useLeadConfirm or leadDown
-
-// =====================================================
 // VWAP state
 // =====================================================
 useVwapFilter = input.bool(true, "Use VWAP filter")
@@ -173,16 +146,18 @@ bbState = na(bbWidth) or na(bbWidthAvg) ? "unknown" :
      "normal"
 
 // =====================================================
-// Binance relative volume
+// INDEX bar-range activity (INDEX has no exchange volume)
 // =====================================================
-useVolumeFilter = input.bool(true, "Use Binance relative volume filter")
-suppressVolumeSpikes = input.bool(true, "Suppress volume spike bars (profit gate)")
-volAvgLen = input.int(50, "Relative volume average length", minval=2)
-volSpikeRatio = input.float(1.35, "Volume spike ratio", minval=0.1, step=0.05)
-volActiveRatio = input.float(0.80, "Volume active ratio", minval=0.1, step=0.05)
-volDeadRatio = input.float(0.50, "Volume dead ratio", minval=0.1, step=0.05)
+useVolumeFilter = input.bool(true, "Use bar-range activity filter")
+suppressVolumeSpikes = input.bool(true, "Suppress activity spike bars (profit gate)")
+volAvgLen = input.int(50, "Range activity average length", minval=2)
+volSpikeRatio = input.float(1.35, "Activity spike ratio", minval=0.1, step=0.05)
+volActiveRatio = input.float(0.80, "Activity active ratio", minval=0.1, step=0.05)
+volDeadRatio = input.float(0.50, "Activity dead ratio", minval=0.1, step=0.05)
 
-relativeVolume = request.security(leadSymbol, leadTf, ta.sma(volume, volAvgLen) > 0 ? volume / ta.sma(volume, volAvgLen) : na, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+barRange = high - low
+avgBarRange = ta.sma(barRange, volAvgLen)
+relativeVolume = avgBarRange > 0 ? barRange / avgBarRange : na
 
 volumeState = na(relativeVolume) ? "unknown" :
      relativeVolume >= volSpikeRatio ? "spike" :
@@ -195,13 +170,14 @@ volumeNotSpike = not suppressVolumeSpikes or volumeState != "spike"
 volumeOk = volumePassesFilter and volumeNotSpike
 
 // =====================================================
-// Observe-only CVD proxy from Binance candles
+// Observe-only price-pressure proxy (INDEX chart)
 // =====================================================
-cvdLookback = input.int(20, "CVD proxy lookback", minval=3)
-cvdPressureThreshold = input.float(0.12, "CVD pressure threshold", minval=0.01, step=0.01)
+cvdLookback = input.int(20, "Price pressure lookback", minval=3)
+cvdPressureThreshold = input.float(0.12, "Price pressure threshold", minval=0.01, step=0.01)
 
-cvdDeltaAvg = request.security(leadSymbol, leadTf, ta.sma(close > open ? volume : close < open ? -volume : 0, cvdLookback), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-cvdVolAvg = request.security(leadSymbol, leadTf, ta.sma(volume, cvdLookback), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+signedMove = close - open
+cvdDeltaAvg = ta.sma(signedMove, cvdLookback)
+cvdVolAvg = ta.sma(math.abs(close - open), cvdLookback)
 cvdRatio = cvdVolAvg > 0 ? cvdDeltaAvg / cvdVolAvg : na
 
 cvdState = na(cvdRatio) ? "unknown" :
@@ -351,10 +327,10 @@ nearestLevelType = nearestTypeTmp
 // =====================================================
 // Multi-timeframe alignment
 // =====================================================
-mtfAlignment = trendUp and leadUp and htfBias == "bullish" ? "bullish_aligned" :
-     trendDown and leadDown and htfBias == "bearish" ? "bearish_aligned" :
-     (trendUp and leadDown) or (trendDown and leadUp) or (trendUp and htfBias == "bearish") or (trendDown and htfBias == "bullish") ? "mixed" :
-     trendUp or trendDown or leadUp or leadDown ? "neutral" :
+mtfAlignment = trendUp and htfBias == "bullish" ? "bullish_aligned" :
+     trendDown and htfBias == "bearish" ? "bearish_aligned" :
+     (trendUp and htfBias == "bearish") or (trendDown and htfBias == "bullish") ? "mixed" :
+     trendUp or trendDown ? "neutral" :
      "unknown"
 
 // =====================================================
@@ -371,9 +347,6 @@ downScore := downScore + (strongTrendDown ? 2 : trendDown ? 1 : 0)
 
 upScore := upScore + (momentumUp ? 2 : softMomentumUp ? 1 : 0)
 downScore := downScore + (momentumDown ? 2 : softMomentumDown ? 1 : 0)
-
-upScore := upScore + (leadUp ? 1 : 0)
-downScore := downScore + (leadDown ? 1 : 0)
 
 upScore := upScore + (vwapBull ? 1 : 0)
 downScore := downScore + (vwapBear ? 1 : 0)
@@ -406,7 +379,7 @@ upScore := upScore + (manualFundingState == "short_crowded" ? 1 : 0)
 downScore := downScore + (manualFundingState == "long_crowded" ? 1 : 0)
 
 // max attainable single-side score (div2 + trend2 + momentum2 + 11 one-point components)
-maxScore = 17
+maxScore = 16
 
 eventOk = not manualEventBlackout
 
@@ -452,13 +425,13 @@ shouldAlert = barstate.isconfirmed and signalDirection != "NONE"
 // Dynamic Hermes JSON webhook alert (field set unchanged + additive: score_ratio, max_score)
 // =====================================================
 if shouldAlert
-    eventId = syminfo.ticker + "-" + timeframe.period + "-" + str.tostring(time) + "-" + signalLevel + "-v6-profitgate"
+    eventId = syminfo.ticker + "-" + timeframe.period + "-" + str.tostring(time) + "-" + signalLevel + "-v7-indextrend"
 
     msg = "{"
     msg := msg + "\"secret\":\"" + secretInput + "\","
     msg := msg + "\"bot_name\":\"" + botName + "\","
     msg := msg + "\"source\":\"tradingview\","
-    msg := msg + "\"symbol\":\"" + syminfo.ticker + "\","
+    msg := msg + "\"symbol\":\"INDEX:BTCUSD\","
     msg := msg + "\"tickerid\":\"" + syminfo.tickerid + "\","
     msg := msg + "\"timeframe\":\"" + timeframe.period + "\","
     msg := msg + "\"direction\":\"" + signalDirection + "\","
@@ -485,10 +458,10 @@ if shouldAlert
     msg := msg + "\"atr\":" + jsonNum(atr) + ","
     msg := msg + "\"atr_ratio\":" + jsonNum(atrRatio) + ","
     msg := msg + "\"atr_active\":" + jsonBool(atrActive) + ","
-    msg := msg + "\"lead_symbol\":\"" + leadSymbol + "\","
-    msg := msg + "\"lead_timeframe\":\"" + leadTf + "\","
-    msg := msg + "\"lead_up\":" + jsonBool(leadUp) + ","
-    msg := msg + "\"lead_down\":" + jsonBool(leadDown) + ","
+    msg := msg + "\"index_symbol\":\"INDEX:BTCUSD\","
+    msg := msg + "\"chart_timeframe\":\"" + timeframe.period + "\","
+    msg := msg + "\"trend_up\":" + jsonBool(trendUp) + ","
+    msg := msg + "\"trend_down\":" + jsonBool(trendDown) + ","
     msg := msg + "\"vwap\":" + jsonNum(vwapValue) + ","
     msg := msg + "\"vwap_state\":\"" + vwapState + "\","
     msg := msg + "\"bb_width\":" + jsonNum(bbWidth) + ","

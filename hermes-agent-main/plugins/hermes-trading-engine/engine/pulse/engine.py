@@ -294,13 +294,13 @@ class PulseConfig:
     # Enabled only when a shared secret is set. Bound to 127.0.0.1 by default (private to host);
     # alerts are candidate signals only — they can never place/resize/bypass a paper trade.
     tradingview_secret: str = ""
-    tradingview_allowed_symbols: tuple = ("BTCUSD", "BTCUSDT", "BTC/USD", "BTC", "XBTUSD")
+    tradingview_allowed_symbols: tuple = ("BTCUSD", "INDEX:BTCUSD", "BTC/USD", "BTC", "XBTUSD")
     tradingview_bot_name: str = "hermes"
     tradingview_webhook_host: str = "127.0.0.1"
     tradingview_webhook_port: int = 8787
     tradingview_webhook_path: str = "/webhooks/tradingview"
     tradingview_max_age_s: float = 90.0
-    tradingview_feature_symbol: str = "BTCUSDT"   # TV chart symbol for 1m+5m+10m+15m MTF
+    tradingview_feature_symbol: str = "BTCUSD"   # TV INDEX:BTCUSD — 1m/5m/10m/15m MTF
     tradingview_mtf_confirm_window_s: float = 360.0
     tradingview_mtf_confirm_window_10m_s: float = 660.0
     tradingview_mtf_confirm_window_15m_s: float = 960.0
@@ -586,7 +586,7 @@ class PulseConfig:
             tradingview_allowed_symbols=tuple(
                 s.strip().upper() for s in os.getenv(
                     "TRADINGVIEW_ALLOWED_SYMBOLS",
-                    "BTCUSD,INDEX:BTCUSD,BTCUSDT,BINANCE:BTCUSDT,BTC/USD,BTC,XBTUSD").split(",")
+                    "BTCUSD,INDEX:BTCUSD,BTC/USD,BTC,XBTUSD").split(",")
                 if s.strip()),
             # bot name: TRADINGVIEW_BOT_NAME takes precedence, else BOT_NAME, else "hermes"
             tradingview_bot_name=((os.getenv("TRADINGVIEW_BOT_NAME") or os.getenv("BOT_NAME")
@@ -598,7 +598,7 @@ class PulseConfig:
                                       or "/webhooks/tradingview").strip(),
             tradingview_max_age_s=_envf("TRADINGVIEW_MAX_AGE_S", 90.0),
             tradingview_feature_symbol=normalize_symbol(
-                os.getenv("PULSE_TV_FEATURE_SYMBOL", "BTCUSDT") or "BTCUSDT") or "BTCUSDT",
+                os.getenv("PULSE_TV_FEATURE_SYMBOL", "BTCUSD") or "BTCUSD") or "BTCUSD",
             tradingview_mtf_confirm_window_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_S", 360.0),
             tradingview_mtf_confirm_window_10m_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_10M_S", 660.0),
             tradingview_mtf_confirm_window_15m_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_15M_S", 960.0),

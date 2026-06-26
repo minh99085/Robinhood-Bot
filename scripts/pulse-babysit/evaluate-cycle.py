@@ -134,7 +134,7 @@ def main() -> int:
         mtf_c = (tv.get("tradingview_mtf_confirmation") or {}).get("confirm")
         issues.append(_issue("mtf_starved", "P2",
                              f"mtf_passed=0 blocked={mtf.get('blocked')} confirm={mtf_c}",
-                             "require_confirm is on — ensure 1m+5m BINANCE:BTCUSDT alerts active "
+                             "require_confirm is on — ensure 1m+5m+10m+15m INDEX:BTCUSD alerts active "
                              "or disable PULSE_TV_MTF_REQUIRE_CONFIRM for loop-arch"))
 
     bench = learning.get("market_benchmark") or {}

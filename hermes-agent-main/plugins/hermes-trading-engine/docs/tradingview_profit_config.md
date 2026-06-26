@@ -37,7 +37,7 @@ From the live signal-learning report (small samples — directional, not conclus
 | Event blackout (high-impact) | **ON** | Avoids `noise`-regime event losses. |
 | VWAP filter | keep **ON** | Alignment buckets are net-positive. |
 | Use 15m EMA bias | keep **ON** | HTF alignment is in the winning set. |
-| Binance lead confirmation (1m) | keep **ON** | Cross-feed confirmation reduces single-feed noise. |
+| Binance lead confirmation (1m) | **OFF** on INDEX:BTCUSD | Use INDEX-only v7 script; oracle is Chainlink USD. |
 
 Make sure the alert JSON keeps sending the Composite v2/v3 fields the bot learns from, especially
 `volume_state`, `supertrend_direction`, `adx_state`, `range_state`, `htf_bias`, and a fresh

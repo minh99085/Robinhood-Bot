@@ -40,11 +40,6 @@ PULSE_SERIES_SLUGS=btc-up-or-down-5m,btc-up-or-down-15m
 | `config_coupling` in status API | `configured_ok`, `effective_s`, `fix_hint` |
 | `scan-health.py` | P0 if `configured_ok` is false |
 
-### Scripts that can break coupling
-
-- `apply-high-wr-env.py` sets `PULSE_TV_CONTEXT_MAX_TTC_S=120` — run
-  `apply-loop-arch-env.py` after, or expect auto-clamp + P0 health flag.
-
 ### After `.env` changes
 
 ```bash

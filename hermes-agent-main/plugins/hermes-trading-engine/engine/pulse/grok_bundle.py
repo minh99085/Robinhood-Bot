@@ -19,11 +19,11 @@ def tv_trend_snapshot(
     *,
     mtf: Optional[dict],
     latest_by_timeframe: dict,
-    feature_symbol: str = "BTCUSDT",
+    feature_symbol: str = "BTCUSD",
 ) -> dict:
     """All four TV chart alerts (1m/5m/10m/15m) with strength + 4-TF trend verdict."""
     mtf = mtf or {}
-    feat = str(feature_symbol or "BTCUSDT").strip() or "BTCUSDT"
+    feat = str(feature_symbol or "BTCUSD").strip() or "BTCUSD"
     dir_keys = {"1": "tf_1m_dir", "5": "tf_5m_dir", "10": "tf_10m_dir", "15": "tf_15m_dir"}
     age_keys = {"1": "tf_1m_age_s", "5": "tf_5m_age_s", "10": "tf_10m_age_s", "15": "tf_15m_age_s"}
     charts = {}

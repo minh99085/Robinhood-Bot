@@ -26,15 +26,17 @@ SECRET = "s3cr3t-token"
 # ------------------------------- symbol aliases (req #2) ----------------------------------- #
 def test_symbol_aliases_accepted():
     intake = TradingViewIntake(secret=SECRET,
-                               allowed_symbols=["BTCUSD", "INDEX:BTCUSD", "BTCUSDT",
-                                                "BINANCE:BTCUSDT"], bot_name="hermes")
-    for sym, exp in (("INDEX:BTCUSD", "BTCUSD"), ("BINANCE:BTCUSDT", "BTCUSDT"),
-                     ("BTCUSD", "BTCUSD"), ("BTCUSDT", "BTCUSDT")):
+                               allowed_symbols=["BTCUSD", "INDEX:BTCUSD"], bot_name="hermes")
+    for sym, exp in (("INDEX:BTCUSD", "BTCUSD"), ("BTCUSD", "BTCUSD")):
         code, body = intake.ingest(json.dumps({"secret": SECRET, "bot_name": "hermes",
                                                "symbol": sym, "direction": "UP",
                                                "event_id": "a-" + sym}).encode(), now=1e6)
         assert code == 200 and body["accepted"] is True, sym
         assert intake.latest.symbol == exp
+    code, body = intake.ingest(json.dumps({"secret": SECRET, "bot_name": "hermes",
+                                           "symbol": "BINANCE:BTCUSDT", "direction": "UP",
+                                           "event_id": "bn"}).encode(), now=1e6)
+    assert code == 400 and body["reason"] == UNSUPPORTED_SYMBOL
     # an unrelated symbol is still rejected
     code, body = intake.ingest(json.dumps({"secret": SECRET, "bot_name": "hermes",
                                            "symbol": "ETHUSD", "direction": "UP",
