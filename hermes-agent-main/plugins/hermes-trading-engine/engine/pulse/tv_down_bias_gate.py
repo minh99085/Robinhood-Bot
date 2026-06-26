@@ -31,6 +31,8 @@ class TradingViewDownBiasGate:
         block_up_range_top: bool = True,
         block_up_bb_squeeze: bool = True,
         block_up_markov_chop_noise: bool = True,
+        block_up_htf_bullish: bool = True,
+        block_up_bear_close_near_low: bool = True,
         block_up_late_ttc: bool = True,
         block_up_early_ttc: bool = True,
         up_late_ttc_min_s: float = 240.0,
@@ -52,6 +54,8 @@ class TradingViewDownBiasGate:
         self.block_up_range_top = bool(block_up_range_top)
         self.block_up_bb_squeeze = bool(block_up_bb_squeeze)
         self.block_up_markov_chop_noise = bool(block_up_markov_chop_noise)
+        self.block_up_htf_bullish = bool(block_up_htf_bullish)
+        self.block_up_bear_close_near_low = bool(block_up_bear_close_near_low)
         self.block_up_late_ttc = bool(block_up_late_ttc)
         self.block_up_early_ttc = bool(block_up_early_ttc)
         self.up_late_ttc_min_s = max(0.0, float(up_late_ttc_min_s))
@@ -76,6 +80,8 @@ class TradingViewDownBiasGate:
         bb_state=None,
         range_state=None,
         markov_state=None,
+        htf_bias=None,
+        candle_pressure=None,
         ttc_s=None,
     ) -> list[str]:
         if not side or str(side).lower() != "up":
@@ -89,6 +95,8 @@ class TradingViewDownBiasGate:
         bb = str(bb_state or "").strip().lower()
         rs = str(range_state or "").strip().lower()
         ms = str(markov_state or "").strip().lower()
+        hb = str(htf_bias or "").strip().lower()
+        cp = str(candle_pressure or "").strip().lower()
         if self.block_bullish_aligned_up and ma == "bullish_aligned":
             reasons.append("tv_down_bias_bullish_aligned_up")
         if self.block_mixed_mtf_up and ma == "mixed":
@@ -116,6 +124,10 @@ class TradingViewDownBiasGate:
             reasons.append("tv_down_bias_up_bb_squeeze")
         if self.block_up_markov_chop_noise and ms == "chop_noise":
             reasons.append("tv_down_bias_up_markov_chop_noise")
+        if self.block_up_htf_bullish and hb == "bullish":
+            reasons.append("tv_down_bias_up_htf_bullish")
+        if self.block_up_bear_close_near_low and cp == "bear_close_near_low":
+            reasons.append("tv_down_bias_up_bear_close_near_low")
         if ttc_s is not None:
             ttc = float(ttc_s)
             if self.block_up_late_ttc and ttc >= self.up_late_ttc_min_s:
@@ -136,6 +148,8 @@ class TradingViewDownBiasGate:
         bb_state=None,
         range_state=None,
         markov_state=None,
+        htf_bias=None,
+        candle_pressure=None,
         ttc_s=None,
     ) -> dict:
         if not self.enabled:
@@ -145,6 +159,7 @@ class TradingViewDownBiasGate:
                                   supertrend_direction=supertrend_direction,
                                   vwap_state=vwap_state, bb_state=bb_state,
                                   range_state=range_state, markov_state=markov_state,
+                                  htf_bias=htf_bias, candle_pressure=candle_pressure,
                                   ttc_s=ttc_s)
         if not reasons:
             self.passed += 1
@@ -175,6 +190,8 @@ class TradingViewDownBiasGate:
             "block_up_range_top": self.block_up_range_top,
             "block_up_bb_squeeze": self.block_up_bb_squeeze,
             "block_up_markov_chop_noise": self.block_up_markov_chop_noise,
+            "block_up_htf_bullish": self.block_up_htf_bullish,
+            "block_up_bear_close_near_low": self.block_up_bear_close_near_low,
             "block_up_late_ttc": self.block_up_late_ttc,
             "block_up_early_ttc": self.block_up_early_ttc,
             "up_late_ttc_min_s": self.up_late_ttc_min_s,

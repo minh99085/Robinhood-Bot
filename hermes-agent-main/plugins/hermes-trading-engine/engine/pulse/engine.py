@@ -139,7 +139,8 @@ class PulseConfig:
     research_loop_enabled: bool = False
     research_interval_s: float = 1800.0      # idle FLOOR; the loop is mainly EVENT-triggered
     research_event_min_gap_s: float = 600.0  # min gap between event-triggered research runs
-    research_auto_apply: bool = True         # bounded auto-apply: avoid-contexts -> hard blocks
+    research_auto_apply: bool = False        # WS2: default observe-only; avoid blocks only when on
+    research_forbid_size_increase: bool = True  # WS2: research_meta must never bump directional size
     research_avoid_max: int = 14             # cap on active research avoid-context rules
     research_exploit_max: int = 10           # cap on active research EXPLOIT-context rules
     lessons_revalidate_ttl_s: float = 21600.0  # avoid/exploit lesson retracts if unconfirmed this long
@@ -242,6 +243,8 @@ class PulseConfig:
     dependency_arb_enabled: bool = True         # LCMM nested-window scanner
     dependency_arb_execute_enabled: bool = False  # paper execute validated violations (WS4)
     dependency_arb_max_usd: float = 50.0
+    bregman_projection_enabled: bool = False  # WS4 Layer 2 observe-only diagnostics
+    eth_series_enabled: bool = False            # append ETH 5m/15m slugs when listed
     sizing_promotion_gated: bool = True       # Kelly only on promoted buckets (WS3)
     # ---- Learned Selectivity Gate v1 (between decision and execution; PAPER ONLY) ----
     # Uses live settled-trade bucket evidence to REJECT proven-losing buckets. Can only make the
@@ -282,6 +285,8 @@ class PulseConfig:
     tv_down_bias_block_up_range_top: bool = True
     tv_down_bias_block_up_bb_squeeze: bool = True
     tv_down_bias_block_up_markov_chop_noise: bool = True
+    tv_down_bias_block_up_htf_bullish: bool = True
+    tv_down_bias_block_up_bear_close_near_low: bool = True
     tv_down_bias_block_up_late_ttc: bool = True
     tv_down_bias_block_up_early_ttc: bool = True
     tv_down_bias_up_late_ttc_min_s: float = 240.0
@@ -365,6 +370,15 @@ class PulseConfig:
     @classmethod
     def from_env(cls) -> "PulseConfig":
         from engine.pulse.tradingview import normalize_symbol
+        from engine.pulse.markets import SERIES_SLUG_ETH_5M, SERIES_SLUG_ETH_15M
+        _series_slugs = tuple(
+            s.strip() for s in os.getenv(
+                "PULSE_SERIES_SLUGS",
+                "btc-up-or-down-5m,btc-up-or-down-15m").split(",") if s.strip())
+        if str(os.getenv("PULSE_ETH_SERIES_ENABLED", "0")).strip().lower() in (
+                "1", "true", "yes", "on"):
+            _series_slugs = tuple(dict.fromkeys(
+                _series_slugs + (SERIES_SLUG_ETH_5M, SERIES_SLUG_ETH_15M)))
         return cls(
             tick_seconds=_envf("PULSE_TICK_SECONDS", 4.0),
             size_usd=_envf("PULSE_SIZE_USD", 5.0),
@@ -434,8 +448,11 @@ class PulseConfig:
             research_exploit_max=int(_envf("PULSE_RESEARCH_EXPLOIT_MAX", 10)),
             lessons_revalidate_ttl_s=_envf("PULSE_LESSONS_REVALIDATE_TTL_S", 21600.0),
             research_exploit_size_mult=_envf("PULSE_RESEARCH_EXPLOIT_SIZE_MULT", 1.5),
-            research_auto_apply=str(os.getenv("PULSE_RESEARCH_AUTO_APPLY", "1"))
+            research_auto_apply=str(os.getenv("PULSE_RESEARCH_AUTO_APPLY", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
+            research_forbid_size_increase=str(
+                os.getenv("PULSE_RESEARCH_FORBID_SIZE_INCREASE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
             research_max_calls_per_hour=int(_envf("PULSE_RESEARCH_MAX_CALLS_PER_HOUR", 6)),
             claude_budget_daily_usd=_envf("CLAUDE_BUDGET_DAILY_USD", 10.0),
             claude_est_usd_per_call=_envf("CLAUDE_EST_USD_PER_CALL", 0.01),
@@ -543,6 +560,10 @@ class PulseConfig:
             dependency_arb_execute_enabled=str(os.getenv("PULSE_DEPENDENCY_ARB_EXECUTE", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
             dependency_arb_max_usd=_envf("PULSE_DEPENDENCY_ARB_MAX_USD", 50.0),
+            bregman_projection_enabled=str(os.getenv("PULSE_BREGMAN_PROJECTION_ENABLED", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            eth_series_enabled=str(os.getenv("PULSE_ETH_SERIES_ENABLED", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
             sizing_promotion_gated=str(os.getenv("PULSE_SIZING_PROMOTION_GATED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             selectivity_gate_enabled=str(os.getenv("PULSE_SELECTIVITY_GATE_ENABLED", "1"))
@@ -609,6 +630,12 @@ class PulseConfig:
             in ("1", "true", "yes", "on"),
             tv_down_bias_block_up_markov_chop_noise=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_MARKOV_CHOP_NOISE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            tv_down_bias_block_up_htf_bullish=str(
+                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_HTF_BULLISH", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            tv_down_bias_block_up_bear_close_near_low=str(
+                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_BEAR_CLOSE_NEAR_LOW", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             tv_down_bias_block_up_late_ttc=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_LATE_TTC", "1")).strip().lower()
@@ -681,10 +708,7 @@ class PulseConfig:
             tradingview_mtf_confirm_window_15m_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_15M_S", 960.0),
             tradingview_mtf_confirm_window_4m_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_4M_S", 300.0),
             tradingview_mtf_confirm_window_13m_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_13M_S", 840.0),
-            pulse_series_slugs=tuple(
-                s.strip() for s in os.getenv(
-                    "PULSE_SERIES_SLUGS",
-                    "btc-up-or-down-5m,btc-up-or-down-15m").split(",") if s.strip()),
+            pulse_series_slugs=_series_slugs,
             tradingview_signal_max_feature_age_s=_envf("PULSE_TV_SIGNAL_MAX_FEATURE_AGE_S", 300.0),
             tradingview_signal_gate_enabled=str(os.getenv("PULSE_TRADINGVIEW_SIGNAL_GATE", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
@@ -829,6 +853,9 @@ class PulseEngine:
             block_up_bb_squeeze=bool(self.cfg.tv_down_bias_block_up_bb_squeeze),
             block_up_markov_chop_noise=bool(
                 self.cfg.tv_down_bias_block_up_markov_chop_noise),
+            block_up_htf_bullish=bool(self.cfg.tv_down_bias_block_up_htf_bullish),
+            block_up_bear_close_near_low=bool(
+                self.cfg.tv_down_bias_block_up_bear_close_near_low),
             block_up_late_ttc=bool(self.cfg.tv_down_bias_block_up_late_ttc),
             block_up_early_ttc=bool(self.cfg.tv_down_bias_block_up_early_ttc),
             up_late_ttc_min_s=self.cfg.tv_down_bias_up_late_ttc_min_s,
@@ -2131,10 +2158,14 @@ class PulseEngine:
             # B (EXPLOIT side): size UP a proven-winning research exploit-context (baseline opinion
             # path only; capped). The execution gate + caps below remain authoritative.
             if (not grok_follow and not cex_lead_active and self.cfg.research_auto_apply
+                    and not self.cfg.research_forbid_size_increase
                     and self._research_exploit_hit(sel_tags)):
                 grok_size_frac = min(self.cfg.cex_lead_max_size_frac,
                                      grok_size_frac * self.cfg.research_exploit_size_mult)
                 gate_decision = "exploit_" + gate_decision
+            elif (self.cfg.research_forbid_size_increase
+                  and self._research_exploit_hit(sel_tags)):
+                gate_decision = "exploit_blocked_size_" + gate_decision
             # Execution-realistic edge block (Roan Part IV) + margin-based high-entry guard.
             book = w.up_book if d.side == "up" else w.down_book
             from engine.pulse.execution_realistic import (compute_candidate_edge,
@@ -3095,6 +3126,8 @@ class PulseEngine:
             bb_state=feat.get("bb_state"),
             range_state=feat.get("range_state"),
             markov_state=markov_state,
+            htf_bias=feat.get("htf_bias"),
+            candle_pressure=feat.get("candle_pressure"),
             ttc_s=ttc_s,
         )
 
@@ -3363,7 +3396,13 @@ class PulseEngine:
         report["dependency_arbitrage"] = (self.dep_arb_ledger.report()
                                           if self.dep_arb_ledger is not None
                                           else {"enabled": False})
+        report["arb_graph"] = getattr(self, "_arb_graph_report", None) or {"nodes": 0}
+        report["grok_dependency"] = getattr(self, "_grok_dependency_report", None) or {
+            "dependency_proposals": 0}
+        report["bregman_projection"] = getattr(self, "_bregman_projection_report", None) or {
+            "enabled": False}
         report["profit_discovery"] = self._profit_discovery_status()
+        report["five_x_improvement"] = report["profit_discovery"]
         report["directional_risk"] = {
             "max_bankroll_frac": self.cfg.directional_max_bankroll_frac,
             "bankroll_cap_usd": round(
@@ -3688,19 +3727,47 @@ class PulseEngine:
         for w in open_w:
             if w.up_book is None or w.down_book is None:
                 self.market.hydrate_books(w)
+        from engine.pulse.arb_graph import MarketGraph
         from engine.pulse.dependency_arb import (
-            group_nested_windows, scan_nested_implication, validate_violation,
-            try_execute_nested_implication,
+            scan_windows, validate_violation, try_execute_nested_implication,
         )
-        violations = []
-        for parent, children in group_nested_windows(open_w):
-            violations.extend(scan_nested_implication(
-                parent, children, epsilon=max(0.02, self.cfg.arb_epsilon)))
+        from engine.pulse.grok_dependency import validate_grok_proposals
+
+        graph = MarketGraph().build_from_windows(open_w)
+        grok_props = list(getattr(self, "_grok_dependency_proposals", None) or [])
+        if grok_props:
+            graph.add_grok_proposals(grok_props)
+        self._arb_graph_report = graph.report()
+        self._grok_dependency_report = validate_grok_proposals(
+            grok_props, windows_by_id={w.event_id: w for w in open_w})
+
+        eps = max(0.02, self.cfg.arb_epsilon)
+        violations = scan_windows(
+            open_w, epsilon=eps, max_usd=self.cfg.dependency_arb_max_usd,
+            vwap_enrich=True)
+
+        if self.cfg.bregman_projection_enabled:
+            from engine.pulse.bregman_projection import projection_distance_nested
+            samples = []
+            for v in violations:
+                if (v.constraint_type == "nested_implication" and v.parent_up_mid is not None
+                        and v.child_up_mids):
+                    samples.append(projection_distance_nested(
+                        v.parent_up_mid, v.child_up_mids[0], epsilon=eps))
+            self._bregman_projection_report = {
+                "enabled": True, "samples": samples[-12:],
+                "note": "Layer-2 observe-only; VWAP path remains authoritative.",
+            }
+        else:
+            self._bregman_projection_report = {"enabled": False}
+
         self.dep_arb_ledger.record_scan(violations)
         if not self.dep_arb_ledger.execute_enabled:
             return
         by_id = {w.event_id: w for w in open_w}
         for v in violations:
+            if not v.actionable:
+                continue
             ok, reason = validate_violation(v)
             if not ok:
                 self.dep_arb_ledger.rejected_invalid += 1
@@ -3714,7 +3781,7 @@ class PulseEngine:
                 continue
             trade = try_execute_nested_implication(
                 parent, child, v, max_usd=self.cfg.dependency_arb_max_usd,
-                epsilon=max(0.02, self.cfg.arb_epsilon))
+                epsilon=eps)
             if trade and self.dep_arb_ledger.book(trade, now=now):
                 self.loops.beat("dependency_arb", now)
 

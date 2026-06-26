@@ -169,6 +169,28 @@ def test_blocks_up_early_ttc():
     assert "tv_down_bias_up_early_ttc" in r["reasons"]
 
 
+def test_blocks_up_htf_bullish():
+    g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
+                                block_up_without_bearish=False,
+                                block_mixed_mtf_up=False,
+                                block_up_markov_chop_noise=False)
+    r = g.evaluate(side="up", mtf_alignment="bearish_aligned",
+                   tv_direction="DOWN", htf_bias="bullish")
+    assert r["decision"] == "block"
+    assert "tv_down_bias_up_htf_bullish" in r["reasons"]
+
+
+def test_blocks_up_bear_close_near_low():
+    g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
+                                block_up_without_bearish=False,
+                                block_mixed_mtf_up=False,
+                                block_up_markov_chop_noise=False)
+    r = g.evaluate(side="up", mtf_alignment="bearish_aligned",
+                   tv_direction="DOWN", candle_pressure="bear_close_near_low")
+    assert r["decision"] == "block"
+    assert "tv_down_bias_up_bear_close_near_low" in r["reasons"]
+
+
 def test_allows_up_mid_ttc_window():
     g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
                                 block_up_without_bearish=False,
