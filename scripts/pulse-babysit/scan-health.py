@@ -113,6 +113,28 @@ def main() -> int:
         issues.append(_issue("strategy_halted", "P0", str(stop.get("stalled") or stop),
                              "inspect stop_conditions"))
 
+    coupling = status.get("config_coupling") or {}
+    if coupling.get("active"):
+        record(
+            "gate_coupling_ok",
+            coupling.get("ok") is True,
+            f"configured={coupling.get('configured_s')} effective={coupling.get('effective_s')} "
+            f"required>={coupling.get('required_min_s')}",
+        )
+        if not coupling.get("configured_ok"):
+            issues.append(_issue(
+                "gate_coupling_misconfigured", "P0",
+                f"PULSE_TV_CONTEXT_MAX_TTC_S={coupling.get('configured_s')} "
+                f"need >={coupling.get('required_min_s')}",
+                coupling.get("fix_hint") or "run apply-loop-arch-env.py",
+            ))
+        elif coupling.get("auto_clamped"):
+            issues.append(_issue(
+                "gate_coupling_clamped", "P2",
+                f"runtime clamped context max to {coupling.get('effective_s')}",
+                "fix .env so configured_s meets required_min_s",
+            ))
+
     lc = status.get("decision_lifecycle") or {}
     rbs = lc.get("rejected_by_stage") or {}
     if int(rbs.get("verifier") or 0) > 100:

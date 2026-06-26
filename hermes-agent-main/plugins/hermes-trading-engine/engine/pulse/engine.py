@@ -695,12 +695,37 @@ class PulseEngine:
         self.late_window_edge = LateWindowEdge(   # OBSERVE-ONLY time-decay edge measurement
             max_ttc_s=self.cfg.late_window_max_ttc_s,
             min_conviction=self.cfg.late_window_min_conviction)
+        from engine.pulse.config_coupling import (
+            apply_context_cohort_coupling, window_seconds_for_slugs)
+        _ctx_max, self._config_coupling = apply_context_cohort_coupling(
+            baseline_cohort_enabled=bool(self.cfg.baseline_cohort_gate_enabled),
+            tv_context_enabled=bool(self.cfg.tv_context_gate_enabled),
+            configured_context_max_ttc_s=self.cfg.tv_context_max_ttc_s,
+            cohort_ttc_min_s=self.cfg.baseline_cohort_ttc_min_s,
+            cohort_ttc_max_s=self.cfg.baseline_cohort_ttc_max_s,
+            window_seconds_list=window_seconds_for_slugs(self.cfg.pulse_series_slugs),
+        )
+        if self._config_coupling.get("auto_clamped"):
+            logger.warning(
+                "PULSE_TV_CONTEXT_MAX_TTC_S=%s below required %s for baseline cohort "
+                "— auto-raised effective max to %s",
+                self._config_coupling.get("configured_s"),
+                self._config_coupling.get("required_min_s"),
+                self._config_coupling.get("effective_s"),
+            )
+        elif self._config_coupling.get("active") and not self._config_coupling.get("configured_ok"):
+            logger.error(
+                "Gate coupling deadlock: PULSE_TV_CONTEXT_MAX_TTC_S=%s; need >= %s. %s",
+                self._config_coupling.get("configured_s"),
+                self._config_coupling.get("required_min_s"),
+                self._config_coupling.get("fix_hint"),
+            )
         from engine.pulse.context_gate import TradingViewContextGate
         self.tv_context_gate = TradingViewContextGate(
             enabled=bool(self.cfg.tv_context_gate_enabled),
             blocked_volume_states=self.cfg.tv_context_blocked_volume_states,
             blocked_hurst_regimes=self.cfg.tv_context_blocked_hurst_regimes,
-            max_ttc_s=self.cfg.tv_context_max_ttc_s,
+            max_ttc_s=_ctx_max,
             block_liquidation_spike=self.cfg.tv_context_block_liquidation_spike,
             block_event_blackout=self.cfg.tv_context_block_event_blackout,
             block_grok_event_risk_high=self.cfg.tv_context_block_grok_event_risk_high,
@@ -2926,6 +2951,12 @@ class PulseEngine:
                 return False, tv_reason
         return True, ""
 
+    def _config_coupling_report(self) -> dict:
+        rep = dict(getattr(self, "_config_coupling", None) or {})
+        if rep and self.tv_context_gate is not None:
+            rep = {**rep, "runtime_context_max_ttc_s": self.tv_context_gate.max_ttc_s}
+        return rep
+
     def _baseline_cohort_gate_report(self) -> dict:
         return {
             "enabled": bool(self.cfg.baseline_cohort_gate_enabled),
@@ -3755,6 +3786,7 @@ class PulseEngine:
             "markets_feed": (self.market.report() if hasattr(self.market, "report")
                              else {"multi_series": False}),
             "pulse_series_slugs": list(self.cfg.pulse_series_slugs),
+            "config_coupling": self._config_coupling_report(),
             "baseline_cohort_gate": self._baseline_cohort_gate_report(),
             "learned_selectivity_gate": self._selectivity_report(),
             "late_window_entry": self._late_window_report(),

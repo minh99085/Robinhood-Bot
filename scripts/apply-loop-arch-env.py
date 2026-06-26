@@ -1,8 +1,20 @@
 #!/usr/bin/env python3
 """Apply loop-engine architecture env on VPS: quant baseline owns trades; Grok/TV observe-only."""
+import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+ENGINE_ROOT = ROOT / "hermes-agent-main" / "plugins" / "hermes-trading-engine"
+sys.path.insert(0, str(ENGINE_ROOT))
+
+from engine.pulse.config_coupling import (  # noqa: E402
+    evaluate_context_cohort_coupling,
+    window_seconds_for_slugs,
+)
+
 ENV_PATH = Path("/opt/Grok-Bot-2/hermes-agent-main/plugins/hermes-trading-engine/.env")
+if not ENV_PATH.exists():
+    ENV_PATH = ENGINE_ROOT / ".env"
 
 UPDATES = {
     # Grok observe-only: decide + grade every window, never place/size a trade.
@@ -68,6 +80,31 @@ UPDATES = {
     "PULSE_SELECTIVITY_MIN_PROFIT_FACTOR": "0.85",
     "PULSE_SELECTIVITY_FDR_Q": "0.10",
 }
+
+
+def _enforce_context_cohort_coupling(updates: dict) -> dict:
+    """Raise PULSE_TV_CONTEXT_MAX_TTC_S if it would deadlock baseline cohort."""
+    slugs = [s.strip() for s in updates.get("PULSE_SERIES_SLUGS", "").split(",") if s.strip()]
+    rep = evaluate_context_cohort_coupling(
+        baseline_cohort_enabled=updates.get("PULSE_BASELINE_COHORT_GATE_ENABLED", "1") == "1",
+        tv_context_enabled=updates.get("PULSE_TV_CONTEXT_GATE", "1") == "1",
+        configured_context_max_ttc_s=float(updates.get("PULSE_TV_CONTEXT_MAX_TTC_S", "0") or 0),
+        cohort_ttc_min_s=float(updates.get("PULSE_BASELINE_COHORT_TTC_MIN_S", "180")),
+        cohort_ttc_max_s=float(updates.get("PULSE_BASELINE_COHORT_TTC_MAX_S", "240")),
+        window_seconds_list=window_seconds_for_slugs(slugs),
+        auto_clamp=False,
+    )
+    if rep.get("active") and not rep.get("configured_ok"):
+        fixed = str(int(rep["required_min_s"]))
+        print(
+            f"COUPLING: PULSE_TV_CONTEXT_MAX_TTC_S {updates['PULSE_TV_CONTEXT_MAX_TTC_S']} "
+            f"-> {fixed} (required for cohort band on {slugs})"
+        )
+        updates = {**updates, "PULSE_TV_CONTEXT_MAX_TTC_S": fixed}
+    return updates
+
+
+UPDATES = _enforce_context_cohort_coupling(UPDATES)
 
 text = ENV_PATH.read_text(encoding="utf-8") if ENV_PATH.exists() else ""
 lines = [ln for ln in text.splitlines() if not ln.strip().startswith("# LOOP ENGINE ARCH")]

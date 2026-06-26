@@ -60,6 +60,19 @@ DEPLOY → SOAK (15m default) → PULL → EVALUATE → (issues?) → FIX → CO
 9. `.\scripts\sync-vps.ps1` (default: `down --remove-orphans` → `build` → `up -d --remove-orphans`).
 10. Update state: `phase=soak`, `deployed_at`, `soak_until`, `last_fixes`, increment `cycle`.
 
+## Env coupling (mandatory memory)
+
+Read `scripts/pulse-babysit/env-coupling.md` before any gate/TTC env change.
+
+**Rule:** with baseline cohort + TV context gate both on,
+`PULSE_TV_CONTEXT_MAX_TTC_S` must exceed the scaled cohort band on every series in
+`PULSE_SERIES_SLUGS` (dual 5m+15m → use **900**, never **180** or **120**).
+
+- Status field: `config_coupling.configured_ok` / `effective_s` / `fix_hint`
+- `scan-health.py` flags `gate_coupling_misconfigured` (P0) if `.env` is unsafe
+- Engine auto-clamps at runtime but `.env` must still be fixed
+- Never run `apply-high-wr-env.py` without re-running `apply-loop-arch-env.py`
+
 ## Evaluation rules (do not override without evidence)
 
 The script flags issues. You may fix only what the report supports:

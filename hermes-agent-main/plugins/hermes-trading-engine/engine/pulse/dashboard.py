@@ -72,6 +72,13 @@ table.data th,table.data td{padding:8px 10px;text-align:right;border-bottom:1px 
 table.data th:first-child,table.data td:first-child{text-align:left}
 table.data th{color:var(--text3);font-weight:500}
 table.data tr:hover td{background:rgba(255,255,255,.02)}
+.coupling-banner{
+  display:none;margin:0 20px 0;max-width:1180px;margin-left:auto;margin-right:auto;
+  padding:14px 18px;border-radius:var(--radius);border:1px solid rgba(212,196,165,.35);
+  background:rgba(212,196,165,.1);color:var(--warn);font-size:18px;
+}
+.coupling-banner.show{display:block}
+.coupling-banner b{color:var(--text)}
 .foot{margin-top:32px;padding-top:16px;border-top:1px solid var(--line);color:var(--text3);font-size:17px}
 </style>
 </head>
@@ -82,6 +89,7 @@ table.data tr:hover td{background:rgba(255,255,255,.02)}
   <span class="tag" id="health">Connecting…</span>
   <span class="tag neu" id="meta"></span>
 </header>
+<div class="coupling-banner" id="coupling-banner"></div>
 <main>
   <div class="hero" id="hero"></div>
   <div class="grid" id="summary"></div>
@@ -131,6 +139,19 @@ async function tick(){
   if(!s.available){h.textContent='No data';h.className='tag off';return}
   h.textContent='Live';h.className='tag live';
   document.getElementById('meta').textContent='Ticks '+s.ticks+' · '+new Date().toLocaleTimeString();
+
+  const coupling=s.config_coupling||{};
+  const cBanner=document.getElementById('coupling-banner');
+  if(coupling.active&&!coupling.configured_ok){
+    cBanner.className='coupling-banner show';
+    cBanner.innerHTML='Gate coupling: <b>PULSE_TV_CONTEXT_MAX_TTC_S='+coupling.configured_s
+      +'</b> is too low (need &gt;='+coupling.required_min_s+'s). Runtime clamped to '
+      +coupling.effective_s+'s — fix .env.';
+  }else if(coupling.active&&coupling.auto_clamped){
+    cBanner.className='coupling-banner show';
+    cBanner.innerHTML='Gate coupling: env context max was raised at runtime to <b>'
+      +coupling.effective_s+'s</b> (configured '+coupling.configured_s+'). Update .env.';
+  }else{cBanner.className='coupling-banner';cBanner.innerHTML='';}
 
   const L=s.ledger||{},cap=s.capital||{},gd=s.grok_decider||{},ver=s.verifier||{};
   const hero=document.getElementById('hero');hero.innerHTML='';
@@ -249,6 +270,9 @@ async function tick(){
   tech.appendChild(kvCard('Gates',[
     ['Selectivity rejects',sg.rejected||0,(sg.rejected>0?'neg':'neu')],
     ['Cohort blocks',cohort.blocked||0,(cohort.blocked>0?'neg':'neu')],
+    ['Context max TTC',coupling.effective_s!=null?coupling.effective_s+'s':'—'],
+    ['Coupling OK',coupling.configured_ok==null?'—':(coupling.configured_ok?'yes':'no'),
+      coupling.configured_ok?'pos':'neg'],
     ['Brier',f(c.brier,3)],['Calib samples',c.samples||0]
   ]));
   if(gd.enabled){
