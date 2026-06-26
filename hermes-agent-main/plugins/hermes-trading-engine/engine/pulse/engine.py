@@ -220,6 +220,9 @@ class PulseConfig:
     arb_min_profit_usd: float = 0.0
     arb_size_usd: float = 100.0                 # fallback target when book depth is unknown
     arb_max_usd: float = 300.0                  # SIZE-TO-DEPTH ceiling: take the full available depth
+    arb_global_max_open_usd: float = 600.0      # max total open arb exposure (all windows)
+    arb_nonatomic_enabled: bool = True          # sequential leg-fill stress test before book
+    arb_nonatomic_slippage_bps: float = 50.0    # adverse leg-2 slippage buffer (WS5)
     #                                             (capped at max_depth_consume_frac of the thinner leg
     #                                             + full-fill required, so still RISK-FREE) up to this
     # ---- directional de-risk (separate strategy; arb can run standalone) ----
@@ -236,7 +239,10 @@ class PulseConfig:
     directional_max_bankroll_frac: float = 0.10   # cap directional open exposure vs starting capital
     directional_block_up_until_promoted: bool = True  # hard block UP until direction=up promoted
     primary_edge_source: str = "arbitrage"      # report field: arbitrage | directional | none
-    dependency_arb_enabled: bool = True         # LCMM nested-window scanner (log-only default)
+    dependency_arb_enabled: bool = True         # LCMM nested-window scanner
+    dependency_arb_execute_enabled: bool = False  # paper execute validated violations (WS4)
+    dependency_arb_max_usd: float = 50.0
+    sizing_promotion_gated: bool = True       # Kelly only on promoted buckets (WS3)
     # ---- Learned Selectivity Gate v1 (between decision and execution; PAPER ONLY) ----
     # Uses live settled-trade bucket evidence to REJECT proven-losing buckets. Can only make the
     # bot MORE selective; never trades/resizes/bypasses the execution gate.
@@ -273,7 +279,9 @@ class PulseConfig:
     tv_down_bias_block_up_vwap_above: bool = True
     tv_down_bias_block_up_bb_expansion_up: bool = True
     tv_down_bias_block_up_range_breakout_down: bool = True
+    tv_down_bias_block_up_range_top: bool = True
     tv_down_bias_block_up_bb_squeeze: bool = True
+    tv_down_bias_block_up_markov_chop_noise: bool = True
     tv_mtf_conflict_gate_enabled: bool = True
     tv_mtf_require_confirm: bool = False   # loop arch: conflict veto only, not 4m+5m trade authority
     tv_mtf_require_side_align: bool = False
@@ -510,6 +518,10 @@ class PulseConfig:
             arb_min_profit_usd=_envf("PULSE_ARB_MIN_PROFIT_USD", 0.0),
             arb_size_usd=_envf("PULSE_ARB_SIZE_USD", 100.0),
             arb_max_usd=_envf("PULSE_ARB_MAX_USD", 300.0),
+            arb_global_max_open_usd=_envf("PULSE_ARB_GLOBAL_MAX_OPEN_USD", 600.0),
+            arb_nonatomic_enabled=str(os.getenv("PULSE_ARB_NONATOMIC_ENABLED", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            arb_nonatomic_slippage_bps=_envf("PULSE_ARB_NONATOMIC_SLIPPAGE_BPS", 50.0),
             directional_enabled=str(os.getenv("PULSE_DIRECTIONAL_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             directional_require_winning_bucket=str(os.getenv("PULSE_DIRECTIONAL_REQUIRE_WINNING", "1"))
@@ -523,6 +535,11 @@ class PulseConfig:
             primary_edge_source=str(os.getenv("PULSE_PRIMARY_EDGE_SOURCE", "arbitrage")).strip()
             or "arbitrage",
             dependency_arb_enabled=str(os.getenv("PULSE_DEPENDENCY_ARB_ENABLED", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            dependency_arb_execute_enabled=str(os.getenv("PULSE_DEPENDENCY_ARB_EXECUTE", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            dependency_arb_max_usd=_envf("PULSE_DEPENDENCY_ARB_MAX_USD", 50.0),
+            sizing_promotion_gated=str(os.getenv("PULSE_SIZING_PROMOTION_GATED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
             selectivity_gate_enabled=str(os.getenv("PULSE_SELECTIVITY_GATE_ENABLED", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
@@ -582,6 +599,12 @@ class PulseConfig:
             in ("1", "true", "yes", "on"),
             tv_down_bias_block_up_bb_squeeze=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_BB_SQUEEZE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            tv_down_bias_block_up_range_top=str(
+                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_RANGE_TOP", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            tv_down_bias_block_up_markov_chop_noise=str(
+                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_MARKOV_CHOP_NOISE", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             tv_mtf_conflict_gate_enabled=str(os.getenv("PULSE_TV_MTF_CONFLICT_GATE", "1"))
             .strip().lower() in ("1", "true", "yes", "on"),
@@ -790,7 +813,10 @@ class PulseEngine:
             block_up_bb_expansion_up=bool(self.cfg.tv_down_bias_block_up_bb_expansion_up),
             block_up_range_breakout_down=bool(
                 self.cfg.tv_down_bias_block_up_range_breakout_down),
+            block_up_range_top=bool(self.cfg.tv_down_bias_block_up_range_top),
             block_up_bb_squeeze=bool(self.cfg.tv_down_bias_block_up_bb_squeeze),
+            block_up_markov_chop_noise=bool(
+                self.cfg.tv_down_bias_block_up_markov_chop_noise),
             exploration_rate=self.cfg.tv_down_bias_exploration_rate)
         from engine.pulse.tv_mtf_gate import TradingViewMtfConflictGate
         self.tv_mtf_gate = TradingViewMtfConflictGate(
@@ -862,7 +888,8 @@ class PulseEngine:
         self.dep_arb_ledger = None
         if bool(getattr(self.cfg, "dependency_arb_enabled", True)):
             from engine.pulse.dependency_arb import DependencyArbLedger
-            self.dep_arb_ledger = DependencyArbLedger()
+            self.dep_arb_ledger = DependencyArbLedger(
+                execute_enabled=bool(self.cfg.dependency_arb_execute_enabled))
         # market-beating benchmark for the learning blend: grade the edge model's P(up) vs the MARKET
         # price (poly_yes) per window; the blend only activates when the model actually beats the
         # market out-of-sample (kills phantom edge — calibrated != more accurate than the market).
@@ -1091,7 +1118,8 @@ class PulseEngine:
             self.arb_ledger = ArbLedger()
         if self.dep_arb_ledger is not None:
             from engine.pulse.dependency_arb import DependencyArbLedger
-            self.dep_arb_ledger = DependencyArbLedger()
+            self.dep_arb_ledger = DependencyArbLedger(
+                execute_enabled=bool(self.cfg.dependency_arb_execute_enabled))
         self._ev_before_sum = 0.0
         self._ev_after_sum = 0.0
         self._ev_n = 0
@@ -1325,6 +1353,8 @@ class PulseEngine:
         self._grade_market_benchmark(now) # grade model-vs-market accuracy (learning-blend gate)
         if self.arb_ledger is not None:   # settle risk-free arb positions at window close (deterministic)
             self.arb_ledger.settle_due(now)
+        if self.dep_arb_ledger is not None:
+            self.dep_arb_ledger.settle_due(now)
         ov = self.overlay.current(now) if self.overlay is not None else None
         ov_blackout = bool(ov and ov.get("blackout"))
         ov_vol_mult = float(ov.get("vol_multiplier", 1.0)) if ov else 1.0
@@ -1734,7 +1764,8 @@ class PulseEngine:
                         continue
                 # Restrict-only DOWN/TV asymmetry gate applies to all Grok-owned UP trades.
                 if side == "up":
-                    db_res = self._down_bias_eval(side=side, tv_feature=tv_feature)
+                    db_res = self._down_bias_eval(side=side, tv_feature=tv_feature,
+                                                  markov_state=cand_state)
                     if db_res["decision"] in ("block", "explore"):
                         dr.down_bias_gate = {"decision": db_res["decision"],
                                              "reasons": db_res["reasons"]}
@@ -1946,7 +1977,8 @@ class PulseEngine:
                     _finalize(dr, "rejected", reason=ctx_res["reasons"][0], stage="context_gate")
                     continue
                 context_explored = (ctx_res["decision"] == "explore")
-                db_res = self._down_bias_eval(side=d.side, tv_feature=tv_feature)
+                db_res = self._down_bias_eval(side=d.side, tv_feature=tv_feature,
+                                              markov_state=cand_state)
                 dr.down_bias_gate = {"decision": db_res["decision"], "reasons": db_res["reasons"]}
                 db_block = (db_res["decision"] == "block"
                             or (d.side == "up" and db_res["decision"] == "explore"))
@@ -2146,7 +2178,28 @@ class PulseEngine:
                 _finalize(dr, "rejected", reason=ex.reason, stage="execution_gate")
                 continue
             d.price = ex.fill_price               # paper fill at realistic VWAP price
-            trade_size = round(self.cfg.size_usd * grok_size_frac, 2)
+            from engine.pulse.sizing import sizing_diagnostics_promoted, sizing_diagnostics
+            _pwin_sz = (dr.model or {}).get("p_up") or outcome_prob
+            if self.cfg.sizing_promotion_gated:
+                _sz = sizing_diagnostics_promoted(
+                    sel_tags=sel_tags, is_promoted=self._research_exploit_backed,
+                    p_win=_pwin_sz, price=ex.fill_price, ev_after_costs=ex.ev_after_slippage,
+                    bankroll_usd=self.cfg.sizing_bankroll_usd,
+                    hard_cap_usd=self.cfg.sizing_hard_cap_usd,
+                    daily_loss_cap_usd=self.cfg.sizing_daily_loss_cap_usd,
+                    daily_loss_so_far=self._daily_loss, base_size_usd=self.cfg.size_usd,
+                    global_sizing_enabled=self.cfg.sizing_enabled)
+            else:
+                _sz = sizing_diagnostics(
+                    p_win=_pwin_sz, price=ex.fill_price, ev_after_costs=ex.ev_after_slippage,
+                    bankroll_usd=self.cfg.sizing_bankroll_usd,
+                    hard_cap_usd=self.cfg.sizing_hard_cap_usd,
+                    daily_loss_cap_usd=self.cfg.sizing_daily_loss_cap_usd,
+                    daily_loss_so_far=self._daily_loss, base_size_usd=self.cfg.size_usd,
+                    sizing_enabled=self.cfg.sizing_enabled)
+            dr.sizing = _sz
+            trade_size = round(float(_sz.get("actual_size_usd") or self.cfg.size_usd)
+                               * grok_size_frac, 2)
             dir_cap = (float(self.cfg.starting_capital_usd)
                        * float(self.cfg.directional_max_bankroll_frac))
             open_dir = self._directional_open_exposure()
@@ -2271,17 +2324,6 @@ class PulseEngine:
                                     size_usd=self.cfg.size_usd, shares=pos.shares)
             if self.markov is not None:
                 self.markov.record_terminal(state=cand_state, accepted=True)
-            # PAPER-ONLY Kelly sizing DIAGNOSTIC (default OFF -> actual size unchanged).
-            from engine.pulse.sizing import sizing_diagnostics
-            _pwin = (dr.model or {}).get("p_up")
-            if _pwin is None:
-                _pwin = outcome_prob          # fall back to the model fair value
-            dr.sizing = sizing_diagnostics(
-                p_win=_pwin, price=ex.fill_price, ev_after_costs=ex.ev_after_slippage,
-                bankroll_usd=self.cfg.sizing_bankroll_usd, hard_cap_usd=self.cfg.sizing_hard_cap_usd,
-                daily_loss_cap_usd=self.cfg.sizing_daily_loss_cap_usd,
-                daily_loss_so_far=self._daily_loss, base_size_usd=self.cfg.size_usd,
-                sizing_enabled=self.cfg.sizing_enabled)
             _finalize(dr, "accepted")
 
         self._settle_due(now)
@@ -3022,7 +3064,8 @@ class PulseEngine:
                      "UP also requires TV UP_STRONG"),
         }
 
-    def _down_bias_eval(self, *, side: str, tv_feature: "dict | None") -> dict:
+    def _down_bias_eval(self, *, side: str, tv_feature: "dict | None",
+                        markov_state: "str | None" = None) -> dict:
         feat = tv_feature or {}
         return self.tv_down_bias_gate.evaluate(
             side=side,
@@ -3033,6 +3076,7 @@ class PulseEngine:
             vwap_state=feat.get("vwap_state"),
             bb_state=feat.get("bb_state"),
             range_state=feat.get("range_state"),
+            markov_state=markov_state,
         )
 
     def _up_side_tv_bias_ok(self, tv_feature: "dict | None") -> "tuple[bool, str]":
@@ -3552,23 +3596,49 @@ class PulseEngine:
                 applied.append("exploit:" + key)
         return applied
 
+    def _arb_open_exposure(self) -> float:
+        if self.arb_ledger is None:
+            return 0.0
+        return sum(float(p.get("cost_usd") or 0.0)
+                   for p in self.arb_ledger.positions.values()
+                   if p.get("status") == "open")
+
     def _scan_arbitrage_all_windows(self, windows: list, now: float) -> None:
         """ARB-FIRST pass: scan every open window (5m+15m) without directional vol/snapshot gates."""
         if self.arb_ledger is None or self.stop_monitor.is_halted("arbitrage"):
             return
         from engine.pulse.arbitrage import detect_arbitrage
+        open_exp = self._arb_open_exposure()
+        cap = float(self.cfg.arb_global_max_open_usd)
         for w in windows:
             if now < w.open_ts or w.seconds_to_close(now) <= 0:
                 continue
             if self.arb_ledger.has_arb(w.event_id):
                 continue
+            if open_exp >= cap - 1e-6:
+                continue
             self.market.hydrate_books(w)
-            opp = detect_arbitrage(
-                w.up_book, w.down_book, size_usd=self.cfg.arb_size_usd, fees=self.cfg.arb_fees,
+            room = max(0.0, cap - open_exp)
+            # Matched dutch-book cost ≈ 2× per-leg notional when legs share similar VWAP.
+            max_usd = min(float(self.cfg.arb_max_usd), room * 0.5) if room > 0 else 0.0
+            if max_usd <= 0:
+                continue
+            _arb_kw = dict(
+                size_usd=self.cfg.arb_size_usd, fees=self.cfg.arb_fees,
                 epsilon=self.cfg.arb_epsilon,
                 max_depth_consume_frac=self.cfg.exec_max_depth_consume_frac,
                 tick_size=w.tick_size, now=now, max_book_age_s=self.cfg.exec_max_book_age_s,
-                min_profit_usd=self.cfg.arb_min_profit_usd, max_usd=self.cfg.arb_max_usd)
+                min_profit_usd=self.cfg.arb_min_profit_usd, max_usd=max_usd,
+                nonatomic_check=bool(self.cfg.arb_nonatomic_enabled),
+                nonatomic_slippage_bps=self.cfg.arb_nonatomic_slippage_bps)
+            opp = detect_arbitrage(w.up_book, w.down_book, **_arb_kw)
+            if opp is not None and opp.actionable:
+                cost = float(opp.cost_usd or 0.0)
+                if cost > room + 1e-6 and cost > 0:
+                    shrink = max(0.0, max_usd * room / cost * 0.99)
+                    if shrink > 0:
+                        opp = detect_arbitrage(w.up_book, w.down_book, **{**_arb_kw,
+                                                                            "max_usd": shrink})
             self.arb_ledger.record_scan(
                 opp, near_miss_eps=max(0.02, self.cfg.arb_epsilon),
                 window_key=w.event_id, series_label=getattr(w, "series_label", None))
@@ -3577,13 +3647,17 @@ class PulseEngine:
             if opp.kind == "sell_both":
                 self.arb_ledger.sell_both_detected += 1
             if opp.actionable:
+                cost = float(opp.cost_usd or 0.0)
+                if open_exp + cost > cap + 1e-6:
+                    continue
                 self.arb_ledger.detected += 1
                 if self.arb_ledger.book(w.event_id, opp, close_ts=w.close_ts, now=now,
                                         series_label=getattr(w, "series_label", None)):
+                    open_exp += cost
                     self.loops.beat("arbitrage", now)
 
     def _scan_dependency_arb(self, windows: list, now: float) -> None:
-        """LCMM dependency scan (log-only): nested 5m inside 15m implication checks."""
+        """LCMM dependency scan; optional paper execution on validated violations (WS4)."""
         if self.dep_arb_ledger is None:
             return
         open_w = [w for w in windows if w.open_ts <= now < w.close_ts]
@@ -3592,9 +3666,35 @@ class PulseEngine:
         for w in open_w:
             if w.up_book is None or w.down_book is None:
                 self.market.hydrate_books(w)
-        from engine.pulse.dependency_arb import scan_windows
-        violations = scan_windows(open_w, epsilon=max(0.02, self.cfg.arb_epsilon))
+        from engine.pulse.dependency_arb import (
+            group_nested_windows, scan_nested_implication, validate_violation,
+            try_execute_nested_implication,
+        )
+        violations = []
+        for parent, children in group_nested_windows(open_w):
+            violations.extend(scan_nested_implication(
+                parent, children, epsilon=max(0.02, self.cfg.arb_epsilon)))
         self.dep_arb_ledger.record_scan(violations)
+        if not self.dep_arb_ledger.execute_enabled:
+            return
+        by_id = {w.event_id: w for w in open_w}
+        for v in violations:
+            ok, reason = validate_violation(v)
+            if not ok:
+                self.dep_arb_ledger.rejected_invalid += 1
+                continue
+            if self.dep_arb_ledger.has_open(v.parent_window_key):
+                continue
+            parent = by_id.get(v.parent_window_key)
+            child_id = (v.child_window_keys or [None])[0]
+            child = by_id.get(child_id) if child_id else None
+            if parent is None or child is None:
+                continue
+            trade = try_execute_nested_implication(
+                parent, child, v, max_usd=self.cfg.dependency_arb_max_usd,
+                epsilon=max(0.02, self.cfg.arb_epsilon))
+            if trade and self.dep_arb_ledger.book(trade, now=now):
+                self.loops.beat("dependency_arb", now)
 
     def _directional_open_exposure(self) -> float:
         exp = 0.0

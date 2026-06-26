@@ -125,3 +125,23 @@ def test_blocks_up_bb_squeeze():
                    tv_direction="DOWN", bb_state="squeeze")
     assert r["decision"] == "block"
     assert "tv_down_bias_up_bb_squeeze" in r["reasons"]
+
+
+def test_blocks_up_range_top():
+    g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
+                                block_up_without_bearish=False,
+                                block_mixed_mtf_up=False)
+    r = g.evaluate(side="up", mtf_alignment="bearish_aligned",
+                   tv_direction="DOWN", range_state="range_top")
+    assert r["decision"] == "block"
+    assert "tv_down_bias_up_range_top" in r["reasons"]
+
+
+def test_blocks_up_markov_chop_noise():
+    g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
+                                block_up_without_bearish=False,
+                                block_mixed_mtf_up=False)
+    r = g.evaluate(side="up", mtf_alignment="bearish_aligned",
+                   tv_direction="DOWN", markov_state="chop_noise")
+    assert r["decision"] == "block"
+    assert "tv_down_bias_up_markov_chop_noise" in r["reasons"]

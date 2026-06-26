@@ -28,7 +28,9 @@ class TradingViewDownBiasGate:
         block_up_vwap_above: bool = True,
         block_up_bb_expansion_up: bool = True,
         block_up_range_breakout_down: bool = True,
+        block_up_range_top: bool = True,
         block_up_bb_squeeze: bool = True,
+        block_up_markov_chop_noise: bool = True,
         exploration_rate: float = 0.0,
         seed: Optional[int] = None,
     ):
@@ -43,7 +45,9 @@ class TradingViewDownBiasGate:
         self.block_up_vwap_above = bool(block_up_vwap_above)
         self.block_up_bb_expansion_up = bool(block_up_bb_expansion_up)
         self.block_up_range_breakout_down = bool(block_up_range_breakout_down)
+        self.block_up_range_top = bool(block_up_range_top)
         self.block_up_bb_squeeze = bool(block_up_bb_squeeze)
+        self.block_up_markov_chop_noise = bool(block_up_markov_chop_noise)
         self.exploration_rate = max(0.0, min(0.05, float(exploration_rate)))
         self.passed = 0
         self.blocked = 0
@@ -63,6 +67,7 @@ class TradingViewDownBiasGate:
         vwap_state=None,
         bb_state=None,
         range_state=None,
+        markov_state=None,
     ) -> list[str]:
         if not side or str(side).lower() != "up":
             return []
@@ -74,6 +79,7 @@ class TradingViewDownBiasGate:
         vw = str(vwap_state or "").strip().lower()
         bb = str(bb_state or "").strip().lower()
         rs = str(range_state or "").strip().lower()
+        ms = str(markov_state or "").strip().lower()
         if self.block_bullish_aligned_up and ma == "bullish_aligned":
             reasons.append("tv_down_bias_bullish_aligned_up")
         if self.block_mixed_mtf_up and ma == "mixed":
@@ -95,8 +101,12 @@ class TradingViewDownBiasGate:
             reasons.append("tv_down_bias_up_bb_expansion_up")
         if self.block_up_range_breakout_down and rs == "breakout_down":
             reasons.append("tv_down_bias_up_range_breakout_down")
+        if self.block_up_range_top and rs == "range_top":
+            reasons.append("tv_down_bias_up_range_top")
         if self.block_up_bb_squeeze and bb == "squeeze":
             reasons.append("tv_down_bias_up_bb_squeeze")
+        if self.block_up_markov_chop_noise and ms == "chop_noise":
+            reasons.append("tv_down_bias_up_markov_chop_noise")
         return reasons
 
     def evaluate(
@@ -110,6 +120,7 @@ class TradingViewDownBiasGate:
         vwap_state=None,
         bb_state=None,
         range_state=None,
+        markov_state=None,
     ) -> dict:
         if not self.enabled:
             return {"decision": "pass", "reasons": [], "active": False}
@@ -117,7 +128,7 @@ class TradingViewDownBiasGate:
                                   tv_direction=tv_direction, tf_confirm=tf_confirm,
                                   supertrend_direction=supertrend_direction,
                                   vwap_state=vwap_state, bb_state=bb_state,
-                                  range_state=range_state)
+                                  range_state=range_state, markov_state=markov_state)
         if not reasons:
             self.passed += 1
             return {"decision": "pass", "reasons": [], "active": True}
@@ -144,7 +155,9 @@ class TradingViewDownBiasGate:
             "block_up_vwap_above": self.block_up_vwap_above,
             "block_up_bb_expansion_up": self.block_up_bb_expansion_up,
             "block_up_range_breakout_down": self.block_up_range_breakout_down,
+            "block_up_range_top": self.block_up_range_top,
             "block_up_bb_squeeze": self.block_up_bb_squeeze,
+            "block_up_markov_chop_noise": self.block_up_markov_chop_noise,
             "exploration_rate": self.exploration_rate,
             "passed": self.passed,
             "blocked": self.blocked,

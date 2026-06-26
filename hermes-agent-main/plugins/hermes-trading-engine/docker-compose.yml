@@ -224,6 +224,13 @@ services:
       # size-to-depth ceiling: capture the full available depth (still depth-capped + full-fill =>
       # risk-free) up to this per dutch book. Bigger = more guaranteed profit per crossing.
       PULSE_ARB_MAX_USD: "${PULSE_ARB_MAX_USD:-300.0}"
+      PULSE_ARB_GLOBAL_MAX_OPEN_USD: "${PULSE_ARB_GLOBAL_MAX_OPEN_USD:-600.0}"
+      PULSE_ARB_NONATOMIC_ENABLED: "${PULSE_ARB_NONATOMIC_ENABLED:-1}"
+      PULSE_ARB_NONATOMIC_SLIPPAGE_BPS: "${PULSE_ARB_NONATOMIC_SLIPPAGE_BPS:-50.0}"
+      PULSE_DEPENDENCY_ARB_ENABLED: "${PULSE_DEPENDENCY_ARB_ENABLED:-1}"
+      PULSE_DEPENDENCY_ARB_EXECUTE: "${PULSE_DEPENDENCY_ARB_EXECUTE:-0}"
+      PULSE_DEPENDENCY_ARB_MAX_USD: "${PULSE_DEPENDENCY_ARB_MAX_USD:-50.0}"
+      PULSE_SIZING_PROMOTION_GATED: "${PULSE_SIZING_PROMOTION_GATED:-1}"
       # Directional de-risk: the directional model is structurally negative-EV in a near-efficient
       # market. Keep it enabled but, when REQUIRE_WINNING=1, only take a directional trade in a
       # Wilson-PROVEN-winning bucket (pre-execution block, never advisory). Arb runs standalone.
@@ -318,6 +325,8 @@ services:
       PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN: "${PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN:-1}"
       PULSE_TV_DOWN_BIAS_BLOCK_MIXED_MTF_UP: "${PULSE_TV_DOWN_BIAS_BLOCK_MIXED_MTF_UP:-1}"
       PULSE_TV_DOWN_BIAS_BLOCK_BULLISH_SUPERTREND_UP: "${PULSE_TV_DOWN_BIAS_BLOCK_BULLISH_SUPERTREND_UP:-1}"
+      PULSE_TV_DOWN_BIAS_BLOCK_UP_RANGE_TOP: "${PULSE_TV_DOWN_BIAS_BLOCK_UP_RANGE_TOP:-1}"
+      PULSE_TV_DOWN_BIAS_BLOCK_UP_MARKOV_CHOP_NOISE: "${PULSE_TV_DOWN_BIAS_BLOCK_UP_MARKOV_CHOP_NOISE:-1}"
       # MTF gate: block 4m/5m fast-pair conflict; require confirmed_up/down + side alignment
       PULSE_TV_MTF_CONFLICT_GATE: "${PULSE_TV_MTF_CONFLICT_GATE:-1}"
       PULSE_TV_MTF_REQUIRE_CONFIRM: "${PULSE_TV_MTF_REQUIRE_CONFIRM:-0}"
