@@ -31,12 +31,13 @@ UPDATES = {
     "PULSE_TV_MIN_SIGNAL_STRENGTH": "0",
     "PULSE_TV_MTF_REQUIRE_CONFIRM": "0",
     "PULSE_TV_MTF_REQUIRE_SIDE_ALIGN": "0",
-    "PULSE_TV_DOWN_BIAS_GATE": "1",
-    "PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN": "1",
-    "PULSE_TV_DOWN_BIAS_BLOCK_UP_RANGE_TOP": "1",
-    "PULSE_TV_DOWN_BIAS_BLOCK_UP_MARKOV_CHOP_NOISE": "1",
-    "PULSE_TV_DOWN_BIAS_BLOCK_UP_LATE_TTC": "1",
-    "PULSE_TV_DOWN_BIAS_BLOCK_UP_EARLY_TTC": "1",
+    # Symmetric sides: no UP-only TV down-bias blocks.
+    "PULSE_TV_DOWN_BIAS_GATE": "0",
+    "PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN": "0",
+    "PULSE_TV_DOWN_BIAS_BLOCK_UP_RANGE_TOP": "0",
+    "PULSE_TV_DOWN_BIAS_BLOCK_UP_MARKOV_CHOP_NOISE": "0",
+    "PULSE_TV_DOWN_BIAS_BLOCK_UP_LATE_TTC": "0",
+    "PULSE_TV_DOWN_BIAS_BLOCK_UP_EARLY_TTC": "0",
     "PULSE_TV_DOWN_BIAS_UP_LATE_TTC_MIN_S": "240",
     "PULSE_TV_DOWN_BIAS_UP_EARLY_TTC_MAX_S": "120",
     "PULSE_LATE_WINDOW_ENTRY": "0",
@@ -50,8 +51,8 @@ UPDATES = {
     "PULSE_DIRECTIONAL_EXPLORE_RATE": "0.18",
     "PULSE_MIN_EDGE": "0.02",
     "PULSE_MIN_REWARD_RISK": "0.42",
-    "PULSE_MIN_REWARD_RISK_UP_PREMIUM": "0.28",
-    "PULSE_GROK_UP_MIN_P_WIN": "0.58",
+    "PULSE_MIN_REWARD_RISK_UP_PREMIUM": "0",
+    "PULSE_GROK_UP_MIN_P_WIN": "0.50",
     # Gamma windows often appear >20s after open_ts; min_seconds_since_open=30 already delays entry.
     "PULSE_MAX_OPEN_LAG_S": "120",
     # Stop halt needs >30 settled before Wilson test (avoids freeze at exactly min_samples).
@@ -68,16 +69,16 @@ UPDATES = {
     "PULSE_EDGE_TTC_GATE_ENABLED": "1",
     "PULSE_CEX_LEAD_MIN_EDGE_VS_MARKET": "0.02",
     "PULSE_CEX_LEAD_TV_STRENGTH_THR": "0.72",
-    # Tier 1: baseline cohort + 15m fast lane (wider TTC both sides; DOWN relaxed, UP strict).
+    # Tier 1: baseline cohort + 15m fast lane (symmetric UP/DOWN floors).
     "PULSE_BASELINE_COHORT_GATE_ENABLED": "1",
     "PULSE_BASELINE_COHORT_TTC_MIN_S": "60",
     "PULSE_BASELINE_COHORT_TTC_MAX_S": "480",
-    "PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE": "1",
-    "PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX": "1",
+    "PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE": "0",
+    "PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX": "0",
     "PULSE_BASELINE_COHORT_15M_FAST_LANE": "1",
     "PULSE_BASELINE_COHORT_15M_TTC_MIN_S": "60",
     "PULSE_BASELINE_COHORT_15M_TTC_MAX_S": "480",
-    "PULSE_BASELINE_UP_TV_GATE_ENABLED": "1",
+    "PULSE_BASELINE_UP_TV_GATE_ENABLED": "0",
     # 15m only — 5m directional bleed stopped (user request 2026-06-26).
     "PULSE_SERIES_SLUGS": "btc-up-or-down-15m",
     # Profit-discovery Phase 1–2: arb-first, stop directional bleed.
@@ -85,8 +86,9 @@ UPDATES = {
     "PULSE_ARB_MAX_USD": "300",
     "PULSE_PRIMARY_EDGE_SOURCE": "arbitrage",
     "PULSE_DIRECTIONAL_MAX_BANKROLL_FRAC": "0.10",
-    # Let the model pick UP or DOWN per window (one bet); UP still gated by TV/edge/CEX floors.
+    # Symmetric UP/DOWN: model picks best edge; no UP-only restrictor floors.
     "PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED": "0",
+    "PULSE_DIRECTIONAL_UP_RESTRICTIONS_ENABLED": "0",
     "PULSE_DEPENDENCY_ARB_ENABLED": "1",
     "PULSE_DEPENDENCY_ARB_EXECUTE": "1",
     "PULSE_DEPENDENCY_ARB_MAX_USD": "50",

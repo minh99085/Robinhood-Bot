@@ -243,6 +243,7 @@ class PulseConfig:
     directional_explore_rate: float = 0.05
     directional_max_bankroll_frac: float = 0.10   # cap directional open exposure vs starting capital
     directional_block_up_until_promoted: bool = True  # hard block UP until direction=up promoted
+    directional_up_restrictions_enabled: bool = True  # UP-only extra gates (TV/down-bias/RR premium)
     primary_edge_source: str = "arbitrage"      # report field: arbitrage | directional | none
     dependency_arb_enabled: bool = True         # LCMM nested-window scanner
     dependency_arb_execute_enabled: bool = False  # paper execute validated violations (WS4)
@@ -565,6 +566,9 @@ class PulseConfig:
             directional_max_bankroll_frac=_envf("PULSE_DIRECTIONAL_MAX_BANKROLL_FRAC", 0.10),
             directional_block_up_until_promoted=str(
                 os.getenv("PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            directional_up_restrictions_enabled=str(
+                os.getenv("PULSE_DIRECTIONAL_UP_RESTRICTIONS_ENABLED", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             primary_edge_source=str(os.getenv("PULSE_PRIMARY_EDGE_SOURCE", "arbitrage")).strip()
             or "arbitrage",
@@ -2018,14 +2022,16 @@ class PulseEngine:
                         self.markov.record_terminal(state=cand_state, accepted=False)
                     _finalize(dr, "rejected", reason=cohort_reason, stage="baseline_cohort_gate")
                     continue
-            if (not grok_follow and not cex_lead_active and d.side == "up"
+            if (self.cfg.directional_up_restrictions_enabled
+                    and not grok_follow and not cex_lead_active and d.side == "up"
                     and not self._grok_up_side_allowed()):
                 dr.action = RejectAction(stage="grok_decider", reason="grok_no_edge_up")
                 if self.markov is not None:
                     self.markov.record_terminal(state=cand_state, accepted=False)
                 _finalize(dr, "rejected", reason="grok_no_edge_up", stage="grok_decider")
                 continue
-            if not grok_follow and not cex_lead_active and d.side == "up":
+            if (self.cfg.directional_up_restrictions_enabled
+                    and not grok_follow and not cex_lead_active and d.side == "up"):
                 up_tv_ok, up_tv_reason = self._baseline_up_tv_strength_ok(tv_feature)
                 if not up_tv_ok:
                     dr.action = RejectAction(stage="directional", reason=up_tv_reason)
@@ -2094,7 +2100,8 @@ class PulseEngine:
                     continue
                 entry_mode = ("late_window" if (lw_res["late"] and lw_res["high_conviction"])
                               else "standard")
-                if entry_mode == "late_window" and d.side == "up":
+                if (self.cfg.directional_up_restrictions_enabled
+                        and entry_mode == "late_window" and d.side == "up"):
                     dr.action = RejectAction(stage="late_window_gate",
                                              reason="late_window_up_blocked")
                     if self.markov is not None:
@@ -3075,7 +3082,8 @@ class PulseEngine:
 
     def _reward_risk_floor(self, side: "str | None") -> float:
         base = float(self.cfg.min_reward_risk or 0.0)
-        if base <= 0.0 or not side or str(side).lower() != "up":
+        if (base <= 0.0 or not side or str(side).lower() != "up"
+                or not self.cfg.directional_up_restrictions_enabled):
             return base
         return base + float(self.cfg.min_reward_risk_up_premium or 0.15)
 
@@ -3120,21 +3128,21 @@ class PulseEngine:
         if ttc_f < ttc_min:
             return False, "baseline_cohort_ttc_too_early"
         edge_bucket = self._edge_snap_field(esnap, "pulse_edge_score_bucket")
-        down_relaxed = fast_lane and side == "down"
-        if down_relaxed:
+        relaxed_lane = fast_lane
+        if relaxed_lane:
             if edge_bucket not in ("medium", "high", "very_high"):
                 return False, "baseline_cohort_edge_not_high"
         elif self.cfg.baseline_cohort_require_high_edge:
             if edge_bucket not in ("high", "very_high"):
                 return False, "baseline_cohort_edge_not_high"
         cex_bucket = self._edge_snap_field(esnap, "cex_agreement_bucket")
-        if down_relaxed:
+        if relaxed_lane:
             if cex_bucket not in ("moderate", "strong"):
                 return False, "baseline_cohort_cex_not_strong"
         elif self.cfg.baseline_cohort_require_strong_cex:
             if cex_bucket != "strong":
                 return False, "baseline_cohort_cex_not_strong"
-        if side == "up":
+        if side == "up" and self.cfg.directional_up_restrictions_enabled:
             tv_ok, tv_reason = self._baseline_up_tv_strength_ok(tv_feature)
             if not tv_ok:
                 return False, tv_reason
@@ -3158,9 +3166,10 @@ class PulseEngine:
             "15m_fast_lane": bool(self.cfg.baseline_cohort_15m_fast_lane),
             "15m_ttc_band_s": [self.cfg.baseline_cohort_15m_ttc_min_s,
                                self.cfg.baseline_cohort_15m_ttc_max_s],
+            "up_restrictions_enabled": bool(self.cfg.directional_up_restrictions_enabled),
             "note": ("baseline quant path: model picks UP or DOWN (one bet/window); "
-                     "15m fast lane widens TTC for both sides; DOWN relaxed edge/CEX; "
-                     "UP requires high edge + strong CEX + TV UP_STRONG"),
+                     "15m fast lane widens TTC + relaxed edge/CEX for both sides when "
+                     "PULSE_DIRECTIONAL_UP_RESTRICTIONS_ENABLED=0"),
         }
 
     def _down_bias_eval(self, *, side: str, tv_feature: "dict | None",
@@ -3258,8 +3267,7 @@ class PulseEngine:
         side = cl.get("side")
         if side not in ("up", "down"):
             return None
-        if side == "up":
-            # Live ledger: mispricing_follow UP ~33% WR vs DOWN strength — DOWN-only until proven.
+        if side == "up" and self.cfg.directional_up_restrictions_enabled:
             self._mispricing_gate_counts["misprice_up_side_disabled"] = (
                 self._mispricing_gate_counts.get("misprice_up_side_disabled", 0) + 1)
             return None
