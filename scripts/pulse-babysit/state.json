@@ -1,17 +1,17 @@
 {
-  "cycle": 8,
+  "cycle": 10,
   "phase": "soak",
-  "soak_hours": 0.25,
-  "deployed_at": "2026-06-26T02:57:15.102083+00:00",
-  "soak_until": "2026-06-26T03:12:15.102083+00:00",
-  "last_eval_at": "2026-06-26T02:57:15.102083+00:00",
+  "soak_hours": 2,
+  "deployed_at": "2026-06-26T07:14:44.976694+00:00",
+  "soak_until": "2026-06-26T09:14:44.976694+00:00",
+  "last_eval_at": "2026-06-26T07:12:07.386099+00:00",
   "last_verdict": "issues",
   "last_fixes": [
-    "baseline UP requires TV UP_STRONG (no fade/no-missing-TV)",
-    "down_bias always on Grok-owned UP (incl mispricing)"
+    "mispricing_follow UP disabled (33% WR live)",
+    "cex_lead UP requires TV UP_STRONG + down_bias; block late_window UP"
   ],
   "last_health_verdict": "healthy",
-  "vps_sha": "47417d181a606dd972e197a6cb2737383d64d37b",
+  "vps_sha": "c25dd2aa8fee71fb1f226634c708a511dd7ab615",
   "history": [
     {
       "ts": "2026-06-25T19:06:42.423656+00:00",
@@ -390,7 +390,179 @@
         "baseline UP requires TV UP_STRONG (no fade/no-missing-TV)",
         "down_bias always on Grok-owned UP (incl mispricing)"
       ]
+    },
+    {
+      "ts": "2026-06-26T03:12:48.206709+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 47,
+        "win_rate": 0.6383,
+        "profit_factor": 1.0928,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7407,
+        "realized_pnl_usd": 6.49,
+        "tv_valid": 680,
+        "mtf_passed": 64,
+        "mtf_blocked": 209,
+        "context_blocked": 706,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.42,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-26T03:24:57.325576+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 47,
+        "win_rate": 0.6383,
+        "profit_factor": 1.0928,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7407,
+        "realized_pnl_usd": 6.49,
+        "tv_valid": 688,
+        "mtf_passed": 64,
+        "mtf_blocked": 264,
+        "context_blocked": 716,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.42,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-26T03:26:49.288682+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 47,
+        "win_rate": 0.6383,
+        "profit_factor": 1.0928,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7407,
+        "realized_pnl_usd": 6.49,
+        "tv_valid": 688,
+        "mtf_passed": 64,
+        "mtf_blocked": 264,
+        "context_blocked": 716,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.42,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-26T03:26:49.288682+00:00",
+      "verdict": "deploy",
+      "metrics": {
+        "commit": "640c8dd",
+        "settled": 47,
+        "profit_factor": 1.0928,
+        "win_rate_up": 0.5
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ],
+      "fixes_applied": [
+        "TV UP_STRONG required for baseline + all Grok-owned UP",
+        "block UP when TV DOWN on non-bearish MTF; mispricing-follow TV gate"
+      ]
+    },
+    {
+      "ts": "2026-06-26T03:55:04.237602+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 48,
+        "win_rate": 0.625,
+        "profit_factor": 1.0199,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7143,
+        "realized_pnl_usd": 1.49,
+        "tv_valid": 709,
+        "mtf_passed": 74,
+        "mtf_blocked": 275,
+        "context_blocked": 725,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.42,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-26T04:10:02.390238+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 48,
+        "win_rate": 0.625,
+        "profit_factor": 1.0199,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7143,
+        "realized_pnl_usd": 1.49,
+        "tv_valid": 724,
+        "mtf_passed": 82,
+        "mtf_blocked": 275,
+        "context_blocked": 726,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.42,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-26T07:12:07.386099+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 48,
+        "win_rate": 0.625,
+        "profit_factor": 1.0199,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7143,
+        "realized_pnl_usd": 1.49,
+        "tv_valid": 869,
+        "mtf_passed": 82,
+        "mtf_blocked": 275,
+        "context_blocked": 780,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.42,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-26T07:14:44.976694+00:00",
+      "verdict": "deploy",
+      "metrics": {
+        "commit": "c25dd2a",
+        "settled": 48,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.7143
+      },
+      "issue_codes": [
+        "up_side_bleed"
+      ],
+      "fixes_applied": [
+        "mispricing_follow UP disabled (33% WR live)",
+        "cex_lead UP requires TV UP_STRONG + down_bias; block late_window UP"
+      ]
     }
   ],
-  "soak_minutes": 15
+  "soak_minutes": 120
 }
