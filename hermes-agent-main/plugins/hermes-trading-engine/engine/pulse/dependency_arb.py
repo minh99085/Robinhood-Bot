@@ -1,16 +1,17 @@
-"""Cross-window dependency arbitrage (LCMM layer, log-only by default).
+"""Cross-window dependency arbitrage (LCMM layer).
 
-Detects logical price inconsistencies between nested BTC up/down windows (5m inside 15m)
-using executable VWAP/mid prices. Bregman/Frank-Wolfe belongs here for multi-leg groups;
-this module ships Layer-1 linear constraints first (subset/implication, complete-set).
+Layer 1: deterministic linear constraints (nested 5m inside 15m implication).
+Layer 2 (later): Bregman/Frank-Wolfe — gated, not required here.
 
-PAPER ONLY — default mode is detect/log; no trades until explicitly enabled.
+PAPER ONLY — scanner always on; execution gated by ``execute_enabled``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Optional
+
+from engine.pulse.execution_gate import vwap_fill
 
 
 @dataclass
@@ -59,12 +60,23 @@ def group_nested_windows(windows: list) -> list:
     return groups
 
 
-def scan_nested_implication(parent, children: list, *, epsilon: float = 0.02) -> list:
-    """LCMM: P(up over 15m) >= max P(up over constituent 5m windows) on mids.
+def validate_violation(v: DependencyViolation) -> tuple[bool, str]:
+    """Deterministic validator — LLM proposals must pass this before any trade."""
+    if v.constraint_type != "nested_implication":
+        return False, "unsupported_constraint"
+    if v.violation_magnitude <= 0:
+        return False, "no_magnitude"
+    if not v.parent_window_key or not v.child_window_keys:
+        return False, "missing_window_keys"
+    if v.parent_up_mid is None or not v.child_up_mids:
+        return False, "missing_prices"
+    if float(v.child_up_mids[0]) <= float(v.parent_up_mid):
+        return False, "implication_not_violated"
+    return True, "ok"
 
-    If parent up-mid is materially below a child up-mid, prices are inconsistent
-    (the longer window cannot be less likely up than a sub-window fully inside it).
-    """
+
+def scan_nested_implication(parent, children: list, *, epsilon: float = 0.02) -> list:
+    """LCMM: P(up over 15m) >= max P(up over constituent 5m windows) on mids."""
     out = []
     p_mid = _up_mid(parent)
     if p_mid is None:
@@ -73,7 +85,8 @@ def scan_nested_implication(parent, children: list, *, epsilon: float = 0.02) ->
         c_mid = _up_mid(c)
         if c_mid is None:
             continue
-        if float(c_mid) > float(p_mid) + float(epsilon):
+        mag = float(c_mid) - float(p_mid)
+        if mag > float(epsilon):
             out.append(DependencyViolation(
                 constraint_type="nested_implication",
                 parent_window_key=str(parent.event_id),
@@ -83,30 +96,77 @@ def scan_nested_implication(parent, children: list, *, epsilon: float = 0.02) ->
                 parent_up_mid=round(float(p_mid), 6),
                 child_up_mids=[round(float(c_mid), 6)],
                 implied_bound=round(float(c_mid), 6),
-                violation_magnitude=round(float(c_mid) - float(p_mid), 6),
+                violation_magnitude=round(mag, 6),
                 actionable=False,
-                reason="log_only",
+                reason="detected",
             ))
     return out
 
 
 def scan_windows(windows: list, *, epsilon: float = 0.02) -> list:
-    """Run all LCMM dependency scans; returns violations (log-only)."""
+    """Run all LCMM dependency scans."""
     violations = []
     for parent, children in group_nested_windows(windows):
         violations.extend(scan_nested_implication(parent, children, epsilon=epsilon))
     return violations
 
 
+def try_execute_nested_implication(
+    parent,
+    child,
+    violation: DependencyViolation,
+    *,
+    max_usd: float = 50.0,
+    epsilon: float = 0.02,
+    capture_frac: float = 0.5,
+) -> Optional[dict]:
+    """Paper BUY parent UP when nested implication violated (parent UP underpriced vs child).
+
+    Conservative paper model: expected edge = violation_magnitude * shares * capture_frac,
+    booked at parent window close. Deterministic validator must pass first.
+    """
+    ok, reason = validate_violation(violation)
+    if not ok:
+        return None
+    book = getattr(parent, "up_book", None)
+    if book is None or not getattr(book, "asks", None):
+        return None
+    vwap, spent, shares, full = vwap_fill(book.asks, float(max_usd))
+    if vwap is None or not full or shares <= 0:
+        return None
+    if violation.violation_magnitude < float(epsilon):
+        return None
+    expected = round(shares * violation.violation_magnitude * float(capture_frac), 6)
+    if expected <= 0:
+        return None
+    return {
+        "constraint_type": violation.constraint_type,
+        "parent_window_key": str(parent.event_id),
+        "child_window_key": str(child.event_id),
+        "side": "buy_parent_up",
+        "shares": round(shares, 4),
+        "cost_usd": round(spent, 4),
+        "entry_vwap": round(vwap, 6),
+        "expected_profit_usd": expected,
+        "close_ts": float(parent.close_ts),
+        "violation_magnitude": violation.violation_magnitude,
+        "reason": "lcmm_nested_implication",
+    }
+
+
 class DependencyArbLedger:
     """Separate ledger for dependency-arb (never blended with dutch-book or directional)."""
 
-    def __init__(self):
+    def __init__(self, *, execute_enabled: bool = False):
+        self.execute_enabled = bool(execute_enabled)
         self.scans = 0
         self.violations_detected = 0
         self.executed = 0
+        self.settled = 0
         self.realized_profit_usd = 0.0
         self.last_violations: list = []
+        self.positions: dict = {}
+        self.rejected_invalid = 0
 
     def record_scan(self, violations: list) -> None:
         self.scans += 1
@@ -114,25 +174,62 @@ class DependencyArbLedger:
                               for v in (violations or [])]
         self.violations_detected += len(self.last_violations)
 
+    def has_open(self, parent_key: str) -> bool:
+        return parent_key in self.positions
+
+    def book(self, trade: dict, *, now: float) -> bool:
+        if not self.execute_enabled or not trade:
+            return False
+        pk = str(trade.get("parent_window_key") or "")
+        if not pk or pk in self.positions:
+            return False
+        self.positions[pk] = {**trade, "status": "open", "entry_ts": float(now)}
+        self.executed += 1
+        return True
+
+    def settle_due(self, now: float) -> int:
+        n = 0
+        for pk, p in list(self.positions.items()):
+            if p.get("status") == "open" and now >= float(p.get("close_ts") or 0):
+                p["status"] = "settled"
+                profit = float(p.get("expected_profit_usd") or 0.0)
+                self.realized_profit_usd = round(self.realized_profit_usd + profit, 6)
+                self.settled += 1
+                n += 1
+        return n
+
     def report(self) -> dict:
-        return {"strategy": "dependency_arbitrage", "paper_only": True, "enabled": False,
-                "mode": "log_only", "scans": self.scans,
-                "violations_detected": self.violations_detected,
-                "executed": self.executed, "realized_profit_usd": round(self.realized_profit_usd, 4),
+        mode = "paper_execute" if self.execute_enabled else "log_only"
+        return {"strategy": "dependency_arbitrage", "paper_only": True,
+                "enabled": self.execute_enabled, "mode": mode,
+                "scans": self.scans, "violations_detected": self.violations_detected,
+                "rejected_invalid": self.rejected_invalid,
+                "executed": self.executed, "settled": self.settled,
+                "open": sum(1 for p in self.positions.values() if p.get("status") == "open"),
+                "realized_profit_usd": round(self.realized_profit_usd, 4),
                 "last_violations": self.last_violations[-20:],
                 "segregated_from_directional": True,
-                "note": "LCMM nested-window scanner; Bregman/IP gated for later phases."}
+                "note": ("LCMM nested-window scanner + optional paper execution on validated "
+                         "nested_implication violations.")}
 
     def to_state(self) -> dict:
-        return {"scans": self.scans, "violations_detected": self.violations_detected,
-                "executed": self.executed, "realized_profit_usd": self.realized_profit_usd,
-                "last_violations": self.last_violations}
+        return {"execute_enabled": self.execute_enabled, "scans": self.scans,
+                "violations_detected": self.violations_detected,
+                "rejected_invalid": self.rejected_invalid,
+                "executed": self.executed, "settled": self.settled,
+                "realized_profit_usd": self.realized_profit_usd,
+                "last_violations": self.last_violations,
+                "positions": {k: dict(v) for k, v in self.positions.items()}}
 
     def load_state(self, data: dict) -> None:
         if not data:
             return
+        self.execute_enabled = bool(data.get("execute_enabled", self.execute_enabled))
         self.scans = int(data.get("scans", 0) or 0)
         self.violations_detected = int(data.get("violations_detected", 0) or 0)
+        self.rejected_invalid = int(data.get("rejected_invalid", 0) or 0)
         self.executed = int(data.get("executed", 0) or 0)
+        self.settled = int(data.get("settled", 0) or 0)
         self.realized_profit_usd = float(data.get("realized_profit_usd", 0.0) or 0.0)
         self.last_violations = list(data.get("last_violations") or [])
+        self.positions = {k: dict(v) for k, v in (data.get("positions") or {}).items()}

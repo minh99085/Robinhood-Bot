@@ -65,7 +65,13 @@ def test_multi_window_arb_scans_both_series(tmp_path):
     w15 = PulseWindow(event_id="e15", market_id="m15", slug="s15", title="15m",
                       open_ts=t0, close_ts=t0 + 900, up_token_id="U15", down_token_id="D15",
                       series_slug=SERIES_SLUG_15M, window_seconds=900, series_label="15m")
-    eng, t0 = _engine(tmp_path, _MultiArbMkt([w5, w15]), directional_enabled=False)
+    eng, t0 = _engine(
+        tmp_path, _MultiArbMkt([w5, w15]),
+        directional_enabled=False,
+        arb_max_usd=40.0,
+        arb_global_max_open_usd=500.0,
+        arb_nonatomic_enabled=False,
+    )
     for i in range(8):
         eng.tick(now=t0 + i)
     arb = eng.status()["arbitrage"]
@@ -106,6 +112,34 @@ def test_up_block_gate_configured_until_promoted(tmp_path):
     risk = eng.light_report()["directional_risk"]
     assert risk["block_up_until_promoted"] is True
     assert risk["up_promoted"] is False
+
+
+def test_arb_global_open_cap_limits_second_window(tmp_path):
+    t0 = 10_000_000.0
+    w5 = PulseWindow(event_id="e5", market_id="m5", slug="s5", title="5m",
+                     open_ts=t0, close_ts=t0 + 300, up_token_id="U5", down_token_id="D5",
+                     series_slug=SERIES_SLUG_5M, window_seconds=300, series_label="5m")
+    w15 = PulseWindow(event_id="e15", market_id="m15", slug="s15", title="15m",
+                      open_ts=t0, close_ts=t0 + 900, up_token_id="U15", down_token_id="D15",
+                      series_slug=SERIES_SLUG_15M, window_seconds=900, series_label="15m")
+    eng, t0 = _engine(
+        tmp_path, _MultiArbMkt([w5, w15]),
+        directional_enabled=False,
+        arb_global_max_open_usd=45.0,
+        arb_max_usd=25.0,
+        arb_nonatomic_enabled=False,
+    )
+    for i in range(6):
+        eng.tick(now=t0 + i)
+    arb = eng.status()["arbitrage"]
+    assert arb["executed"] >= 1
+    open_exp = sum(
+        float(p.get("cost_usd") or 0.0)
+        for p in eng.arb_ledger.positions.values()
+        if p.get("status") == "open"
+    )
+    assert open_exp <= 45.0 + 1e-6
+    assert arb["executed"] == 1
 
 
 def test_directional_bankroll_cap_in_report(tmp_path):

@@ -52,6 +52,7 @@ def sizing_diagnostics(*, p_win: Optional[float], price: Optional[float],
     actual = round(suggested, 2) if (sizing_enabled and not daily_cap_hit) else base_size_usd
     b = ((1.0 - price) / price) if (price and 0 < price < 1) else None
     return {"observe_only": not sizing_enabled, "sizing_enabled": bool(sizing_enabled),
+            "promotion_gated": False,
             "calibrated_p_win": p_win,
             "payout_ratio": (round(b, 4) if b is not None else None),
             "ev_after_costs": ev_after_costs,
@@ -62,3 +63,42 @@ def sizing_diagnostics(*, p_win: Optional[float], price: Optional[float],
             "degradation_penalty": round(pen, 4),
             "suggested_size_usd": round(suggested, 2), "actual_size_usd": actual,
             "no_martingale": True, "no_averaging_down": True}
+
+
+def bucket_promoted(sel_tags: dict, *, is_promoted) -> bool:
+    """True if ANY candidate bucket cleared the Wilson promotion scorecard."""
+    for dim, val in (sel_tags or {}).items():
+        if dim == "direction" or val is None:
+            continue
+        if is_promoted(str(dim), str(val)):
+            return True
+    return is_promoted("direction", str((sel_tags or {}).get("direction") or ""))
+
+
+def sizing_diagnostics_promoted(
+    *,
+    sel_tags: dict,
+    is_promoted,
+    p_win: Optional[float],
+    price: Optional[float],
+    ev_after_costs: Optional[float],
+    bankroll_usd: float,
+    hard_cap_usd: float,
+    daily_loss_cap_usd: float,
+    daily_loss_so_far: float,
+    base_size_usd: float,
+    global_sizing_enabled: bool = False,
+) -> dict:
+    """Half-Kelly only when a bucket is promoted; otherwise flat base size (WS3)."""
+    promoted = bucket_promoted(sel_tags, is_promoted=is_promoted)
+    enabled = bool(global_sizing_enabled and promoted)
+    out = sizing_diagnostics(
+        p_win=p_win, price=price, ev_after_costs=ev_after_costs,
+        bankroll_usd=bankroll_usd, hard_cap_usd=hard_cap_usd,
+        daily_loss_cap_usd=daily_loss_cap_usd, daily_loss_so_far=daily_loss_so_far,
+        base_size_usd=base_size_usd, sizing_enabled=enabled)
+    out["promotion_gated"] = True
+    out["bucket_promoted"] = promoted
+    out["note"] = ("Kelly sizing only when bucket_promoted; flat size otherwise "
+                   "(no martingale).")
+    return out

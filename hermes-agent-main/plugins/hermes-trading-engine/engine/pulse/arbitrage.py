@@ -52,7 +52,9 @@ def detect_arbitrage(up_book, down_book, *, size_usd: float = 5.0, fees: float =
                      tick_size: float = 0.01, now: Optional[float] = None,
                      max_book_age_s: float = 30.0,
                      min_profit_usd: float = 0.0,
-                     max_usd: Optional[float] = None) -> Optional[ArbOpportunity]:
+                     max_usd: Optional[float] = None,
+                     nonatomic_check: bool = True,
+                     nonatomic_slippage_bps: float = 50.0) -> Optional[ArbOpportunity]:
     """Detect a risk-free within-window dutch book on the up/down ladders. Returns the best
     actionable opportunity (or a non-actionable one for diagnostics, or None).
 
@@ -83,12 +85,14 @@ def detect_arbitrage(up_book, down_book, *, size_usd: float = 5.0, fees: float =
              and ((ts_u and now - float(ts_u) > max_book_age_s)
                   or (ts_d and now - float(ts_d) > max_book_age_s)))
     buy = sell = None
+    buy_fill_target: Optional[float] = None
     # ---- BUY-BOTH (buy 1 up + 1 down for < $1) ----
     if up_asks and dn_asks and best_up and best_dn:
         up_depth = float(getattr(up_book, "ask_depth_usd", 0.0) or 0.0)
         dn_depth = float(getattr(down_book, "ask_depth_usd", 0.0) or 0.0)
         cap_notional = max_depth_consume_frac * min(up_depth, dn_depth)
         target = min(cap_notional, max_usd) if cap_notional > 0 else float(max_usd)
+        buy_fill_target = float(target)
         depth_capped = bool(cap_notional > 0 and cap_notional < max_usd)
         vwu, spent_u, sh_u, full_u = vwap_fill(up_asks, target)
         vwd, spent_d, sh_d, full_d = vwap_fill(dn_asks, target)
@@ -135,6 +139,22 @@ def detect_arbitrage(up_book, down_book, *, size_usd: float = 5.0, fees: float =
                 cost_usd=shares_s * 1.0, guaranteed_profit_usd=profit_s, ask_sum=(bvu + bvd),
                 tob_residual=((float(bbu) + float(bbd) - 1.0)), vwap_residual=(bvu + bvd - 1.0),
                 depth_capped=depth_capped_b, actionable=actionable_s, reason=reason_s)
+    # Non-atomic sequential fill check (BUY-both only): reject if leg-2 slippage kills edge.
+    if nonatomic_check and buy is not None and buy.actionable:
+        from engine.pulse.arb_nonatomic import simulate_buy_both_nonatomic
+        sim_target = (buy_fill_target if buy_fill_target is not None
+                      else float(max_usd if max_usd is not None else size_usd))
+        sim = simulate_buy_both_nonatomic(
+            up_book, down_book, target_usd=sim_target, fees=fees, epsilon=epsilon,
+            leg2_slippage_bps=nonatomic_slippage_bps, max_book_age_s=max_book_age_s, now=now)
+        if not sim.get("survives"):
+            buy = ArbOpportunity(
+                kind=buy.kind, up_vwap=buy.up_vwap, down_vwap=buy.down_vwap,
+                shares=buy.shares, cost_usd=buy.cost_usd,
+                guaranteed_profit_usd=buy.guaranteed_profit_usd, ask_sum=buy.ask_sum,
+                tob_residual=buy.tob_residual, vwap_residual=buy.vwap_residual,
+                depth_capped=buy.depth_capped, actionable=False,
+                reason="nonatomic_%s" % sim.get("reason", "fail"))
     # prefer the actionable opportunity with the larger guaranteed profit; else a diagnostic one
     cands = [o for o in (buy, sell) if o is not None]
     actionables = [o for o in cands if o.actionable]
