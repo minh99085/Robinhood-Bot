@@ -210,7 +210,7 @@ class PulseConfig:
     baseline_cohort_require_high_edge: bool = True
     baseline_cohort_require_strong_cex: bool = True
     baseline_up_tv_gate_enabled: bool = True
-    # 15m DOWN fast lane: widen scaled TTC band + allow medium edge / moderate CEX (proven 15m edge).
+    # 15m fast lane: widen scaled TTC band on 15m windows (DOWN relaxed; UP keeps strict edge/CEX).
     baseline_cohort_15m_fast_lane: bool = True
     baseline_cohort_15m_ttc_min_s: float = 60.0
     baseline_cohort_15m_ttc_max_s: float = 480.0
@@ -3096,7 +3096,7 @@ class PulseEngine:
             return False, "baseline_cohort_ttc_unknown"
         ws = int(window_seconds or 300)
         scale = float(ws) / 300.0
-        fast_lane = (self.cfg.baseline_cohort_15m_fast_lane and ws >= 900 and side == "down")
+        fast_lane = (self.cfg.baseline_cohort_15m_fast_lane and ws >= 900)
         if fast_lane:
             ttc_min = float(self.cfg.baseline_cohort_15m_ttc_min_s) * scale
             ttc_max = float(self.cfg.baseline_cohort_15m_ttc_max_s) * scale
@@ -3109,14 +3109,15 @@ class PulseEngine:
         if ttc_f < ttc_min:
             return False, "baseline_cohort_ttc_too_early"
         edge_bucket = self._edge_snap_field(esnap, "pulse_edge_score_bucket")
-        if fast_lane:
+        down_relaxed = fast_lane and side == "down"
+        if down_relaxed:
             if edge_bucket not in ("medium", "high", "very_high"):
                 return False, "baseline_cohort_edge_not_high"
         elif self.cfg.baseline_cohort_require_high_edge:
             if edge_bucket not in ("high", "very_high"):
                 return False, "baseline_cohort_edge_not_high"
         cex_bucket = self._edge_snap_field(esnap, "cex_agreement_bucket")
-        if fast_lane:
+        if down_relaxed:
             if cex_bucket not in ("moderate", "strong"):
                 return False, "baseline_cohort_cex_not_strong"
         elif self.cfg.baseline_cohort_require_strong_cex:
@@ -3146,9 +3147,9 @@ class PulseEngine:
             "15m_fast_lane": bool(self.cfg.baseline_cohort_15m_fast_lane),
             "15m_ttc_band_s": [self.cfg.baseline_cohort_15m_ttc_min_s,
                                self.cfg.baseline_cohort_15m_ttc_max_s],
-            "note": ("baseline quant path: scaled TTC band + edge/CEX floors; "
-                     "15m DOWN fast lane widens band and allows medium edge / moderate CEX; "
-                     "UP also requires TV UP_STRONG"),
+            "note": ("baseline quant path: model picks UP or DOWN (one bet/window); "
+                     "15m fast lane widens TTC for both sides; DOWN relaxed edge/CEX; "
+                     "UP requires high edge + strong CEX + TV UP_STRONG"),
         }
 
     def _down_bias_eval(self, *, side: str, tv_feature: "dict | None",

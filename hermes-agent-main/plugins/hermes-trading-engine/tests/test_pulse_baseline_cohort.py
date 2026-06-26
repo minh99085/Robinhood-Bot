@@ -49,6 +49,21 @@ def test_15m_fast_lane_allows_medium_edge_and_moderate_cex():
     assert not ok and r == "baseline_cohort_edge_not_high"
 
 
+def test_15m_fast_lane_up_keeps_strict_edge_and_tv():
+    eng = _eng(baseline_cohort_15m_fast_lane=True)
+    tv = {"direction": "UP", "strength": 0.9, "signal_level": "UP_STRONG"}
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="up",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="medium", cex_agreement_bucket="strong"),
+        ttc_s=400.0, tv_feature=tv, window_seconds=900)
+    assert not ok and r == "baseline_cohort_edge_not_high"
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="up",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=400.0, tv_feature=tv, window_seconds=900)
+    assert ok and r == ""
+
+
 def test_blocks_medium_edge_and_late_ttc():
     eng = _eng()
     ok, r = eng._baseline_quant_cohort_ok(

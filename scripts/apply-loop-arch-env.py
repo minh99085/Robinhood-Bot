@@ -68,7 +68,7 @@ UPDATES = {
     "PULSE_EDGE_TTC_GATE_ENABLED": "1",
     "PULSE_CEX_LEAD_MIN_EDGE_VS_MARKET": "0.02",
     "PULSE_CEX_LEAD_TV_STRENGTH_THR": "0.72",
-    # Tier 1: baseline cohort + 15m DOWN fast lane (wider TTC, medium edge, moderate CEX).
+    # Tier 1: baseline cohort + 15m fast lane (wider TTC both sides; DOWN relaxed, UP strict).
     "PULSE_BASELINE_COHORT_GATE_ENABLED": "1",
     "PULSE_BASELINE_COHORT_TTC_MIN_S": "60",
     "PULSE_BASELINE_COHORT_TTC_MAX_S": "480",
@@ -85,7 +85,8 @@ UPDATES = {
     "PULSE_ARB_MAX_USD": "300",
     "PULSE_PRIMARY_EDGE_SOURCE": "arbitrage",
     "PULSE_DIRECTIONAL_MAX_BANKROLL_FRAC": "0.10",
-    "PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED": "1",
+    # Let the model pick UP or DOWN per window (one bet); UP still gated by TV/edge/CEX floors.
+    "PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED": "0",
     "PULSE_DEPENDENCY_ARB_ENABLED": "1",
     "PULSE_DEPENDENCY_ARB_EXECUTE": "1",
     "PULSE_DEPENDENCY_ARB_MAX_USD": "50",
