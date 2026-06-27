@@ -1,85 +1,64 @@
 {
   "goals": {
     "win_rate_target": 0.8,
-    "note": "1h inspect cycle — TV observe-only, green path quant DOWN"
+    "note": "Cycle 4: relaxed quant gates — watch trade rate + WR for 1h"
   },
-  "cycle": 3,
+  "cycle": 4,
   "phase": "soak",
   "soak_hours": 1,
   "soak_minutes": 60,
-  "deployed_at": "2026-06-27T19:38:54.000000+00:00",
-  "soak_until": "2026-06-27T20:38:54.000000+00:00",
-  "last_eval_at": "2026-06-27T19:34:50.483543+00:00",
-  "last_verdict": "issues",
+  "deployed_at": "2026-06-27T20:12:00.000000+00:00",
+  "soak_until": "2026-06-27T21:12:00.000000+00:00",
+  "last_eval_at": "2026-06-27T20:11:58.000000+00:00",
+  "last_verdict": "watch",
   "last_fixes": [
-    "min_reward_risk: 0.45 → 0.55 (improve PF on low R:R entries)",
-    "baseline_down_block_not_stale: block not_stale divergence bucket (54.5% WR)"
+    "require_high_edge: 1 → 0 (medium+ edge OK on 15m DOWN)",
+    "require_strong_cex: 1 → 0 (moderate+ CEX OK)",
+    "down_block_not_stale: 1 → 0",
+    "down_block_bullish_mtf: 1 → 0",
+    "tick_seconds: 30 → 15",
+    "max_price: 0.65 → 0.70"
   ],
   "last_health_verdict": "issues",
-  "vps_sha": "ae94cfd9ebedb9bf5d12b1eb03f0cd67bc93f1ca",
+  "baseline_trades_at_deploy": 90,
+  "vps_sha": "a929ecb872ae5319741b7c51101f68ea312856b8",
   "history": [
-    {
-      "cycle": 1,
-      "eval_at": "2026-06-27T17:34:07.269754+00:00",
-      "verdict": "blocked",
-      "issues": [
-        "reconciliation_broken",
-        "win_rate_below_target",
-        "profit_factor_low",
-        "up_side_bleed"
-      ],
-      "fixes": [
-        "reconciliation_drift_repair",
-        "cohort_high_edge_strong_cex"
-      ],
-      "deployed_at": "2026-06-27T17:37:10.000000+00:00",
-      "vps_sha": "e60653e0d54a79344292500ada16fb6a53167661",
-      "metrics": {
-        "settled": 87,
-        "win_rate": 0.6092,
-        "profit_factor": 0.9437,
-        "global_reconciled": false
-      }
-    },
-    {
-      "cycle": 2,
-      "eval_at": "2026-06-27T19:34:50.483543+00:00",
-      "verdict": "issues",
-      "issues": [
-        "win_rate_below_target",
-        "profit_factor_low",
-        "up_side_bleed"
-      ],
-      "fixes": [],
-      "metrics": {
-        "settled": 90,
-        "win_rate": 0.6,
-        "profit_factor": 0.9123,
-        "global_reconciled": true
-      }
-    },
     {
       "cycle": 3,
       "eval_at": "2026-06-27T19:34:50.483543+00:00",
       "verdict": "issues",
-      "issues": [
-        "win_rate_below_target",
-        "profit_factor_low",
-        "up_side_bleed"
-      ],
-      "fixes": [
-        "min_reward_risk_0.55",
-        "baseline_down_block_not_stale"
-      ],
+      "issues": ["win_rate_below_target", "profit_factor_low", "trade_starvation"],
+      "fixes": ["min_reward_risk_0.55", "baseline_down_block_not_stale"],
       "deployed_at": "2026-06-27T19:38:54.000000+00:00",
-      "vps_sha": "ae94cfd9ebedb9bf5d12b1eb03f0cd67bc93f1ca",
+      "vps_sha": "5e497c0c3aff0e4aaf0803f55989fa5fa586bc72",
       "metrics": {
         "settled": 90,
         "win_rate": 0.6,
         "profit_factor": 0.9123,
         "global_reconciled": true
       }
+    },
+    {
+      "cycle": 4,
+      "eval_at": "2026-06-27T20:11:58.000000+00:00",
+      "verdict": "watch",
+      "issues": ["trade_starvation"],
+      "fixes": [
+        "relaxed_cohort_edge_cex",
+        "down_not_stale_off",
+        "down_bullish_mtf_off",
+        "tick_15s_max_0.70"
+      ],
+      "deployed_at": "2026-06-27T20:12:00.000000+00:00",
+      "vps_sha": "a929ecb872ae5319741b7c51101f68ea312856b8",
+      "metrics": {
+        "settled": 90,
+        "win_rate": 0.6,
+        "profit_factor": 0.9123,
+        "global_reconciled": true,
+        "trades_last_6h": 4
+      }
     }
   ],
-  "note": "Cycle 3 deployed — min R:R 0.55 + block not_stale DOWN cohort"
+  "note": "TV observe-only locked. Quant gates relaxed to increase fills; babysit inspects hourly."
 }
