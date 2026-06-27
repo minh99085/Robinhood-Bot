@@ -8,6 +8,8 @@ Never commit or push to `hermes-agent-cursor` unless the operator explicitly say
 
 **Non-negotiable:** Whenever you commit and push to `origin/main`, you MUST immediately deploy to the live VPS with full orphan cleanup and rebuild. Do not tell the operator to run it — execute it yourself.
 
+This applies to **every** push — engine/env, babysit scripts, `.grok` rules/skills, and report-only commits. Goal: `origin/main` HEAD == VPS HEAD always.
+
 ### Standard sequence (every code or env change)
 
 1. `git push origin main`

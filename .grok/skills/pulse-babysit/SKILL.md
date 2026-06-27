@@ -57,7 +57,7 @@ DEPLOY → SOAK (60m default) → PULL → EVALUATE → (issues?) → FIX → CO
 6. If `verdict` is `issues`: pick **at most 2** highest-severity issues; fix in plugin code only.
 7. Run targeted tests under `hermes-agent-main/plugins/hermes-trading-engine/tests/`.
 8. Commit with clear message; `git push origin main`.
-9. **MANDATORY VPS deploy** (never skip after push):
+9. **MANDATORY VPS deploy** (never skip after any push to `main` — including babysit-only / report-only):
    - `.\scripts\sync-vps.ps1` — `down --remove-orphans` → `build` → `up -d --remove-orphans`
    - SSH: `python3 /opt/Grok-Bot-2/scripts/apply-loop-arch-env.py` if env/gates changed
    - SSH: `cd .../hermes-trading-engine && docker compose up -d --force-recreate hermes-training`
