@@ -223,10 +223,11 @@ class PulseConfig:
     baseline_down_mid_entry_min: float = 0.55
     baseline_down_mid_entry_max: float = 0.60
     baseline_down_block_single_tf: bool = True
-    # 15m fast lane: scaled TTC band on 15m windows (proven 180-240s cohort).
+    baseline_down_block_medium_edge: bool = True
+    # 15m fast lane: scaled TTC band on 15m windows (proven 160-220s cohort → 480-660s).
     baseline_cohort_15m_fast_lane: bool = True
-    baseline_cohort_15m_ttc_min_s: float = 180.0
-    baseline_cohort_15m_ttc_max_s: float = 240.0
+    baseline_cohort_15m_ttc_min_s: float = 160.0
+    baseline_cohort_15m_ttc_max_s: float = 220.0
     # When Grok abstains, still follow a Wilson-aligned CEX-lead mispricing stack (not coin-flip explore).
     mispricing_follow_on_abstain: bool = False
     mispricing_follow_size_fraction: float = 0.5
@@ -606,11 +607,14 @@ class PulseConfig:
             baseline_down_block_single_tf=str(
                 os.getenv("PULSE_BASELINE_DOWN_BLOCK_SINGLE_TF", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
+            baseline_down_block_medium_edge=str(
+                os.getenv("PULSE_BASELINE_DOWN_BLOCK_MEDIUM_EDGE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
             baseline_cohort_15m_fast_lane=str(
                 os.getenv("PULSE_BASELINE_COHORT_15M_FAST_LANE", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
-            baseline_cohort_15m_ttc_min_s=_envf("PULSE_BASELINE_COHORT_15M_TTC_MIN_S", 180.0),
-            baseline_cohort_15m_ttc_max_s=_envf("PULSE_BASELINE_COHORT_15M_TTC_MAX_S", 240.0),
+            baseline_cohort_15m_ttc_min_s=_envf("PULSE_BASELINE_COHORT_15M_TTC_MIN_S", 160.0),
+            baseline_cohort_15m_ttc_max_s=_envf("PULSE_BASELINE_COHORT_15M_TTC_MAX_S", 220.0),
             mispricing_follow_on_abstain=str(
                 os.getenv("PULSE_MISPRICING_FOLLOW_ON_ABSTAIN", "0")).strip().lower()
             in ("1", "true", "yes", "on"),
@@ -3337,6 +3341,10 @@ class PulseEngine:
             if not tv_ok:
                 return False, tv_reason
         if side == "down":
+            if self.cfg.baseline_down_block_medium_edge:
+                edge_bucket = self._edge_snap_field(esnap, "pulse_edge_score_bucket")
+                if str(edge_bucket or "").strip().lower() == "medium":
+                    return False, "baseline_down_medium_edge"
             if self.cfg.baseline_down_block_not_stale:
                 stale = self._edge_snap_field(esnap, "stale_divergence_class")
                 if str(stale or "").strip().lower() == "not_stale":
@@ -3384,6 +3392,7 @@ class PulseEngine:
             "down_block_not_stale": bool(self.cfg.baseline_down_block_not_stale),
             "down_block_mid_entry": bool(self.cfg.baseline_down_block_mid_entry),
             "down_block_single_tf": bool(self.cfg.baseline_down_block_single_tf),
+            "down_block_medium_edge": bool(self.cfg.baseline_down_block_medium_edge),
             "down_mid_entry_band": [self.cfg.baseline_down_mid_entry_min,
                                     self.cfg.baseline_down_mid_entry_max],
             "note": ("baseline quant path: 180-240s TTC band (scaled on 15m), high edge + "
