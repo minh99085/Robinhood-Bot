@@ -210,10 +210,13 @@ class PulseConfig:
     baseline_cohort_require_high_edge: bool = True
     baseline_cohort_require_strong_cex: bool = True
     baseline_up_tv_gate_enabled: bool = True
-    # 15m fast lane: widen scaled TTC band on 15m windows (DOWN relaxed; UP keeps strict edge/CEX).
+    baseline_down_tv_gate_enabled: bool = True
+    baseline_down_block_bullish_range: bool = True
+    baseline_down_block_up_strong_bullish: bool = True
+    # 15m fast lane: scaled TTC band on 15m windows (proven 180-240s cohort).
     baseline_cohort_15m_fast_lane: bool = True
-    baseline_cohort_15m_ttc_min_s: float = 60.0
-    baseline_cohort_15m_ttc_max_s: float = 480.0
+    baseline_cohort_15m_ttc_min_s: float = 180.0
+    baseline_cohort_15m_ttc_max_s: float = 240.0
     # When Grok abstains, still follow a Wilson-aligned CEX-lead mispricing stack (not coin-flip explore).
     mispricing_follow_on_abstain: bool = False
     mispricing_follow_size_fraction: float = 0.5
@@ -553,11 +556,20 @@ class PulseConfig:
             baseline_up_tv_gate_enabled=str(
                 os.getenv("PULSE_BASELINE_UP_TV_GATE_ENABLED", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
+            baseline_down_tv_gate_enabled=str(
+                os.getenv("PULSE_BASELINE_DOWN_TV_GATE_ENABLED", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            baseline_down_block_bullish_range=str(
+                os.getenv("PULSE_BASELINE_DOWN_BLOCK_BULLISH_RANGE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            baseline_down_block_up_strong_bullish=str(
+                os.getenv("PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_BULLISH", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
             baseline_cohort_15m_fast_lane=str(
                 os.getenv("PULSE_BASELINE_COHORT_15M_FAST_LANE", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
-            baseline_cohort_15m_ttc_min_s=_envf("PULSE_BASELINE_COHORT_15M_TTC_MIN_S", 60.0),
-            baseline_cohort_15m_ttc_max_s=_envf("PULSE_BASELINE_COHORT_15M_TTC_MAX_S", 480.0),
+            baseline_cohort_15m_ttc_min_s=_envf("PULSE_BASELINE_COHORT_15M_TTC_MIN_S", 180.0),
+            baseline_cohort_15m_ttc_max_s=_envf("PULSE_BASELINE_COHORT_15M_TTC_MAX_S", 240.0),
             mispricing_follow_on_abstain=str(
                 os.getenv("PULSE_MISPRICING_FOLLOW_ON_ABSTAIN", "0")).strip().lower()
             in ("1", "true", "yes", "on"),
@@ -2112,6 +2124,14 @@ class PulseEngine:
                         self.markov.record_terminal(state=cand_state, accepted=False)
                     _finalize(dr, "rejected", reason=up_tv_reason, stage="directional")
                     continue
+            if (not grok_follow and not cex_lead_active and d.side == "down"):
+                down_tv_ok, down_tv_reason = self._baseline_down_tv_context_ok(tv_feature)
+                if not down_tv_ok:
+                    dr.action = RejectAction(stage="directional", reason=down_tv_reason)
+                    if self.markov is not None:
+                        self.markov.record_terminal(state=cand_state, accepted=False)
+                    _finalize(dr, "rejected", reason=down_tv_reason, stage="directional")
+                    continue
             if not grok_follow and not cex_lead_active:
                 tv_reason = self._tv_signal_gate(tv_feature, d.side)
                 if tv_reason is not None:
@@ -2435,6 +2455,14 @@ class PulseEngine:
                                      "edge_ob_pressure": esnap.orderbook_pressure.get("bucket"),
                                      "edge_score_bucket": esnap.pulse_edge_score_bucket,
                                      "edge_cex_agreement": esnap.cex_agreement_bucket})
+            if tv_feature is not None:
+                pos.research.update({
+                    "tv_signal_level": tv_feature.get("signal_level"),
+                    "tv_mtf_alignment": tv_feature.get("mtf_alignment"),
+                    "tv_range_state": tv_feature.get("range_state"),
+                    "tv_direction": tv_feature.get("direction"),
+                    "tv_strength": tv_feature.get("strength"),
+                })
             if tv_feature is not None:            # observe-only external signal present at entry
                 _sym = tv_feature.get("symbol")
                 _pred = self._rsi_model.predict(_sym) if _sym else {}
@@ -3225,6 +3253,10 @@ class PulseEngine:
             tv_ok, tv_reason = self._baseline_up_tv_strength_ok(tv_feature)
             if not tv_ok:
                 return False, tv_reason
+        if side == "down":
+            down_tv_ok, down_tv_reason = self._baseline_down_tv_context_ok(tv_feature)
+            if not down_tv_ok:
+                return False, down_tv_reason
         return True, ""
 
     def _config_coupling_report(self) -> dict:
@@ -3246,8 +3278,10 @@ class PulseEngine:
             "15m_ttc_band_s": [self.cfg.baseline_cohort_15m_ttc_min_s,
                                self.cfg.baseline_cohort_15m_ttc_max_s],
             "up_restrictions_enabled": bool(self.cfg.directional_up_restrictions_enabled),
-            "note": ("baseline quant path: 120-240s TTC band (scaled on 15m), high edge + "
-                     "strong CEX; UP blocked until promoted when restrictions enabled"),
+            "down_tv_gate_enabled": bool(self.cfg.baseline_down_tv_gate_enabled),
+            "down_block_bullish_range": bool(self.cfg.baseline_down_block_bullish_range),
+            "note": ("baseline quant path: 180-240s TTC band (scaled on 15m), high edge + "
+                     "strong CEX; DOWN blocks bullish range-top; UP blocked until promoted"),
         }
 
     def _down_bias_eval(self, *, side: str, tv_feature: "dict | None",
@@ -3291,6 +3325,24 @@ class PulseEngine:
                                       fair_p_up=fair_p_up)
         if db_res["decision"] in ("block", "explore"):
             return False, db_res["reasons"][0]
+        return True, ""
+
+    def _baseline_down_tv_context_ok(self, tv_feature: "dict | None") -> "tuple[bool, str]":
+        """Block DOWN in proven-losing bullish TV stacks (15m evening loss cluster)."""
+        if not self.cfg.baseline_down_tv_gate_enabled:
+            return True, ""
+        feat = tv_feature or {}
+        mtf = str(feat.get("mtf_alignment") or "").strip().lower()
+        range_state = str(feat.get("range_state") or "").strip().lower()
+        signal_level = str(feat.get("signal_level") or "").strip().upper()
+        if self.cfg.baseline_down_block_bullish_range:
+            if mtf == "bullish_aligned" and range_state in ("range_top", "breakout_up"):
+                return False, "baseline_down_tv_bullish_range_top"
+            if signal_level == "UP_STRONG" and range_state == "breakout_up":
+                return False, "baseline_down_tv_up_strong_breakout"
+        if self.cfg.baseline_down_block_up_strong_bullish:
+            if signal_level == "UP_STRONG" and mtf == "bullish_aligned":
+                return False, "baseline_down_tv_up_strong_bullish"
         return True, ""
 
     def _baseline_up_tv_strength_ok(self, tv_feature: "dict | None") -> "tuple[bool, str]":

@@ -72,16 +72,19 @@ UPDATES = {
     "PULSE_EDGE_TTC_GATE_ENABLED": "1",
     "PULSE_CEX_LEAD_MIN_EDGE_VS_MARKET": "0.02",
     "PULSE_CEX_LEAD_TV_STRENGTH_THR": "0.72",
-    # Tier 1: tight cohort band (120-240s sweet spot) + high edge; block medium-edge bleed.
+    # Tier 1: proven 180-240s cohort + high edge; block medium-edge bleed.
     "PULSE_BASELINE_COHORT_GATE_ENABLED": "1",
-    "PULSE_BASELINE_COHORT_TTC_MIN_S": "120",
+    "PULSE_BASELINE_COHORT_TTC_MIN_S": "180",
     "PULSE_BASELINE_COHORT_TTC_MAX_S": "240",
     "PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE": "1",
     "PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX": "1",
     "PULSE_BASELINE_COHORT_15M_FAST_LANE": "1",
-    "PULSE_BASELINE_COHORT_15M_TTC_MIN_S": "120",
+    "PULSE_BASELINE_COHORT_15M_TTC_MIN_S": "180",
     "PULSE_BASELINE_COHORT_15M_TTC_MAX_S": "240",
     "PULSE_BASELINE_UP_TV_GATE_ENABLED": "1",
+    "PULSE_BASELINE_DOWN_TV_GATE_ENABLED": "1",
+    "PULSE_BASELINE_DOWN_BLOCK_BULLISH_RANGE": "1",
+    "PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_BULLISH": "1",
     # Arb + dependency scan 5m+15m; directional gated to 15m only (series split).
     "PULSE_SERIES_SLUGS": "btc-up-or-down-5m,btc-up-or-down-15m",
     "PULSE_DIRECTIONAL_SERIES_SLUGS": "btc-up-or-down-15m",

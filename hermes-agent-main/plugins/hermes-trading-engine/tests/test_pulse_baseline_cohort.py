@@ -20,14 +20,19 @@ def _eng(**kw):
     return PulseEngine(PulseConfig(**defaults))
 
 
-def test_15m_fast_lane_ttc_band_120_240_scaled():
+def test_15m_fast_lane_ttc_band_180_240_scaled():
     eng = _eng(baseline_cohort_15m_fast_lane=True,
-               baseline_cohort_15m_ttc_min_s=120.0, baseline_cohort_15m_ttc_max_s=240.0)
+               baseline_cohort_15m_ttc_min_s=180.0, baseline_cohort_15m_ttc_max_s=240.0)
     ok, r = eng._baseline_quant_cohort_ok(
         side="down",
         esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
         ttc_s=650.0, tv_feature=None, window_seconds=900)
     assert ok and r == ""
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=420.0, tv_feature=None, window_seconds=900)
+    assert not ok and r == "baseline_cohort_ttc_too_early"
     ok, r = eng._baseline_quant_cohort_ok(
         side="down",
         esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
@@ -41,12 +46,12 @@ def test_15m_fast_lane_blocks_medium_edge_when_high_required():
     ok, r = eng._baseline_quant_cohort_ok(
         side="down",
         esnap=_FakeEsnap(pulse_edge_score_bucket="medium", cex_agreement_bucket="strong"),
-        ttc_s=400.0, tv_feature=None, window_seconds=900)
+        ttc_s=600.0, tv_feature=None, window_seconds=900)
     assert not ok and r == "baseline_cohort_edge_not_high"
     ok, r = eng._baseline_quant_cohort_ok(
         side="down",
         esnap=_FakeEsnap(pulse_edge_score_bucket="low", cex_agreement_bucket="moderate"),
-        ttc_s=400.0, tv_feature=None, window_seconds=900)
+        ttc_s=600.0, tv_feature=None, window_seconds=900)
     assert not ok and r == "baseline_cohort_edge_not_high"
 
 
@@ -59,7 +64,7 @@ def test_15m_fast_lane_symmetric_when_up_restrictions_off():
     ok, r = eng._baseline_quant_cohort_ok(
         side="up",
         esnap=_FakeEsnap(pulse_edge_score_bucket="medium", cex_agreement_bucket="moderate"),
-        ttc_s=400.0, tv_feature=None, window_seconds=900)
+        ttc_s=600.0, tv_feature=None, window_seconds=900)
     assert ok and r == ""
 
 
@@ -70,7 +75,7 @@ def test_15m_fast_lane_up_strict_when_restrictions_on():
     ok, r = eng._baseline_quant_cohort_ok(
         side="up",
         esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
-        ttc_s=400.0, tv_feature=None, window_seconds=900)
+        ttc_s=600.0, tv_feature=None, window_seconds=900)
     assert not ok and r == "baseline_up_tv_missing"
 
 
@@ -111,3 +116,31 @@ def test_up_requires_tv_strong():
         ttc_s=200.0,
         tv_feature={"direction": "UP", "strength": 0.5, "signal_level": "UP_WEAK"})
     assert not ok
+
+
+def test_down_blocks_bullish_range_top_stack():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=200.0,
+        tv_feature={
+            "signal_level": "UP_STRONG",
+            "mtf_alignment": "bullish_aligned",
+            "range_state": "range_top",
+        })
+    assert not ok and r == "baseline_down_tv_bullish_range_top"
+
+
+def test_down_allows_bearish_proven_stack():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="very_high", cex_agreement_bucket="strong"),
+        ttc_s=200.0,
+        tv_feature={
+            "signal_level": "DOWN_STRONG",
+            "mtf_alignment": "bearish_aligned",
+            "range_state": "range_bottom",
+        })
+    assert ok and r == ""
