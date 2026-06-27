@@ -3895,6 +3895,7 @@ class PulseEngine:
         """The latest light report (report-only): full lifecycle reconciliation, exec stats,
         reject reasons, EV before/after costs, PnL grouped by every bucket dimension, calibration,
         sample sizes, missing-data reasons, and promotion/demotion candidates."""
+        self._repair_accounting_drift()
         from engine.pulse.reporting import build_light_report
         ev_stats = {"n": self._ev_n,
                     "avg_ev_before_costs": (round(self._ev_before_sum / self._ev_n, 6)
@@ -3941,16 +3942,7 @@ class PulseEngine:
             "enabled": False}
         report["clob_feed"] = (
             self.clob_feed.latency_report() if getattr(self, "clob_feed", None) else {})
-        try:
-            from engine.pulse.walk_forward import passes_walk_forward
-            _dep_pos = list((self.dep_arb_ledger.positions or {}).values()
-                            if self.dep_arb_ledger else [])
-            report["walk_forward"] = {
-                "directional": passes_walk_forward(list(self.ledger.positions.values())),
-                "dependency_arb": passes_walk_forward(_dep_pos, min_holdout_n=5),
-            }
-        except Exception:
-            report["walk_forward"] = {}
+        report["walk_forward"] = self._walk_forward_status()
         report["series_architecture"] = {
             "design": "5m_brain_15m_hands",
             "scan_slugs": list(self.cfg.pulse_series_slugs),
@@ -4407,6 +4399,18 @@ class PulseEngine:
         """True when direction=up bucket clears Wilson LB promotion (n>=min, PnL>0)."""
         return self._research_exploit_backed("direction", "up")
 
+    def _walk_forward_status(self) -> dict:
+        try:
+            from engine.pulse.walk_forward import passes_walk_forward
+            _dep_pos = list((self.dep_arb_ledger.positions or {}).values()
+                            if self.dep_arb_ledger else [])
+            return {
+                "directional": passes_walk_forward(list(self.ledger.positions.values())),
+                "dependency_arb": passes_walk_forward(_dep_pos, min_holdout_n=5),
+            }
+        except Exception:
+            return {}
+
     def _profit_discovery_status(self) -> dict:
         """5x improvement tracker vs baseline; honest status only."""
         baseline_total = float(getattr(self, "_profit_baseline_usd", 35.95) or 35.95)
@@ -4760,6 +4764,16 @@ class PulseEngine:
             "arb_graph": getattr(self, "_arb_graph_report", None) or {"nodes": 0},
             "grok_dependency": getattr(self, "_grok_dependency_report", None) or {
                 "dependency_proposals": 0},
+            "bregman_projection": getattr(self, "_bregman_projection_report", None) or {
+                "enabled": False},
+            "clob_feed": (
+                self.clob_feed.latency_report() if getattr(self, "clob_feed", None) else {}),
+            "walk_forward": self._walk_forward_status(),
+            "series_architecture": {
+                "design": "5m_brain_15m_hands",
+                "scan_slugs": list(self.cfg.pulse_series_slugs),
+                "directional_slugs": list(self.cfg.directional_series_slugs),
+            },
             "profit_discovery": self._profit_discovery_status(),
             "five_x_improvement": self._profit_discovery_status(),
             "directional_risk": {

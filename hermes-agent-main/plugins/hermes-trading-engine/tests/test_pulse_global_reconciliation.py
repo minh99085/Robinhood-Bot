@@ -136,6 +136,24 @@ def test_repair_accounting_drift_absorbs_one_missing_fill():
     assert r1["global_reconciled"] is True
 
 
+def test_repair_accounting_drift_absorbs_two_on_existing_baseline():
+    """Incremental drift atop an already-patched baseline (live VPS pattern)."""
+    base = {"captured": True, "trades": 5, "settled": 5, "open_positions": 0,
+            "exec_candidates": 5, "exec_accepted": 5, "exec_rejected_total": 0,
+            "note": "absorbed 5 fill(s) missing from lifecycle persistence"}
+    lc = _lifecycle(accepted=86, rejected=5, rej_gate=1, ledgered=86, execution_costed=257)
+    eg = _gate(candidates=264, accepted=93, rejected_total=171)
+    led = _ledger(trades=93, settled=93, open_positions=0)
+    r0 = global_reconciliation(lifecycle=lc, exec_gate=eg, ledger_stats=led, baseline=base)
+    assert r0["global_reconciled"] is False
+    base2, changed = repair_accounting_drift(lifecycle=lc, exec_gate=eg, ledger_stats=led,
+                                             baseline=base)
+    assert changed is True
+    assert base2["trades"] == 7 and base2["exec_accepted"] == 7
+    r1 = global_reconciliation(lifecycle=lc, exec_gate=eg, ledger_stats=led, baseline=base2)
+    assert r1["global_reconciled"] is True
+
+
 def test_lifecycle_internal_disappearance_fails():
     lc = _lifecycle(accepted=3, rejected=5, rej_gate=0)
     lc["created"] = 99                                       # a candidate vanished
