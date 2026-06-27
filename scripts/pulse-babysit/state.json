@@ -3,19 +3,19 @@
     "win_rate_target": 0.8,
     "note": "Operator mandate: >=80% WR on selective DOWN entries; 60-min inspect/fine-tune cycles"
   },
-  "cycle": 24,
+  "cycle": 25,
   "phase": "soak",
   "soak_hours": 1,
-  "deployed_at": "2026-06-27T08:36:41.311921+00:00",
-  "soak_until": "2026-06-27T09:36:41.311921+00:00",
-  "last_eval_at": "2026-06-27T08:36:41.311921+00:00",
+  "deployed_at": "2026-06-27T10:35:38.652189+00:00",
+  "soak_until": "2026-06-27T11:35:38.652189+00:00",
+  "last_eval_at": "2026-06-27T10:35:38.652189+00:00",
   "last_verdict": "issues",
   "last_fixes": [
-    "down_bias: block UP when not_stale (50pct WR, -13.61 PnL, n=20)",
-    "baseline_down: block DOWN when mtf=bullish_aligned (54.5pct WR, -5.16 PnL, n=11)"
+    "down_bias: block UP when volume_state=active (37.5pct WR, -10.58 PnL, n=8)",
+    "baseline_down: block DOWN when tf_confirm=single_tf (53.3pct WR, -10.02 PnL, n=15)"
   ],
   "last_health_verdict": "issues",
-  "vps_sha": "d90e6e03a6e88a39db88afe29a4db4731c88cdaf",
+  "vps_sha": "40ea95bde6f7471c5895c0a075d70390455c6bb4",
   "history": [
     {
       "ts": "2026-06-25T19:06:42.423656+00:00",
@@ -1225,6 +1225,62 @@
       "fixes_applied": [
         "down_bias: block UP when not_stale (50pct WR, -13.61 PnL, n=20)",
         "baseline_down: block DOWN when mtf=bullish_aligned (54.5pct WR, -5.16 PnL, n=11)"
+      ]
+    },
+    {
+      "ts": "2026-06-27T10:33:54.000809+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 86,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6163,
+        "profit_factor": 0.9752,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6515,
+        "realized_pnl_usd": -3.72,
+        "tv_valid": 299,
+        "mtf_passed": 140,
+        "mtf_blocked": 275,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.45,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "win_rate_below_target",
+        "profit_factor_low",
+        "up_side_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-27T10:35:38.652189+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 86,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6163,
+        "profit_factor": 0.9752,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6515,
+        "realized_pnl_usd": -3.72,
+        "tv_valid": 299,
+        "mtf_passed": 140,
+        "mtf_blocked": 275,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.45,
+        "global_reconciled": true
+      },
+      "issue_codes": [
+        "win_rate_below_target",
+        "profit_factor_low",
+        "up_side_bleed"
+      ],
+      "fixes_applied": [
+        "down_bias: block UP when volume_state=active (37.5pct WR, -10.58 PnL, n=8)",
+        "baseline_down: block DOWN when tf_confirm=single_tf (53.3pct WR, -10.02 PnL, n=15)"
       ]
     }
   ],
