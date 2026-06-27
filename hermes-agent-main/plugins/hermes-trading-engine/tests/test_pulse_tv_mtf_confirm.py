@@ -1,7 +1,6 @@
-"""Cross-timeframe (4m + 5m) TradingView confirmation — the bot must USE ALL chart TFs together,
-not let the latest overwrite the other. OBSERVE-ONLY. Proves: same-symbol 4m+5m agreement yields
-confirmed_up/down; disagreement -> conflict; only-one-fresh -> single_tf; stale 5m -> not confirmed;
-and the confirmation flows into the feature + is graded as its own bucket dimension."""
+"""Cross-timeframe (5m + 10m + 15m) TradingView confirmation — chart TFs must not overwrite each other.
+OBSERVE-ONLY. Proves: fast-pair agreement yields confirmed_up/down; disagreement -> conflict;
+only-one-fresh -> single_tf; and confirmation flows into the feature + grading buckets."""
 
 from __future__ import annotations
 
@@ -10,9 +9,10 @@ import json
 from engine.pulse.tradingview import TradingViewIntake, TradingViewEdge
 
 
-def _intake(tmp_path):
+def _intake(tmp_path, *, mtf_timeframes=None):
     return TradingViewIntake(secret="s3cr3t", bot_name="hermes",
-                             allowed_symbols=("BTCUSD",), data_dir=str(tmp_path))
+                             allowed_symbols=("BTCUSD",), data_dir=str(tmp_path),
+                             mtf_timeframes=mtf_timeframes)
 
 
 def _send(intake, *, direction, tf, now, bar_time=None):
@@ -24,7 +24,7 @@ def _send(intake, *, direction, tf, now, bar_time=None):
 
 
 def test_4m_5m_confirmation_states(tmp_path):
-    ik = _intake(tmp_path)
+    ik = _intake(tmp_path, mtf_timeframes=("4", "5"))
     t = 1_000_000.0
     _send(ik, direction="DOWN", tf="5", now=t)
     _send(ik, direction="DOWN", tf="4", now=t + 30)
@@ -42,20 +42,16 @@ def test_4m_5m_confirmation_states(tmp_path):
 def test_all_tfs_stored_separately_not_overriding(tmp_path):
     ik = _intake(tmp_path)
     t = 6_000_000.0
-    for tf, direction in (("4", "DOWN"), ("5", "UP"), ("10", "UP"), ("13", "DOWN"), ("15", "DOWN")):
+    for tf, direction in (("5", "UP"), ("10", "UP"), ("15", "DOWN")):
         _send(ik, direction=direction, tf=tf, now=t + int(tf))
     rep = ik.report()
     by_tf = rep["tradingview_latest_by_timeframe"]
-    assert by_tf["BTCUSD@4"]["direction"] == "DOWN"
     assert by_tf["BTCUSD@5"]["direction"] == "UP"
     assert by_tf["BTCUSD@10"]["direction"] == "UP"
-    assert by_tf["BTCUSD@13"]["direction"] == "DOWN"
     assert by_tf["BTCUSD@15"]["direction"] == "DOWN"
     mtf = ik.mtf_confirmation(symbol="BTCUSD", now=t + 20)
-    assert mtf["tf_4m_dir"] == "DOWN"
     assert mtf["tf_5m_dir"] == "UP"
     assert mtf["tf_10m_dir"] == "UP"
-    assert mtf["tf_13m_dir"] == "DOWN"
     assert mtf["tf_15m_dir"] == "DOWN"
 
 
@@ -70,26 +66,26 @@ def test_13m_timeframe_normalized_from_suffix(tmp_path):
     assert "BTCUSD@13" in ik.report()["tradingview_latest_by_timeframe"]
 
 
-def test_5tf_trend_alignment(tmp_path):
+def test_3tf_trend_alignment(tmp_path):
     ik = _intake(tmp_path)
     t = 6_200_000.0
-    for tf in ("4", "5", "10", "13", "15"):
+    for tf in ("5", "10", "15"):
         _send(ik, direction="UP", tf=tf, now=t + int(tf))
     mtf = ik.mtf_confirmation(symbol="BTCUSD", now=t + 20)
-    assert mtf["confirm_5tf"] == "confirmed_up_5tf"
+    assert mtf["confirm_3tf"] == "confirmed_up_3tf"
     assert mtf["confirm_mtf"] == "confirmed_up_mtf"
-    assert mtf["direction_5tf"] == "UP"
-    assert mtf["trend_fresh_count"] == 5
+    assert mtf["direction_3tf"] == "UP"
+    assert mtf["trend_fresh_count"] == 3
     feat = ik.latest_feature(now=t + 20, symbol="BTCUSD")
-    assert feat["tf_confirm_5tf"] == "confirmed_up_5tf"
-    assert feat["trend_by_tf"] == {"4": "UP", "5": "UP", "10": "UP", "13": "UP", "15": "UP"}
+    assert feat["tf_confirm_3tf"] == "confirmed_up_3tf"
+    assert feat["trend_by_tf"] == {"5": "UP", "10": "UP", "15": "UP"}
 
 
-def test_15m_aligns_with_4m_5m(tmp_path):
+def test_15m_aligns_with_5m_10m(tmp_path):
     ik = _intake(tmp_path)
     t = 5_000_000.0
     _send(ik, direction="DOWN", tf="5", now=t)
-    _send(ik, direction="DOWN", tf="4", now=t + 10)
+    _send(ik, direction="DOWN", tf="10", now=t + 10)
     _send(ik, direction="DOWN", tf="15", now=t + 20)
     mtf = ik.mtf_confirmation(symbol="BTCUSD", now=t + 30)
     assert mtf["tf_15m_dir"] == "DOWN"
@@ -103,13 +99,13 @@ def test_confirmation_flows_into_feature_and_grades(tmp_path):
     ik = _intake(tmp_path)
     t = 2_000_000.0
     _send(ik, direction="DOWN", tf="5", now=t)
-    _send(ik, direction="DOWN", tf="4", now=t + 10)
+    _send(ik, direction="DOWN", tf="10", now=t + 10)
     feat = ik.latest_feature(now=t + 11, symbol="BTCUSD")
     assert feat["tf_confirm"] == "confirmed_down" and feat["tf_confirm_direction"] == "DOWN"
     rep = ik.report()
     assert "tradingview_mtf_confirmation" in rep
-    assert "BTCUSD@4" in rep["tradingview_latest_by_timeframe"]
     assert "BTCUSD@5" in rep["tradingview_latest_by_timeframe"]
+    assert "BTCUSD@10" in rep["tradingview_latest_by_timeframe"]
     edge = TradingViewEdge()
     edge.record(tv=feat, traded_side="down", outcome_up=False, won=True, pnl=4.0)
     er = edge.report()
@@ -118,12 +114,12 @@ def test_confirmation_flows_into_feature_and_grades(tmp_path):
 
 
 def test_index_mtf_via_feature_symbol(tmp_path):
-    """Operator feeds INDEX:BTCUSD on 4m+5m charts — MTF resolves under BTCUSD."""
+    """Operator feeds INDEX:BTCUSD on 5m+10m charts — MTF resolves under BTCUSD."""
     ik = TradingViewIntake(secret="s3cr3t", bot_name="hermes",
                            allowed_symbols=("BTCUSD", "INDEX:BTCUSD"), data_dir=str(tmp_path),
                            feature_symbol="BTCUSD")
     t = 4_000_000.0
-    for tf, ts in (("5", t), ("4", t + 10)):
+    for tf, ts in (("5", t), ("10", t + 10)):
         payload = {"secret": "s3cr3t", "bot_name": "hermes", "symbol": "INDEX:BTCUSD",
                    "direction": "UP", "timeframe": tf,
                    "bar_time": ts, "event_id": "BTCUSD-%s-%d-UP" % (tf, int(ts * 1000))}
@@ -138,7 +134,7 @@ def test_confirmation_survives_restart(tmp_path):
     ik = _intake(tmp_path)
     t = 3_000_000.0
     _send(ik, direction="UP", tf="5", now=t)
-    _send(ik, direction="UP", tf="4", now=t + 5)
+    _send(ik, direction="UP", tf="10", now=t + 5)
     ik2 = _intake(tmp_path)
     c = ik2.mtf_confirmation(symbol="BTCUSD", now=t + 6)
     assert c["confirm"] == "confirmed_up" and c["direction"] == "UP"

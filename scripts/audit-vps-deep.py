@@ -10,7 +10,7 @@ from pathlib import Path
 
 DATA = Path(os.environ.get("HTE_DATA_DIR", "/data"))
 EXPECTED_ENV = {
-    "PULSE_TV_MTF_TIMEFRAMES": "4,5,10,13,15",
+    "PULSE_TV_MTF_TIMEFRAMES": "5,10,15",
     "PULSE_TV_FEATURE_SYMBOL": "BTCUSD",
     "PULSE_GROK_DECIDER_MODE": "shadow",
     "PULSE_ARB_EPSILON": "0.05",
@@ -62,8 +62,8 @@ def main() -> None:
     print("\n=== TV MTF ===")
     print("valid/received:", tv.get("tradingview_alerts_valid"), "/", tv.get("tradingview_alerts_received"))
     print("rejects:", tv.get("tradingview_reject_reasons"))
-    print("confirm_5tf:", mtf.get("confirm_5tf"), "fresh:", mtf.get("trend_fresh_count"))
-    for tf in ("4", "5", "10", "13", "15"):
+    print("confirm_3tf:", mtf.get("confirm_3tf"), "fresh:", mtf.get("trend_fresh_count"))
+    for tf in ("5", "10", "15"):
         print(" %sm dir=%s age=%s win=%s" % (
             tf, mtf.get("tf_%sm_dir" % tf), mtf.get("tf_%sm_age_s" % tf),
             (mtf.get("confirm_windows_by_tf") or {}).get(tf)))

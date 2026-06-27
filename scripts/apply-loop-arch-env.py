@@ -113,16 +113,14 @@ UPDATES = {
     "PULSE_ARB_NONATOMIC_SLIPPAGE_BPS": "50",
     "PULSE_SIZING_PROMOTION_GATED": "1",
     "HERMES_SIZING_ENABLED": "0",
-    # TradingView INDEX:BTCUSD — 4m + 5m + 10m + 13m + 15m chart alerts (five charts, same script).
+    # TradingView INDEX:BTCUSD — 5m + 10m + 15m chart alerts (three charts, same script).
     "PULSE_TV_FEATURE_SYMBOL": "BTCUSD",
     "TRADINGVIEW_ALLOWED_SYMBOLS": "BTCUSD,INDEX:BTCUSD,BTC/USD,BTC,XBTUSD",
     "TRADINGVIEW_MAX_AGE_S": "180",
-    "PULSE_TV_MTF_TIMEFRAMES": "4,5,10,13,15",
+    "PULSE_TV_MTF_TIMEFRAMES": "5,10,15",
     # ~2.5 bar lengths: Pine fires only on scored signals, not every bar close.
-    "PULSE_TV_MTF_CONFIRM_WINDOW_4M_S": "600",
     "PULSE_TV_MTF_CONFIRM_WINDOW_S": "750",
     "PULSE_TV_MTF_CONFIRM_WINDOW_10M_S": "1500",
-    "PULSE_TV_MTF_CONFIRM_WINDOW_13M_S": "1950",
     "PULSE_TV_MTF_CONFIRM_WINDOW_15M_S": "2250",
     # Tier 2: selectivity blocks need PF floor + higher min_samples + BH-FDR.
     "PULSE_SELECTIVITY_MIN_SAMPLES": "50",

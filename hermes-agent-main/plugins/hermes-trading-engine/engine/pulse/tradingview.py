@@ -73,18 +73,16 @@ def normalize_symbol(raw) -> str:
     return s
 
 
-DEFAULT_MTF_TIMEFRAMES = ("4", "5", "10", "13", "15")
+DEFAULT_MTF_TIMEFRAMES = ("5", "10", "15")
 DEFAULT_MTF_CONFIRM_WINDOWS = {
-    "4": 300.0,
-    "5": 360.0,
-    "10": 660.0,
-    "13": 840.0,
-    "15": 960.0,
+    "5": 750.0,
+    "10": 1500.0,
+    "15": 2250.0,
 }
 
 
 def parse_mtf_timeframes(raw) -> tuple[str, ...]:
-    """Parse ``PULSE_TV_MTF_TIMEFRAMES`` (e.g. ``4,5,10,13,15``) into canonical minute keys."""
+    """Parse ``PULSE_TV_MTF_TIMEFRAMES`` (e.g. ``5,10,15``) into canonical minute keys."""
     if raw is None or not str(raw).strip():
         return DEFAULT_MTF_TIMEFRAMES
     out: list[str] = []
@@ -140,7 +138,7 @@ def build_mtf_confirm_windows(
 def normalize_timeframe(raw) -> Optional[str]:
     """Canonical minute key for per-TF storage (``10``, ``10m``, ``10min`` -> ``10``).
 
-    Each timeframe is stored separately in ``latest_by_tf`` so 4m/5m/10m/13m/15m alerts never
+    Each timeframe is stored separately in ``latest_by_tf`` so 5m/10m/15m alerts never
     overwrite one another — only the matching TF slot is updated."""
     if raw is None:
         return None
@@ -884,7 +882,7 @@ class TradingViewIntake:
                  confirm_window_10m_s: float = 660.0,
                  confirm_window_15m_s: float = 960.0):
         self.secret = str(secret or "")
-        # Chart symbol the operator feeds (INDEX:BTCUSD -> BTCUSD). Used for 4m/5m/10m/13m/15m
+        # Chart symbol the operator feeds (INDEX:BTCUSD -> BTCUSD). Used for 5m/10m/15m
         # cross-confirmation lookups — distinct from the Chainlink oracle slug (btc/usd).
         self.feature_symbol = normalize_symbol(feature_symbol) or "BTCUSD"
         self.mtf_timeframes = tuple(mtf_timeframes) if mtf_timeframes else DEFAULT_MTF_TIMEFRAMES
@@ -1140,9 +1138,9 @@ class TradingViewIntake:
 
     def mtf_confirmation(self, *, symbol: Optional[str] = None,
                          now: Optional[float] = None) -> dict:
-        """Cross-timeframe confirmation across configured chart alerts (default 4/5/10/13/15m).
+        """Cross-timeframe confirmation across configured chart alerts (default 5/10/15m).
 
-        ``confirm`` — fast pair (first two TFs, default 4m+5m): confirmed_up/down, conflict,
+        ``confirm`` — fast pair (first two TFs, default 5m+10m): confirmed_up/down, conflict,
           single_tf, none. Used by the MTF conflict gate.
         ``confirm_mtf`` / ``confirm_{N}tf`` — all configured TFs: confirmed_up_mtf,
           partial_up_mtf, conflict_mtf, etc. Grok reads this via ``tradingview_trend``.
@@ -1179,7 +1177,7 @@ class TradingViewIntake:
             ent = entries[tf]
             out[tf_age_key(tf)] = (round(now - ent[1], 1) if ent else None)
 
-        # Fast-pair confirm (4m+5m by default) — conflict gate reads ``confirm``.
+        # Fast-pair confirm (5m+10m by default) — conflict gate reads ``confirm``.
         if len(tfs) >= 2:
             tf_a, tf_b = tfs[0], tfs[1]
             d_a, d_b = dirs[tf_a], dirs[tf_b]

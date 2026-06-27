@@ -66,9 +66,9 @@ def main() -> int:
     mtf = tv.get("tradingview_mtf_confirmation") or {}
     windows = mtf.get("confirm_windows_by_tf") or {}
     n = mtf.get("mtf_count") or 5
-    print("mtf confirm:", mtf.get("confirm_5tf") or mtf.get("confirm_mtf"),
+    print("mtf confirm:", mtf.get("confirm_3tf") or mtf.get("confirm_mtf"),
           "fresh:", mtf.get("trend_fresh_count"), "/", n)
-    for tf in ("4", "5", "10", "13", "15"):
+    for tf in ("5", "10", "15"):
         age = mtf.get("tf_%sm_age_s" % tf)
         direc = mtf.get("tf_%sm_dir" % tf)
         win = windows.get(tf)

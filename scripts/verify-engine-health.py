@@ -69,7 +69,7 @@ def main() -> int:
     n = int(mtf.get("mtf_count") or 5)
     if fresh < n:
         stale_tfs = []
-        for tf in mtf.get("mtf_timeframes") or ("4", "5", "10", "13", "15"):
+        for tf in mtf.get("mtf_timeframes") or ("5", "10", "15"):
             age = mtf.get("tf_%sm_age_s" % tf)
             win = windows.get(str(tf))
             if mtf.get("tf_%sm_dir" % tf) is None and age is not None and win is not None:
@@ -85,7 +85,7 @@ def main() -> int:
         arb.get("executed")))
     print("TV valid=%s/%s fresh=%s/%s confirm=%s" % (
         tv.get("tradingview_alerts_valid"), tv.get("tradingview_alerts_received"),
-        fresh, n, mtf.get("confirm_5tf") or mtf.get("confirm_mtf")))
+        fresh, n, mtf.get("confirm_3tf") or mtf.get("confirm_mtf")))
 
     if warns:
         print("WARN:")

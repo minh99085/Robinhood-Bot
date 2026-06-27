@@ -315,7 +315,7 @@ class PulseConfig:
     tv_down_bias_up_early_ttc_max_s: float = 120.0
     tv_down_bias_up_min_conviction: float = 0.40
     tv_mtf_conflict_gate_enabled: bool = True
-    tv_mtf_require_confirm: bool = False   # loop arch: conflict veto only, not 4m+5m trade authority
+    tv_mtf_require_confirm: bool = False   # loop arch: conflict veto only, not MTF trade authority
     tv_mtf_require_side_align: bool = False
     tv_mtf_conflict_exploration_rate: float = 0.0
     # ---- verifiable stop conditions (agent-independent kill switches; Loop Eng #6) ----
@@ -363,8 +363,8 @@ class PulseConfig:
     tradingview_webhook_port: int = 8787
     tradingview_webhook_path: str = "/webhooks/tradingview"
     tradingview_max_age_s: float = 90.0
-    tradingview_feature_symbol: str = "BTCUSD"   # TV INDEX:BTCUSD — 4m/5m/10m/13m/15m MTF
-    tradingview_mtf_timeframes: tuple = ("4", "5", "10", "13", "15")
+    tradingview_feature_symbol: str = "BTCUSD"   # TV INDEX:BTCUSD — 5m/10m/15m MTF
+    tradingview_mtf_timeframes: tuple = ("5", "10", "15")
     tradingview_mtf_confirm_window_s: float = 360.0
     tradingview_mtf_confirm_window_10m_s: float = 660.0
     tradingview_mtf_confirm_window_15m_s: float = 960.0
@@ -779,7 +779,7 @@ class PulseConfig:
             tradingview_feature_symbol=normalize_symbol(
                 os.getenv("PULSE_TV_FEATURE_SYMBOL", "BTCUSD") or "BTCUSD") or "BTCUSD",
             tradingview_mtf_timeframes=_parse_tv_mtf_timeframes(
-                os.getenv("PULSE_TV_MTF_TIMEFRAMES", "4,5,10,13,15")),
+                os.getenv("PULSE_TV_MTF_TIMEFRAMES", "5,10,15")),
             tradingview_mtf_confirm_window_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_S", 360.0),
             tradingview_mtf_confirm_window_10m_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_10M_S", 660.0),
             tradingview_mtf_confirm_window_15m_s=_envf("PULSE_TV_MTF_CONFIRM_WINDOW_15M_S", 960.0),

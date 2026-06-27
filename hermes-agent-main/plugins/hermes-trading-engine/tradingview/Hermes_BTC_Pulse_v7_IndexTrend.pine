@@ -4,9 +4,9 @@
 // =====================================================================================
 // INDEX:BTCUSD only — aligns with Chainlink BTC/USD settlement (no Binance BTCUSDT).
 //   TradingView BTC Index = avg(BITSTAMP, COINBASE, BITFINEX, KRAKEN) spot USD.
-//   USAGE: same script on FIVE charts — all INDEX:BTCUSD:
-//     4m, 5m, 10m, 13m, 15m — one alert per chart (Any alert() function call).
-//     Bot builds 5-TF price trend via mtf_confirmation (4/5/10/13/15).
+//   USAGE: same script on THREE charts — all INDEX:BTCUSD:
+//     5m, 10m, 15m — one alert per chart (Any alert() function call).
+//     Bot builds 3-TF price trend via mtf_confirmation (5/10/15).
 //   Webhook → http://<vps-ip>/webhooks/tradingview
 // =====================================================================================
 indicator("Hermes BTC Pulse Composite v7 IndexTrend", overlay=true, max_labels_count=500)

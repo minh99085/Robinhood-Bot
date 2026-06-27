@@ -103,7 +103,7 @@ def build_summary() -> str:
 
     mtf = tv.get("tradingview_mtf_confirmation") or {}
     mtf_verdict = (
-        mtf.get("confirm_5tf") or mtf.get("confirm_mtf")
+        mtf.get("confirm_3tf") or mtf.get("confirm_mtf")
         or mtf.get("confirm") or "none"
     )
     fresh = mtf.get("trend_fresh_count")

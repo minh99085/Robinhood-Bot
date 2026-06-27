@@ -219,7 +219,7 @@ async function tick(){
     const mtf=tv.tradingview_mtf_confirmation||{};
     const byTf=tv.tradingview_latest_by_timeframe||{};
     const featSym=tv.tradingview_feature_symbol||'BTCUSD';
-    const tfs=(tv.tradingview_mtf_timeframes||mtf.mtf_timeframes||['4','5','10','13','15']);
+    const tfs=(tv.tradingview_mtf_timeframes||mtf.mtf_timeframes||['5','10','15']);
     const mtfN=mtf.mtf_count||tfs.length;
     const mtfVerdict=mtf['confirm_'+mtfN+'tf']||mtf.confirm_mtf||mtf.confirm_3tf||mtf.confirm||'none';
     const mtfCls=(mtfVerdict.includes('confirmed')?'pos':(mtfVerdict.includes('conflict')?'neg':'neu'));
