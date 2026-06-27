@@ -1,23 +1,23 @@
 # Bot cycle summary (plain English)
 
-_Updated: 2026-06-27 04:22 UTC_
+_Updated: 2026-06-27 05:22 UTC_
 
 ## Last cycle
 
 | | |
 |---|---|
-| **Cycle #** | 19 |
-| **Checked at** | 2026-06-27 03:22 UTC |
+| **Cycle #** | 20 |
+| **Checked at** | 2026-06-27 04:22 UTC |
 | **Result** | **issues** |
 | **What it means** | Issues found — UP trades still lose money. More UP blocks may have been added. |
-| **Next check after** | 2026-06-27 02:39 UTC |
+| **Next check after** | 2026-06-27 04:39 UTC |
 
-**Issues flagged:** up_side_bleed
+**Issues flagged:** profit_factor_low, up_side_bleed
 
 **Fixes applied:**
 
-- down_bias: enable block UP vs tf_confirm=confirmed_down (40% WR, -10.50 PnL, n=5)
-- down_bias: block UP when cvd_state=buy_pressure (25% WR, -4.69 PnL, n=4)
+- down_bias: block UP when zscore_bucket=-1..1 (46.2% WR, -17.44 PnL, n=13)
+- down_bias: block UP when confidence_tier=medium (44.4% WR, -8.45 PnL, n=9)
 
 ## How the bot is doing now
 
@@ -43,8 +43,8 @@ _Updated: 2026-06-27 04:22 UTC_
 
 ### TradingView (INDEX:BTCUSD)
 
-- Alerts received: **145**
-- 5-chart trend: **partial_up_3tf** (2/3 fresh)
+- Alerts received: **148**
+- 5-chart trend: **none** (—/3 fresh)
 
 ## Quick verdict
 
