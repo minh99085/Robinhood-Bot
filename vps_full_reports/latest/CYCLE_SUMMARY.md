@@ -1,21 +1,25 @@
 # Bot cycle summary (plain English)
 
-_Updated: 2026-06-27 19:34 UTC_
+_Updated: 2026-06-27 21:34 UTC_
 
 ## Last cycle
 
 | | |
 |---|---|
-| **Cycle #** | 2 |
-| **Checked at** | 2026-06-27 17:34 UTC |
-| **Result** | **blocked** |
-| **What it means** | Stopped — serious problem found. Check issues below. |
-| **Next check after** | 2026-06-27 18:37 UTC |
+| **Cycle #** | 4 |
+| **Checked at** | 2026-06-27 20:11 UTC |
+| **Result** | **watch** |
+| **What it means** | Result: watch |
+| **Next check after** | 2026-06-27 21:12 UTC |
 
 **Fixes applied:**
 
-- reconciliation_drift_repair: absorb ledger/lifecycle skew into baseline on startup
-- cohort_tier1: REQUIRE_HIGH_EDGE + REQUIRE_STRONG_CEX enabled
+- require_high_edge: 1 → 0 (medium+ edge OK on 15m DOWN)
+- require_strong_cex: 1 → 0 (moderate+ CEX OK)
+- down_block_not_stale: 1 → 0
+- down_block_bullish_mtf: 1 → 0
+- tick_seconds: 30 → 15
+- max_price: 0.65 → 0.70
 
 ## How the bot is doing now
 
@@ -23,30 +27,30 @@ _Updated: 2026-06-27 19:34 UTC_
 |---|---|
 | **Mode** | Paper only (fake money) |
 | **Started with** | $500.00 |
-| **Total now** | $545.26 (9.05% return) |
+| **Total now** | $540.26 (8.05% return) |
 | **Arb profit** | $59.73 (7 trades) |
-| **Directional profit** | $-14.47 |
-| **Win rate** | 60.0% (90 settled trades) |
+| **Directional profit** | $-19.47 |
+| **Win rate** | 59.3% (91 settled trades) |
 | **UP win rate** | 50.0% |
-| **DOWN win rate** | 62.9% |
-| **Bot stopped?** | No — bot is running |
+| **DOWN win rate** | 62.0% |
+| **Bot stopped?** | Yes — directional=True, arbitrage=False |
 | **Overall grade** | — (—/100) |
 
 ### 5m vs 15m (recent)
 
 | Market | Trades | Win rate | PnL |
 |--------|--------|----------|-----|
-| **15m** | 23 | 52.2% | $-14.65 |
+| **15m** | 24 | 50.0% | $-19.65 |
 | **5m** | 19 | 63.2% | $-1.31 |
 
 ### TradingView (INDEX:BTCUSD)
 
-- Alerts received: **557**
-- 5-chart trend: **confirmed_down_3tf** (3/3 fresh)
+- Alerts received: **615**
+- 5-chart trend: **confirmed_up_3tf** (3/3 fresh)
 
 ## Quick verdict
 
-**Good:** Making money on paper (+9.1%); Arbitrage is doing most of the work; Bot is running normally.
+**Good:** Making money on paper (+8.1%); Arbitrage is doing most of the work.
 
 **Watch:** UP trades still weak (coin-flip or worse).
 
