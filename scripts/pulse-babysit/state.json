@@ -10,13 +10,13 @@
   "phase": "soak",
   "soak_hours": 2,
   "soak_minutes": 120,
-  "deployed_at": "2026-06-27T21:36:00.000000+00:00",
-  "soak_until": "2026-06-27T22:36:00.000000+00:00",
+  "deployed_at": "2026-06-27T21:37:33.900691+00:00",
+  "soak_until": "2026-06-27T23:37:33.900691+00:00",
   "last_eval_at": "2026-06-27T21:34:13.017394+00:00",
   "last_verdict": "blocked",
   "last_fixes": [
-    "stop_min_samples: 40 → 60 (unhalt directional; rolling n=50 in warmup)",
-    "down_block_not_stale: 0 → 1 (block momentum-against DOWN entries)"
+    "stop_min_samples: 40 \u2192 60 (unhalt directional; rolling n=50 in warmup)",
+    "down_block_not_stale: 0 \u2192 1 (block momentum-against DOWN entries)"
   ],
   "last_health_verdict": "issues",
   "baseline_trades_at_deploy": 91,
@@ -26,8 +26,15 @@
       "cycle": 3,
       "eval_at": "2026-06-27T19:34:50.483543+00:00",
       "verdict": "issues",
-      "issues": ["win_rate_below_target", "profit_factor_low", "trade_starvation"],
-      "fixes": ["min_reward_risk_0.55", "baseline_down_block_not_stale"],
+      "issues": [
+        "win_rate_below_target",
+        "profit_factor_low",
+        "trade_starvation"
+      ],
+      "fixes": [
+        "min_reward_risk_0.55",
+        "baseline_down_block_not_stale"
+      ],
       "deployed_at": "2026-06-27T19:38:54.000000+00:00",
       "vps_sha": "5e497c0c3aff0e4aaf0803f55989fa5fa586bc72",
       "metrics": {
@@ -41,7 +48,9 @@
       "cycle": 4,
       "eval_at": "2026-06-27T20:11:58.000000+00:00",
       "verdict": "watch",
-      "issues": ["trade_starvation"],
+      "issues": [
+        "trade_starvation"
+      ],
       "fixes": [
         "relaxed_cohort_edge_cex",
         "down_not_stale_off",
