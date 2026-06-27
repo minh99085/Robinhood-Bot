@@ -215,6 +215,8 @@ class PulseConfig:
     baseline_down_tv_gate_enabled: bool = True
     baseline_down_block_bullish_range: bool = True
     baseline_down_block_up_strong_bullish: bool = True
+    baseline_down_block_volume_active: bool = True
+    baseline_down_block_up_strong_range_top: bool = True
     # 15m fast lane: scaled TTC band on 15m windows (proven 180-240s cohort).
     baseline_cohort_15m_fast_lane: bool = True
     baseline_cohort_15m_ttc_min_s: float = 180.0
@@ -575,6 +577,12 @@ class PulseConfig:
             in ("1", "true", "yes", "on"),
             baseline_down_block_up_strong_bullish=str(
                 os.getenv("PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_BULLISH", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            baseline_down_block_volume_active=str(
+                os.getenv("PULSE_BASELINE_DOWN_BLOCK_VOLUME_ACTIVE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            baseline_down_block_up_strong_range_top=str(
+                os.getenv("PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_RANGE_TOP", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             baseline_cohort_15m_fast_lane=str(
                 os.getenv("PULSE_BASELINE_COHORT_15M_FAST_LANE", "1")).strip().lower()
@@ -3323,6 +3331,9 @@ class PulseEngine:
             "up_restrictions_enabled": bool(self.cfg.directional_up_restrictions_enabled),
             "down_tv_gate_enabled": bool(self.cfg.baseline_down_tv_gate_enabled),
             "down_block_bullish_range": bool(self.cfg.baseline_down_block_bullish_range),
+            "down_block_volume_active": bool(self.cfg.baseline_down_block_volume_active),
+            "down_block_up_strong_range_top": bool(
+                self.cfg.baseline_down_block_up_strong_range_top),
             "note": ("baseline quant path: 180-240s TTC band (scaled on 15m), high edge + "
                      "strong CEX; DOWN blocks bullish range-top; UP blocked until promoted"),
         }
@@ -3393,6 +3404,13 @@ class PulseEngine:
         mtf = str(feat.get("mtf_alignment") or "").strip().lower()
         range_state = str(feat.get("range_state") or "").strip().lower()
         signal_level = str(feat.get("signal_level") or "").strip().upper()
+        volume_state = str(feat.get("volume_state") or "").strip().lower()
+        if self.cfg.baseline_down_block_volume_active and volume_state == "active":
+            return False, "baseline_down_tv_volume_active"
+        if (self.cfg.baseline_down_block_up_strong_range_top
+                and signal_level == "UP_STRONG" and range_state == "range_top"
+                and mtf != "bullish_aligned"):
+            return False, "baseline_down_tv_up_strong_range_top"
         if self.cfg.baseline_down_block_bullish_range:
             if mtf == "bullish_aligned" and range_state in ("range_top", "breakout_up"):
                 return False, "baseline_down_tv_bullish_range_top"

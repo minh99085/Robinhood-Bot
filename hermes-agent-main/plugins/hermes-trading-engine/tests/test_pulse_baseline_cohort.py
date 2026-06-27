@@ -144,3 +144,28 @@ def test_down_allows_bearish_proven_stack():
             "range_state": "range_bottom",
         })
     assert ok and r == ""
+
+
+def test_down_blocks_volume_active():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=200.0,
+        tv_feature={"volume_state": "active", "signal_level": "DOWN_STRONG"})
+    assert not ok and r == "baseline_down_tv_volume_active"
+
+
+def test_down_blocks_up_strong_range_top_mixed_mtf():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=200.0,
+        tv_feature={
+            "signal_level": "UP_STRONG",
+            "mtf_alignment": "mixed",
+            "range_state": "range_top",
+            "volume_state": "dead",
+        })
+    assert not ok and r == "baseline_down_tv_up_strong_range_top"
