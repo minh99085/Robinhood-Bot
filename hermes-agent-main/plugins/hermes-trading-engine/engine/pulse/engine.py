@@ -288,7 +288,7 @@ class PulseConfig:
     tv_down_bias_exploration_rate: float = 0.0
     tv_down_bias_block_up_on_bearish_down_stack: bool = True
     tv_down_bias_block_up_tv_down_non_bearish: bool = True
-    tv_down_bias_block_up_against_confirmed_down: bool = False
+    tv_down_bias_block_up_against_confirmed_down: bool = True
     tv_down_bias_block_mixed_mtf_up: bool = True
     tv_down_bias_block_bullish_supertrend_up: bool = True
     tv_down_bias_block_up_vwap_above: bool = True
@@ -306,6 +306,7 @@ class PulseConfig:
     tv_down_bias_block_up_ask_heavy_ob: bool = True
     tv_down_bias_block_up_tf_confirm_conflict: bool = True
     tv_down_bias_block_up_cvd_neutral: bool = True
+    tv_down_bias_block_up_cvd_buy_pressure: bool = True
     tv_down_bias_block_up_low_conviction: bool = True
     tv_down_bias_up_late_ttc_min_s: float = 240.0
     tv_down_bias_up_early_ttc_max_s: float = 120.0
@@ -647,7 +648,7 @@ class PulseConfig:
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_TV_DOWN_NON_BEARISH", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             tv_down_bias_block_up_against_confirmed_down=str(
-                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN", "0")).strip().lower()
+                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_AGAINST_CONFIRMED_DOWN", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             tv_down_bias_block_mixed_mtf_up=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_MIXED_MTF_UP", "1")).strip().lower()
@@ -699,6 +700,9 @@ class PulseConfig:
             in ("1", "true", "yes", "on"),
             tv_down_bias_block_up_cvd_neutral=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_CVD_NEUTRAL", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            tv_down_bias_block_up_cvd_buy_pressure=str(
+                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_CVD_BUY_PRESSURE", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             tv_down_bias_block_up_low_conviction=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_LOW_CONVICTION", "1")).strip().lower()
@@ -925,6 +929,7 @@ class PulseEngine:
             block_up_tf_confirm_conflict=bool(
                 self.cfg.tv_down_bias_block_up_tf_confirm_conflict),
             block_up_cvd_neutral=bool(self.cfg.tv_down_bias_block_up_cvd_neutral),
+            block_up_cvd_buy_pressure=bool(self.cfg.tv_down_bias_block_up_cvd_buy_pressure),
             block_up_low_conviction=bool(self.cfg.tv_down_bias_block_up_low_conviction),
             up_late_ttc_min_s=self.cfg.tv_down_bias_up_late_ttc_min_s,
             up_early_ttc_max_s=self.cfg.tv_down_bias_up_early_ttc_max_s,

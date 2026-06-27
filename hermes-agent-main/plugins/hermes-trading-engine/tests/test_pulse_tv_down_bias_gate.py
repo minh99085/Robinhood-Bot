@@ -271,6 +271,19 @@ def test_blocks_up_cvd_neutral():
     assert "tv_down_bias_up_cvd_neutral" in r["reasons"]
 
 
+def test_blocks_up_cvd_buy_pressure():
+    g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
+                                block_up_without_bearish=False,
+                                block_mixed_mtf_up=False,
+                                block_up_markov_chop_noise=False,
+                                block_up_medium_edge=False,
+                                block_up_weak_cex=False)
+    r = g.evaluate(side="up", mtf_alignment="bearish_aligned",
+                   tv_direction="DOWN", cvd_state="buy_pressure")
+    assert r["decision"] == "block"
+    assert "tv_down_bias_up_cvd_buy_pressure" in r["reasons"]
+
+
 def test_blocks_up_low_conviction():
     g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
                                 block_up_without_bearish=False,
