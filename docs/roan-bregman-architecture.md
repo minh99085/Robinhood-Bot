@@ -1,6 +1,6 @@
 # Roan / Bregman architecture — BTC Pulse (Phase 0)
 
-**Status:** Phase 0 design (2026-06-27). No runtime authority change until phased gates pass.  
+**Status:** Phases 0–6 implemented (2026-06-27). Paper-only; 5m brain / 15m hands live.  
 **References:** `references/(4) Roan…Polymarket Roadmap.pdf`, `references/(5) Roan…Loop Engineering.pdf`, [arXiv:2508.03474](https://arxiv.org/abs/2508.03474), [arXiv:1606.02825](https://arxiv.org/abs/1606.02825)  
 **Companion:** `scripts/pulse-babysit/roan-bregman-promotion-scorecard.json`, `scripts/pulse-babysit/frozen-env-keys.json`
 

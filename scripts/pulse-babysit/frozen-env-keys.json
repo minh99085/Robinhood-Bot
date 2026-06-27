@@ -2,7 +2,7 @@
   "schema": "pulse_frozen_manifest/1.1",
   "mode": "learning_collection",
   "locked_at": "2026-06-27",
-  "roan_bregman_phase": 0,
+  "roan_bregman_phase": 4,
   "source_of_truth": "scripts/apply-loop-arch-env.py",
   "rules_doc": ".grok/rules/soak-learning-lock.md",
   "tv_lock_doc": ".grok/rules/tv-observe-only-lock.md",
@@ -42,12 +42,12 @@
     "PULSE_GREEN_PATH_ENABLED": "1",
     "PULSE_DIRECTIONAL_DOWN_ONLY": "1",
     "PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED": "1",
-    "PULSE_SERIES_SLUGS": "btc-up-or-down-15m",
+    "PULSE_SERIES_SLUGS": "btc-up-or-down-5m,btc-up-or-down-15m",
     "PULSE_DIRECTIONAL_SERIES_SLUGS": "btc-up-or-down-15m",
     "PULSE_ETH_SERIES_ENABLED": "0",
     "PULSE_RESEARCH_AUTO_APPLY": "0",
     "PULSE_RESEARCH_FORBID_SIZE_INCREASE": "1",
-    "PULSE_DEPENDENCY_ARB_EXECUTE": "0",
+    "PULSE_DEPENDENCY_ARB_EXECUTE": "1",
     "HERMES_SIZING_ENABLED": "0",
     "PULSE_MISPRICING_GATE_ENABLED": "0",
     "PULSE_EDGE_TTC_GATE_ENABLED": "0",
@@ -85,7 +85,14 @@
     "PULSE_DIRECTIONAL_REQUIRE_WINNING": "0",
     "PULSE_DIRECTIONAL_EXPLORE_RATE": "0",
     "PULSE_SELECTIVITY_MIN_SAMPLES": "50",
-    "PULSE_SELECTIVITY_MIN_PROFIT_FACTOR": "0.85"
+    "PULSE_SELECTIVITY_MIN_PROFIT_FACTOR": "0.85",
+    "PULSE_BREGMAN_TRADE_AUTHORITY": "1",
+    "PULSE_BREGMAN_ALPHA": "0.9",
+    "PULSE_BREGMAN_EPSILON_INIT": "0.1",
+    "PULSE_BREGMAN_FW_MAX_ITERS": "50",
+    "PULSE_BREGMAN_FW_TIME_BUDGET_MS": "500",
+    "PULSE_IP_ORACLE_BACKEND": "ortools",
+    "PULSE_CLOB_WEBSOCKET_ENABLED": "1"
   },
   "tunable_bounds": {
     "PULSE_MIN_EDGE": { "min": 0.01, "max": 0.015, "direction": "relax_only" },
@@ -156,18 +163,23 @@
       "PULSE_DEPENDENCY_ARB_EXECUTE": "1",
       "PULSE_BREGMAN_TRADE_AUTHORITY": "1"
     },
-    "forbidden_until_phase_4": [
-      "PULSE_BREGMAN_TRADE_AUTHORITY=1 without promotion scorecard",
-      "PULSE_DEPENDENCY_ARB_EXECUTE=1 without phase_1 soak pass",
-      "PULSE_DIRECTIONAL_SERIES_SLUGS including 5m"
+    "directional_forbidden": [
+      "PULSE_DIRECTIONAL_SERIES_SLUGS including 5m",
+      "directional trades on btc-up-or-down-5m"
     ]
   },
   "roan_bregman_frozen_code_paths": [
     "engine/pulse/bregman_projection.py",
+    "engine/pulse/frank_wolfe.py",
+    "engine/pulse/ip_oracle.py",
+    "engine/pulse/constraint_registry.py",
+    "engine/pulse/clob_feed.py",
+    "engine/pulse/walk_forward.py",
     "engine/pulse/dependency_arb.py",
     "engine/pulse/arbitrage.py",
     "engine/pulse/arb_graph.py",
     "tests/fixtures/roan_nested_implication_violation.json",
-    "tests/fixtures/roan_dutch_book_opportunity.json"
+    "tests/fixtures/roan_dutch_book_opportunity.json",
+    "tests/test_roan_phases.py"
   ]
 }

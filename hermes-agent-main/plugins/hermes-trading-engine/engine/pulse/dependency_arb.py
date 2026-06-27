@@ -165,6 +165,8 @@ def try_execute_nested_implication(
     max_usd: float = 50.0,
     epsilon: float = 0.02,
     capture_frac: float = 0.5,
+    bregman_diag: Optional[dict] = None,
+    bregman_authority: bool = False,
     return_reason: bool = False,
 ) -> Optional[dict]:
     """Paper BUY parent UP when nested implication violated (parent UP underpriced vs child).
@@ -185,7 +187,24 @@ def try_execute_nested_implication(
     book = getattr(parent, "up_book", None)
     if book is None or not getattr(book, "asks", None):
         return _ret(None, "missing_parent_book")
-    vwap, spent, shares, full = vwap_fill(book.asks, float(max_usd))
+    trade_usd = float(max_usd)
+    if bregman_authority and bregman_diag:
+        from engine.pulse.bregman_projection import modified_kelly_arb_size_usd
+        edge = float(
+            bregman_diag.get("max_theoretical_profit_per_share")
+            or violation.violation_magnitude)
+        depth = float(getattr(book, "ask_depth_usd", 0) or max_usd)
+        trade_usd = modified_kelly_arb_size_usd(
+            edge_per_share=edge,
+            fill_probability=0.85,
+            max_usd=max_usd,
+            depth_cap_usd=max(depth * 0.5, 1.0),
+        )
+        if trade_usd <= 0:
+            return _ret(None, "bregman_kelly_zero")
+        if not bregman_diag.get("actionable_projection"):
+            return _ret(None, "bregman_not_actionable")
+    vwap, spent, shares, full = vwap_fill(book.asks, trade_usd)
     if vwap is None:
         return _ret(None, "vwap_fill_failed")
     if not full:
@@ -197,18 +216,21 @@ def try_execute_nested_implication(
     expected = round(shares * violation.violation_magnitude * float(capture_frac), 6)
     if expected <= 0:
         return _ret(None, "zero_expected_profit")
+    entry_mode = "dependency_bregman" if bregman_authority else "lcmm_nested"
     trade = {
         "constraint_type": violation.constraint_type,
         "parent_window_key": str(parent.event_id),
         "child_window_key": str(child.event_id),
         "side": "buy_parent_up",
+        "entry_mode": entry_mode,
         "shares": round(shares, 4),
         "cost_usd": round(spent, 4),
         "entry_vwap": round(vwap, 6),
         "expected_profit_usd": expected,
         "close_ts": float(parent.close_ts),
         "violation_magnitude": violation.violation_magnitude,
-        "reason": "lcmm_nested_implication",
+        "reason": entry_mode,
+        "bregman_projection_distance": (bregman_diag or {}).get("projection_distance"),
     }
     return _ret(trade, "ok")
 

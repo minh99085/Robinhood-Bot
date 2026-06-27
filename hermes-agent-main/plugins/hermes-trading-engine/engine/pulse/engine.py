@@ -271,7 +271,16 @@ class PulseConfig:
     dependency_arb_execute_enabled: bool = False  # paper execute validated violations (WS4)
     dependency_arb_max_usd: float = 50.0
     dependency_arb_epsilon: float = 0.02        # LCMM violation floor (separate from dutch-book eps)
-    bregman_projection_enabled: bool = False  # WS4 Layer 2 observe-only diagnostics
+    bregman_projection_enabled: bool = False  # WS4 Layer 2 diagnostics
+    bregman_trade_authority: bool = False     # Bregman sizes Lane B when True
+    bregman_alpha: float = 0.9
+    bregman_epsilon_init: float = 0.1
+    bregman_fw_max_iters: int = 50
+    bregman_fw_time_budget_ms: float = 500.0
+    ip_oracle_backend: str = "ortools"
+    clob_websocket_enabled: bool = True
+    stop_min_sharpe: float = 0.0
+    stop_sharpe_min_samples: int = 20
     grok_dependency_enabled: bool = False       # advisory dependency screener (shadow)
     grok_dependency_interval_s: float = 180.0
     eth_series_enabled: bool = False            # append ETH 5m/15m slugs when listed
@@ -680,6 +689,18 @@ class PulseConfig:
             dependency_arb_epsilon=_envf("PULSE_DEPENDENCY_ARB_EPSILON", 0.02),
             bregman_projection_enabled=str(os.getenv("PULSE_BREGMAN_PROJECTION_ENABLED", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
+            bregman_trade_authority=str(os.getenv("PULSE_BREGMAN_TRADE_AUTHORITY", "0"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            bregman_alpha=_envf("PULSE_BREGMAN_ALPHA", 0.9),
+            bregman_epsilon_init=_envf("PULSE_BREGMAN_EPSILON_INIT", 0.1),
+            bregman_fw_max_iters=int(_envf("PULSE_BREGMAN_FW_MAX_ITERS", 50)),
+            bregman_fw_time_budget_ms=_envf("PULSE_BREGMAN_FW_TIME_BUDGET_MS", 500.0),
+            ip_oracle_backend=str(os.getenv("PULSE_IP_ORACLE_BACKEND", "ortools")).strip()
+            or "ortools",
+            clob_websocket_enabled=str(os.getenv("PULSE_CLOB_WEBSOCKET_ENABLED", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            stop_min_sharpe=_envf("PULSE_STOP_MIN_SHARPE", 0.0),
+            stop_sharpe_min_samples=int(_envf("PULSE_STOP_SHARPE_MIN_SAMPLES", 20)),
             eth_series_enabled=str(os.getenv("PULSE_ETH_SERIES_ENABLED", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
             grok_dependency_enabled=str(os.getenv("PULSE_GROK_DEPENDENCY_ENABLED", "0"))
@@ -1082,7 +1103,11 @@ class PulseEngine:
             rolling_n=self.cfg.stop_rolling_n,
             min_samples=self.cfg.stop_min_samples,
             min_profit_factor=self.cfg.stop_min_profit_factor,
-            max_drawdown_pct=self.cfg.stop_max_drawdown_pct))
+            max_drawdown_pct=self.cfg.stop_max_drawdown_pct,
+            min_sharpe=float(self.cfg.stop_min_sharpe),
+            sharpe_min_samples=int(self.cfg.stop_sharpe_min_samples)))
+        from engine.pulse.clob_feed import ClobBookFeed
+        self.clob_feed = ClobBookFeed(websocket_enabled=bool(self.cfg.clob_websocket_enabled))
         from engine.pulse.selectivity import SelectivityEvidence, LearnedSelectivityGate
         self.selectivity_evidence = SelectivityEvidence()
         self.selectivity_gate = LearnedSelectivityGate(
@@ -1657,6 +1682,12 @@ class PulseEngine:
             directional_stats=self.ledger.stats(),
             arb_report=(self.arb_ledger.report() if self.arb_ledger is not None else {}),
             starting_capital=self.cfg.starting_capital_usd)
+        if getattr(self, "clob_feed", None) and windows:
+            _tids = []
+            for _w in windows:
+                if _w.open_ts <= now < _w.close_ts:
+                    _tids.extend([_w.up_token_id, _w.down_token_id])
+            self.clob_feed.start_ws_background([t for t in _tids if t])
         self._scan_arbitrage_all_windows(windows, now)
         self._scan_dependency_arb(windows, now)
         _grok_news = ((self.grok_news.latest() if self.grok_news is not None else None) or {})
@@ -3908,6 +3939,23 @@ class PulseEngine:
             "dependency_proposals": 0}
         report["bregman_projection"] = getattr(self, "_bregman_projection_report", None) or {
             "enabled": False}
+        report["clob_feed"] = (
+            self.clob_feed.latency_report() if getattr(self, "clob_feed", None) else {})
+        try:
+            from engine.pulse.walk_forward import passes_walk_forward
+            _dep_pos = list((self.dep_arb_ledger.positions or {}).values()
+                            if self.dep_arb_ledger else [])
+            report["walk_forward"] = {
+                "directional": passes_walk_forward(list(self.ledger.positions.values())),
+                "dependency_arb": passes_walk_forward(_dep_pos, min_holdout_n=5),
+            }
+        except Exception:
+            report["walk_forward"] = {}
+        report["series_architecture"] = {
+            "design": "5m_brain_15m_hands",
+            "scan_slugs": list(self.cfg.pulse_series_slugs),
+            "directional_slugs": list(self.cfg.directional_series_slugs),
+        }
         report["profit_discovery"] = self._profit_discovery_status()
         report["five_x_improvement"] = report["profit_discovery"]
         report["directional_risk"] = {
@@ -4286,17 +4334,36 @@ class PulseEngine:
             open_w, epsilon=eps, max_usd=self.cfg.dependency_arb_max_usd,
             vwap_enrich=True)
 
+        bregman_by_parent: dict[str, dict] = {}
         if self.cfg.bregman_projection_enabled:
-            from engine.pulse.bregman_projection import projection_distance_nested
+            from engine.pulse.bregman_projection import project_dependency_group
+            fw_kw = dict(
+                alpha=self.cfg.bregman_alpha,
+                epsilon_init=self.cfg.bregman_epsilon_init,
+                max_iterations=self.cfg.bregman_fw_max_iters,
+                time_budget_ms=self.cfg.bregman_fw_time_budget_ms,
+                ip_backend=self.cfg.ip_oracle_backend,
+            )
             samples = []
             for v in violations:
                 if (v.constraint_type == "nested_implication" and v.parent_up_mid is not None
                         and v.child_up_mids):
-                    samples.append(projection_distance_nested(
-                        v.parent_up_mid, v.child_up_mids[0], epsilon=eps))
+                    diag = project_dependency_group(
+                        v.parent_up_mid, v.child_up_mids[0], epsilon=eps,
+                        use_frank_wolfe=True, fw_kwargs=fw_kw)
+                    samples.append(diag)
+                    bregman_by_parent[str(v.parent_window_key)] = diag
+            authority = bool(self.cfg.bregman_trade_authority)
             self._bregman_projection_report = {
-                "enabled": True, "samples": samples[-12:],
-                "note": "Layer-2 observe-only; VWAP path remains authoritative.",
+                "enabled": True,
+                "trade_authority": authority,
+                "samples": samples[-12:],
+                "frank_wolfe": {
+                    "max_iters": self.cfg.bregman_fw_max_iters,
+                    "time_budget_ms": self.cfg.bregman_fw_time_budget_ms,
+                    "ip_backend": self.cfg.ip_oracle_backend,
+                },
+                "note": ("Bregman+FW Layer-2; trade authority=%s" % authority),
             }
         else:
             self._bregman_projection_report = {"enabled": False}
@@ -4319,9 +4386,13 @@ class PulseEngine:
             child = by_id.get(child_id) if child_id else None
             if parent is None or child is None:
                 continue
+            bdiag = bregman_by_parent.get(str(v.parent_window_key))
             trade = try_execute_nested_implication(
                 parent, child, v, max_usd=self.cfg.dependency_arb_max_usd,
-                epsilon=eps)
+                epsilon=eps,
+                bregman_diag=bdiag,
+                bregman_authority=bool(self.cfg.bregman_trade_authority),
+            )
             if trade and self.dep_arb_ledger.book(trade, now=now):
                 self.loops.beat("dependency_arb", now)
 

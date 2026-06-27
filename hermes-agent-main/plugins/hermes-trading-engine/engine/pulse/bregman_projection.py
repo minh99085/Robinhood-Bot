@@ -1,7 +1,7 @@
-"""Gated Bregman/KL projection for dependent market groups (WS4 Layer 2).
+"""Bregman/KL projection for dependent market groups (Roan Layer 2).
 
-Only invoked for small dependent groups when ``PULSE_BREGMAN_PROJECTION_ENABLED=1``.
-Single 2-outcome windows are trivial — callers must skip them. PAPER ONLY / observe-first.
+Single 2-outcome windows: skip (trivial polytope). Dependency groups: KL distance + optional
+Frank-Wolfe via ``frank_wolfe.run_barrier_frank_wolfe``.
 """
 
 from __future__ import annotations
@@ -9,9 +9,8 @@ from __future__ import annotations
 import math
 from typing import Optional
 
-
 def kl_divergence(p: float, q: float) -> Optional[float]:
-    """KL(p || q) for binary probabilities."""
+    """KL(p || q) for binary probabilities (Bregman for LMSR)."""
     try:
         eps = 1e-9
         p = max(eps, min(1.0 - eps, float(p)))
@@ -21,13 +20,16 @@ def kl_divergence(p: float, q: float) -> Optional[float]:
         return None
 
 
+def bregman_divergence_binary(p: float, q: float) -> Optional[float]:
+    """Alias for KL on binary probabilities."""
+    return kl_divergence(p, q)
+
+
 def _project_implication_feasible(parent_p: float, child_p: float) -> tuple[float, float]:
-    """Feasible point on nested implication: parent_p >= child_p."""
     p = float(parent_p)
     c = float(child_p)
     if p >= c:
         return p, c
-    # Raise parent to child (minimum KL move on parent holding child fixed).
     return c, c
 
 
@@ -37,10 +39,7 @@ def projection_distance_nested(
     *,
     epsilon: float = 0.02,
 ) -> dict:
-    """KL-style projection distance for one nested-implication pair.
-
-    Returns diagnostics only — execution still requires VWAP validation elsewhere.
-    """
+    """KL-style projection distance for nested implication P(parent_up) >= P(child_up)."""
     p_mid = float(parent_mid)
     c_mid = float(child_mid)
     violation = max(0.0, c_mid - p_mid)
@@ -60,8 +59,63 @@ def projection_distance_nested(
         "convergence_reason": "closed_form_implication",
         "iterations": 1,
         "actionable_projection": actionable,
-        "note": "Layer-2 observe-only unless execute path validates VWAP fills.",
+        "note": "Layer-2; VWAP path validates execution.",
     }
+
+
+def project_dependency_group(
+    parent_mid: float,
+    child_mid: float,
+    *,
+    epsilon: float = 0.02,
+    use_frank_wolfe: bool = True,
+    fw_kwargs: Optional[dict] = None,
+) -> dict:
+    """Full projection pipeline for one nested pair (5m brain vs 15m hands)."""
+    base = projection_distance_nested(parent_mid, child_mid, epsilon=epsilon)
+    n_conditions = 2
+    if n_conditions <= 2 and not use_frank_wolfe:
+        return base
+
+    prices = {"parent_up": parent_mid, "child_up": child_mid}
+    constraints = [{
+        "type": "nested_implication",
+        "constraint_type": "nested_implication",
+        "parent_key": "parent_up",
+        "child_key": "child_up",
+    }]
+    from engine.pulse.frank_wolfe import run_barrier_frank_wolfe
+    fw = run_barrier_frank_wolfe(prices, constraints, arb_epsilon=epsilon, **(fw_kwargs or {}))
+    merged = {**base, **fw}
+    merged["actionable_projection"] = (
+        float(fw.get("projection_distance") or 0) > epsilon
+        or base.get("actionable_projection", False)
+    )
+    return merged
+
+
+def modified_kelly_arb_size_usd(
+    *,
+    edge_per_share: float,
+    fill_probability: float,
+    max_usd: float,
+    depth_cap_usd: float,
+) -> float:
+    """Roan modified Kelly: f = (b*p - q)/b * sqrt(p); capped at depth."""
+    b = max(1e-6, float(edge_per_share))
+    p = max(0.0, min(1.0, float(fill_probability)))
+    if b <= 0 or p <= 0:
+        return 0.0
+    q = 1.0 - p
+    raw_frac = (b * p - q) / b
+    if raw_frac > 0:
+        f = raw_frac * math.sqrt(p)
+    else:
+        # Guaranteed arb edge: failed fill ≈ no trade, not a full Kelly loss.
+        f = min(1.0, b) * math.sqrt(p)
+    f = max(0.0, min(1.0, f))
+    raw = f * float(max_usd)
+    return round(min(raw, float(depth_cap_usd), float(max_usd)), 4)
 
 
 def frank_wolfe_scaffold(
@@ -71,28 +125,7 @@ def frank_wolfe_scaffold(
     max_iterations: int = 10,
     alpha: float = 0.9,
 ) -> dict:
-    """Minimal Frank-Wolfe scaffold for logging / lessons loop (no external solver).
-
-    For production groups, plug OR-Tools/PuLP behind the IP oracle hook when group size warrants it.
-    """
-    iters = 0
-    active_vertices: list = []
-    status = "skipped_trivial"
-    reason = "no_constraints"
-    dist = 0.0
-    if constraints:
-        iters = min(1, max_iterations)
-        active_vertices = [constraints[0].get("type", "unknown")]
-        status = "scaffold_only"
-        reason = "open_source_ip_oracle_not_wired"
-        dist = float(alpha) * sum(float(c.get("weight") or 0.0) for c in constraints)
-    return {
-        "projection_distance": round(dist, 6),
-        "solver_status": status,
-        "convergence_reason": reason,
-        "iterations": iters,
-        "active_vertices": active_vertices,
-        "alpha": alpha,
-        "optimal_trade_vector": None,
-        "executable_profit_after_depth": None,
-    }
+    """Backward-compatible scaffold wrapper."""
+    from engine.pulse.frank_wolfe import run_barrier_frank_wolfe
+    return run_barrier_frank_wolfe(
+        prices, constraints, alpha=alpha, max_iterations=max_iterations)

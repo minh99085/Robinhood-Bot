@@ -119,8 +119,8 @@ UPDATES = {
     "PULSE_BASELINE_DOWN_BLOCK_BB_EXPANSION_DOWN": "0",
     "PULSE_BASELINE_DOWN_MID_ENTRY_MIN": "0.55",
     "PULSE_BASELINE_DOWN_MID_ENTRY_MAX": "0.60",
-    # 15m only: no 5m directional, arb, or dependency execution.
-    "PULSE_SERIES_SLUGS": "btc-up-or-down-15m",
+    # 5m brain (scan/LCMM child) + 15m hands (directional + parent). No 5m directional.
+    "PULSE_SERIES_SLUGS": "btc-up-or-down-5m,btc-up-or-down-15m",
     "PULSE_DIRECTIONAL_SERIES_SLUGS": "btc-up-or-down-15m",
     "PULSE_ARB_EPSILON_15M": "0.03",
     "PULSE_DEPENDENCY_ARB_EPSILON": "0.02",
@@ -136,10 +136,19 @@ UPDATES = {
     "PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED": "1",
     "PULSE_DIRECTIONAL_UP_RESTRICTIONS_ENABLED": "1",
     "PULSE_DEPENDENCY_ARB_ENABLED": "1",
-    "PULSE_DEPENDENCY_ARB_EXECUTE": "0",
+    "PULSE_DEPENDENCY_ARB_EXECUTE": "1",
     "PULSE_GREEN_PATH_ENABLED": "1",
     "PULSE_DEPENDENCY_ARB_MAX_USD": "50",
     "PULSE_BREGMAN_PROJECTION_ENABLED": "1",
+    "PULSE_BREGMAN_TRADE_AUTHORITY": "1",
+    "PULSE_BREGMAN_ALPHA": "0.9",
+    "PULSE_BREGMAN_EPSILON_INIT": "0.1",
+    "PULSE_BREGMAN_FW_MAX_ITERS": "50",
+    "PULSE_BREGMAN_FW_TIME_BUDGET_MS": "500",
+    "PULSE_IP_ORACLE_BACKEND": "ortools",
+    "PULSE_CLOB_WEBSOCKET_ENABLED": "1",
+    "PULSE_STOP_MIN_SHARPE": "0",
+    "PULSE_STOP_SHARPE_MIN_SAMPLES": "20",
     "PULSE_ETH_SERIES_ENABLED": "0",
     "PULSE_RESEARCH_AUTO_APPLY": "0",
     "PULSE_RESEARCH_FORBID_SIZE_INCREASE": "1",
@@ -207,8 +216,8 @@ for ln in lines:
 for key, val in remaining.items():
     out.append(f"{key}={val}")
 out.append(
-    "# LOOP ENGINE ARCH (2026-06-27): 15m DOWN green-path relaxed quant "
-    "TTC 480-660s + TV observe-only + tick 15s + max 0.70 + edge/cex relaxed"
+    "# LOOP ENGINE ARCH (2026-06-27): 5m brain/15m hands + Roan/Bregman Lane B "
+    "dual scan + dep arb execute + 15m DOWN green-path + TV observe-only"
 )
 ENV_PATH.write_text("\n".join(out) + "\n", encoding="utf-8")
 print(f"Wrote {ENV_PATH} ({len(UPDATES)} loop-arch keys)")

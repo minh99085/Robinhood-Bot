@@ -27,6 +27,17 @@ def _wilson_lower(wins: int, n: int, z: float = 1.64) -> Optional[float]:
     return max(0.0, (centre - margin) / denom)
 
 
+def _rolling_sharpe(pnls: list[float], *, annualize_factor: float = 1.0) -> Optional[float]:
+    if len(pnls) < 5:
+        return None
+    mean = sum(pnls) / len(pnls)
+    var = sum((x - mean) ** 2 for x in pnls) / max(1, len(pnls) - 1)
+    if var <= 1e-12:
+        return None
+    std = var ** 0.5
+    return round((mean / std) * (annualize_factor ** 0.5), 4)
+
+
 @dataclass
 class StopConfig:
     enabled: bool = True
@@ -35,6 +46,8 @@ class StopConfig:
     min_profit_factor: float = 0.85
     max_drawdown_pct: float = 25.0
     confidence_z: float = 1.64
+    min_sharpe: float = 0.0
+    sharpe_min_samples: int = 20
     # arb anomaly guard: halt if any settled arb booked non-positive guaranteed profit
     arb_guard_enabled: bool = True
 
@@ -78,10 +91,13 @@ def _directional_metrics(positions, *, rolling_n: int, confidence_z: float = 1.6
     wr = wins / n
     breakeven = entry_sum / n
     pf = (round(gross_win / gross_loss, 4) if gross_loss > 0 else None)
+    pnls = [float(getattr(p, "pnl_usd", None) or p.get("pnl_usd", 0) or 0)
+            for p in recent]
+    sharpe = _rolling_sharpe(pnls) if len(pnls) >= 5 else None
     return {"n": n, "wins": wins, "win_rate": round(wr, 4),
             "wilson_lower": (_wilson_lower(wins, n, z=confidence_z) if n else None),
             "breakeven_wr": round(breakeven, 4), "profit_factor": pf,
-            "pnl_usd": round(pnl, 4)}
+            "pnl_usd": round(pnl, 4), "rolling_sharpe": sharpe}
 
 
 def evaluate_directional(*, positions, ledger_stats: dict, starting_capital: float,
@@ -115,6 +131,10 @@ def evaluate_directional(*, positions, ledger_stats: dict, starting_capital: flo
         reasons.append("profit_factor_below_floor")
     if dd_pct > cfg.max_drawdown_pct:
         reasons.append("max_drawdown_pct_breach")
+    sharpe = metrics.get("rolling_sharpe")
+    if (sharpe is not None and metrics["n"] >= cfg.sharpe_min_samples
+            and cfg.min_sharpe > 0 and sharpe < cfg.min_sharpe):
+        reasons.append("sharpe_below_floor")
     halted = bool(reasons and reasons != ["insufficient_samples"])
     return {"strategy": "directional", "enabled": True, "halted": halted,
             "verifiable": True, "reasons": reasons, "metrics": metrics,
