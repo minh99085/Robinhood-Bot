@@ -352,6 +352,20 @@ def test_blocks_up_neutral_zscore():
     assert "tv_down_bias_up_neutral_zscore" in r["reasons"]
 
 
+def test_blocks_up_not_stale():
+    g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
+                                block_up_without_bearish=False,
+                                block_mixed_mtf_up=False,
+                                block_up_on_bearish_down_stack=False,
+                                block_up_markov_chop_noise=False,
+                                block_up_medium_edge=False,
+                                block_up_weak_cex=False)
+    r = g.evaluate(side="up", mtf_alignment="bearish_aligned",
+                   tv_direction="DOWN", stale_divergence="not_stale")
+    assert r["decision"] == "block"
+    assert "tv_down_bias_up_not_stale" in r["reasons"]
+
+
 def test_blocks_up_medium_confidence():
     g = TradingViewDownBiasGate(enabled=True, exploration_rate=0.0,
                                 block_up_without_bearish=False,

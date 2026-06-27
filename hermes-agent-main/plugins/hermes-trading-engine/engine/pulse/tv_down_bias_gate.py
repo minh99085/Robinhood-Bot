@@ -46,6 +46,7 @@ class TradingViewDownBiasGate:
         block_up_mid_ttc: bool = True,
         block_up_neutral_zscore: bool = True,
         block_up_medium_confidence: bool = True,
+        block_up_not_stale: bool = True,
         up_late_ttc_min_s: float = 240.0,
         up_early_ttc_max_s: float = 120.0,
         up_mid_ttc_min_s: float = 120.0,
@@ -83,6 +84,7 @@ class TradingViewDownBiasGate:
         self.block_up_mid_ttc = bool(block_up_mid_ttc)
         self.block_up_neutral_zscore = bool(block_up_neutral_zscore)
         self.block_up_medium_confidence = bool(block_up_medium_confidence)
+        self.block_up_not_stale = bool(block_up_not_stale)
         self.up_late_ttc_min_s = max(0.0, float(up_late_ttc_min_s))
         self.up_early_ttc_max_s = max(0.0, float(up_early_ttc_max_s))
         self.up_mid_ttc_min_s = max(0.0, float(up_mid_ttc_min_s))
@@ -118,6 +120,7 @@ class TradingViewDownBiasGate:
         ttc_s=None,
         zscore_bucket=None,
         confidence_tier=None,
+        stale_divergence=None,
     ) -> list[str]:
         if not side or str(side).lower() != "up":
             return []
@@ -138,6 +141,9 @@ class TradingViewDownBiasGate:
         cvd = str(cvd_state or "").strip().lower()
         zb = str(zscore_bucket or "").strip().lower()
         ct = str(confidence_tier or "").strip().lower()
+        sd = str(stale_divergence or "").strip().lower()
+        if self.block_up_not_stale and sd == "not_stale":
+            reasons.append("tv_down_bias_up_not_stale")
         if self.block_bullish_aligned_up and ma == "bullish_aligned":
             reasons.append("tv_down_bias_bullish_aligned_up")
         if self.block_mixed_mtf_up and ma == "mixed":
@@ -224,6 +230,7 @@ class TradingViewDownBiasGate:
         ttc_s=None,
         zscore_bucket=None,
         confidence_tier=None,
+        stale_divergence=None,
     ) -> dict:
         if not self.enabled:
             return {"decision": "pass", "reasons": [], "active": False}
@@ -238,7 +245,8 @@ class TradingViewDownBiasGate:
                                   ob_pressure_bucket=ob_pressure_bucket,
                                   cvd_state=cvd_state, conviction=conviction,
                                   ttc_s=ttc_s, zscore_bucket=zscore_bucket,
-                                  confidence_tier=confidence_tier)
+                                  confidence_tier=confidence_tier,
+                                  stale_divergence=stale_divergence)
         if not reasons:
             self.passed += 1
             return {"decision": "pass", "reasons": [], "active": True}
@@ -283,6 +291,7 @@ class TradingViewDownBiasGate:
             "block_up_mid_ttc": self.block_up_mid_ttc,
             "block_up_neutral_zscore": self.block_up_neutral_zscore,
             "block_up_medium_confidence": self.block_up_medium_confidence,
+            "block_up_not_stale": self.block_up_not_stale,
             "up_late_ttc_min_s": self.up_late_ttc_min_s,
             "up_early_ttc_max_s": self.up_early_ttc_max_s,
             "up_mid_ttc_min_s": self.up_mid_ttc_min_s,

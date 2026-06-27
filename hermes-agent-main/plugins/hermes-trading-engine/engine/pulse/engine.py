@@ -217,6 +217,7 @@ class PulseConfig:
     baseline_down_block_up_strong_bullish: bool = True
     baseline_down_block_volume_active: bool = True
     baseline_down_block_up_strong_range_top: bool = True
+    baseline_down_block_bullish_mtf: bool = True
     baseline_down_block_not_stale: bool = True
     baseline_down_block_mid_entry: bool = True
     baseline_down_mid_entry_min: float = 0.55
@@ -323,6 +324,7 @@ class PulseConfig:
     tv_down_bias_block_up_mid_ttc: bool = True
     tv_down_bias_block_up_neutral_zscore: bool = True
     tv_down_bias_block_up_medium_confidence: bool = True
+    tv_down_bias_block_up_not_stale: bool = True
     tv_down_bias_up_late_ttc_min_s: float = 240.0
     tv_down_bias_up_early_ttc_max_s: float = 120.0
     tv_down_bias_up_mid_ttc_min_s: float = 120.0
@@ -588,6 +590,9 @@ class PulseConfig:
             baseline_down_block_up_strong_range_top=str(
                 os.getenv("PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_RANGE_TOP", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
+            baseline_down_block_bullish_mtf=str(
+                os.getenv("PULSE_BASELINE_DOWN_BLOCK_BULLISH_MTF", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
             baseline_down_block_not_stale=str(
                 os.getenv("PULSE_BASELINE_DOWN_BLOCK_NOT_STALE", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
@@ -761,6 +766,9 @@ class PulseConfig:
             in ("1", "true", "yes", "on"),
             tv_down_bias_block_up_medium_confidence=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_MEDIUM_CONFIDENCE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            tv_down_bias_block_up_not_stale=str(
+                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_NOT_STALE", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             tv_down_bias_up_late_ttc_min_s=_envf("PULSE_TV_DOWN_BIAS_UP_LATE_TTC_MIN_S", 240.0),
             tv_down_bias_up_early_ttc_max_s=_envf("PULSE_TV_DOWN_BIAS_UP_EARLY_TTC_MAX_S", 120.0),
@@ -996,6 +1004,7 @@ class PulseEngine:
             block_up_mid_ttc=bool(self.cfg.tv_down_bias_block_up_mid_ttc),
             block_up_neutral_zscore=bool(self.cfg.tv_down_bias_block_up_neutral_zscore),
             block_up_medium_confidence=bool(self.cfg.tv_down_bias_block_up_medium_confidence),
+            block_up_not_stale=bool(self.cfg.tv_down_bias_block_up_not_stale),
             up_late_ttc_min_s=self.cfg.tv_down_bias_up_late_ttc_min_s,
             up_early_ttc_max_s=self.cfg.tv_down_bias_up_early_ttc_max_s,
             up_mid_ttc_min_s=self.cfg.tv_down_bias_up_mid_ttc_min_s,
@@ -3362,6 +3371,7 @@ class PulseEngine:
             "down_block_volume_active": bool(self.cfg.baseline_down_block_volume_active),
             "down_block_up_strong_range_top": bool(
                 self.cfg.baseline_down_block_up_strong_range_top),
+            "down_block_bullish_mtf": bool(self.cfg.baseline_down_block_bullish_mtf),
             "down_block_not_stale": bool(self.cfg.baseline_down_block_not_stale),
             "down_block_mid_entry": bool(self.cfg.baseline_down_block_mid_entry),
             "down_mid_entry_band": [self.cfg.baseline_down_mid_entry_min,
@@ -3405,6 +3415,7 @@ class PulseEngine:
             ttc_s=ttc_s,
             zscore_bucket=zscore_bucket,
             confidence_tier=confidence_tier,
+            stale_divergence=self._edge_snap_field(esnap, "stale_divergence_class"),
         )
 
     def _up_side_tv_bias_ok(self, tv_feature: "dict | None",
@@ -3439,6 +3450,8 @@ class PulseEngine:
         volume_state = str(feat.get("volume_state") or "").strip().lower()
         if self.cfg.baseline_down_block_volume_active and volume_state == "active":
             return False, "baseline_down_tv_volume_active"
+        if self.cfg.baseline_down_block_bullish_mtf and mtf == "bullish_aligned":
+            return False, "baseline_down_tv_bullish_mtf"
         if (self.cfg.baseline_down_block_up_strong_range_top
                 and signal_level == "UP_STRONG" and range_state == "range_top"
                 and mtf != "bullish_aligned"):

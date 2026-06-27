@@ -129,7 +129,7 @@ def test_down_blocks_bullish_range_top_stack():
             "mtf_alignment": "bullish_aligned",
             "range_state": "range_top",
         })
-    assert not ok and r == "baseline_down_tv_bullish_range_top"
+    assert not ok and r == "baseline_down_tv_bullish_mtf"
 
 
 def test_down_allows_bearish_proven_stack():
@@ -198,6 +198,24 @@ def test_down_blocks_mid_entry_band():
         ),
         ttc_s=200.0, tv_feature=None, ask_price=0.62)
     assert ok and r == ""
+
+
+def test_down_blocks_bullish_mtf():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(
+            pulse_edge_score_bucket="high",
+            cex_agreement_bucket="strong",
+            stale_divergence_class="already_priced",
+        ),
+        ttc_s=200.0,
+        tv_feature={
+            "signal_level": "DOWN_STRONG",
+            "mtf_alignment": "bullish_aligned",
+            "range_state": "range_middle",
+        })
+    assert not ok and r == "baseline_down_tv_bullish_mtf"
 
 
 def test_down_blocks_up_strong_range_top_mixed_mtf():
