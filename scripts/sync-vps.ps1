@@ -86,10 +86,12 @@ echo VPS_HEAD=`$(git rev-parse HEAD)
 if ($doRebuild) {
     $docker = @"
 set -e
+cd $VpsRepo
+python3 scripts/apply-loop-arch-env.py
 cd $PluginPath
 docker compose down --remove-orphans
 docker compose build
-docker compose up -d --remove-orphans
+docker compose up -d --force-recreate --remove-orphans
 sleep 8
 docker ps --format '{{.Names}} {{.Status}}' | grep -E 'hermes-training|hermes-trading-engine'
 "@

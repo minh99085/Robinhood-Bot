@@ -50,6 +50,9 @@ services:
       # loopback so the repo default never exposes anything.
       - "${TRADINGVIEW_WEBHOOK_PUBLISH:-127.0.0.1:18787}:8787"
     command: python scripts/run_btc_pulse.py
+    # Full loop-arch keys from apply-loop-arch-env.py; explicit `environment` overrides env_file.
+    env_file:
+      - .env
     environment:
       HTE_DATA_DIR: "/data"
       # xAI/Grok key (from the project .env) for the OFF-hot-path event-risk overlay only.
@@ -247,6 +250,23 @@ services:
       # buckets it would block every directional trade forever (no trades => nothing to prove).
       # This lets a small capped fraction through as exploration to keep learning. 0=block-all.
       PULSE_DIRECTIONAL_EXPLORE_RATE: "${PULSE_DIRECTIONAL_EXPLORE_RATE:-0.12}"
+      PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED: "${PULSE_DIRECTIONAL_BLOCK_UP_UNTIL_PROMOTED:-1}"
+      PULSE_DIRECTIONAL_UP_RESTRICTIONS_ENABLED: "${PULSE_DIRECTIONAL_UP_RESTRICTIONS_ENABLED:-1}"
+      PULSE_DIRECTIONAL_MAX_BANKROLL_FRAC: "${PULSE_DIRECTIONAL_MAX_BANKROLL_FRAC:-0.10}"
+      PULSE_MIN_REWARD_RISK_UP_PREMIUM: "${PULSE_MIN_REWARD_RISK_UP_PREMIUM:-0.28}"
+      PULSE_GROK_UP_MIN_P_WIN: "${PULSE_GROK_UP_MIN_P_WIN:-0.58}"
+      PULSE_PRIMARY_EDGE_SOURCE: "${PULSE_PRIMARY_EDGE_SOURCE:-arbitrage}"
+      PULSE_BASELINE_COHORT_GATE_ENABLED: "${PULSE_BASELINE_COHORT_GATE_ENABLED:-1}"
+      PULSE_BASELINE_COHORT_TTC_MIN_S: "${PULSE_BASELINE_COHORT_TTC_MIN_S:-120}"
+      PULSE_BASELINE_COHORT_TTC_MAX_S: "${PULSE_BASELINE_COHORT_TTC_MAX_S:-240}"
+      PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE: "${PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE:-1}"
+      PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX: "${PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX:-1}"
+      PULSE_BASELINE_COHORT_15M_FAST_LANE: "${PULSE_BASELINE_COHORT_15M_FAST_LANE:-1}"
+      PULSE_BASELINE_COHORT_15M_TTC_MIN_S: "${PULSE_BASELINE_COHORT_15M_TTC_MIN_S:-120}"
+      PULSE_BASELINE_COHORT_15M_TTC_MAX_S: "${PULSE_BASELINE_COHORT_15M_TTC_MAX_S:-240}"
+      PULSE_BASELINE_UP_TV_GATE_ENABLED: "${PULSE_BASELINE_UP_TV_GATE_ENABLED:-1}"
+      PULSE_SELECTIVITY_MIN_PROFIT_FACTOR: "${PULSE_SELECTIVITY_MIN_PROFIT_FACTOR:-0.85}"
+      PULSE_SELECTIVITY_FDR_Q: "${PULSE_SELECTIVITY_FDR_Q:-0.10}"
       # SURGICAL capital reset: set to a NEW unique token to zero P&L/ledger/arbitrage/reconciliation
       # back to a fresh $500 while KEEPING all learning (models, selectivity evidence, lessons,
       # gradings). Applies exactly once per new token (idempotent). Empty = no reset.

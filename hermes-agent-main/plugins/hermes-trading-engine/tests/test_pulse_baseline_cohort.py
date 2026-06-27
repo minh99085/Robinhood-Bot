@@ -20,28 +20,29 @@ def _eng(**kw):
     return PulseEngine(PulseConfig(**defaults))
 
 
-def test_15m_fast_lane_widens_ttc_band():
+def test_15m_fast_lane_ttc_band_120_240_scaled():
     eng = _eng(baseline_cohort_15m_fast_lane=True,
-               baseline_cohort_15m_ttc_min_s=60.0, baseline_cohort_15m_ttc_max_s=480.0)
+               baseline_cohort_15m_ttc_min_s=120.0, baseline_cohort_15m_ttc_max_s=240.0)
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
+        ttc_s=650.0, tv_feature=None, window_seconds=900)
+    assert ok and r == ""
     ok, r = eng._baseline_quant_cohort_ok(
         side="down",
         esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
         ttc_s=800.0, tv_feature=None, window_seconds=900)
-    assert ok and r == ""
-    ok, r = eng._baseline_quant_cohort_ok(
-        side="down",
-        esnap=_FakeEsnap(pulse_edge_score_bucket="high", cex_agreement_bucket="strong"),
-        ttc_s=1500.0, tv_feature=None, window_seconds=900)
     assert not ok and r == "baseline_cohort_ttc_too_late"
 
 
-def test_15m_fast_lane_allows_medium_edge_and_moderate_cex():
-    eng = _eng(baseline_cohort_15m_fast_lane=True)
+def test_15m_fast_lane_blocks_medium_edge_when_high_required():
+    eng = _eng(baseline_cohort_15m_fast_lane=True,
+               baseline_cohort_require_high_edge=True)
     ok, r = eng._baseline_quant_cohort_ok(
         side="down",
-        esnap=_FakeEsnap(pulse_edge_score_bucket="medium", cex_agreement_bucket="moderate"),
+        esnap=_FakeEsnap(pulse_edge_score_bucket="medium", cex_agreement_bucket="strong"),
         ttc_s=400.0, tv_feature=None, window_seconds=900)
-    assert ok and r == ""
+    assert not ok and r == "baseline_cohort_edge_not_high"
     ok, r = eng._baseline_quant_cohort_ok(
         side="down",
         esnap=_FakeEsnap(pulse_edge_score_bucket="low", cex_agreement_bucket="moderate"),
@@ -52,7 +53,9 @@ def test_15m_fast_lane_allows_medium_edge_and_moderate_cex():
 def test_15m_fast_lane_symmetric_when_up_restrictions_off():
     eng = _eng(baseline_cohort_15m_fast_lane=True,
                directional_up_restrictions_enabled=False,
-               baseline_up_tv_gate_enabled=False)
+               baseline_up_tv_gate_enabled=False,
+               baseline_cohort_require_high_edge=False,
+               baseline_cohort_require_strong_cex=False)
     ok, r = eng._baseline_quant_cohort_ok(
         side="up",
         esnap=_FakeEsnap(pulse_edge_score_bucket="medium", cex_agreement_bucket="moderate"),

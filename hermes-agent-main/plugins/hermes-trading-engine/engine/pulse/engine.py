@@ -3128,15 +3128,20 @@ class PulseEngine:
         if ttc_f < ttc_min:
             return False, "baseline_cohort_ttc_too_early"
         edge_bucket = self._edge_snap_field(esnap, "pulse_edge_score_bucket")
-        relaxed_lane = fast_lane
-        if relaxed_lane:
+        down_edge_relaxed = (
+            fast_lane and side == "down"
+            and not self.cfg.baseline_cohort_require_high_edge)
+        if down_edge_relaxed:
             if edge_bucket not in ("medium", "high", "very_high"):
                 return False, "baseline_cohort_edge_not_high"
         elif self.cfg.baseline_cohort_require_high_edge:
             if edge_bucket not in ("high", "very_high"):
                 return False, "baseline_cohort_edge_not_high"
         cex_bucket = self._edge_snap_field(esnap, "cex_agreement_bucket")
-        if relaxed_lane:
+        down_cex_relaxed = (
+            fast_lane and side == "down"
+            and not self.cfg.baseline_cohort_require_strong_cex)
+        if down_cex_relaxed:
             if cex_bucket not in ("moderate", "strong"):
                 return False, "baseline_cohort_cex_not_strong"
         elif self.cfg.baseline_cohort_require_strong_cex:
@@ -3167,9 +3172,8 @@ class PulseEngine:
             "15m_ttc_band_s": [self.cfg.baseline_cohort_15m_ttc_min_s,
                                self.cfg.baseline_cohort_15m_ttc_max_s],
             "up_restrictions_enabled": bool(self.cfg.directional_up_restrictions_enabled),
-            "note": ("baseline quant path: model picks UP or DOWN (one bet/window); "
-                     "15m fast lane widens TTC + relaxed edge/CEX for both sides when "
-                     "PULSE_DIRECTIONAL_UP_RESTRICTIONS_ENABLED=0"),
+            "note": ("baseline quant path: 120-240s TTC band (scaled on 15m), high edge + "
+                     "strong CEX; UP blocked until promoted when restrictions enabled"),
         }
 
     def _down_bias_eval(self, *, side: str, tv_feature: "dict | None",
