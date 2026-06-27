@@ -218,6 +218,25 @@ def test_down_blocks_bullish_mtf():
     assert not ok and r == "baseline_down_tv_bullish_mtf"
 
 
+def test_down_blocks_single_tf():
+    eng = _eng()
+    ok, r = eng._baseline_quant_cohort_ok(
+        side="down",
+        esnap=_FakeEsnap(
+            pulse_edge_score_bucket="high",
+            cex_agreement_bucket="strong",
+            stale_divergence_class="already_priced",
+        ),
+        ttc_s=200.0,
+        tv_feature={
+            "signal_level": "DOWN_STRONG",
+            "mtf_alignment": "bearish_aligned",
+            "tf_confirm": "single_tf",
+            "volume_state": "dead",
+        })
+    assert not ok and r == "baseline_down_tv_single_tf"
+
+
 def test_down_blocks_up_strong_range_top_mixed_mtf():
     eng = _eng()
     ok, r = eng._baseline_quant_cohort_ok(

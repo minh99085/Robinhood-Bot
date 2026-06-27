@@ -222,6 +222,7 @@ class PulseConfig:
     baseline_down_block_mid_entry: bool = True
     baseline_down_mid_entry_min: float = 0.55
     baseline_down_mid_entry_max: float = 0.60
+    baseline_down_block_single_tf: bool = True
     # 15m fast lane: scaled TTC band on 15m windows (proven 180-240s cohort).
     baseline_cohort_15m_fast_lane: bool = True
     baseline_cohort_15m_ttc_min_s: float = 180.0
@@ -325,6 +326,7 @@ class PulseConfig:
     tv_down_bias_block_up_neutral_zscore: bool = True
     tv_down_bias_block_up_medium_confidence: bool = True
     tv_down_bias_block_up_not_stale: bool = True
+    tv_down_bias_block_up_volume_active: bool = True
     tv_down_bias_up_late_ttc_min_s: float = 240.0
     tv_down_bias_up_early_ttc_max_s: float = 120.0
     tv_down_bias_up_mid_ttc_min_s: float = 120.0
@@ -601,6 +603,9 @@ class PulseConfig:
             in ("1", "true", "yes", "on"),
             baseline_down_mid_entry_min=_envf("PULSE_BASELINE_DOWN_MID_ENTRY_MIN", 0.55),
             baseline_down_mid_entry_max=_envf("PULSE_BASELINE_DOWN_MID_ENTRY_MAX", 0.60),
+            baseline_down_block_single_tf=str(
+                os.getenv("PULSE_BASELINE_DOWN_BLOCK_SINGLE_TF", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
             baseline_cohort_15m_fast_lane=str(
                 os.getenv("PULSE_BASELINE_COHORT_15M_FAST_LANE", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
@@ -769,6 +774,9 @@ class PulseConfig:
             in ("1", "true", "yes", "on"),
             tv_down_bias_block_up_not_stale=str(
                 os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_NOT_STALE", "1")).strip().lower()
+            in ("1", "true", "yes", "on"),
+            tv_down_bias_block_up_volume_active=str(
+                os.getenv("PULSE_TV_DOWN_BIAS_BLOCK_UP_VOLUME_ACTIVE", "1")).strip().lower()
             in ("1", "true", "yes", "on"),
             tv_down_bias_up_late_ttc_min_s=_envf("PULSE_TV_DOWN_BIAS_UP_LATE_TTC_MIN_S", 240.0),
             tv_down_bias_up_early_ttc_max_s=_envf("PULSE_TV_DOWN_BIAS_UP_EARLY_TTC_MAX_S", 120.0),
@@ -1005,6 +1013,7 @@ class PulseEngine:
             block_up_neutral_zscore=bool(self.cfg.tv_down_bias_block_up_neutral_zscore),
             block_up_medium_confidence=bool(self.cfg.tv_down_bias_block_up_medium_confidence),
             block_up_not_stale=bool(self.cfg.tv_down_bias_block_up_not_stale),
+            block_up_volume_active=bool(self.cfg.tv_down_bias_block_up_volume_active),
             up_late_ttc_min_s=self.cfg.tv_down_bias_up_late_ttc_min_s,
             up_early_ttc_max_s=self.cfg.tv_down_bias_up_early_ttc_max_s,
             up_mid_ttc_min_s=self.cfg.tv_down_bias_up_mid_ttc_min_s,
@@ -3374,6 +3383,7 @@ class PulseEngine:
             "down_block_bullish_mtf": bool(self.cfg.baseline_down_block_bullish_mtf),
             "down_block_not_stale": bool(self.cfg.baseline_down_block_not_stale),
             "down_block_mid_entry": bool(self.cfg.baseline_down_block_mid_entry),
+            "down_block_single_tf": bool(self.cfg.baseline_down_block_single_tf),
             "down_mid_entry_band": [self.cfg.baseline_down_mid_entry_min,
                                     self.cfg.baseline_down_mid_entry_max],
             "note": ("baseline quant path: 180-240s TTC band (scaled on 15m), high edge + "
@@ -3416,6 +3426,7 @@ class PulseEngine:
             zscore_bucket=zscore_bucket,
             confidence_tier=confidence_tier,
             stale_divergence=self._edge_snap_field(esnap, "stale_divergence_class"),
+            volume_state=feat.get("volume_state"),
         )
 
     def _up_side_tv_bias_ok(self, tv_feature: "dict | None",
@@ -3448,6 +3459,9 @@ class PulseEngine:
         range_state = str(feat.get("range_state") or "").strip().lower()
         signal_level = str(feat.get("signal_level") or "").strip().upper()
         volume_state = str(feat.get("volume_state") or "").strip().lower()
+        tf_confirm = str(feat.get("tf_confirm") or "").strip().lower()
+        if self.cfg.baseline_down_block_single_tf and tf_confirm == "single_tf":
+            return False, "baseline_down_tv_single_tf"
         if self.cfg.baseline_down_block_volume_active and volume_state == "active":
             return False, "baseline_down_tv_volume_active"
         if self.cfg.baseline_down_block_bullish_mtf and mtf == "bullish_aligned":
