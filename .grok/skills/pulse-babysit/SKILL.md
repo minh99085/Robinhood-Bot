@@ -81,8 +81,8 @@ Read `scripts/pulse-babysit/env-coupling.md` before any gate/TTC env change.
 
 The script flags issues. You may fix only what the report supports:
 
-- **`trade_starvation` / `trade_starvation_streak` (P0)** → bot ticks but settled count flat /
-  no fills for ≥6h. **Relax** gates, audit MTF vs regime, fix inverted blocks. **Never tighten**
+- **`trade_starvation` / `trade_starvation_streak` (P0)** → bot ticks but settled flat for **2**
+  consecutive eval cycles, or no fills for ≥6h. **Relax** gates, audit MTF vs regime, fix inverted blocks. **Never tighten**
   on `win_rate_below_target` / `profit_factor_low` in the same cycle when starvation is present.
 - `win_rate_low` / `profit_factor_low` → gates, selectivity, reward/risk, TV filters
   (**only if not trade_starvation** — stale WR on zero new trades is misleading)

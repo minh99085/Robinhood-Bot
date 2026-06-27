@@ -15,6 +15,7 @@ LEDGER = LATEST / "btc_pulse_ledger.json"
 STATE = Path(__file__).resolve().parent / "state.json"
 STARVATION_MIN_HOURS = 6.0
 STARVATION_MIN_TICKS = 3
+STARVATION_FLAT_EVAL_STREAK = 2
 
 
 def _load(path: Path) -> dict:
@@ -151,7 +152,7 @@ def main() -> int:
             "ABNORMAL: bot scans but never fills — audit gate stack / relax over-tight blocks; "
             "do NOT add more WR tighten rules until trades resume"))
     elif (not dir_halted and ticks >= STARVATION_MIN_TICKS
-          and settled_flat_streak >= 3 and trades > 0):
+          and settled_flat_streak >= STARVATION_FLAT_EVAL_STREAK and trades > 0):
         trade_starvation = True
         issues.append(_issue(
             "trade_starvation_streak", "P0",
