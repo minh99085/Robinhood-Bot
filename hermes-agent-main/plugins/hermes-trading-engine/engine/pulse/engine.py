@@ -82,6 +82,7 @@ class PulseConfig:
     # extra reward/risk floor for UP entries (asymmetric bleed guard; DOWN keeps base only).
     min_reward_risk_up_premium: float = 0.15
     max_open_lag_s: float = 20.0
+    max_open_lag_15m_s: float = 240.0
     vol_window_s: float = 900.0
     settle_grace_s: float = 180.0          # prefer authoritative Polymarket(Chainlink) before proxy
     max_positions_kept: int = 500
@@ -454,6 +455,7 @@ class PulseConfig:
             min_reward_risk=_envf("PULSE_MIN_REWARD_RISK", 0.0),
             min_reward_risk_up_premium=_envf("PULSE_MIN_REWARD_RISK_UP_PREMIUM", 0.15),
             max_open_lag_s=_envf("PULSE_MAX_OPEN_LAG_S", 20.0),
+            max_open_lag_15m_s=_envf("PULSE_MAX_OPEN_LAG_15M_S", 240.0),
             vol_window_s=_envf("PULSE_VOL_WINDOW_S", 900.0),
             settle_grace_s=_envf("PULSE_SETTLE_GRACE_S", 180.0),
             fresh_start=str(os.getenv("PULSE_FRESH_START", "")).strip().lower()
@@ -936,6 +938,7 @@ class PulseEngine:
                 source_name="rtds_chainlink",
                 vol=RollingVol(window_s=self.cfg.vol_window_s),
                 max_open_lag_s=self.cfg.max_open_lag_s,
+                max_open_lag_15m_s=self.cfg.max_open_lag_15m_s,
                 sampler_interval_s=self.cfg.price_sampler_interval_s)
             self.price.start_sampler()
         else:
@@ -944,6 +947,7 @@ class PulseEngine:
                 fetcher=fetcher, source_name=src,
                 vol=RollingVol(window_s=self.cfg.vol_window_s),
                 max_open_lag_s=self.cfg.max_open_lag_s,
+                max_open_lag_15m_s=self.cfg.max_open_lag_15m_s,
                 sampler_interval_s=self.cfg.price_sampler_interval_s)
             self.price.start_sampler()
         # fast LEAD feeds (Binance via RTDS, Coinbase via REST) — FEATURES ONLY, never truth
@@ -1542,6 +1546,11 @@ class PulseEngine:
         self._ev_n = int(ev.get("n", 0) or 0)
         if acct.get("baseline"):
             self._baseline = acct.get("baseline")
+        _opens = acct.get("open_snapshots") or []
+        if _opens:
+            n = self.price.load_open_state(_opens)
+            if n:
+                logger.info("restored %d open snapshot(s) from disk", n)
         logger.info("pulse state restored: trades=%d settled=%d realized_pnl=%.3f calib_n=%d "
                     "lifecycle_created=%d", self.ledger.trades, self.ledger.settled,
                     self.ledger.realized_pnl, self.calib.n, self.reconciler.created)
@@ -1700,7 +1709,9 @@ class PulseEngine:
             if snap is None:
                 _finalize(dr, "missing_data", reason="no_open_snapshot")
                 continue
-            if snap.lag_s > self.cfg.max_open_lag_s:
+            _ws_lag = int(getattr(w, "window_seconds", 300) or 300)
+            _max_lag = self.price.effective_max_open_lag(_ws_lag)
+            if snap.lag_s > _max_lag:
                 _finalize(dr, "skipped", reason="open_snapshot_late")
                 continue
             if s_now is None or sigma is None:
@@ -4767,6 +4778,7 @@ class PulseEngine:
                               "down_stack": self.down_stack.to_state(),
                               "late_window_gate": self.late_window_gate.to_state(),
                               "late_window_edge": self.late_window_edge.to_state(),
+                              "open_snapshots": self.price.to_open_state(),
                               "baseline": (self._baseline or empty_baseline())}}
             (self._data_dir / "btc_pulse_ledger.json").write_text(
                 json.dumps(ledger_doc, default=str, indent=1))

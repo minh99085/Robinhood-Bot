@@ -60,12 +60,14 @@ UPDATES = {
     # Baseline quant path: allowlist was deadlocking (no proven bucket + 0% explore).
     "PULSE_DIRECTIONAL_REQUIRE_WINNING": "0",
     "PULSE_DIRECTIONAL_EXPLORE_RATE": "0",
-    "PULSE_MIN_EDGE": "0.02",
+    "PULSE_MIN_EDGE": "0.015",
+    "PULSE_BASIS_BUFFER": "0.01",
     "PULSE_MIN_REWARD_RISK": "0.55",
     "PULSE_MIN_REWARD_RISK_UP_PREMIUM": "0.28",
     "PULSE_GROK_UP_MIN_P_WIN": "0.58",
     # Gamma windows often appear >20s after open_ts; min_seconds_since_open=30 already delays entry.
     "PULSE_MAX_OPEN_LAG_S": "120",
+    "PULSE_MAX_OPEN_LAG_15M_S": "240",
     # Stop halt needs >30 settled before Wilson test (avoids freeze at exactly min_samples).
     "PULSE_STOP_MIN_SAMPLES": "40",
     # Sweet-spot entry (1M MC sim): base 160-220s → 15m TTC 480-660s (minutes 8-11).
@@ -101,8 +103,8 @@ UPDATES = {
     "PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE": "0",
     "PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX": "0",
     "PULSE_BASELINE_COHORT_15M_FAST_LANE": "1",
-    "PULSE_BASELINE_COHORT_15M_TTC_MIN_S": "160",
-    "PULSE_BASELINE_COHORT_15M_TTC_MAX_S": "220",
+    "PULSE_BASELINE_COHORT_15M_TTC_MIN_S": "150",
+    "PULSE_BASELINE_COHORT_15M_TTC_MAX_S": "230",
     # [TV-LOCK] baseline path does not use TV stack to block entries.
     "PULSE_BASELINE_UP_TV_GATE_ENABLED": "0",
     "PULSE_BASELINE_DOWN_TV_GATE_ENABLED": "0",

@@ -15,6 +15,8 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+OPEN_SNAPSHOT_SCHEMA = "pulse_open_snapshots/1.0"
+
 from engine.pulse.fair_value import RollingVol
 
 logger = logging.getLogger("hte.pulse.price")
@@ -60,7 +62,8 @@ class PulsePriceFeed:
     open price as soon as the window begins."""
 
     def __init__(self, *, fetcher=None, vol: Optional[RollingVol] = None,
-                 max_open_lag_s: float = 20.0, source_name: str = "coinbase",
+                 max_open_lag_s: float = 20.0, max_open_lag_15m_s: float = 240.0,
+                 source_name: str = "coinbase",
                  sampler_interval_s: float = 0.0):
         if fetcher is None:
             from engine.pulse.coinbase import coinbase_spot_fetcher
@@ -69,6 +72,7 @@ class PulsePriceFeed:
         self.source_name = source_name
         self.vol = vol or RollingVol()
         self.max_open_lag_s = float(max_open_lag_s)
+        self.max_open_lag_15m_s = float(max_open_lag_15m_s)
         self.sampler_interval_s = float(sampler_interval_s)
         self._last_price: Optional[float] = None
         self._last_ts: float = 0.0        # wall-clock of the last SUCCESSFUL fetch (freshness clock)
@@ -139,6 +143,13 @@ class PulsePriceFeed:
     def sigma_per_sec(self, now: Optional[float] = None) -> Optional[float]:
         return self.vol.per_sec(now)
 
+    def effective_max_open_lag(self, window_seconds: int = 300) -> float:
+        """Scale open-lag tolerance: 15m windows tolerate later first capture."""
+        ws = int(window_seconds or 300)
+        if ws >= 900:
+            return float(self.max_open_lag_15m_s)
+        return float(self.max_open_lag_s) * (float(ws) / 300.0)
+
     def snapshot_open(self, key: str, open_ts: float, now: Optional[float] = None) -> Optional[OpenSnapshot]:
         """Record the window-open price once, the first time we observe at/after ``open_ts``.
         Skips (returns None) if we'd be capturing it too late to be a faithful open."""
@@ -165,6 +176,40 @@ class PulsePriceFeed:
             if k not in keep_keys:
                 self._opens.pop(k, None)
 
+    def to_open_state(self) -> list[dict]:
+        rows = []
+        for key, snap in self._opens.items():
+            rows.append({
+                "key": str(key),
+                "open_ts": float(snap.open_ts),
+                "price": float(snap.price),
+                "snap_ts": float(snap.snap_ts),
+                "source": str(snap.source or self.source_name),
+            })
+        return rows
+
+    def load_open_state(self, rows: list) -> int:
+        """Restore persisted open snapshots (survives container restart)."""
+        loaded = 0
+        for row in rows or []:
+            if not isinstance(row, dict):
+                continue
+            key = row.get("key")
+            if not key or key in self._opens:
+                continue
+            try:
+                snap = OpenSnapshot(
+                    open_ts=float(row["open_ts"]),
+                    price=float(row["price"]),
+                    snap_ts=float(row["snap_ts"]),
+                    source=str(row.get("source") or self.source_name),
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+            self._opens[str(key)] = snap
+            loaded += 1
+        return loaded
+
     def status(self) -> dict:
         return {"source": self.source_name, "last_price": self._last_price,
                 "last_ts": self._last_ts, "age_s": self.age_s(), "last_fetch_ok": self.last_fetch_ok,
@@ -172,4 +217,6 @@ class PulsePriceFeed:
                 "sampler_interval_s": self.sampler_interval_s,
                 "sampler_running": bool(self._thread is not None and self._thread.is_alive()),
                 "vol_samples": self.vol.samples,
-                "sigma_per_sec": self.sigma_per_sec(), "tracked_opens": len(self._opens)}
+                "sigma_per_sec": self.sigma_per_sec(), "tracked_opens": len(self._opens),
+                "max_open_lag_s": self.max_open_lag_s,
+                "max_open_lag_15m_s": self.max_open_lag_15m_s}

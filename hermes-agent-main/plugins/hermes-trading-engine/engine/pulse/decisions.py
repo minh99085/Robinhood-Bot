@@ -76,6 +76,8 @@ class MarketContext:
                 "asset": self.asset,
                 "series_slug": self.series_slug, "series_label": self.series_label,
                 "window_seconds": self.window_seconds,
+                "open_ts": self.open_ts,
+                "close_ts": self.close_ts,
                 "ttc_s": (round(self.ttc_s, 1) if self.ttc_s is not None else None),
                 "ttc_bucket": self.ttc_bucket, "oracle_source": self.oracle_source,
                 "s_open": self.s_open, "s_now": self.s_now,
