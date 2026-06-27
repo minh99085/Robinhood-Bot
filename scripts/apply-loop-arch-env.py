@@ -68,9 +68,9 @@ UPDATES = {
     "PULSE_MAX_OPEN_LAG_S": "120",
     # Stop halt needs >30 settled before Wilson test (avoids freeze at exactly min_samples).
     "PULSE_STOP_MIN_SAMPLES": "40",
-    # Sweet-spot entry (1M MC sim): base 160-220s → 15m TTC 480-660s (minutes 4-7).
-    "PULSE_TICK_SECONDS": "30",
-    "PULSE_MAX_PRICE": "0.65",
+    # Sweet-spot entry (1M MC sim): base 160-220s → 15m TTC 480-660s (minutes 8-11).
+    "PULSE_TICK_SECONDS": "15",
+    "PULSE_MAX_PRICE": "0.70",
     # [TV-LOCK] context gate off — TV never blocks entries.
     "PULSE_TV_CONTEXT_GATE": "0",
     # Mispricing/edge-TTC off on quant baseline (Grok shadow; redundant with cohort).
@@ -89,8 +89,8 @@ UPDATES = {
     "PULSE_BASELINE_COHORT_GATE_ENABLED": "1",
     "PULSE_BASELINE_COHORT_TTC_MIN_S": "160",
     "PULSE_BASELINE_COHORT_TTC_MAX_S": "220",
-    "PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE": "1",
-    "PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX": "1",
+    "PULSE_BASELINE_COHORT_REQUIRE_HIGH_EDGE": "0",
+    "PULSE_BASELINE_COHORT_REQUIRE_STRONG_CEX": "0",
     "PULSE_BASELINE_COHORT_15M_FAST_LANE": "1",
     "PULSE_BASELINE_COHORT_15M_TTC_MIN_S": "160",
     "PULSE_BASELINE_COHORT_15M_TTC_MAX_S": "220",
@@ -99,11 +99,11 @@ UPDATES = {
     "PULSE_BASELINE_DOWN_TV_GATE_ENABLED": "0",
     "PULSE_BASELINE_DOWN_BLOCK_BULLISH_RANGE": "1",
     "PULSE_BASELINE_DOWN_BLOCK_UP_STRONG_BULLISH": "1",
-    "PULSE_BASELINE_DOWN_BLOCK_NOT_STALE": "1",
+    "PULSE_BASELINE_DOWN_BLOCK_NOT_STALE": "0",
     "PULSE_BASELINE_DOWN_BLOCK_MEDIUM_EDGE": "0",
     "PULSE_BASELINE_DOWN_BLOCK_SINGLE_TF": "0",
     "PULSE_BASELINE_DOWN_BLOCK_VOLUME_ACTIVE": "0",
-    "PULSE_BASELINE_DOWN_BLOCK_BULLISH_MTF": "1",
+    "PULSE_BASELINE_DOWN_BLOCK_BULLISH_MTF": "0",
     "PULSE_BASELINE_DOWN_BLOCK_MID_ENTRY": "0",
     "PULSE_BASELINE_DOWN_BLOCK_BB_EXPANSION_DOWN": "0",
     "PULSE_BASELINE_DOWN_MID_ENTRY_MIN": "0.55",
@@ -196,8 +196,8 @@ for ln in lines:
 for key, val in remaining.items():
     out.append(f"{key}={val}")
 out.append(
-    "# LOOP ENGINE ARCH (2026-06-27): 15m DOWN green-path "
-    "TTC 480-660s + TV observe-only + tick 30s + max entry 0.65"
+    "# LOOP ENGINE ARCH (2026-06-27): 15m DOWN green-path relaxed quant "
+    "TTC 480-660s + TV observe-only + tick 15s + max 0.70 + edge/cex relaxed"
 )
 ENV_PATH.write_text("\n".join(out) + "\n", encoding="utf-8")
 print(f"Wrote {ENV_PATH} ({len(UPDATES)} loop-arch keys)")
