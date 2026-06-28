@@ -1,23 +1,20 @@
 # Bot cycle summary (plain English)
 
-_Updated: 2026-06-28 09:33 UTC_
+_Updated: 2026-06-28 09:34 UTC_
 
 ## Last cycle
 
 | | |
 |---|---|
-| **Cycle #** | 10 |
-| **Checked at** | 2026-06-28 08:03 UTC |
-| **Result** | **blocked** |
-| **What it means** | Stopped — serious problem found. Check issues below. |
-| **Next check after** | 2026-06-28 08:57 UTC |
+| **Cycle #** | 11 |
+| **Checked at** | 2026-06-28 09:34 UTC |
+| **Result** | **issues** |
+| **What it means** | WR below 80% target and UP-side bleed flagged; bot profitable so gates left unchanged per hands-off lock. |
+| **Next check after** | 2026-06-28 10:35 UTC |
 
-**Issues flagged:** trade_starvation_streak, learning_hurts
+**Issues flagged:** win_rate_below_target, up_side_bleed, learning_hurts
 
-**Fixes applied:**
-
-- min_entry_price_0.42
-- min_edge_0.008_cohort_ttc_widen
+**Fixes applied:** none (profitable bot — hands-off lock; no gate tighten)
 
 ## How the bot is doing now
 
@@ -50,7 +47,7 @@ _Updated: 2026-06-28 09:33 UTC_
 
 **Good:** Making money on paper (+20.2%); Arbitrage is doing most of the work; Bot is running normally.
 
-**Watch:** UP trades still weak (coin-flip or worse).
+**Watch:** UP trades still weak (coin-flip or worse); Cycle flagged UP-side losses.
 
 ---
 

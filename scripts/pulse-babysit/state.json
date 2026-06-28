@@ -6,21 +6,18 @@
     "priority": "pnl_protection_and_win_rate",
     "note": "Paper PnL = real capital. Babysit fixes WR/PF/bleed + starvation. See .grok/rules/real-money-discipline.md"
   },
-  "cycle": 10,
+  "cycle": 11,
   "phase": "soak",
   "soak_hours": 1,
   "soak_minutes": 60,
-  "deployed_at": "2026-06-28T07:57:07.376912+00:00",
-  "soak_until": "2026-06-28T08:57:07.376912+00:00",
-  "last_eval_at": "2026-06-28T07:44:22.551846+00:00",
-  "last_verdict": "blocked",
-  "last_fixes": [
-    "min_entry_price_0.42",
-    "min_edge_0.008_cohort_ttc_widen"
-  ],
+  "deployed_at": "2026-06-28T09:35:00.000000+00:00",
+  "soak_until": "2026-06-28T10:35:00.000000+00:00",
+  "last_eval_at": "2026-06-28T09:34:02.730479+00:00",
+  "last_verdict": "issues",
+  "last_fixes": [],
   "last_health_verdict": "issues",
   "baseline_trades_at_deploy": 103,
-  "vps_sha": "f1a1173f8cde880fd6478c8a1ffb06d823543723",
+  "vps_sha": "1739dc27e2f7de9f3b1252658735834917202dcf",
   "history": [
     {
       "cycle": 3,
@@ -450,6 +447,84 @@
       "issue_codes": [
         "trade_starvation_streak"
       ]
+    },
+    {
+      "ts": "2026-06-28T08:03:44.999135+00:00",
+      "verdict": "blocked",
+      "metrics": {
+        "settled": 103,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6117,
+        "profit_factor": 1.0147,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6386,
+        "realized_pnl_usd": 2.71,
+        "tv_valid": 1027,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.45,
+        "global_reconciled": true,
+        "ticks": 33,
+        "hours_since_last_trade": 0.07,
+        "settled_flat_eval_streak": 6
+      },
+      "issue_codes": [
+        "trade_starvation_streak",
+        "learning_hurts"
+      ]
+    },
+    {
+      "ts": "2026-06-28T09:34:02.730479+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 110,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6182,
+        "profit_factor": 1.0906,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6444,
+        "realized_pnl_usd": 17.67,
+        "tv_valid": 1117,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.45,
+        "global_reconciled": true,
+        "ticks": 386,
+        "hours_since_last_trade": 0.26,
+        "settled_flat_eval_streak": 0
+      },
+      "issue_codes": [
+        "win_rate_below_target",
+        "up_side_bleed",
+        "learning_hurts"
+      ]
+    },
+    {
+      "cycle": 11,
+      "eval_at": "2026-06-28T09:34:02.730479+00:00",
+      "verdict": "issues",
+      "issues": [
+        "win_rate_below_target",
+        "up_side_bleed",
+        "learning_hurts"
+      ],
+      "fixes": [],
+      "deployed_at": "2026-06-28T09:35:00.000000+00:00",
+      "vps_sha": null,
+      "metrics": {
+        "settled": 110,
+        "win_rate": 0.6182,
+        "profit_factor": 1.0906,
+        "global_reconciled": true,
+        "hours_since_last_trade": 0.26,
+        "settled_flat_eval_streak": 0
+      }
     }
   ],
   "note": "Operator 2026-06-28: real_money_discipline \u2014 paper PnL = real capital; 60m soak; autopilot ON. See .grok/rules/real-money-discipline.md",
