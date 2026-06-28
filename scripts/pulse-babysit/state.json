@@ -6,21 +6,18 @@
     "priority": "trade_rate_and_ledger_continuity",
     "note": "Soak-learning lock: apply-loop-arch enforces frozen manifest; WR tuning deferred"
   },
-  "cycle": 8,
+  "cycle": 9,
   "phase": "soak",
   "soak_hours": 2,
   "soak_minutes": 120,
   "deployed_at": "2026-06-28T04:38:00.000000+00:00",
-  "soak_until": "2026-06-28T06:38:00.000000+00:00",
-  "last_eval_at": "2026-06-28T04:37:00.691791+00:00",
+  "soak_until": "2026-06-28T08:38:56.000000+00:00",
+  "last_eval_at": "2026-06-28T06:38:56.029960+00:00",
   "last_verdict": "issues",
-  "last_fixes": [
-    "min_edge_0.010_max_price_0.75_min_rr_0.45",
-    "eval_streak_false_positive_fix"
-  ],
-  "last_health_verdict": "healthy",
-  "baseline_trades_at_deploy": 100,
-  "vps_sha": "ff144586bc494f990e33fbba98e44e3581ea5881",
+  "last_fixes": [],
+  "last_health_verdict": "issues",
+  "baseline_trades_at_deploy": 103,
+  "vps_sha": "f5752c4c52874a745e514774691a94be4f8b38a8",
   "history": [
     {
       "cycle": 3,
@@ -267,7 +264,55 @@
         "hours_since_last_trade": 0.29,
         "settled_flat_eval_streak": 0
       }
+    },
+    {
+      "ts": "2026-06-28T06:38:56.029960+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 103,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6117,
+        "profit_factor": 1.0147,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6386,
+        "realized_pnl_usd": 2.71,
+        "tv_valid": 949,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.45,
+        "global_reconciled": true,
+        "ticks": 8,
+        "hours_since_last_trade": 0.56,
+        "settled_flat_eval_streak": 0
+      },
+      "issue_codes": [
+        "win_rate_below_target",
+        "up_side_bleed"
+      ]
+    },
+    {
+      "cycle": 9,
+      "eval_at": "2026-06-28T06:38:56.029960+00:00",
+      "verdict": "issues",
+      "issues": [
+        "win_rate_below_target",
+        "up_side_bleed"
+      ],
+      "fixes": [],
+      "deployed_at": "2026-06-28T04:38:00.000000+00:00",
+      "vps_sha": "f5752c4c52874a745e514774691a94be4f8b38a8",
+      "metrics": {
+        "settled": 103,
+        "win_rate": 0.6117,
+        "profit_factor": 1.0147,
+        "global_reconciled": true,
+        "hours_since_last_trade": 0.56,
+        "settled_flat_eval_streak": 0
+      }
     }
   ],
-  "note": "Cycle 8: P0 starvation streak was false positive (97->100 during soak); relaxed quant gates; WR deferred."
+  "note": "Cycle 9: +3 trades during soak (100->103); PF>1; WR/UP-bleed deferred in learning_collection; no gate changes."
 }

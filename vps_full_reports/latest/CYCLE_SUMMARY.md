@@ -6,16 +6,15 @@ _Updated: 2026-06-28 06:38 UTC_
 
 | | |
 |---|---|
-| **Cycle #** | 8 |
-| **Checked at** | 2026-06-28 04:37 UTC |
-| **Result** | **issues** |
-| **What it means** | Issues found — bot still running, but tuning may be needed. |
-| **Next check after** | 2026-06-28 06:38 UTC |
+| **Cycle #** | 9 |
+| **Checked at** | 2026-06-28 06:38 UTC |
+| **Result** | **issues** (deferred) |
+| **What it means** | WR/UP-bleed flagged but deferred in learning-collection mode; bot trading normally (+3 trades this soak). |
+| **Next check after** | 2026-06-28 08:38 UTC |
 
-**Fixes applied:**
+**Issues flagged (deferred):** win_rate_below_target, up_side_bleed
 
-- min_edge_0.010_max_price_0.75_min_rr_0.45
-- eval_streak_false_positive_fix
+**Fixes applied:** none
 
 ## How the bot is doing now
 
@@ -48,7 +47,7 @@ _Updated: 2026-06-28 06:38 UTC_
 
 **Good:** Making money on paper (+16.9%); Arbitrage is doing most of the work; Bot is running normally.
 
-**Watch:** UP trades still weak (coin-flip or worse).
+**Watch:** UP trades still weak (coin-flip or worse); Cycle flagged UP-side losses.
 
 ---
 
