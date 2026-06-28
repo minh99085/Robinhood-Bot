@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from engine.pulse.grok_bundle import (compact_tv_learning, gate_funnel_top, grok_task_for_window,
+from engine.pulse.grok_bundle import (classify_grok_compute_tier, compact_bundle_for_light_tier,
+                                      compact_tv_learning, gate_funnel_top, grok_task_for_window,
                                       order_bundle_for_grok, serialize_bundle_for_grok,
                                       tv_trend_snapshot)
 
@@ -108,3 +109,40 @@ def test_serialize_bundle_truncates_tail():
     ordered = order_bundle_for_grok(big)
     raw = serialize_bundle_for_grok(ordered, max_chars=200)
     assert "tradingview_trend" in raw
+
+
+def test_classify_tier_light_vs_full():
+    base = {
+        "grok_task": {"in_entry_band": False},
+        "cex_lead_mispricing": {"divergence": 0.01, "tv_confirms": False, "confirmed": False},
+        "tradingview_trend": {"confirm_mtf": "none", "fresh_tf_count": 0},
+    }
+    assert classify_grok_compute_tier(base) == "light"
+    full = dict(base)
+    full["cex_lead_mispricing"] = {"divergence": 0.04, "tv_confirms": True, "confirmed": True}
+    full["tradingview_trend"] = {"confirm_mtf": "confirmed_down_mtf", "fresh_tf_count": 3}
+    assert classify_grok_compute_tier(full) == "full"
+
+
+def test_classify_tier_deep_on_15m_entry_band():
+    bundle = {
+        "grok_task": {"in_entry_band": True},
+        "cex_lead_mispricing": {"divergence": 0.05, "tv_confirms": True, "confirmed": True},
+        "tradingview_trend": {"confirm_mtf": "confirmed_down_mtf", "fresh_tf_count": 3},
+    }
+    assert classify_grok_compute_tier(bundle) == "deep"
+
+
+def test_compact_light_bundle_drops_history():
+    full = {
+        "schema_version": "grok_decision_bundle/1.4",
+        "grok_compute_tier": "light",
+        "trade_decision_history": [{"x": 1}],
+        "timing": {"seconds_to_close": 500},
+        "cex_lead_mispricing": {"divergence": 0.01},
+        "tradingview_trend": {"confirm_mtf": "none", "charts": {"2m": {"direction": "FLAT"}}},
+    }
+    lite = compact_bundle_for_light_tier(full)
+    assert "trade_decision_history" not in lite
+    assert lite["grok_compute_tier"] == "light"
+    assert "2m" in lite["tradingview_trend"]["charts"]

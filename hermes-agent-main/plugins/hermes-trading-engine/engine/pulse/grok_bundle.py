@@ -170,7 +170,78 @@ def order_bundle_for_grok(bundle: dict) -> dict:
 def serialize_bundle_for_grok(bundle: dict, *, max_chars: int = 14000) -> str:
     """JSON serialize with priority ordering and a generous cap (was blind 12k slice)."""
     ordered = order_bundle_for_grok(bundle)
+    cap = 3500 if str(bundle.get("grok_compute_tier") or "").lower() == "light" else max_chars
     raw = json.dumps(ordered, default=str, separators=(",", ":"))
-    if len(raw) <= max_chars:
+    if len(raw) <= cap:
         return raw
-    return raw[:max_chars]
+    return raw[:cap]
+
+
+def classify_grok_compute_tier(
+    bundle: dict,
+    *,
+    refresh_token: Optional[str] = None,
+    tiered_enabled: bool = True,
+    full_divergence_min: float = 0.025,
+    deep_divergence_min: float = 0.04,
+) -> str:
+    """light = p_up calibration only; full = v2 decision; deep = full + optional live search."""
+    if not tiered_enabled:
+        return "full"
+    cex = bundle.get("cex_lead_mispricing") or {}
+    try:
+        div = abs(float(cex.get("divergence") or 0.0))
+    except (TypeError, ValueError):
+        div = 0.0
+    tv_confirms = bool(cex.get("tv_confirms"))
+    cex_confirmed = bool(cex.get("confirmed"))
+    task = bundle.get("grok_task") or {}
+    in_entry_band = bool(task.get("in_entry_band"))
+    news = bundle.get("news") or {}
+    event_high = str(news.get("event_risk") or "").lower() == "high"
+    tv_trend = bundle.get("tradingview_trend") or {}
+    confirm_mtf = str(tv_trend.get("confirm_mtf") or "")
+    mtf_aligned = confirm_mtf.startswith("confirmed_")
+    fresh_tf = int(tv_trend.get("fresh_tf_count") or 0)
+
+    if in_entry_band and (div >= deep_divergence_min or (tv_confirms and mtf_aligned)):
+        return "deep"
+    if event_high and div >= full_divergence_min and (tv_confirms or mtf_aligned):
+        return "deep"
+    if refresh_token and ("entry15m" in str(refresh_token) or str(refresh_token).startswith("tv:")):
+        if in_entry_band and div >= full_divergence_min:
+            return "deep"
+        return "full"
+    if div >= full_divergence_min or tv_confirms or cex_confirmed or mtf_aligned or fresh_tf >= 2:
+        return "full"
+    return "light"
+
+
+def compact_bundle_for_light_tier(bundle: dict) -> dict:
+    """Strip history tails — light tier only needs live state for p_up calibration."""
+    price = bundle.get("price") or {}
+    poly = bundle.get("polymarket") or {}
+    tv = bundle.get("tradingview_trend") or {}
+    charts = {}
+    for label, row in (tv.get("charts") or {}).items():
+        if isinstance(row, dict):
+            charts[label] = {k: row.get(k) for k in
+                             ("direction", "signal_level", "strength", "fresh", "age_s")}
+    return {
+        "schema_version": bundle.get("schema_version"),
+        "grok_compute_tier": "light",
+        "grok_task": bundle.get("grok_task"),
+        "decision_id": bundle.get("decision_id"),
+        "series_label": bundle.get("series_label"),
+        "window_seconds": bundle.get("window_seconds"),
+        "timing": bundle.get("timing"),
+        "price": {k: price.get(k) for k in ("btc_now", "btc_open", "move_from_open", "sigma_per_sec")},
+        "digital_fair_p_up": bundle.get("digital_fair_p_up"),
+        "polymarket": {k: poly.get(k) for k in ("yes_mid", "spread", "fair_minus_poly")},
+        "cex_lead_mispricing": bundle.get("cex_lead_mispricing"),
+        "tradingview_trend": {
+            "confirm_mtf": tv.get("confirm_mtf"),
+            "fresh_tf_count": tv.get("fresh_tf_count"),
+            "charts": charts,
+        },
+    }

@@ -102,10 +102,10 @@ class PulseConfig:
     grok_signal_analyst_enabled: bool = False        # A
     grok_signal_predictor_enabled: bool = False       # B
     grok_analyst_interval_s: float = 1800.0
-    grok_budget_daily_usd: float = 5.0
+    grok_budget_daily_usd: float = 50.0
     grok_est_usd_per_call: float = 0.02
-    grok_predictor_max_calls_per_hour: int = 30
-    grok_analyst_max_calls_per_hour: int = 4
+    grok_predictor_max_calls_per_hour: int = 90
+    grok_analyst_max_calls_per_hour: int = 8
     # ---- Grok DECISION ENGINE ("Grok decides, bot executes"; PAPER ONLY) ----
     # mode: off | shadow (decide+grade only, no trade — safe default) | follow (engine follows Grok
     # direction/size subject to the deterministic floor: execution realism, risk caps, freshness).
@@ -115,7 +115,10 @@ class PulseConfig:
     grok_decider_use_search: bool = False            # enable xAI live web/X news search (slower/$$)
     grok_decider_min_confidence: float = 0.55
     grok_decider_ttl_s: float = 240.0
-    grok_decider_max_calls_per_hour: int = 60
+    grok_decider_max_calls_per_hour: int = 200
+    grok_tiered_compute_enabled: bool = True
+    grok_tier_full_divergence_min: float = 0.025
+    grok_tier_deep_divergence_min: float = 0.04
     grok_decider_follow_fraction: float = 1.0        # A/B canary: fraction of windows to follow
     grok_decider_max_consecutive_losses: int = 4     # breaker: trip after N follow-losses in a row
     grok_decider_daily_loss_cap_usd: float = 30.0    # breaker: trip after this much follow-loss/day
@@ -482,10 +485,10 @@ class PulseConfig:
             grok_signal_predictor_enabled=str(os.getenv("GROK_SIGNAL_PREDICTOR_ENABLED", "0"))
             .strip().lower() in ("1", "true", "yes", "on"),
             grok_analyst_interval_s=_envf("GROK_ANALYST_INTERVAL_S", 1800.0),
-            grok_budget_daily_usd=_envf("GROK_BUDGET_DAILY_USD", 5.0),
+            grok_budget_daily_usd=_envf("GROK_BUDGET_DAILY_USD", 50.0),
             grok_est_usd_per_call=_envf("GROK_EST_USD_PER_CALL", 0.02),
-            grok_predictor_max_calls_per_hour=int(_envf("GROK_PREDICTOR_MAX_CALLS_PER_HOUR", 30)),
-            grok_analyst_max_calls_per_hour=int(_envf("GROK_ANALYST_MAX_CALLS_PER_HOUR", 4)),
+            grok_predictor_max_calls_per_hour=int(_envf("GROK_PREDICTOR_MAX_CALLS_PER_HOUR", 90)),
+            grok_analyst_max_calls_per_hour=int(_envf("GROK_ANALYST_MAX_CALLS_PER_HOUR", 8)),
             grok_decider_mode=(os.getenv("PULSE_GROK_DECIDER_MODE", "shadow") or "shadow").strip().lower(),
             grok_decider_model=(os.getenv("PULSE_GROK_DECIDER_MODEL", "grok-4.3")
                                 or "grok-4.3").strip(),
@@ -494,7 +497,11 @@ class PulseConfig:
             .strip().lower() in ("1", "true", "yes", "on"),
             grok_decider_min_confidence=_envf("PULSE_GROK_DECIDER_MIN_CONFIDENCE", 0.55),
             grok_decider_ttl_s=_envf("PULSE_GROK_DECIDER_TTL_S", 240.0),
-            grok_decider_max_calls_per_hour=int(_envf("PULSE_GROK_DECIDER_MAX_CALLS_PER_HOUR", 60)),
+            grok_decider_max_calls_per_hour=int(_envf("PULSE_GROK_DECIDER_MAX_CALLS_PER_HOUR", 200)),
+            grok_tiered_compute_enabled=str(os.getenv("PULSE_GROK_TIERED_COMPUTE", "1"))
+            .strip().lower() in ("1", "true", "yes", "on"),
+            grok_tier_full_divergence_min=_envf("PULSE_GROK_TIER_FULL_DIVERGENCE_MIN", 0.025),
+            grok_tier_deep_divergence_min=_envf("PULSE_GROK_TIER_DEEP_DIVERGENCE_MIN", 0.04),
             grok_decider_follow_fraction=_envf("PULSE_GROK_DECIDER_FOLLOW_FRACTION", 1.0),
             grok_decider_max_consecutive_losses=int(
                 _envf("PULSE_GROK_DECIDER_MAX_CONSECUTIVE_LOSSES", 4)),
@@ -1231,8 +1238,8 @@ class PulseEngine:
                                         "analyst": self.cfg.grok_analyst_max_calls_per_hour,
                                         "overlay": self.cfg.grok_overlay_max_calls_per_hour,
                                         "decider": self.cfg.grok_decider_max_calls_per_hour,
-                                        "news": 30,
-                                        "dependency": 8})
+                                        "news": 40,
+                                        "dependency": 12})
             if bool(self.cfg.grok_overlay_enabled) and xai_key():
                 from engine.pulse.overlay import GrokEventOverlay
                 self.overlay = GrokEventOverlay(
@@ -1251,7 +1258,7 @@ class PulseEngine:
                                                        GrokNewsDigest, make_news_fn)
                 # news digest is a SEPARATE periodic search worker; the per-window decision reuses it
                 # (cheaper/faster than searching every window). Enabled via use_search.
-                if bool(self.cfg.grok_decider_use_search):
+                if bool(self.cfg.grok_decider_use_search) or self.cfg.grok_tiered_compute_enabled:
                     self.grok_news = GrokNewsDigest(
                         budget=self.grok_budget,
                         news_fn=make_news_fn(model=self.cfg.grok_decider_model,
@@ -1261,7 +1268,9 @@ class PulseEngine:
                     decider_fn=make_decider_fn(
                         model=self.cfg.grok_decider_model,
                         timeout_s=self.cfg.grok_decider_timeout_s,
-                        use_search=False, default_ttl_s=self.cfg.grok_decider_ttl_s),
+                        use_search=bool(self.cfg.grok_decider_use_search),
+                        use_search_deep_only=True,
+                        default_ttl_s=self.cfg.grok_decider_ttl_s),
                     budget=self.grok_budget, mode=self.cfg.grok_decider_mode,
                     min_confidence=self.cfg.grok_decider_min_confidence,
                     ttl_s=self.cfg.grok_decider_ttl_s,
@@ -1921,6 +1930,16 @@ class PulseEngine:
                 _grok_bundle = self._grok_decision_bundle(mc, dr, w, fair_used, ttc, tv_feature)
                 _refresh = self._grok_refresh_token(mc.decision_id, _grok_bundle, ttc=ttc,
                                                     window_seconds=int(getattr(w, "window_seconds", 300) or 300))
+                from engine.pulse.grok_bundle import (classify_grok_compute_tier,
+                                                      compact_bundle_for_light_tier)
+                _tier = classify_grok_compute_tier(
+                    _grok_bundle, refresh_token=_refresh,
+                    tiered_enabled=self.cfg.grok_tiered_compute_enabled,
+                    full_divergence_min=self.cfg.grok_tier_full_divergence_min,
+                    deep_divergence_min=self.cfg.grok_tier_deep_divergence_min)
+                _grok_bundle["grok_compute_tier"] = _tier
+                if _tier == "light":
+                    _grok_bundle = compact_bundle_for_light_tier(_grok_bundle)
                 self.grok_decider.request(
                     mc.decision_id,
                     _grok_bundle,

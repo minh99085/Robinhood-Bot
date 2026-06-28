@@ -200,9 +200,23 @@ def build_decider_prompt(bundle: dict, *, use_search: bool = False) -> str:
         "BUNDLE: " + serialize_bundle_for_grok(bundle))
 
 
+def build_light_decider_prompt(bundle: dict) -> str:
+    """Cheap tier: calibrate p_up + edge_quality only (graded every window)."""
+    return (
+        "Calibrate a Polymarket BTC up/down window. Settles UP if Chainlink close >= open. "
+        "LIGHT tier — estimate p_up only; action should usually be no_trade unless edge is obvious. "
+        "Read: timing, price move, digital_fair_p_up, polymarket yes_mid, cex_lead_mispricing, "
+        "tradingview_trend.confirm_mtf + charts. "
+        "Respond STRICT JSON ONLY: "
+        '{"action":"up|down|no_trade","p_up":<0-1>,"confidence":<0-1>,'
+        '"size_fraction":0,"edge_quality":"none|weak|medium|strong",'
+        '"tv_read":"<brief>","mispricing_read":"<brief>","rationale":"<brief>","ttl_s":240}\n'
+        "BUNDLE: " + serialize_bundle_for_grok(bundle))
+
+
 def make_decider_fn(*, model: str = "grok-4.3", timeout_s: float = 12.0,
-                    use_search: bool = False, default_ttl_s: float = 240.0,
-                    chat=_grok_chat):
+                    use_search: bool = False, use_search_deep_only: bool = True,
+                    default_ttl_s: float = 240.0, chat=_grok_chat):
     """Build ``decider_fn(bundle) -> decision|None``. ``use_search`` enables xAI live web/X search
     so Grok can pull fresh BTC news/sentiment in parallel. Fail-open (returns None on any error)."""
     box: dict = {}
@@ -213,8 +227,15 @@ def make_decider_fn(*, model: str = "grok-4.3", timeout_s: float = 12.0,
                                        "max_search_results": 8}}
 
     def _decide(bundle: dict) -> Optional[dict]:
-        prompt = build_decider_prompt(bundle, use_search=use_search)
-        content = chat(prompt, model=model, timeout_s=timeout_s, box=box, extra_body=extra)
+        tier = str(bundle.get("grok_compute_tier") or "full").lower()
+        if tier == "light":
+            prompt = build_light_decider_prompt(bundle)
+            extra_body = None
+        else:
+            deep_search = use_search and (tier == "deep" if use_search_deep_only else True)
+            prompt = build_decider_prompt(bundle, use_search=deep_search)
+            extra_body = extra if deep_search else None
+        content = chat(prompt, model=model, timeout_s=timeout_s, box=box, extra_body=extra_body)
         return normalize_decision(_parse_json(content), default_ttl_s=default_ttl_s)
     return _decide
 
