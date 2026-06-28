@@ -10,18 +10,18 @@ DASHBOARD_HTML = r"""<!doctype html>
 <style>
 :root{
   --bg:#12141a;--bg2:#181b24;--card:#1c2029;--line:#2a3040;
-  --text:#d8dee9;--text2:#9aa3b5;--text3:#6b7280;
-  --green:#4ade80;--yellow:#facc15;--red:#f87171;--accent:#8eb8e8;
+  --text:#f0f4f8;--text2:#dde4ee;--text3:#c8d2de;
+  --green:#4ade80;--yellow:#facc15;--red:#f87171;--accent:#a8c8f0;
   --radius:12px;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:22px/1.45 "Segoe UI",system-ui,sans-serif}
+body{margin:0;background:var(--bg);color:var(--text);font:26px/1.45 "Segoe UI",system-ui,sans-serif}
 header{
   padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   border-bottom:1px solid var(--line);background:var(--bg2);
 }
-h1{font-size:29px;font-weight:600;margin:0}
-.tag{font-size:19px;padding:5px 14px;border-radius:16px;background:var(--card);color:var(--text2)}
+h1{font-size:34px;font-weight:600;margin:0}
+.tag{font-size:22px;padding:5px 14px;border-radius:16px;background:var(--card);color:var(--text2)}
 .tag.live{color:var(--green)}
 .tag.warn{color:var(--yellow)}
 .tag.off{color:var(--red)}
@@ -32,12 +32,13 @@ main{max-width:min(1680px,100%);margin:0 auto;padding:14px 20px 24px}
   border:1px solid var(--line);border-radius:var(--radius);
   padding:16px 20px;margin-bottom:14px;
 }
-.cap-main{font-size:60px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-.cap-sub{font-size:20px;color:var(--text2)}
+.cap-main{font-size:40px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--text)}
+.cap-label{font-size:22px;color:var(--text2);margin-top:2px}
+.cap-sub{font-size:22px;color:var(--text2)}
 .cap-sub b{color:var(--text);font-weight:600}
 .cap-sub .up{color:var(--green)}.cap-sub .dn{color:var(--red)}
 .verdict{
-  display:flex;align-items:center;gap:8px;font-size:22px;font-weight:600;
+  display:flex;align-items:center;gap:8px;font-size:26px;font-weight:600;
   padding:10px 16px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line);
   margin-bottom:12px;
 }
@@ -46,23 +47,23 @@ main{max-width:min(1680px,100%);margin:0 auto;padding:14px 20px 24px}
 }
 .trades-col{padding:0;margin:0}
 .trades-head{
-  margin:0 0 8px;font-size:17px;font-weight:600;color:var(--accent);
+  margin:0 0 8px;font-size:20px;font-weight:600;color:var(--accent);
   text-transform:uppercase;letter-spacing:.06em;
 }
 .trade-line{
   display:flex;justify-content:space-between;align-items:center;gap:10px;
-  padding:6px 0;font-size:19px;line-height:1.35;
+  padding:6px 0;font-size:22px;line-height:1.35;
   border-bottom:1px solid rgba(42,48,64,.45);
 }
 .trade-line:last-child{border-bottom:0}
 .trade-info{min-width:0;color:var(--text2)}
 .trade-side{font-weight:600;color:var(--text)}
 .trade-side.up{color:var(--green)}.trade-side.down{color:var(--red)}
-.trade-tag{font-size:16px;color:var(--text3);margin-left:4px}
+.trade-tag{font-size:19px;color:var(--text2);margin-left:4px}
 .trade-tag.win{color:var(--green)}.trade-tag.loss{color:var(--red)}.trade-tag.open{color:var(--yellow)}
-.trade-pnl{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;font-size:19px}
-.trade-pnl.up{color:var(--green)}.trade-pnl.dn{color:var(--red)}.trade-pnl.neu{color:var(--text3)}
-.trades-empty{color:var(--text3);font-size:19px}
+.trade-pnl{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap;font-size:22px}
+.trade-pnl.up{color:var(--green)}.trade-pnl.dn{color:var(--red)}.trade-pnl.neu{color:var(--text2)}
+.trades-empty{color:var(--text2);font-size:22px}
 .tl-grid{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(456px,1fr));gap:8px;min-width:0;
 }
@@ -75,24 +76,24 @@ main{max-width:min(1680px,100%);margin:0 auto;padding:14px 20px 24px}
 .tl-green{background:var(--green);box-shadow:0 0 6px rgba(74,222,128,.55)}
 .tl-yellow{background:var(--yellow);box-shadow:0 0 6px rgba(250,204,21,.45)}
 .tl-red{background:var(--red);box-shadow:0 0 6px rgba(248,113,113,.55)}
-.tl-name{font-size:20px;color:var(--text)}
-.tl-val{font-size:19px;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tl-name{font-size:24px;color:var(--text)}
+.tl-val{font-size:22px;color:var(--text2);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .tl-hint{
-  grid-column:1/-1;font-size:17px;color:var(--text3);
+  grid-column:1/-1;font-size:20px;color:var(--text2);
   padding-top:6px;margin-top:2px;border-top:1px solid var(--line);
 }
 .tl-section{
-  grid-column:1/-1;font-size:17px;font-weight:600;color:var(--accent);
+  grid-column:1/-1;font-size:20px;font-weight:600;color:var(--accent);
   text-transform:uppercase;letter-spacing:.06em;padding:8px 2px 4px;
 }
-.foot{margin-top:14px;color:var(--text3);font-size:17px}
+.foot{margin-top:14px;color:var(--text2);font-size:20px}
 @media(max-width:960px){
   .content-split{grid-template-columns:1fr}
   .trades-col{margin-top:4px}
 }
 @media(max-width:420px){
   .tl-grid{grid-template-columns:1fr}
-  .cap-main{font-size:46px}
+  .cap-main{font-size:34px}
 }
 </style>
 </head>
@@ -386,7 +387,7 @@ async function tick(){
   const pnlCls=pnl>=0?'up':'dn';
   document.getElementById('cap-bar').innerHTML=
     '<div><div class="cap-main">'+usd(total)+'</div>'
-    +'<div class="cap-sub">total on-hand paper capital</div></div>'
+    +'<div class="cap-label">total on-hand paper capital</div></div>'
     +'<div class="cap-sub">Started <b>'+usd(cap.starting_capital_usd)+'</b></div>'
     +'<div class="cap-sub">PnL <b class="'+pnlCls+'">'+(pnl>=0?'+':'')+usd(Math.abs(pnl))+'</b> ('+pct(cap.total_return_pct)+')</div>'
     +'<div class="cap-sub">Arb <b class="up">'+usd(cap.arb_realized_pnl_usd)+'</b></div>'
