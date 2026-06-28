@@ -35,16 +35,16 @@ class ClobBookFeed:
     def latency_report(self) -> dict:
         with self._lock:
             vals = list(self._last_fetch_ms.values())
-        if not vals:
-            return {"samples": 0, "avg_ms": None, "max_ms": None, "websocket_enabled": self.websocket_enabled}
-        return {
+        base = {
             "samples": len(vals),
-            "avg_ms": round(sum(vals) / len(vals), 2),
-            "max_ms": round(max(vals), 2),
+            "avg_ms": round(sum(vals) / len(vals), 2) if vals else None,
+            "max_ms": round(max(vals), 2) if vals else None,
             "websocket_enabled": self.websocket_enabled,
             "ws_running": self._ws_running,
+            "ws_subscribed": len(self._subscribed),
             "errors": self._errors,
         }
+        return base
 
     def start_ws_background(self, token_ids: list[str]) -> None:
         """Best-effort WS subscriber; fails open to REST."""

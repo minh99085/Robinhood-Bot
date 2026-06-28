@@ -7,6 +7,7 @@ from engine.pulse.dependency_arb import (
     DependencyArbLedger,
     DependencyViolation,
     enrich_vwap_actionable,
+    realized_dependency_profit_usd,
     validate_violation,
     try_execute_nested_implication,
     scan_nested_implication,
@@ -117,6 +118,21 @@ def test_vwap_enrichment_marks_actionable():
     vios = scan_nested_implication(parent, [child], epsilon=0.02, vwap_enrich=True)
     assert vios and vios[0].actionable is True
     assert vios[0].reason == "vwap_executable"
+
+
+def test_realized_profit_capped_below_theoretical_on_low_entry():
+    trade = {
+        "shares": 5000.0,
+        "entry_vwap": 0.01,
+        "cost_usd": 50.0,
+        "violation_magnitude": 0.47,
+        "implied_bound": 0.48,
+        "capture_frac": 0.5,
+        "expected_profit_usd": 1175.0,
+    }
+    booked = realized_dependency_profit_usd(trade)
+    assert booked < trade["expected_profit_usd"]
+    assert booked == round(50.0 * 0.47 * 0.5, 6)
 
 
 def test_execute_disabled_does_not_book():

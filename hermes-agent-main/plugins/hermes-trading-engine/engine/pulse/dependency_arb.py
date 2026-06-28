@@ -14,6 +14,27 @@ from typing import Optional
 from engine.pulse.execution_gate import vwap_fill
 
 
+def realized_dependency_profit_usd(trade: dict) -> float:
+    """VWAP- and ROI-bounded paper profit for nested implication (not raw mid-gap × shares)."""
+    shares = float(trade.get("shares") or 0)
+    entry = float(trade.get("entry_vwap") or 0)
+    cost = float(trade.get("cost_usd") or 0)
+    mag = float(trade.get("violation_magnitude") or 0)
+    implied = float(trade.get("implied_bound") or (entry + mag))
+    cap_frac = float(trade.get("capture_frac") or 0.5)
+    expected = float(trade.get("expected_profit_usd") or 0)
+    if shares <= 0 or mag <= 0:
+        return 0.0
+    vwap_edge = max(0.0, implied - entry)
+    per_share = min(mag, vwap_edge) * cap_frac
+    raw = shares * per_share
+    roi_cap = cost * mag * cap_frac
+    capped = min(raw, roi_cap)
+    if expected > 0:
+        capped = min(capped, expected)
+    return round(max(0.0, capped), 6)
+
+
 @dataclass
 class DependencyViolation:
     """A detected LCMM constraint violation (may or may not be executable)."""
@@ -217,6 +238,7 @@ def try_execute_nested_implication(
     if expected <= 0:
         return _ret(None, "zero_expected_profit")
     entry_mode = "dependency_bregman" if bregman_authority else "lcmm_nested"
+    implied_bound = float(violation.implied_bound or violation.child_up_mids[0])
     trade = {
         "constraint_type": violation.constraint_type,
         "parent_window_key": str(parent.event_id),
@@ -227,11 +249,15 @@ def try_execute_nested_implication(
         "cost_usd": round(spent, 4),
         "entry_vwap": round(vwap, 6),
         "expected_profit_usd": expected,
+        "theoretical_profit_usd": expected,
+        "capture_frac": float(capture_frac),
+        "implied_bound": round(implied_bound, 6),
         "close_ts": float(parent.close_ts),
         "violation_magnitude": violation.violation_magnitude,
         "reason": entry_mode,
         "bregman_projection_distance": (bregman_diag or {}).get("projection_distance"),
     }
+    trade["booked_profit_usd"] = realized_dependency_profit_usd(trade)
     return _ret(trade, "ok")
 
 
@@ -288,7 +314,9 @@ class DependencyArbLedger:
         for pk, p in list(self.positions.items()):
             if p.get("status") == "open" and now >= float(p.get("close_ts") or 0):
                 p["status"] = "settled"
-                profit = float(p.get("expected_profit_usd") or 0.0)
+                profit = realized_dependency_profit_usd(p)
+                p["realized_profit_usd"] = profit
+                p.setdefault("theoretical_profit_usd", p.get("expected_profit_usd"))
                 self.realized_profit_usd = round(self.realized_profit_usd + profit, 6)
                 self.settled += 1
                 n += 1

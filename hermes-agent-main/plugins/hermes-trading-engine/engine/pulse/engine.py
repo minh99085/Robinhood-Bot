@@ -1108,6 +1108,7 @@ class PulseEngine:
             sharpe_min_samples=int(self.cfg.stop_sharpe_min_samples)))
         from engine.pulse.clob_feed import ClobBookFeed
         self.clob_feed = ClobBookFeed(websocket_enabled=bool(self.cfg.clob_websocket_enabled))
+        self._wire_clob_feed_metrics()
         from engine.pulse.selectivity import SelectivityEvidence, LearnedSelectivityGate
         self.selectivity_evidence = SelectivityEvidence()
         self.selectivity_gate = LearnedSelectivityGate(
@@ -4399,6 +4400,22 @@ class PulseEngine:
         """True when direction=up bucket clears Wilson LB promotion (n>=min, PnL>0)."""
         return self._research_exploit_backed("direction", "up")
 
+    def _wire_clob_feed_metrics(self) -> None:
+        """Record REST book fetch latency on the CLOB feed dashboard."""
+        feed = getattr(self, "clob_feed", None)
+        mkt = getattr(self, "market", None)
+        if feed is None or mkt is None:
+            return
+
+        def _on_fetch(token_id: str, elapsed_ms: float) -> None:
+            feed.record_fetch(token_id, elapsed_ms)
+
+        if hasattr(mkt, "_feeds"):
+            for sub in mkt._feeds.values():
+                sub.on_book_fetch = _on_fetch
+        elif hasattr(mkt, "fetch_book"):
+            mkt.on_book_fetch = _on_fetch
+
     def _walk_forward_status(self) -> dict:
         try:
             from engine.pulse.walk_forward import passes_walk_forward
@@ -4420,23 +4437,33 @@ class PulseEngine:
         dep_pnl = float((self.dep_arb_ledger.realized_profit_usd
                          if self.dep_arb_ledger else 0.0) or 0.0)
         total = arb_pnl + dir_pnl + dep_pnl
+        risk_free = arb_pnl + dep_pnl
         ratio = (total / baseline_total) if baseline_total > 0 else None
         target = 5.0
-        proven = bool(ratio is not None and ratio >= target and arb_pnl >= total * 0.9)
+        proven = bool(ratio is not None and ratio >= target and risk_free >= total * 0.9)
         blockers = []
         if ratio is None or ratio < target:
             blockers.append("total_pnl_below_5x_baseline")
-        if total > 0 and arb_pnl < total * 0.9:
-            blockers.append("arb_not_dominant_source")
-        if self.arb_ledger is not None and self.arb_ledger.executed < 8:
-            blockers.append("insufficient_arb_sample")
+        if total > 0 and risk_free < total * 0.9:
+            blockers.append("risk_free_not_dominant_source")
+        arb_n = int(self.arb_ledger.executed if self.arb_ledger else 0)
+        dep_n = int(self.dep_arb_ledger.executed if self.dep_arb_ledger else 0)
+        if arb_n + dep_n < 8:
+            blockers.append("insufficient_risk_free_sample")
+        sources = (
+            ("dependency_arbitrage", dep_pnl),
+            ("arbitrage", arb_pnl),
+            ("directional", dir_pnl),
+        )
+        primary = max(sources, key=lambda x: x[1])[0] if total > 0 else self.cfg.primary_edge_source
         return {"five_x_target": target, "baseline_total_pnl_usd": baseline_total,
                 "current_total_pnl_usd": round(total, 4),
                 "arb_pnl_usd": round(arb_pnl, 4), "directional_pnl_usd": round(dir_pnl, 4),
                 "dependency_arb_pnl_usd": round(dep_pnl, 4),
+                "risk_free_pnl_usd": round(risk_free, 4),
                 "improvement_ratio": (round(ratio, 4) if ratio is not None else None),
                 "five_x_improvement_status": ("proven" if proven else "not_proven_yet"),
-                "primary_edge_source": self.cfg.primary_edge_source,
+                "primary_edge_source": primary,
                 "top_blockers": blockers[:3]}
 
     def _directional_market_benchmark_ok(self) -> bool:
@@ -4557,20 +4584,27 @@ class PulseEngine:
         # risk-free arbitrage P&L is SEGREGATED in stats but is real paper profit, so add it to the
         # TOTAL alpha the operator sees (directional vs arb stay separately reported).
         arb_pnl = float((self.arb_ledger.realized_profit_usd if self.arb_ledger is not None else 0.0) or 0.0)
-        total_realized = realized + arb_pnl
+        dep_pnl = float((self.dep_arb_ledger.realized_profit_usd
+                         if self.dep_arb_ledger is not None else 0.0) or 0.0)
+        total_realized = realized + arb_pnl + dep_pnl
+        risk_free_pnl = arb_pnl + dep_pnl
         dir_cap = round(start * float(self.cfg.directional_max_bankroll_frac), 2)
+        sources = (("dependency_arbitrage", dep_pnl), ("arbitrage", arb_pnl), ("directional", realized))
+        primary = max(sources, key=lambda x: x[1])[0] if total_realized > 0 else self.cfg.primary_edge_source
         return {"paper_only": True, "starting_capital_usd": round(start, 2),
                 "realized_pnl_usd": round(realized, 2),
                 "on_hand_capital_usd": round(on_hand, 2),
                 "return_pct": (round(realized / start * 100, 2) if start else None),
                 "arb_realized_pnl_usd": round(arb_pnl, 2),
+                "dependency_arb_realized_pnl_usd": round(dep_pnl, 2),
+                "risk_free_realized_pnl_usd": round(risk_free_pnl, 2),
                 "total_realized_pnl_usd": round(total_realized, 2),
                 "total_on_hand_usd": round(start + total_realized, 2),
                 "total_return_pct": (round(total_realized / start * 100, 2) if start else None),
                 "open_exposure_usd": round(open_exposure, 2),
                 "directional_bankroll_cap_usd": dir_cap,
                 "directional_cap_remaining_usd": round(max(0.0, dir_cap - open_exposure), 2),
-                "primary_edge_source": self.cfg.primary_edge_source,
+                "primary_edge_source": primary,
                 "open_positions": ls.get("open_positions")}
 
     def _grok_decider_report(self) -> dict:

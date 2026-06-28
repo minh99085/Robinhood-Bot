@@ -123,9 +123,10 @@ class PulseMarketFeed:
 
     def __init__(self, *, timeout_s: float = 8.0, series_slug: str = SERIES_SLUG_5M,
                  window_seconds: Optional[int] = None, lookahead_s: Optional[float] = None,
-                 http_get=None):
+                 http_get=None, on_book_fetch=None):
         self.timeout_s = float(timeout_s)
         self.series_slug = series_slug
+        self.on_book_fetch = on_book_fetch
         defaults = SERIES_DEFAULTS.get(series_slug, {})
         self.window_seconds = int(window_seconds or defaults.get("window_seconds") or WINDOW_SECONDS)
         self.lookahead_s = float(lookahead_s if lookahead_s is not None
@@ -242,7 +243,15 @@ class PulseMarketFeed:
 
     def fetch_book(self, token_id: str) -> Optional[OrderBook]:
         """Top-of-book + shallow depth for one token (read-only)."""
+        t0 = time.perf_counter()
         status, data = self._http(f"{CLOB}/book", {"token_id": token_id})
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        cb = getattr(self, "on_book_fetch", None)
+        if cb is not None:
+            try:
+                cb(token_id, elapsed_ms)
+            except Exception:
+                pass
         if status != 200 or not isinstance(data, dict):
             return None
         bids = data.get("bids") or []
