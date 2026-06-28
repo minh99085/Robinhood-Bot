@@ -22,7 +22,8 @@ Read before any env, gate, deploy, or babysit cycle that alters behavior.
 - `GROK_PREDICTOR_MAX_CALLS_PER_HOUR=60`
 - `GROK_ANALYST_MAX_CALLS_PER_HOUR=4`
 - `PULSE_GROK_DECIDER_USE_SEARCH=1` (deep tier only — code default)
-- `PULSE_RESEARCH_LOOP_ENABLED=1` with `PULSE_RESEARCH_AUTO_APPLY=0`
+- `PULSE_RESEARCH_LOOP_ENABLED=1` with `PULSE_RESEARCH_AUTO_APPLY=1` (evidence-backed adjust ON)
+- `PULSE_LEARNING_ENABLED=1` (blend when model beats market)
 - `PULSE_VERIFIER_ENABLED=1`
 
 ## TradingView (untouchable — observe-only lock)
@@ -49,11 +50,10 @@ All keys in `scripts/pulse-babysit/frozen-env-keys.json` → `authority_frozen` 
 
 1. Enable Grok follow or raise explore rates
 2. Re-enable any TV trade gate
-3. `sync-vps` / deploy without operator ask during hands-off window
-4. Relax or tighten quant gates on WR/PF alone while bot is profitable
-5. Enable live trading
-6. Raise Grok budget above $35 without evidence of starvation
-7. `PULSE_RESEARCH_AUTO_APPLY=1`
+3. Relax or tighten quant gates on WR/PF alone while bot is profitable (except babysit **trade_starvation**)
+4. Enable live trading
+5. Raise Grok budget above $35 without evidence of starvation
+6. Disable `PULSE_RESEARCH_AUTO_APPLY` without operator ask
 
 ## Watch only (do not "fix")
 

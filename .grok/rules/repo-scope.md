@@ -8,13 +8,17 @@ Never commit or push to `hermes-agent-cursor` unless the operator explicitly say
 
 Read **`.grok/rules/destructive-change-guard.md`** before any delete/remove/disable that could damage the bot. **Warn the operator and get explicit confirmation before executing** — no commit, push, or deploy until they say proceed.
 
-## Hands-off observation window (operator lock — 2026-06-28)
+## Self-improve closed loop (operator ON — 2026-06-28)
 
-When `scripts/pulse-babysit/state.json` has `phase: hands_off` and `now < hands_off_until`:
+When `scripts/pulse-babysit/state.json` has `babysit_autopilot: true` and `phase` is not `hands_off`:
 
-- **Do NOT** run babysit cycles, deploy, sync-vps, env/gate changes, or any bot behavior tweaks.
-- **Read** `.grok/rules/hands-off-untouchable.md` — profitable-bot untouchables (money path, Trinity Grok, TV observe-only, frozen gates).
-- **Baseline** for 24h compare: `baseline_at_hands_off` in state.json (103 trades, $584.91, 61.2% WR).
+- **Run** babysit cycles on schedule — soak → pull → eval → fix → deploy.
+- **Read** `.grok/rules/self-improve-loop.md` — adjust layer (`PULSE_RESEARCH_AUTO_APPLY=1`, learning ON).
+- **Read** `.grok/rules/hands-off-untouchable.md` — profitable-bot untouchables (Grok shadow, TV observe-only, no live).
+
+If `phase: hands_off` and `now < hands_off_until`: pause all cycles/deploys; respect untouchables only.
+
+**Baseline** for compare: `baseline_at_hands_off` in state.json (103 trades, $584.91, 61.2% WR).
 
 ## VPS deploy — MANDATORY after every push to `main` (except hands_off)
 

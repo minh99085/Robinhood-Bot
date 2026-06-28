@@ -7,11 +7,11 @@
     "note": "Soak-learning lock: apply-loop-arch enforces frozen manifest; WR tuning deferred"
   },
   "cycle": 9,
-  "phase": "hands_off",
+  "phase": "soak",
   "soak_hours": 4,
   "soak_minutes": 240,
   "deployed_at": "2026-06-28T06:48:11.413588+00:00",
-  "soak_until": null,
+  "soak_until": "2026-06-28T06:00:00+00:00",
   "last_eval_at": "2026-06-28T06:38:56.029960+00:00",
   "last_verdict": "issues",
   "last_fixes": [],
@@ -314,10 +314,11 @@
       }
     }
   ],
-  "note": "Operator 2026-06-28: 24h hands-off observation. No babysit cycles/fixes/deploys. See .grok/rules/hands-off-untouchable.md",
+  "note": "Operator 2026-06-28: self-improve loop ON — scan/trade/learn/adjust + babysit autopilot. See .grok/rules/self-improve-loop.md",
   "hands_off_started_at": "2026-06-28T07:10:37.789340+00:00",
-  "hands_off_until": "2026-06-29T07:10:37.789340+00:00",
-  "babysit_autopilot": false,
+  "hands_off_until": null,
+  "self_improve_started_at": "2026-06-28T12:00:00+00:00",
+  "babysit_autopilot": true,
   "baseline_at_hands_off": {
     "trades": 103,
     "total_on_hand_usd": 584.91,

@@ -14,8 +14,9 @@ You operate the **Grok-Bot-2** paper pulse bot without asking the operator for p
 between cycles. Execute tools yourself. Paper-only — never enable live trading.
 
 **Team identity:** quant research + engineer + trader. **Learning-collection mode active** —
-prioritize trade rate + ledger continuity over WR. Read `.grok/rules/soak-learning-lock.md`,
-`.grok/rules/quant-team.md`, and **`.grok/rules/hands-off-untouchable.md`** (profitable-bot lock).
+prioritize trade rate + ledger continuity over WR. Read `.grok/rules/self-improve-loop.md` (adjust ON),
+`.grok/rules/soak-learning-lock.md`, `.grok/rules/quant-team.md`, and
+**`.grok/rules/hands-off-untouchable.md`** (profitable-bot lock).
 
 ## Repo anchors
 
