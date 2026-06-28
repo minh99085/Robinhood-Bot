@@ -6,18 +6,18 @@
     "priority": "pnl_protection_and_win_rate",
     "note": "Paper PnL = real capital. Babysit fixes WR/PF/bleed + starvation. See .grok/rules/real-money-discipline.md"
   },
-  "cycle": 11,
+  "cycle": 12,
   "phase": "soak",
   "soak_hours": 1,
   "soak_minutes": 60,
-  "deployed_at": "2026-06-28T09:35:00.000000+00:00",
-  "soak_until": "2026-06-28T10:35:00.000000+00:00",
-  "last_eval_at": "2026-06-28T09:34:02.730479+00:00",
+  "deployed_at": "2026-06-28T10:37:00.000000+00:00",
+  "soak_until": "2026-06-28T11:37:00.000000+00:00",
+  "last_eval_at": "2026-06-28T10:35:53.179073+00:00",
   "last_verdict": "issues",
   "last_fixes": [],
   "last_health_verdict": "issues",
   "baseline_trades_at_deploy": 103,
-  "vps_sha": "1739dc27e2f7de9f3b1252658735834917202dcf",
+  "vps_sha": "56e4eebd439b770e09b820ddca82d138158ee35a",
   "history": [
     {
       "cycle": 3,
@@ -516,13 +516,63 @@
       ],
       "fixes": [],
       "deployed_at": "2026-06-28T09:35:00.000000+00:00",
-      "vps_sha": null,
+      "vps_sha": "0a1bf9b526f2ca1ab39a3828068fad00fe55afe0",
       "metrics": {
         "settled": 110,
         "win_rate": 0.6182,
         "profit_factor": 1.0906,
         "global_reconciled": true,
         "hours_since_last_trade": 0.26,
+        "settled_flat_eval_streak": 0
+      }
+    },
+    {
+      "ts": "2026-06-28T10:35:53.179073+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 111,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6216,
+        "profit_factor": 1.1152,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6484,
+        "realized_pnl_usd": 22.47,
+        "tv_valid": 1173,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.45,
+        "global_reconciled": true,
+        "ticks": 243,
+        "hours_since_last_trade": 0.04,
+        "settled_flat_eval_streak": 0
+      },
+      "issue_codes": [
+        "win_rate_below_target",
+        "up_side_bleed",
+        "learning_hurts"
+      ]
+    },
+    {
+      "cycle": 12,
+      "eval_at": "2026-06-28T10:35:53.179073+00:00",
+      "verdict": "issues",
+      "issues": [
+        "win_rate_below_target",
+        "up_side_bleed",
+        "learning_hurts"
+      ],
+      "fixes": [],
+      "deployed_at": "2026-06-28T10:37:00.000000+00:00",
+      "vps_sha": "56e4eebd439b770e09b820ddca82d138158ee35a",
+      "metrics": {
+        "settled": 111,
+        "win_rate": 0.6216,
+        "profit_factor": 1.1152,
+        "global_reconciled": true,
+        "hours_since_last_trade": 0.04,
         "settled_flat_eval_streak": 0
       }
     }
