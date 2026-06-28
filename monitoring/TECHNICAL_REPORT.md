@@ -1,18 +1,18 @@
 # BTC Pulse — Technical Report (plain English)
 
-_Updated: 2026-06-28 16:59:34 UTC_
+_Updated: 2026-06-28 17:07:14 UTC_
 
 ## At a glance
 
 | | |
 |---|---|
-| **Overall grade** | **C+** (76.8/100) — Mixed — some systems fine, others need attention. |
+| **Overall grade** | **C+** (76.9/100) — Mixed — some systems fine, others need attention. |
 | Trading performance | C+ (78.5/100) |
 | Engine operation | B+ (88.5/100) |
 | External signals | F (47.0/100) |
-| Technical runtime | B+ (85.3/100) |
+| Technical runtime | B+ (85.9/100) |
 | Settled trades | 125 |
-| Engine ticks | 706 |
+| Engine ticks | 19 |
 
 ## Executive summary
 
@@ -24,7 +24,7 @@ The bot is **running safely with solid technical runtime**, but **trading result
 |---|---|
 | Mode | Paper only |
 | Starting capital | $500.00 |
-| Total on hand | $640.64 (28.1% return) |
+| Total on hand | $640.65 (28.1% return) |
 | Directional PnL | $43.22 |
 | Arb PnL | $59.73 |
 | Win rate | 63.2% (125 settled) |
@@ -34,33 +34,32 @@ The bot is **running safely with solid technical runtime**, but **trading result
 
 ## Infrastructure & data health
 
-- **Oracle (RTDS):** Connected; fresh (age 0.04s).
-- **TradingView:** 1531 valid alerts of 1550 received; observe-only=yes; MTF verdict: `confirmed_down_mtf`.
-- **Entry config:** tick 15.0s, max price 0.62, min edge 0.008, min R:R 0.45, 15m TTC band [450.0, 720.0]s, green path=on.
+- **Oracle (RTDS):** Connected; fresh (age 0.13s).
+- **TradingView:** 1540 valid alerts of 1559 received; observe-only=yes; MTF verdict: `confirmed_down_mtf`.
+- **Entry config:** tick 15.0s, max price 0.6, min edge 0.008, min R:R 0.45, 15m TTC band [450.0, 720.0]s, green path=on.
 
 ## What's dragging the score
 
 - **Trading performance** (C+): weakest — Win rate (46), Profit factor (63), DOWN vs UP balance (75).
 - **Operation** (B+): weakest — Promotion readiness (40), Grok/decider errors (83), Ledger reconciliation (100).
 - **External signals** (F): weakest — Grok direction accuracy (0), TV signal hit rate (0), CEX lead proven (40).
-- **Technical runtime**: watch — Gate funnel balance (60), Design manifest match (70).
+- **Technical runtime**: watch — Gate funnel balance (68), Design manifest match (70).
 
 ## Where candidates get blocked (top gates)
 
-- `directional`: 34,731
-- `baseline_cohort_gate`: 3,634
+- `directional`: 34,741
+- `baseline_cohort_gate`: 3,637
 - `grok_decider`: 3,540
 - `directional_allowlist`: 1,364
 - `context_gate`: 879
 
 ## Why recent windows didn't trade
 
-- `directional_series_not_allowed`: 6 recent eval(s)
-- `edge_below_min`: 6 recent eval(s)
+- `directional_series_not_allowed`: 12 recent eval(s)
 
 ## Design vs deployed (drift)
 
-- **Max entry price** — running `0.62`, design expects `0.7`
+- **Max entry price** — running `0.6`, design expects `0.7`
 - **Minimum edge** — running `0.008`, design expects `0.015`
 - **Minimum reward/risk** — running `0.45`, design expects `0.55`
 

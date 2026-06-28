@@ -1,6 +1,6 @@
 # Bot cycle summary (plain English)
 
-_Updated: 2026-06-28 17:01 UTC_
+_Updated: 2026-06-28 17:07 UTC_
 
 ## Last cycle
 
@@ -22,7 +22,7 @@ _Updated: 2026-06-28 17:01 UTC_
 |---|---|
 | **Mode** | Paper only (fake money) |
 | **Started with** | $500.00 |
-| **Total now** | $640.64 (28.13% return) |
+| **Total now** | $640.65 (28.13% return) |
 | **Arb profit** | $59.73 (7 trades) |
 | **Directional profit** | $43.22 |
 | **Win rate** | 63.2% (125 settled trades) |
@@ -40,7 +40,7 @@ _Updated: 2026-06-28 17:01 UTC_
 
 ### TradingView (INDEX:BTCUSD)
 
-- Alerts received: **1531**
+- Alerts received: **1540**
 - 5-chart trend: **confirmed_down_3tf** (3/3 fresh)
 
 ## Quick verdict

@@ -1,16 +1,16 @@
 # Technical Data Grades
 
-**Generated:** 2026-06-28T16:59:34.856739+00:00  
-**Repo SHA:** `25ae119a924c`  
-**Ticks:** 706 | **Settled:** 125
+**Generated:** 2026-06-28T17:07:14.774641+00:00  
+**Repo SHA:** `26daf5701019`  
+**Ticks:** 19 | **Settled:** 125
 
 ## Composite
 
 | Metric | Score | Grade |
 |--------|------:|-------|
-| **Composite** | **76.8** | **C+** |
+| **Composite** | **76.9** | **C+** |
 | Report overall | 73.1 | C |
-| Technical runtime | 85.3 | B+ |
+| Technical runtime | 85.9 | B+ |
 
 ## Report scores (engine)
 
@@ -26,19 +26,19 @@ _RTDS/oracle health, TV observe-only intake, design manifest compliance, pipelin
 
 | Component | Score | Weight |
 |-----------|------:|-------:|
-| rtds_health | 94.0 | 20 |
+| rtds_health | 100.0 | 20 |
 | tv_intake | 99.9 | 20 |
 | design_compliance | 70.0 | 25 |
-| trade_pipeline | 100.0 | 20 |
-| gate_coupling | 60.4 | 15 |
+| trade_pipeline | 91.0 | 20 |
+| gate_coupling | 67.8 | 15 |
 
-### Rtds Health (94.0)
+### Rtds Health (100.0)
 
 | Component | Score | Weight |
 |-----------|------:|-------:|
 | connected | 100.0 | 35 |
 | oracle_fresh | 100.0 | 30 |
-| stability | 70.0 | 20 |
+| stability | 100.0 | 20 |
 | price_feed | 100.0 | 15 |
 
 ### Tv Intake (99.9)
@@ -66,7 +66,7 @@ _RTDS/oracle health, TV observe-only intake, design manifest compliance, pipelin
 | cohort_relaxed | 100.0 | 10 |
 | tv_trade_gates_off | 0.0 | 20 |
 
-### Trade Pipeline (100.0)
+### Trade Pipeline (91.0)
 
 | Component | Score | Weight |
 |-----------|------:|-------:|
@@ -75,17 +75,17 @@ _RTDS/oracle health, TV observe-only intake, design manifest compliance, pipelin
 | execution_gate | 100.0 | 20 |
 | recon_checks | 100.0 | 15 |
 | not_halted | 100.0 | 10 |
-| uptime_ticks | 100.0 | 10 |
+| uptime_ticks | 9.5 | 10 |
 
-### Gate Coupling (60.4)
+### Gate Coupling (67.8)
 
 | Component | Score | Weight |
 |-----------|------:|-------:|
 | lifecycle_funnel | 37.5 | 25 |
-| exec_pass_rate | 88.7 | 25 |
+| exec_pass_rate | 89.1 | 25 |
 | reject_diversity | 69.3 | 20 |
-| cohort_session_load | 25.0 | 15 |
-| recent_eval_spread | 75.0 | 15 |
+| cohort_session_load | 98.5 | 15 |
+| recent_eval_spread | 50.0 | 15 |
 
 ## VPS score history (last entries)
 

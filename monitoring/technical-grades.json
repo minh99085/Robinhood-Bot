@@ -1,8 +1,8 @@
 {
   "schema": "technical_grades/1.0",
-  "ts_utc": "2026-06-28T16:59:34.856739+00:00",
-  "repo_sha": "25ae119a924c",
-  "ticks": 706,
+  "ts_utc": "2026-06-28T17:07:14.774641+00:00",
+  "repo_sha": "26daf5701019",
+  "ticks": 19,
   "settled": 125,
   "report_scores": {
     "schema": "btc_pulse_report_scores/1.0",
@@ -133,13 +133,13 @@
     }
   },
   "technical_runtime": {
-    "score": 85.3,
+    "score": 85.9,
     "grade": "B+",
     "components": {
       "rtds_health": {
-        "score": 94.0,
+        "score": 100.0,
         "weight": 20,
-        "contribution": 18.8
+        "contribution": 20.0
       },
       "tv_intake": {
         "score": 99.9,
@@ -152,19 +152,19 @@
         "contribution": 17.5
       },
       "trade_pipeline": {
-        "score": 100.0,
+        "score": 91.0,
         "weight": 20,
-        "contribution": 20.0
+        "contribution": 18.2
       },
       "gate_coupling": {
-        "score": 60.4,
+        "score": 67.8,
         "weight": 15,
-        "contribution": 9.1
+        "contribution": 10.2
       }
     },
     "subscores": {
       "rtds_health": {
-        "score": 94.0,
+        "score": 100.0,
         "components": {
           "connected": {
             "score": 100.0,
@@ -177,9 +177,9 @@
             "contribution": 30.0
           },
           "stability": {
-            "score": 70.0,
+            "score": 100.0,
             "weight": 20,
-            "contribution": 14.0
+            "contribution": 20.0
           },
           "price_feed": {
             "score": 100.0,
@@ -274,7 +274,7 @@
         }
       },
       "trade_pipeline": {
-        "score": 100.0,
+        "score": 91.0,
         "components": {
           "accounting_integrity": {
             "score": 100.0,
@@ -302,14 +302,14 @@
             "contribution": 10.0
           },
           "uptime_ticks": {
-            "score": 100.0,
+            "score": 9.5,
             "weight": 10,
-            "contribution": 10.0
+            "contribution": 0.9
           }
         }
       },
       "gate_coupling": {
-        "score": 60.4,
+        "score": 67.8,
         "components": {
           "lifecycle_funnel": {
             "score": 37.5,
@@ -317,9 +317,9 @@
             "contribution": 9.4
           },
           "exec_pass_rate": {
-            "score": 88.7,
+            "score": 89.1,
             "weight": 25,
-            "contribution": 22.2
+            "contribution": 22.3
           },
           "reject_diversity": {
             "score": 69.3,
@@ -327,14 +327,14 @@
             "contribution": 13.9
           },
           "cohort_session_load": {
-            "score": 25.0,
+            "score": 98.5,
             "weight": 15,
-            "contribution": 3.8
+            "contribution": 14.8
           },
           "recent_eval_spread": {
-            "score": 75.0,
+            "score": 50.0,
             "weight": 15,
-            "contribution": 11.2
+            "contribution": 7.5
           }
         }
       }
@@ -342,7 +342,7 @@
     "note": "RTDS/oracle health, TV observe-only intake, design manifest compliance, pipeline integrity, gate coupling."
   },
   "composite": {
-    "score": 76.8,
+    "score": 76.9,
     "grade": "C+",
     "weights": {
       "report_overall": 0.7,
