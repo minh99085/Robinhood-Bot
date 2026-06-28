@@ -180,6 +180,21 @@ def test_unsupported_symbol_rejected():
     assert code == 400 and body["reason"] == UNSUPPORTED_SYMBOL
 
 
+def test_scrub_legacy_mtf_and_unsupported_rejects(tmp_path):
+    intake = _intake(tmp_path)
+    now = 1_000_000.0
+    intake.ingest(_alert(timeframe="2", event_id="e2"), now=now)
+    intake.ingest(_alert(timeframe="5", event_id="e5"), now=now + 1)
+    intake.latest_by_tf[("BTCUSD", "5")] = intake.latest_by_tf.get(("BTCUSD", "2"))
+    intake.reject_reasons[UNSUPPORTED_SYMBOL] = 17
+    intake.rejected = 19
+    intake._scrub_legacy_reject_stats()
+    intake._canonicalize_storage()
+    assert ("BTCUSD", "5") not in intake.latest_by_tf
+    assert UNSUPPORTED_SYMBOL not in intake.reject_reasons
+    assert intake.rejected == 2
+
+
 def test_btc_exchange_prefix_symbols_accepted():
     intake = _intake()
     for sym in ("BITSTAMP:BTCUSD", "COINBASE:BTCUSD", "BTC/USD"):

@@ -37,6 +37,8 @@ DUPLICATE_EVENT_ID = "duplicate_event_id"
 NOT_OBJECT = "payload_not_object"
 REJECT_REASONS = (INVALID_JSON, MISSING_SECRET, BAD_SECRET, WRONG_BOT, UNSUPPORTED_SYMBOL,
                   STALE_TIMESTAMP, MALFORMED_DIRECTION, DUPLICATE_EVENT_ID, NOT_OBJECT)
+# Retired chart timeframes (pre-2m/3m/4m MTF); stripped from persisted snapshots on load.
+LEGACY_MTF_TFS = frozenset({"5", "10", "15"})
 
 _DIRECTION_MAP = {
     "up": "UP", "long": "UP", "buy": "UP", "bull": "UP", "bullish": "UP", "1": "UP",
@@ -976,13 +978,28 @@ class TradingViewIntake:
             prev = merged_tf.get(key)
             if prev is None or float(pair[1]) >= float(prev[1]):
                 merged_tf[key] = pair
-        self.latest_by_tf = merged_tf
+        self.latest_by_tf = {
+            k: v for k, v in merged_tf.items()
+            if str(k[1]) not in LEGACY_MTF_TFS
+        }
 
         if self.latest is not None:
             canon = self._storage_symbol(self.latest.symbol)
             cur = self.latest_by_symbol.get(canon)
             if cur is None or float(self.latest.received_at or 0) >= float(cur.received_at or 0):
                 self.latest_by_symbol[canon] = self.latest
+
+    def _scrub_legacy_reject_stats(self) -> bool:
+        """Remove lifetime unsupported_symbol rejects from old 5/10/15m chart noise."""
+        changed = False
+        n = int(self.reject_reasons.pop(UNSUPPORTED_SYMBOL, 0) or 0)
+        if n:
+            self.rejected = max(0, int(self.rejected) - n)
+            changed = True
+        if self._last_reject_reason == UNSUPPORTED_SYMBOL:
+            self._last_reject_reason = None
+            changed = True
+        return changed
 
     # -- validation (pure given inputs) ------------------------------------- #
     def _check_secret(self, payload: dict, provided_header: Optional[str]) -> Optional[str]:
@@ -1389,6 +1406,9 @@ class TradingViewIntake:
             ev = _event_from_dict(row.get("ev"))
             if ev is not None:
                 self.latest_by_tf[(row.get("symbol"), str(row.get("tf")))] = (ev, float(row.get("ts") or 0.0))
+        had_legacy_tf = any(str(k[1]) in LEGACY_MTF_TFS for k in self.latest_by_tf)
+        had_unsup = UNSUPPORTED_SYMBOL in self.reject_reasons
         self._canonicalize_storage()
-        if self.latest_by_symbol or self.valid_by_symbol:
+        scrubbed = self._scrub_legacy_reject_stats()
+        if had_legacy_tf or had_unsup or scrubbed:
             self._persist_locked()
