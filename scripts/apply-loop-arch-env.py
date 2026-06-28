@@ -20,6 +20,9 @@ if not ENV_PATH.exists():
 # re-enabled in babysit/autopilot fixes. See .grok/rules/tv-observe-only-lock.md
 
 UPDATES = {
+    # Dashboard identity + mirror TV to Bot 1 for A/B (observe-only duplicate POST).
+    "PULSE_DASHBOARD_BOT_LABEL": "Bot 2",
+    "TRADINGVIEW_WEBHOOK_MIRROR_URL": "http://45.32.227.242/webhooks/tradingview",
     # Grok observe-only: decide + grade every window, never place/size a trade.
     "PULSE_GROK_DECIDER_MODE": "shadow",
     "PULSE_GROK_DECIDER_FOLLOW_FRACTION": "0",

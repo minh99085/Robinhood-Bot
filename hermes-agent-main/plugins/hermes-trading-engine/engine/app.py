@@ -8,6 +8,7 @@ separate ``scripts/run_btc_pulse.py`` process.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -112,6 +113,30 @@ def _tv_webhook_upstream() -> str:
             or "http://hermes-training:8787").rstrip("/")
 
 
+async def _mirror_tv_webhook(body: bytes, headers: dict[str, str]) -> None:
+    """Optional duplicate POST to a paired bot (A/B TV feed without extra TradingView alerts)."""
+    mirror = (os.getenv("TRADINGVIEW_WEBHOOK_MIRROR_URL") or "").strip()
+    if not mirror:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            await client.post(mirror, content=body, headers=headers)
+    except httpx.HTTPError as exc:
+        logger.warning("tradingview webhook mirror failed url=%s err=%s", mirror, exc)
+
+
+def _dashboard_html() -> str:
+    label = (os.getenv("PULSE_DASHBOARD_BOT_LABEL") or "").strip()
+    if not label:
+        return _DASHBOARD_HTML
+    badge = f'<span class="tag live">{label}</span>'
+    return _DASHBOARD_HTML.replace(
+        '<span class="tag">Paper only</span>',
+        f"{badge}<span class=\"tag\">Paper only</span>",
+        1,
+    )
+
+
 @app.post(_tv_webhook_path())
 async def tradingview_webhook_proxy(request: Request) -> Response:
     """Proxy TradingView alerts to the pulse loop webhook on port 80.
@@ -125,6 +150,7 @@ async def tradingview_webhook_proxy(request: Request) -> Response:
         val = request.headers.get(name)
         if val:
             headers[name] = val
+    asyncio.create_task(_mirror_tv_webhook(body, dict(headers)))
     url = f"{_tv_webhook_upstream()}{_tv_webhook_path()}"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -150,5 +176,5 @@ async def tradingview_webhook_proxy(request: Request) -> Response:
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard() -> HTMLResponse:
     """Read-only live dashboard for the BTC pulse paper engine (5m + 15m)."""
-    return HTMLResponse(_DASHBOARD_HTML)
+    return HTMLResponse(_dashboard_html())
 
