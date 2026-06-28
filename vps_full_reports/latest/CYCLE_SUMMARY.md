@@ -1,20 +1,18 @@
 # Bot cycle summary (plain English)
 
-_Updated: 2026-06-28 06:38 UTC_
+_Updated: 2026-06-28 07:56 UTC_
 
 ## Last cycle
 
 | | |
 |---|---|
 | **Cycle #** | 9 |
-| **Checked at** | 2026-06-28 06:38 UTC |
-| **Result** | **issues** (deferred) |
-| **What it means** | WR/UP-bleed flagged but deferred in learning-collection mode; bot trading normally (+3 trades this soak). |
-| **Next check after** | 2026-06-28 08:38 UTC |
+| **Checked at** | 2026-06-28 07:56 UTC |
+| **Result** | **blocked** |
+| **What it means** | Stopped — serious problem found. Check issues below. |
+| **Next check after** | 2026-06-28 07:50 UTC |
 
-**Issues flagged (deferred):** win_rate_below_target, up_side_bleed
-
-**Fixes applied:** none
+**Issues flagged:** trade_starvation_streak
 
 ## How the bot is doing now
 
@@ -22,7 +20,7 @@ _Updated: 2026-06-28 06:38 UTC_
 |---|---|
 | **Mode** | Paper only (fake money) |
 | **Started with** | $500.00 |
-| **Total now** | $584.60 (16.92% return) |
+| **Total now** | $585.00 (17.0% return) |
 | **Arb profit** | $59.73 (7 trades) |
 | **Directional profit** | $2.71 |
 | **Win rate** | 61.2% (103 settled trades) |
@@ -40,14 +38,14 @@ _Updated: 2026-06-28 06:38 UTC_
 
 ### TradingView (INDEX:BTCUSD)
 
-- Alerts received: **949**
-- 5-chart trend: **conflict_3tf** (2/3 fresh)
+- Alerts received: **1027**
+- 5-chart trend: **confirmed_up_3tf** (3/3 fresh)
 
 ## Quick verdict
 
-**Good:** Making money on paper (+16.9%); Arbitrage is doing most of the work; Bot is running normally.
+**Good:** Making money on paper (+17.0%); Arbitrage is doing most of the work; Bot is running normally.
 
-**Watch:** UP trades still weak (coin-flip or worse); Cycle flagged UP-side losses.
+**Watch:** UP trades still weak (coin-flip or worse).
 
 ---
 
