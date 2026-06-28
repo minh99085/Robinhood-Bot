@@ -1,11 +1,11 @@
 {
   "schema": "timeline/1.0",
-  "ts_utc": "2026-06-28T04:36:21.099838+00:00",
+  "ts_utc": "2026-06-28T06:38:50.013428+00:00",
   "source": "local_latest",
-  "repo_sha": "203ec2d505f5",
-  "config_fingerprint": "3a6b61a1102bcf54",
+  "repo_sha": "b07c3923de17",
+  "config_fingerprint": "a1a1467d608d4c11",
   "runtime": {
-    "ticks": 483,
+    "ticks": 8,
     "status_age_s": null,
     "paper_only": true,
     "halted": false,
@@ -23,89 +23,85 @@
       690.0
     ],
     "tick_s": 15.0,
-    "max_price": 0.7,
-    "min_edge": 0.012,
-    "min_rr": 0.5,
+    "max_price": 0.75,
+    "min_edge": 0.01,
+    "min_rr": 0.45,
     "grok_mode": "shadow",
     "require_high_edge": false,
     "require_strong_cex": false
   },
   "tv": {
-    "alerts_valid": 835,
-    "alerts_rejected": 19,
-    "mtf_verdict": "confirmed_down_mtf",
-    "trend_fresh": 3,
+    "alerts_valid": 949,
+    "alerts_rejected": 2,
+    "mtf_verdict": "conflict_mtf",
+    "trend_fresh": 2,
     "mtf_count": 3,
     "signal_gate": false,
     "mtf_gate": false,
     "by_tf": {
       "2m": {
-        "dir": "DOWN",
-        "strength": 0.74,
-        "age_s": 8.7
+        "dir": "UP",
+        "strength": 0.42,
+        "age_s": 39.8
       },
       "3m": {
         "dir": "DOWN",
-        "strength": 0.71,
-        "age_s": 8.7
+        "strength": 0.42,
+        "age_s": 518.1
       },
       "4m": {
         "dir": "DOWN",
-        "strength": 0.46,
-        "age_s": 8.7
+        "strength": 0.42,
+        "age_s": 399.2
       }
     }
   },
   "oracle": {
-    "btc_usd": 60038.65086134846,
+    "btc_usd": 59876.48666696248,
     "source": "rtds_chainlink",
     "rtds_connected": true,
-    "oracle_age_s": 0.36
+    "oracle_age_s": 0.66
   },
   "ledger": {
-    "trades": 100,
-    "settled": 100,
-    "win_rate": 0.6,
-    "profit_factor": 0.9498,
-    "pnl_usd": -9.28,
-    "on_hand_usd": 490.72,
+    "trades": 103,
+    "settled": 103,
+    "win_rate": 0.6117,
+    "profit_factor": 1.0147,
+    "pnl_usd": 2.71,
+    "on_hand_usd": 502.71,
     "open_positions": 0
   },
   "funnel": {
     "top_rejects": {
-      "directional": 33262,
+      "directional": 33582,
       "grok_decider": 3540,
-      "baseline_cohort_gate": 3293,
+      "baseline_cohort_gate": 3336,
       "directional_allowlist": 1364,
       "context_gate": 879,
       "down_bias_gate": 538
     },
-    "cohort_session_blocks": 59,
-    "cohort_block_reasons": {
-      "baseline_cohort_ttc_too_early": 23,
-      "baseline_cohort_ttc_too_late": 34,
-      "baseline_cohort_edge_not_high": 2
-    },
-    "exec_candidates": 274,
-    "exec_accepted": 100,
-    "exec_rejected": 174
+    "cohort_session_blocks": 0,
+    "cohort_block_reasons": {},
+    "exec_candidates": 278,
+    "exec_accepted": 103,
+    "exec_rejected": 175
   },
   "grok_verifier": {
-    "decided": 636,
-    "abstains": 488,
-    "errors": 2,
-    "verifier_approvals": 103,
-    "verifier_vetoes": 390
+    "decided": 669,
+    "abstains": 495,
+    "errors": 14,
+    "verifier_approvals": 110,
+    "verifier_vetoes": 398
   },
   "recent_evals": {
     "directional_series_not_allowed": 6,
-    "no_tradeable_ask": 6
+    "edge_below_min": 6
   },
   "by_series": {
     "15m": {
-      "settled": 33,
-      "win_rate": 0.5455,
-      "pnl_usd": -9.4696
+      "settled": 36,
+      "win_rate": 0.5833,
+      "pnl_usd": 2.5255
     },
     "5m": {
       "settled": 19,
@@ -118,5 +114,5 @@
       "pnl_usd": 1.4931
     }
   },
-  "config_changed": false
+  "config_changed": true
 }

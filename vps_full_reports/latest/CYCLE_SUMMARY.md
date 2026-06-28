@@ -1,18 +1,21 @@
 # Bot cycle summary (plain English)
 
-_Updated: 2026-06-28 04:37 UTC_
+_Updated: 2026-06-28 06:38 UTC_
 
 ## Last cycle
 
 | | |
 |---|---|
-| **Cycle #** | 7 |
+| **Cycle #** | 8 |
 | **Checked at** | 2026-06-28 04:37 UTC |
 | **Result** | **issues** |
-| **What it means** | Issues found — UP trades still lose money. More UP blocks may have been added. |
-| **Next check after** | 2026-06-28 04:36 UTC |
+| **What it means** | Issues found — bot still running, but tuning may be needed. |
+| **Next check after** | 2026-06-28 06:38 UTC |
 
-**Issues flagged:** win_rate_below_target, up_side_bleed
+**Fixes applied:**
+
+- min_edge_0.010_max_price_0.75_min_rr_0.45
+- eval_streak_false_positive_fix
 
 ## How the bot is doing now
 
@@ -20,12 +23,12 @@ _Updated: 2026-06-28 04:37 UTC_
 |---|---|
 | **Mode** | Paper only (fake money) |
 | **Started with** | $500.00 |
-| **Total now** | $572.11 (14.42% return) |
+| **Total now** | $584.60 (16.92% return) |
 | **Arb profit** | $59.73 (7 trades) |
-| **Directional profit** | $-9.28 |
-| **Win rate** | 60.0% (100 settled trades) |
+| **Directional profit** | $2.71 |
+| **Win rate** | 61.2% (103 settled trades) |
 | **UP win rate** | 50.0% |
-| **DOWN win rate** | 62.5% |
+| **DOWN win rate** | 63.9% |
 | **Bot stopped?** | No — bot is running |
 | **Overall grade** | — (—/100) |
 
@@ -33,19 +36,19 @@ _Updated: 2026-06-28 04:37 UTC_
 
 | Market | Trades | Win rate | PnL |
 |--------|--------|----------|-----|
-| **15m** | 33 | 54.5% | $-9.47 |
+| **15m** | 36 | 58.3% | $2.53 |
 | **5m** | 19 | 63.2% | $-1.31 |
 
 ### TradingView (INDEX:BTCUSD)
 
-- Alerts received: **835**
-- 5-chart trend: **confirmed_down_3tf** (3/3 fresh)
+- Alerts received: **949**
+- 5-chart trend: **conflict_3tf** (2/3 fresh)
 
 ## Quick verdict
 
-**Good:** Making money on paper (+14.4%); Arbitrage is doing most of the work; Bot is running normally.
+**Good:** Making money on paper (+16.9%); Arbitrage is doing most of the work; Bot is running normally.
 
-**Watch:** UP trades still weak (coin-flip or worse); Cycle flagged UP-side losses.
+**Watch:** UP trades still weak (coin-flip or worse).
 
 ---
 
