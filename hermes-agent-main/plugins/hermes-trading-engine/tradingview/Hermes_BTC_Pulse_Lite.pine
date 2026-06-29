@@ -1,6 +1,6 @@
 //@version=6
 // =====================================================================================
-// Hermes BTC Pulse Lite — simple 3-chart MTF for Grok-Bot-2 (observe-only webhooks)
+// Hermes BTC Pulse Lite — simple 3-chart MTF (observe-only webhooks; Bot1 + Bot2 dual-feed)
 // =====================================================================================
 // Symbol: BTCUSD (or INDEX:BTCUSD — bot normalizes both to BTCUSD).
 //
@@ -24,6 +24,7 @@ indicator("Hermes BTC Pulse Lite", overlay=true)
 // --- Hermes webhook (paste secret from VPS .env TRADINGVIEW_WEBHOOK_SECRET) ---
 secretInput = input.string("", "Hermes webhook secret")
 botName = input.string("hermes", "Bot name")
+eventIdSuffix = input.string("bot2", "Event ID suffix (bot1/bot2 — required for dual-bot alerts)")
 indicatorName = input.string("Hermes BTC Pulse Lite", "Indicator name")
 liteVersion = "lite-2"
 
@@ -82,7 +83,8 @@ if shouldAlert
     outLevel = hasSignal ? signalLevel : "FLAT"
     outStrength = hasSignal ? signalStrength : 0.0
 
-    eventId = "BTCUSD-" + timeframe.period + "-" + str.tostring(time_close) + "-" + outLevel + "-" + liteVersion
+    idTag = eventIdSuffix != "" ? "-" + eventIdSuffix : ""
+    eventId = "BTCUSD-" + timeframe.period + "-" + str.tostring(time_close) + "-" + outLevel + "-" + liteVersion + idTag
 
     msg = "{"
     msg := msg + "\"secret\":\"" + secretInput + "\","
