@@ -80,8 +80,8 @@ UPDATES = {
     "PULSE_DIRECTIONAL_EXPLORE_RATE": "0",
     "PULSE_MIN_EDGE": "0.008",
     "PULSE_BASIS_BUFFER": "0.008",
-    "PULSE_MIN_ENTRY_PRICE": "0.46",
-    "PULSE_MIN_REWARD_RISK": "0.48",
+    "PULSE_MIN_ENTRY_PRICE": "0.47",
+    "PULSE_MIN_REWARD_RISK": "0.50",
     "PULSE_MIN_REWARD_RISK_UP_PREMIUM": "0.28",
     "PULSE_GROK_UP_MIN_P_WIN": "0.58",
     # Gamma windows often appear >20s after open_ts; min_seconds_since_open=30 already delays entry.
