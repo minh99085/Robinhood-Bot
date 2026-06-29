@@ -1,7 +1,0 @@
-{
-  "schema": "pulse_frozen_manifest/1.1",
-  "canonical_path": "scripts/pulse-babysit/frozen-env-keys.json",
-  "roan_bregman_phase": 0,
-  "architecture_doc": "docs/roan-bregman-architecture.md",
-  "series_architecture": "5m brain, 15m hands"
-}
