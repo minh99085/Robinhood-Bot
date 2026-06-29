@@ -34,9 +34,11 @@ UNSUPPORTED_SYMBOL = "unsupported_symbol"
 STALE_TIMESTAMP = "stale_timestamp"
 MALFORMED_DIRECTION = "malformed_direction"
 DUPLICATE_EVENT_ID = "duplicate_event_id"
+WRONG_EVENT_SUFFIX = "wrong_event_id_suffix"
 NOT_OBJECT = "payload_not_object"
 REJECT_REASONS = (INVALID_JSON, MISSING_SECRET, BAD_SECRET, WRONG_BOT, UNSUPPORTED_SYMBOL,
-                  STALE_TIMESTAMP, MALFORMED_DIRECTION, DUPLICATE_EVENT_ID, NOT_OBJECT)
+                  STALE_TIMESTAMP, MALFORMED_DIRECTION, DUPLICATE_EVENT_ID, WRONG_EVENT_SUFFIX,
+                  NOT_OBJECT)
 # Retired chart timeframes (pre-2m/3m/4m MTF); stripped from persisted snapshots on load.
 LEGACY_MTF_TFS = frozenset({"5", "10", "15"})
 
@@ -881,6 +883,7 @@ class TradingViewIntake:
                  data_dir: Optional[str] = None, dedupe_capacity: int = 5000,
                  header_name: str = "X-Tradingview-Secret",
                  feature_symbol: str = "BTCUSD",
+                 expected_event_id_suffix: str = "",
                  mtf_timeframes: Optional[tuple[str, ...]] = None,
                  confirm_windows_by_tf: Optional[dict[str, float]] = None,
                  confirm_window_s: float = 360.0,
@@ -901,6 +904,7 @@ class TradingViewIntake:
         # exchange-prefixed aliases (INDEX:BTCUSD) match their base symbol.
         self.allowed_symbols = {normalize_symbol(s) for s in (allowed_symbols or []) if str(s).strip()}
         self.bot_name = str(bot_name or "").strip().lower()
+        self.expected_event_id_suffix = str(expected_event_id_suffix or "").strip().lower()
         self.max_age_s = float(max_age_s)
         self.future_skew_s = float(future_skew_s)
         self.header_name = header_name
@@ -1010,6 +1014,19 @@ class TradingViewIntake:
             return BAD_SECRET
         return None
 
+    def _check_event_id_suffix(self, event_id: str) -> Optional[str]:
+        """Reject dual-bot Pine alerts routed to the wrong VPS (e.g. -bot2 on Bot 1)."""
+        mine = self.expected_event_id_suffix
+        if not mine:
+            return None
+        eid = str(event_id or "").strip().lower()
+        if not eid:
+            return None
+        paired = {"bot1": "bot2", "bot2": "bot1"}.get(mine)
+        if paired and eid.endswith("-" + paired):
+            return WRONG_EVENT_SUFFIX
+        return None
+
     def normalize(self, raw_bytes: bytes, *, provided_header: Optional[str], now: float):
         """Return (event, reject_reason). Exactly one is non-None."""
         raw_hash = hashlib.sha256(raw_bytes if isinstance(raw_bytes, bytes)
@@ -1051,6 +1068,9 @@ class TradingViewIntake:
         except (TypeError, ValueError):
             strength = None
         event_id = str(payload.get("event_id") or payload.get("id") or "").strip() or raw_hash[:24]
+        suffix_err = self._check_event_id_suffix(event_id)
+        if suffix_err is not None:
+            return None, suffix_err
         price = None
         try:
             if payload.get("price") is not None or payload.get("close") is not None:

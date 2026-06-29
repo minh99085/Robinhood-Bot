@@ -48,6 +48,7 @@ UPDATES = {
     "PULSE_VERIFIER_FOLLOW_REQUIRE_VERDICT": "1",
     # [TV-LOCK] observe-only — webhooks feed features/Grok; no MTF or signal trade authority.
     "PULSE_TRADINGVIEW_SIGNAL_GATE": "0",
+    "PULSE_TV_EVENT_ID_SUFFIX": "bot2",
     "PULSE_TV_MIN_SIGNAL_STRENGTH": "0",
     "PULSE_TV_MTF_CONFLICT_GATE": "0",
     "PULSE_TV_MTF_REQUIRE_CONFIRM": "0",

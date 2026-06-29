@@ -397,6 +397,7 @@ class PulseConfig:
     tradingview_secret: str = ""
     tradingview_allowed_symbols: tuple = ("BTCUSD", "INDEX:BTCUSD", "BTC/USD", "BTC", "XBTUSD")
     tradingview_bot_name: str = "hermes"
+    tradingview_event_id_suffix: str = ""
     tradingview_webhook_host: str = "127.0.0.1"
     tradingview_webhook_port: int = 8787
     tradingview_webhook_path: str = "/webhooks/tradingview"
@@ -891,6 +892,8 @@ class PulseConfig:
             # bot name: TRADINGVIEW_BOT_NAME takes precedence, else BOT_NAME, else "hermes"
             tradingview_bot_name=((os.getenv("TRADINGVIEW_BOT_NAME") or os.getenv("BOT_NAME")
                                    or "hermes").strip()),
+            tradingview_event_id_suffix=(
+                os.getenv("PULSE_TV_EVENT_ID_SUFFIX", "") or "").strip().lower(),
             tradingview_webhook_host=(os.getenv("TRADINGVIEW_WEBHOOK_HOST", "127.0.0.1")
                                       or "127.0.0.1").strip(),
             tradingview_webhook_port=int(_envf("TRADINGVIEW_WEBHOOK_PORT", 8787)),
@@ -1338,6 +1341,7 @@ class PulseEngine:
                     secret=self.cfg.tradingview_secret,
                     allowed_symbols=self.cfg.tradingview_allowed_symbols,
                     bot_name=self.cfg.tradingview_bot_name,
+                    expected_event_id_suffix=self.cfg.tradingview_event_id_suffix,
                     max_age_s=self.cfg.tradingview_max_age_s, data_dir=self.cfg.data_dir,
                     feature_symbol=self.cfg.tradingview_feature_symbol,
                     mtf_timeframes=self.cfg.tradingview_mtf_timeframes,
