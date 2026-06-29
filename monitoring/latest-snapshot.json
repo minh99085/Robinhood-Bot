@@ -1,11 +1,11 @@
 {
   "schema": "timeline/1.0",
-  "ts_utc": "2026-06-29T02:58:53.542777+00:00",
+  "ts_utc": "2026-06-29T03:20:49.074519+00:00",
   "source": "local_latest",
-  "repo_sha": "9eef281f2dfb",
+  "repo_sha": "30b5085c0273",
   "config_fingerprint": "723d25a0940f0520",
   "runtime": {
-    "ticks": 307,
+    "ticks": 52,
     "status_age_s": null,
     "paper_only": true,
     "halted": false,
@@ -31,7 +31,7 @@
     "require_strong_cex": false
   },
   "tv": {
-    "alerts_valid": 1981,
+    "alerts_valid": 2005,
     "alerts_rejected": 2,
     "mtf_verdict": "confirmed_up_mtf",
     "trend_fresh": 3,
@@ -41,26 +41,26 @@
     "by_tf": {
       "2m": {
         "dir": "UP",
-        "strength": 0.73,
-        "age_s": 38.2
+        "strength": 0.75,
+        "age_s": 39.1
       },
       "3m": {
         "dir": "UP",
         "strength": 0.73,
-        "age_s": 98.3
+        "age_s": 160.7
       },
       "4m": {
         "dir": "UP",
-        "strength": 0.71,
-        "age_s": 158.0
+        "strength": 0.74,
+        "age_s": 38.9
       }
     }
   },
   "oracle": {
-    "btc_usd": 59653.798878512,
+    "btc_usd": 59923.307407034845,
     "source": "rtds_chainlink",
     "rtds_connected": true,
-    "oracle_age_s": 0.19
+    "oracle_age_s": 0.72
   },
   "ledger": {
     "trades": 136,
@@ -73,34 +73,32 @@
   },
   "funnel": {
     "top_rejects": {
-      "directional": 36556,
-      "baseline_cohort_gate": 3734,
+      "directional": 36640,
+      "baseline_cohort_gate": 3737,
       "grok_decider": 3540,
       "directional_allowlist": 1364,
       "context_gate": 879,
       "down_bias_gate": 538
     },
-    "cohort_session_blocks": 14,
+    "cohort_session_blocks": 3,
     "cohort_block_reasons": {
-      "baseline_cohort_ttc_too_late": 7,
-      "baseline_cohort_edge_not_high": 1,
-      "baseline_cohort_cex_not_strong": 6
+      "baseline_cohort_ttc_too_early": 3
     },
     "exec_candidates": 373,
     "exec_accepted": 136,
     "exec_rejected": 237
   },
   "grok_verifier": {
-    "decided": 1096,
-    "abstains": 571,
-    "errors": 141,
+    "decided": 1108,
+    "abstains": 572,
+    "errors": 144,
     "verifier_approvals": 128,
-    "verifier_vetoes": 476
+    "verifier_vetoes": 479
   },
   "recent_evals": {
     "directional_series_not_allowed": 6,
-    "no_tradeable_ask": 4,
-    "edge_below_min": 2
+    "edge_below_min": 4,
+    "no_tradeable_ask": 2
   },
   "by_series": {
     "15m": {
@@ -119,5 +117,5 @@
       "pnl_usd": 1.4931
     }
   },
-  "config_changed": true
+  "config_changed": false
 }

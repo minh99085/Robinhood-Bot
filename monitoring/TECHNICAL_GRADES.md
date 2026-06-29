@@ -1,16 +1,16 @@
 # Technical Data Grades
 
-**Generated:** 2026-06-29T02:58:53.730616+00:00  
-**Repo SHA:** `9eef281f2dfb`  
-**Ticks:** 307 | **Settled:** 136
+**Generated:** 2026-06-29T03:20:49.260744+00:00  
+**Repo SHA:** `30b5085c0273`  
+**Ticks:** 52 | **Settled:** 136
 
 ## Composite
 
 | Metric | Score | Grade |
 |--------|------:|-------|
-| **Composite** | **77.6** | **C+** |
+| **Composite** | **77.3** | **C+** |
 | Report overall | 73.0 | C |
-| Technical runtime | 88.4 | B+ |
+| Technical runtime | 87.3 | B+ |
 
 ## Report scores (engine)
 
@@ -29,8 +29,8 @@ _RTDS/oracle health, TV observe-only intake, design manifest compliance, pipelin
 | rtds_health | 100.0 | 20 |
 | tv_intake | 100.0 | 20 |
 | design_compliance | 72.5 | 25 |
-| trade_pipeline | 100.0 | 20 |
-| gate_coupling | 68.8 | 15 |
+| trade_pipeline | 92.6 | 20 |
+| gate_coupling | 71.3 | 15 |
 
 ### Rtds Health (100.0)
 
@@ -66,7 +66,7 @@ _RTDS/oracle health, TV observe-only intake, design manifest compliance, pipelin
 | cohort_relaxed | 100.0 | 10 |
 | tv_trade_gates_off | 0.0 | 20 |
 
-### Trade Pipeline (100.0)
+### Trade Pipeline (92.6)
 
 | Component | Score | Weight |
 |-----------|------:|-------:|
@@ -75,24 +75,24 @@ _RTDS/oracle health, TV observe-only intake, design manifest compliance, pipelin
 | execution_gate | 100.0 | 20 |
 | recon_checks | 100.0 | 15 |
 | not_halted | 100.0 | 10 |
-| uptime_ticks | 100.0 | 10 |
+| uptime_ticks | 26.0 | 10 |
 
-### Gate Coupling (68.8)
+### Gate Coupling (71.3)
 
 | Component | Score | Weight |
 |-----------|------:|-------:|
 | lifecycle_funnel | 37.0 | 25 |
 | exec_pass_rate | 90.5 | 25 |
 | reject_diversity | 69.0 | 20 |
-| cohort_session_load | 79.0 | 15 |
+| cohort_session_load | 95.5 | 15 |
 | recent_eval_spread | 75.0 | 15 |
 
 ## VPS score history (last entries)
 
 | UTC | Settled | Overall | Trading | Operation | External |
 |-----|--------:|--------:|--------:|----------:|---------:|
-| 2026-06-29 00:48:02 UTC | 135 | 73.5 | 79.7 | 87.4 | 47.0 |
 | 2026-06-29 01:18:18 UTC | 135 | 73.4 | 79.7 | 87.3 | 47.0 |
 | 2026-06-29 01:45:25 UTC | 136 | 73.0 | 78.9 | 87.2 | 47.0 |
 | 2026-06-29 02:15:25 UTC | 136 | 73.0 | 78.9 | 87.2 | 47.0 |
 | 2026-06-29 02:45:25 UTC | 136 | 73.0 | 78.9 | 87.2 | 47.0 |
+| 2026-06-29 03:15:28 UTC | 136 | 73.0 | 78.9 | 87.1 | 47.0 |
