@@ -6,21 +6,21 @@
     "priority": "pnl_protection_and_win_rate",
     "note": "Paper PnL = real capital. Babysit fixes WR/PF/bleed + starvation. See .grok/rules/real-money-discipline.md"
   },
-  "cycle": 20,
+  "cycle": 21,
   "phase": "soak",
   "soak_hours": 1,
   "soak_minutes": 60,
-  "deployed_at": "2026-06-29T01:41:08.283064+00:00",
-  "soak_until": "2026-06-29T02:41:08.283064+00:00",
-  "last_eval_at": "2026-06-29T01:34:20.092868+00:00",
-  "last_verdict": "issues",
+  "deployed_at": "2026-06-29T03:24:01.431037+00:00",
+  "soak_until": "2026-06-29T04:24:01.431037+00:00",
+  "last_eval_at": "2026-06-29T03:23:50.971950+00:00",
+  "last_verdict": "blocked",
   "last_fixes": [
-    "wr_tune_min_entry_0.48",
-    "min_reward_risk_0.52"
+    "min_entry_price_0.46_starvation_relax",
+    "min_reward_risk_0.48_starvation_relax"
   ],
   "last_health_verdict": "issues",
-  "baseline_trades_at_deploy": 135,
-  "vps_sha": "3dd327962302dedcfe3a96eed636de76e738bbde",
+  "baseline_trades_at_deploy": 136,
+  "vps_sha": "9eef281f2dfbb23ad0a41c83aaa9e6d459f57e3a",
   "history": [
     {
       "cycle": 3,
@@ -1265,8 +1265,8 @@
         "wr_tune_min_entry_0.48",
         "min_reward_risk_0.52"
       ],
-      "deployed_at": "2026-06-29T01:41:08.283064+00:00",
-      "vps_sha": "3dd327962302dedcfe3a96eed636de76e738bbde",
+      "deployed_at": "2026-06-29T01:42:13.822740+00:00",
+      "vps_sha": "9eef281f2dfbb23ad0a41c83aaa9e6d459f57e3a",
       "metrics": {
         "settled": 135,
         "win_rate": 0.637,
@@ -1274,6 +1274,264 @@
         "global_reconciled": true,
         "hours_since_last_trade": 0.99,
         "settled_flat_eval_streak": 0
+      }
+    },
+    {
+      "ts": "2026-06-29T03:20:40.006508+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 136,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6324,
+        "profit_factor": 1.2205,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6552,
+        "realized_pnl_usd": 51.81,
+        "tv_valid": 1981,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.52,
+        "global_reconciled": true,
+        "ticks": 307,
+        "hours_since_last_trade": 1.39,
+        "settled_flat_eval_streak": 0,
+        "price_band_24h": {
+          "lookback_hours": 24.0,
+          "side": "down",
+          "cutoff_ts": 1782615517.4622853,
+          "now_ts": 1782701917.4622853,
+          "total": {
+            "n": 38,
+            "wins": 27,
+            "win_rate": 0.7105,
+            "pnl_usd": 60.19
+          },
+          "bands": {
+            "cheap": {
+              "n": 4,
+              "wins": 0,
+              "win_rate": 0.0,
+              "pnl_usd": -20.0
+            },
+            "sweet": {
+              "n": 20,
+              "wins": 17,
+              "win_rate": 0.85,
+              "pnl_usd": 66.73
+            },
+            "expensive": {
+              "n": 14,
+              "wins": 10,
+              "win_rate": 0.7143,
+              "pnl_usd": 13.45
+            }
+          },
+          "sweet_share": 0.5263
+        }
+      },
+      "issue_codes": [
+        "win_rate_below_target",
+        "up_side_bleed",
+        "cheap_down_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-29T03:20:50.089787+00:00",
+      "verdict": "issues",
+      "metrics": {
+        "settled": 136,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6324,
+        "profit_factor": 1.2205,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6552,
+        "realized_pnl_usd": 51.81,
+        "tv_valid": 2005,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.52,
+        "global_reconciled": true,
+        "ticks": 52,
+        "hours_since_last_trade": 1.76,
+        "settled_flat_eval_streak": 1,
+        "price_band_24h": {
+          "lookback_hours": 24.0,
+          "side": "down",
+          "cutoff_ts": 1782616840.454189,
+          "now_ts": 1782703240.454189,
+          "total": {
+            "n": 38,
+            "wins": 27,
+            "win_rate": 0.7105,
+            "pnl_usd": 60.19
+          },
+          "bands": {
+            "cheap": {
+              "n": 4,
+              "wins": 0,
+              "win_rate": 0.0,
+              "pnl_usd": -20.0
+            },
+            "sweet": {
+              "n": 20,
+              "wins": 17,
+              "win_rate": 0.85,
+              "pnl_usd": 66.73
+            },
+            "expensive": {
+              "n": 14,
+              "wins": 10,
+              "win_rate": 0.7143,
+              "pnl_usd": 13.45
+            }
+          },
+          "sweet_share": 0.5263
+        }
+      },
+      "issue_codes": [
+        "win_rate_below_target",
+        "up_side_bleed",
+        "cheap_down_bleed"
+      ]
+    },
+    {
+      "ts": "2026-06-29T03:21:44.767339+00:00",
+      "verdict": "blocked",
+      "metrics": {
+        "settled": 136,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6324,
+        "profit_factor": 1.2205,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6552,
+        "realized_pnl_usd": 51.81,
+        "tv_valid": 2005,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.52,
+        "global_reconciled": true,
+        "ticks": 52,
+        "hours_since_last_trade": 1.76,
+        "settled_flat_eval_streak": 2,
+        "price_band_24h": {}
+      },
+      "issue_codes": [
+        "trade_starvation_streak"
+      ]
+    },
+    {
+      "ts": "2026-06-29T03:21:49.080082+00:00",
+      "verdict": "blocked",
+      "metrics": {
+        "settled": 136,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6324,
+        "profit_factor": 1.2205,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6552,
+        "realized_pnl_usd": 51.81,
+        "tv_valid": 2005,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.52,
+        "global_reconciled": true,
+        "ticks": 52,
+        "hours_since_last_trade": 1.76,
+        "settled_flat_eval_streak": 3,
+        "price_band_24h": {}
+      },
+      "issue_codes": [
+        "trade_starvation_streak"
+      ]
+    },
+    {
+      "ts": "2026-06-29T03:21:59.805669+00:00",
+      "verdict": "blocked",
+      "metrics": {
+        "settled": 136,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6324,
+        "profit_factor": 1.2205,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6552,
+        "realized_pnl_usd": 51.81,
+        "tv_valid": 2005,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.52,
+        "global_reconciled": true,
+        "ticks": 52,
+        "hours_since_last_trade": 1.76,
+        "settled_flat_eval_streak": 4,
+        "price_band_24h": {}
+      },
+      "issue_codes": [
+        "trade_starvation_streak"
+      ]
+    },
+    {
+      "ts": "2026-06-29T03:23:50.971950+00:00",
+      "verdict": "blocked",
+      "metrics": {
+        "settled": 136,
+        "win_rate_target": 0.8,
+        "win_rate": 0.6324,
+        "profit_factor": 1.2205,
+        "win_rate_up": 0.5,
+        "win_rate_down": 0.6552,
+        "realized_pnl_usd": 51.81,
+        "tv_valid": 2007,
+        "mtf_passed": 141,
+        "mtf_blocked": 276,
+        "context_blocked": 879,
+        "down_bias_blocked": 538,
+        "signal_gate": false,
+        "min_reward_risk": 0.52,
+        "global_reconciled": true,
+        "ticks": 63,
+        "hours_since_last_trade": 1.8,
+        "settled_flat_eval_streak": 5,
+        "price_band_24h": {}
+      },
+      "issue_codes": [
+        "trade_starvation_streak"
+      ]
+    },
+    {
+      "cycle": 21,
+      "eval_at": "2026-06-29T03:23:50.971950+00:00",
+      "verdict": "blocked",
+      "issues": [
+        "trade_starvation_streak"
+      ],
+      "fixes": [
+        "min_entry_price_0.46_starvation_relax",
+        "min_reward_risk_0.48_starvation_relax"
+      ],
+      "deployed_at": "2026-06-29T03:24:01.431037+00:00",
+      "vps_sha": "TBD",
+      "metrics": {
+        "settled": 136,
+        "win_rate": 0.6324,
+        "profit_factor": 1.2205,
+        "global_reconciled": true,
+        "hours_since_last_trade": 1.76,
+        "settled_flat_eval_streak": 4
       }
     }
   ],
