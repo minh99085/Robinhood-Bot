@@ -26,6 +26,16 @@ Set-Location $RepoRoot
 
 function Get-ShortSha([string]$sha) { if ($sha.Length -ge 7) { $sha.Substring(0, 7) } else { $sha } }
 
+function Invoke-VpsBash([string]$Script) {
+    # PowerShell here-strings are CRLF on Windows; strip CR before sending to Linux bash.
+    $clean = ($Script -replace "`r`n", "`n" -replace "`r", "").Trim()
+    $tmp = Join-Path $env:TEMP ("vps-sync-" + [guid]::NewGuid().ToString("n") + ".sh")
+    [System.IO.File]::WriteAllText($tmp, $clean + "`n", [System.Text.UTF8Encoding]::new($false))
+    scp -i $SshKey -o StrictHostKeyChecking=no $tmp "${VpsUser}@${VpsHost}:/tmp/vps-remote.sh" | Out-Null
+    ssh @sshArgs "bash /tmp/vps-remote.sh; rm -f /tmp/vps-remote.sh"
+    Remove-Item -Force $tmp -ErrorAction SilentlyContinue
+}
+
 $doRebuild = -not $SkipRebuild
 
 Write-Host "Repo: $RepoRoot"
@@ -79,7 +89,7 @@ git clean -fd
 rm -f /tmp/grok-bot2-sync.bundle
 echo VPS_HEAD=`$(git rev-parse HEAD)
 "@
-    ssh @sshArgs $remote
+    Invoke-VpsBash $remote
     Remove-Item -Force $bundle -ErrorAction SilentlyContinue
 }
 
@@ -96,7 +106,7 @@ docker compose up -d --force-recreate --remove-orphans
 sleep 8
 docker ps --format '{{.Names}} {{.Status}}' | grep -E 'hermes-training|hermes-trading-engine'
 "@
-    ssh @sshArgs $docker
+    Invoke-VpsBash $docker
 }
 
 $vpsAfter = (ssh @sshArgs "git -C $VpsRepo rev-parse HEAD").Trim()

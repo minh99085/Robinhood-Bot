@@ -20,6 +20,15 @@ Set-Location $RepoRoot
 
 function Get-ShortSha([string]$sha) { if ($sha.Length -ge 7) { $sha.Substring(0, 7) } else { $sha } }
 
+function Invoke-VpsBash([string]$Script) {
+    $clean = ($Script -replace "`r`n", "`n" -replace "`r", "").Trim()
+    $tmp = Join-Path $env:TEMP ("vps-rh-sync-" + [guid]::NewGuid().ToString("n") + ".sh")
+    [System.IO.File]::WriteAllText($tmp, $clean + "`n", [System.Text.UTF8Encoding]::new($false))
+    scp -i $SshKey -o StrictHostKeyChecking=no $tmp "${VpsUser}@${VpsHost}:/tmp/vps-remote.sh" | Out-Null
+    ssh @sshArgs "bash /tmp/vps-remote.sh; rm -f /tmp/vps-remote.sh"
+    Remove-Item -Force $tmp -ErrorAction SilentlyContinue
+}
+
 & git fetch origin main 2>&1 | Out-Null
 $local = (git rev-parse HEAD).Trim()
 $origin = (git rev-parse origin/main).Trim()
@@ -46,7 +55,7 @@ git reset --hard bundle/main
 git clean -fd
 rm -f /tmp/robinhood-sync.bundle
 "@
-    ssh @sshArgs $remote
+    Invoke-VpsBash $remote
     Remove-Item -Force $bundle -ErrorAction SilentlyContinue
 }
 
@@ -67,6 +76,6 @@ docker compose --profile robinhood up -d --force-recreate --remove-orphans
 sleep 6
 docker ps --format '{{.Names}} {{.Status}}' | grep -E 'hermes-robinhood'
 "@
-ssh @sshArgs $docker
+Invoke-VpsBash $docker
 Write-Host "Robinhood plugin deployed (Polymarket engine untouched)."
 exit 0
