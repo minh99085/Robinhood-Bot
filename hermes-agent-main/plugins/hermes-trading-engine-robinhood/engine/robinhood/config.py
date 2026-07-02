@@ -60,7 +60,8 @@ class RobinhoodConfig:
     @classmethod
     def from_env(cls) -> "RobinhoodConfig":
         mcp_url = _env("RH_MCP_URL", "https://agent.robinhood.com/mcp/trading")
-        base = mcp_url.rsplit("/mcp", 1)[0] or "https://agent.robinhood.com"
+        # OAuth protected-resource metadata uses the full MCP endpoint URL.
+        base = mcp_url
         mode_raw = _env("RH_APPROVAL_MODE", "review_required").lower()
         approval_mode: ApprovalMode = (
             "review_required" if mode_raw == "review_required" else "disabled"
