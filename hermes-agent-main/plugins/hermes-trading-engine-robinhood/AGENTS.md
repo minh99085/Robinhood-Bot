@@ -44,7 +44,9 @@ Enabled by default (`RH_OPTIONS_LOOP_ENABLED=1`). Set `RH_OPTIONS_BIAS=call` or 
 
 - Built-in watchlist: 9 ETFs + 16 stocks (override with `RH_OPTIONS_WATCHLIST`)
 - Paper mode: intents logged to `/data/options_ledger.json` until live trading is on
-- API: `GET /api/robinhood/options/status`, `/api/robinhood/options/ledger`, `/api/robinhood/mcp/catalog`
+- API: `GET /api/robinhood/options/status`, `/ledger`, `/chain?symbol=SPY`, `/readiness`, `/mcp/catalog`
+- Dashboard: `GET /dashboard`
+- Live checklist: `python scripts/validate_live_readiness.py`
 
 ## OAuth (desktop flow)
 

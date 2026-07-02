@@ -59,6 +59,24 @@ class SafeRobinhoodClient:
     async def list_tools(self) -> list[str]:
         return await self.adapter.list_tools()
 
+    async def review_option_order(self, arguments: dict[str, Any]) -> Any:
+        """Call Robinhood review_option_order (allowed even when live trading is off)."""
+        args = dict(arguments or {})
+        args.setdefault("dry_run", True)
+        self.audit.record("mcp_tool_call", tool="review_option_order", details={"arguments": args})
+        return await self.adapter.call_tool("review_option_order", args)
+
+    async def review_before_place(
+        self, tool: str, arguments: dict[str, Any]
+    ) -> SafetyVerdict:
+        """Run review_* for a place order without placing."""
+        verdict = self.gates.evaluate(tool, arguments)
+        if not verdict.allowed:
+            return verdict
+        if tool not in PLACE_TOOLS:
+            return verdict
+        return await self.gates.enforce_review(self.adapter, tool, arguments, verdict)
+
     def status(self) -> dict[str, Any]:
         base = self.adapter.status_dict()
         base["safety"] = {

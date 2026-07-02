@@ -92,6 +92,10 @@ class RobinhoodConfig:
     options_max_contracts: int
     options_max_premium_usd: float
     options_long_only: bool
+    options_max_open_positions: int
+    options_symbol_cooldown_s: float
+    options_paper_review: bool
+    options_min_paper_scans: int
 
     def bias_for(self, symbol: str) -> OptionBias:
         sym = symbol.upper()
@@ -141,4 +145,8 @@ class RobinhoodConfig:
             options_max_contracts=_env_int("RH_OPTIONS_MAX_CONTRACTS", 2),
             options_max_premium_usd=_env_float("RH_OPTIONS_MAX_PREMIUM_USD", 200.0),
             options_long_only=_env_bool("RH_OPTIONS_LONG_ONLY", True),
+            options_max_open_positions=_env_int("RH_OPTIONS_MAX_OPEN_POSITIONS", 5),
+            options_symbol_cooldown_s=_env_float("RH_OPTIONS_SYMBOL_COOLDOWN_S", 3600.0),
+            options_paper_review=_env_bool("RH_OPTIONS_PAPER_REVIEW", True),
+            options_min_paper_scans=_env_int("RH_OPTIONS_MIN_PAPER_SCANS", 1),
         )

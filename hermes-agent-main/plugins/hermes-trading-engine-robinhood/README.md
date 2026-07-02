@@ -35,6 +35,19 @@ With `RH_LIVE_TRADING_ENABLED=0` (default), the loop logs **paper intents** to
 
 Probe MCP + sample chain: `python scripts/robinhood_mcp_probe.py --symbol SPY --bias call`
 
+**Phase 5–6 operator surfaces**
+
+| Surface | URL / command |
+|---------|----------------|
+| Dashboard | `http://127.0.0.1:8810/dashboard` |
+| Options status | `GET /api/robinhood/options/status` |
+| Cached chain | `GET /api/robinhood/options/chain?symbol=SPY` |
+| Live readiness | `GET /api/robinhood/options/readiness` or `python scripts/validate_live_readiness.py` |
+
+Loop guards: skips symbols with **open positions**, enforces **per-symbol cooldown**
+(`RH_OPTIONS_SYMBOL_COOLDOWN_S`), caps **max open positions**, runs **review_option_order**
+in paper mode when `RH_OPTIONS_PAPER_REVIEW=1`.
+
 ## Quick start (local)
 
 ```bash

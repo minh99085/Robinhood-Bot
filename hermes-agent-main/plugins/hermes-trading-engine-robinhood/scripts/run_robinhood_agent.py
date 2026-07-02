@@ -70,7 +70,9 @@ async def _main() -> None:
                 and (time.time() - last_options_tick) >= cfg.options_tick_seconds
             ):
                 try:
-                    payload["options"] = await run_options_tick(client, cfg)
+                    payload["options"] = await run_options_tick(
+                        client, cfg, agent_status=payload
+                    )
                 except Exception as exc:  # noqa: BLE001
                     logger.exception("options tick failed: %s", exc)
                     payload["options"] = {
