@@ -56,3 +56,17 @@ Full detail: `.grok/rules/vps-deploy-mandate.md` and `.grok/rules/repo-scope.md`
 - Design townhall: `Design Townhall` (repo root)
 - Operator guide for the pulse engine: `hermes-agent-main/plugins/hermes-trading-engine/AGENTS.md`
 - Autonomous closed loop: `/pulse-babysit cycle` or `.\scripts\pulse-babysit\install-scheduled-task.ps1` (15m soak default; see `.grok/skills/pulse-babysit/SKILL.md`)
+
+## Cursor Cloud specific instructions
+
+Cloud-agent dev setup targets the **Robinhood Agentic plugin** at
+`hermes-agent-main/plugins/hermes-trading-engine-robinhood/`. The VM update script creates a
+`.venv` there and installs `requirements.txt` + `requirements-dev.txt`. All commands below run
+from that plugin directory with the venv active (`source .venv/bin/activate`).
+
+- **Tests:** `python -m pytest tests/ -q` (config in `pytest.ini`, `asyncio_mode=auto`). No secrets or network needed — MCP is mocked.
+- **Run the API:** `RH_DATA_DIR=<writable dir> uvicorn engine.app:app --host 127.0.0.1 --port 8810`. In the VM, `/data` (the container default for `RH_DATA_DIR`) is not writable, so set `RH_DATA_DIR` to something like `/tmp/rh_data`. Use tmux for this long-running process. Verify with `curl http://127.0.0.1:8810/api/health` (200). See `README.md` for endpoint list.
+- **Status endpoints reflect a status file, not live MCP.** `engine/app.py` only reads `$RH_DATA_DIR/robinhood_status.json`. `/api/robinhood/status` returns **503** until that file exists; the file is normally written by the separate agent loop (`scripts/run_robinhood_agent.py`), which needs OAuth + the live MCP endpoint. To exercise the API read path without OAuth, write a `robinhood_status.json` into `RH_DATA_DIR` manually.
+- **Live trading is OFF by default** (`RH_LIVE_TRADING_ENABLED=0`) and OAuth/live MCP are not available in the VM, so the agent loop and any `place_*`/`review_*` flows cannot be exercised here — API + tests are the in-VM surface.
+- **Docker is not installed in the VM.** The plugin's `docker-compose.yml` (`--profile robinhood`) is for the VPS; run the app directly with `uvicorn` locally instead.
+- **System dep:** `python3.12-venv` is required for `.venv` creation and is baked into the VM snapshot (not in the update script).
