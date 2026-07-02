@@ -12,12 +12,8 @@ safety gates.
 
 ## Project layout
 
-- **Trading bot (the whole product):** `hermes-agent-main/plugins/hermes-trading-engine-robinhood/`
-  - `engine/robinhood/` — MCP adapter, safe client, safety gates, OAuth storage, audit log
-  - `engine/app.py` — read-only health/status API (`:8810`)
-  - `scripts/run_robinhood_agent.py` — agent loop (MCP connect + reconnect + status)
-  - `scripts/robinhood_oauth_login.py` — one-time desktop OAuth
-  - Operator guide: that plugin's `AGENTS.md`
+- **Trading bot:** `hermes-agent-main/plugins/hermes-trading-engine-robinhood/` — options loop
+  scans 25-symbol ETF+stock watchlist on manual call/put bias (`RH_OPTIONS_BIAS*`)
 - **Framework:** `hermes-agent-main/` is the vendored Hermes agent framework the plugin ships inside.
 - **Deploy scripts:** `scripts/sync-vps-robinhood.ps1`, `scripts/verify-sync.ps1`
 - **Rules:** `.grok/rules/`

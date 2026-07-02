@@ -21,6 +21,7 @@ from pydantic import AnyUrl
 from engine.robinhood.audit_log import AuditLog
 from engine.robinhood.config import RobinhoodConfig
 from engine.robinhood.constants import PLACE_TOOLS
+from engine.robinhood.mcp_catalog import save_catalog
 from engine.robinhood.oauth_storage import FileTokenStorage
 
 logger = logging.getLogger("hermes.robinhood.mcp")
@@ -114,6 +115,19 @@ class RobinhoodMCPAdapter:
             self._session = session
             tools = await session.list_tools()
             names = sorted(t.name for t in tools.tools)
+            catalog_entries: list[dict[str, Any]] = []
+            for t in tools.tools:
+                schema = getattr(t, "inputSchema", None) or getattr(t, "input_schema", None)
+                if hasattr(schema, "model_dump"):
+                    schema = schema.model_dump(mode="json")
+                catalog_entries.append(
+                    {
+                        "name": t.name,
+                        "description": getattr(t, "description", "") or "",
+                        "input_schema": schema,
+                    }
+                )
+            save_catalog(self.config.data_dir, tools=catalog_entries, mcp_url=self.config.mcp_url)
             self.health = MCPHealth(
                 connected=True,
                 authenticated=self.storage.has_tokens(),

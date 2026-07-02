@@ -1,0 +1,23 @@
+[
+  {
+    "id": "opt-spy-call-505",
+    "type": "call",
+    "strike_price": 505.0,
+    "expiration_date": "2026-07-18",
+    "chain_id": "chain-spy"
+  },
+  {
+    "id": "opt-spy-call-500",
+    "type": "call",
+    "strike_price": 500.0,
+    "expiration_date": "2026-07-18",
+    "chain_id": "chain-spy"
+  },
+  {
+    "id": "opt-spy-put-495",
+    "type": "put",
+    "strike_price": 495.0,
+    "expiration_date": "2026-07-18",
+    "chain_id": "chain-spy"
+  }
+]

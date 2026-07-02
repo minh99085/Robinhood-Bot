@@ -60,3 +60,32 @@ def robinhood_tools() -> JSONResponse:
     st = _read_json("robinhood_status.json") or {}
     tools = st.get("tools") or []
     return JSONResponse({"tools": tools, "count": len(tools)})
+
+
+@app.get("/api/robinhood/options/status")
+def options_status() -> JSONResponse:
+    st = _read_json("options_status.json")
+    if not st:
+        return JSONResponse(
+            {"available": False, "reason": "options loop has not run yet"},
+            status_code=503,
+        )
+    return JSONResponse({"available": True, **st})
+
+
+@app.get("/api/robinhood/options/ledger")
+def options_ledger() -> JSONResponse:
+    ledger = _read_json("options_ledger.json") or {"events": []}
+    events = ledger.get("events") or []
+    return JSONResponse({"count": len(events), "events": events[-100:]})
+
+
+@app.get("/api/robinhood/mcp/catalog")
+def mcp_catalog() -> JSONResponse:
+    cat = _read_json("mcp_tool_catalog.json")
+    if not cat:
+        return JSONResponse(
+            {"available": False, "reason": "MCP not connected yet — no tool catalog"},
+            status_code=503,
+        )
+    return JSONResponse({"available": True, **cat})

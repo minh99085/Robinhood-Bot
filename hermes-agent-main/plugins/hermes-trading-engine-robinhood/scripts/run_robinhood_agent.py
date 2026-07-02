@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from engine.robinhood.audit_log import AuditLog
 from engine.robinhood.client import SafeRobinhoodClient
 from engine.robinhood.config import RobinhoodConfig
+from engine.robinhood.options_loop import run_options_tick
 from engine.robinhood.robinhood_mcp_adapter import RobinhoodMCPAdapter
 from engine.robinhood.safety_gates import RobinhoodSafetyGates
 
@@ -55,11 +56,30 @@ async def _main() -> None:
             pass
 
     reconnect_task = asyncio.create_task(adapter.run_reconnect_loop())
+    last_options_tick = 0.0
 
     try:
         while not stop.is_set():
             payload = client.status()
             payload["ts"] = time.time()
+            payload["options_loop_enabled"] = cfg.options_loop_enabled
+
+            if (
+                cfg.options_loop_enabled
+                and adapter.health.connected
+                and (time.time() - last_options_tick) >= cfg.options_tick_seconds
+            ):
+                try:
+                    payload["options"] = await run_options_tick(client, cfg)
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception("options tick failed: %s", exc)
+                    payload["options"] = {
+                        "available": False,
+                        "reason": "tick_exception",
+                        "error": str(exc),
+                    }
+                last_options_tick = time.time()
+
             _write_status(status_path, payload)
             try:
                 await asyncio.wait_for(stop.wait(), timeout=cfg.health_interval_s)

@@ -11,6 +11,30 @@ The repo's trading bot: connects Hermes to [Robinhood's official Trading MCP](ht
 
 Data volume: `rh_data` → `/data` (OAuth tokens, audit log, status JSON).
 
+## Options loop (manual directional bias)
+
+The agent loop (`scripts/run_robinhood_agent.py`) scans a built-in **25-symbol** universe
+(9 ETFs + 16 liquid stocks) when `RH_OPTIONS_LOOP_ENABLED=1`:
+
+**ETFs:** SPY, QQQ, IWM, XLK, SMH, XLF, XLV, XLE, DIA  
+**Stocks:** NVDA, TSLA, AAPL, MSFT, AMZN, META, GOOGL, AVGO, AMD, MU, INTC, LLY, NFLX, JPM, V, MA
+
+Set manual bias (required before any scan trades):
+
+```bash
+# Global bias for all watchlist symbols
+RH_OPTIONS_BIAS=call   # or put | none
+
+# Per-symbol overrides
+RH_OPTIONS_BIAS_SPY=call
+RH_OPTIONS_BIAS_NVDA=put
+```
+
+With `RH_LIVE_TRADING_ENABLED=0` (default), the loop logs **paper intents** to
+`/data/options_ledger.json` without placing orders. Status: `/api/robinhood/options/status`.
+
+Probe MCP + sample chain: `python scripts/robinhood_mcp_probe.py --symbol SPY --bias call`
+
 ## Quick start (local)
 
 ```bash

@@ -30,7 +30,29 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+from engine.robinhood.watchlist import parse_watchlist
+
 ApprovalMode = Literal["review_required", "disabled"]
+OptionBias = Literal["call", "put", "none"]
+
+
+def _parse_bias(raw: str) -> OptionBias:
+    val = raw.strip().lower()
+    if val in ("call", "put"):
+        return val  # type: ignore[return-value]
+    return "none"
+
+
+def _parse_symbol_biases() -> dict[str, OptionBias]:
+    prefix = "RH_OPTIONS_BIAS_"
+    out: dict[str, OptionBias] = {}
+    for key, val in os.environ.items():
+        if not key.startswith(prefix) or key == "RH_OPTIONS_BIAS":
+            continue
+        sym = key[len(prefix) :].strip().upper()
+        if sym:
+            out[sym] = _parse_bias(val)
+    return out
 
 
 @dataclass(frozen=True)
@@ -56,6 +78,26 @@ class RobinhoodConfig:
     reconnect_max_s: float
     health_interval_s: float
     api_port: int
+    # Options loop
+    options_loop_enabled: bool
+    options_tick_seconds: float
+    options_watchlist: list[str]
+    options_default_bias: OptionBias
+    options_symbol_bias: dict[str, OptionBias]
+    options_min_dte: int
+    options_max_dte: int
+    options_strike_band_pct: float
+    options_max_spread_pct: float
+    options_contracts: int
+    options_max_contracts: int
+    options_max_premium_usd: float
+    options_long_only: bool
+
+    def bias_for(self, symbol: str) -> OptionBias:
+        sym = symbol.upper()
+        if sym in self.options_symbol_bias:
+            return self.options_symbol_bias[sym]
+        return self.options_default_bias
 
     @classmethod
     def from_env(cls) -> "RobinhoodConfig":
@@ -86,4 +128,17 @@ class RobinhoodConfig:
             reconnect_max_s=_env_float("RH_MCP_RECONNECT_MAX_S", 300.0),
             health_interval_s=_env_float("RH_HEALTH_INTERVAL_S", 60.0),
             api_port=_env_int("RH_API_PORT", 8810),
+            options_loop_enabled=_env_bool("RH_OPTIONS_LOOP_ENABLED", True),
+            options_tick_seconds=_env_float("RH_OPTIONS_TICK_SECONDS", 120.0),
+            options_watchlist=parse_watchlist(_env("RH_OPTIONS_WATCHLIST", "")),
+            options_default_bias=_parse_bias(_env("RH_OPTIONS_BIAS", "none")),
+            options_symbol_bias=_parse_symbol_biases(),
+            options_min_dte=_env_int("RH_OPTIONS_MIN_DTE", 2),
+            options_max_dte=_env_int("RH_OPTIONS_MAX_DTE", 45),
+            options_strike_band_pct=_env_float("RH_OPTIONS_STRIKE_BAND_PCT", 5.0),
+            options_max_spread_pct=_env_float("RH_OPTIONS_MAX_SPREAD_PCT", 15.0),
+            options_contracts=_env_int("RH_OPTIONS_CONTRACTS", 1),
+            options_max_contracts=_env_int("RH_OPTIONS_MAX_CONTRACTS", 2),
+            options_max_premium_usd=_env_float("RH_OPTIONS_MAX_PREMIUM_USD", 200.0),
+            options_long_only=_env_bool("RH_OPTIONS_LONG_ONLY", True),
         )

@@ -132,6 +132,12 @@ class RobinhoodSafetyGates:
                 self.audit.record("safety_block", tool=tool, allowed=False, reason=verdict.reason)
                 return verdict
 
+        if tool in PLACE_TOOLS and "option" in tool:
+            verdict = self._check_option_order(args, notional)
+            if not verdict.allowed:
+                self.audit.record("safety_block", tool=tool, allowed=False, reason=verdict.reason)
+                return verdict
+
         if portfolio and tool in PLACE_TOOLS:
             verdict = self._check_concentration(args, portfolio, notional)
             if not verdict.allowed:
@@ -189,6 +195,43 @@ class RobinhoodSafetyGates:
                         f"{self.config.max_symbol_concentration_pct:.1f}%",
                     )
         return SafetyVerdict(True, "concentration_ok")
+
+    def _check_option_order(self, args: dict[str, Any], notional: float) -> SafetyVerdict:
+        symbol = self._symbol(args)
+        if symbol and self.config.options_watchlist and symbol not in self.config.options_watchlist:
+            return SafetyVerdict(False, f"{symbol} not in options watchlist")
+
+        side = str(args.get("side") or "buy").lower()
+        if self.config.options_long_only and side not in ("buy", "debit", "long"):
+            return SafetyVerdict(False, f"long_only: side {side!r} blocked")
+
+        qty_raw = args.get("quantity") or args.get("qty") or 1
+        try:
+            qty = int(qty_raw)
+        except (TypeError, ValueError):
+            qty = 1
+        if qty > self.config.options_max_contracts:
+            return SafetyVerdict(
+                False,
+                f"quantity {qty} exceeds max contracts {self.config.options_max_contracts}",
+            )
+
+        price = args.get("limit_price") or args.get("price")
+        premium = 0.0
+        if price is not None:
+            try:
+                premium = float(price) * qty * 100.0
+            except (TypeError, ValueError):
+                premium = 0.0
+        elif notional > 0:
+            premium = notional
+        if premium > self.config.options_max_premium_usd:
+            return SafetyVerdict(
+                False,
+                f"premium ${premium:.2f} exceeds max ${self.config.options_max_premium_usd:.2f}",
+            )
+
+        return SafetyVerdict(True, "option_checks_ok")
 
     async def enforce_review(
         self,

@@ -37,6 +37,15 @@ curl -s http://127.0.0.1:8810/api/robinhood/status
 docker ps | grep hermes-robinhood
 ```
 
+## Options loop (manual bias)
+
+Enabled by default (`RH_OPTIONS_LOOP_ENABLED=1`). Set `RH_OPTIONS_BIAS=call` or `put`
+(or per-symbol `RH_OPTIONS_BIAS_SPY=call`) before expecting scan activity.
+
+- Built-in watchlist: 9 ETFs + 16 stocks (override with `RH_OPTIONS_WATCHLIST`)
+- Paper mode: intents logged to `/data/options_ledger.json` until live trading is on
+- API: `GET /api/robinhood/options/status`, `/api/robinhood/options/ledger`, `/api/robinhood/mcp/catalog`
+
 ## OAuth (desktop flow)
 
 1. Run `python scripts/robinhood_oauth_login.py` (inside container or on operator machine).
