@@ -5,6 +5,12 @@ Work only in `https://github.com/minh99085/Robinhood-Bot` (default branch `main`
 Never commit or push to any other repo unless the operator explicitly says otherwise in the
 current turn.
 
+## Git workflow (OPERATOR MEMORY — set 2026-07-03)
+
+**Merge all branches into `main`; always push to `main`.** Completed work must not stay on
+`cursor/*` feature branches. Every turn that finishes a task: merge → `git push origin main` →
+deploy VPS. `origin/main` is canonical.
+
 ## The bot
 
 The only trading bot in this repo is the Robinhood Agentic plugin at

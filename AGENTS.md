@@ -26,6 +26,17 @@ safety gates.
   this in the current message.
 - **Default branch:** `main`.
 
+## Git workflow (OPERATOR MEMORY — set 2026-07-03)
+
+**Merge all feature branches into `main` and always push to `main`.** Do not leave completed
+work stranded on `cursor/*` branches. After every completed change:
+
+1. Merge the working branch into `main` (fast-forward or merge commit).
+2. `git push origin main`
+3. Deploy VPS per the deploy mandate below.
+
+`origin/main` is the single source of truth; VPS HEAD must match it.
+
 ## Safety (real money — NEVER relax without explicit operator ask)
 
 - `RH_LIVE_TRADING_ENABLED=0` by default — all `place_*` orders are blocked until the operator
