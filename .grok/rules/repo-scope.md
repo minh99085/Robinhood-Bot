@@ -9,7 +9,7 @@ current turn.
 
 **Merge all branches into `main`; always push to `main`.** Completed work must not stay on
 `cursor/*` feature branches. Every turn that finishes a task: merge → `git push origin main` →
-deploy VPS. `origin/main` is canonical.
+deploy VPS. `origin/main` is canonical. See `.grok/rules/vps-deploy-mandate.md`.
 
 ## The bot
 

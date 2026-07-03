@@ -49,8 +49,8 @@ work stranded on `cursor/*` branches. After every completed change:
 
 ## VPS deploy (OPERATOR MEMORY — ALWAYS follow)
 
-**Every completed change:** push to `main` → sync VPS → `down --remove-orphans` → `build` →
-`up -d --remove-orphans`. Execute yourself; never push and stop.
+**Always push to `main` and VPS, then remove orphans and rebuild the container.** Execute
+yourself; never push and stop.
 
 1. `git push origin main`
 2. `.\scripts\sync-vps-robinhood.ps1`
@@ -63,6 +63,8 @@ docker compose --profile robinhood down --remove-orphans
 docker compose --profile robinhood build
 docker compose --profile robinhood up -d --force-recreate --remove-orphans
 ```
+
+Full detail: `.grok/rules/vps-deploy-mandate.md` and `.grok/rules/repo-scope.md`.
 
 ## Tests
 
