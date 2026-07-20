@@ -95,6 +95,29 @@ Order tools are gated the same way for both asset classes:
 Every `place_*` call flows through `SafeRobinhoodClient` → `RobinhoodSafetyGates`; option
 chains and other read tools are whatever the Robinhood MCP server exposes (logged at OAuth login).
 
+## Monte-Carlo-Sim bridge (paper mode)
+
+When co-hosted with [Monte-Carlo-Sim](https://github.com/minh99085/Monte-Carlo-Sim),
+the optional `mc-bridge` profile watches the sim's verdict files
+(`outputs/verdicts`, `outputs/paper_verdicts`) and, for each fresh TRADE:
+
+1. maps it to `place_equity_order`-shaped args (long-only; shorts skipped —
+   Robinhood can't short shares; quantity clamped to `RH_MAX_ORDER_NOTIONAL_USD`),
+2. runs it through `RobinhoodSafetyGates`, and
+3. appends the outcome to `/data/mc_bridge_ledger.jsonl`.
+
+**Phase 1 makes no Robinhood API calls** — no OAuth needed, nothing can be
+placed. Each verdict file is processed exactly once
+(`/data/mc_bridge_state.json`), and verdicts older than 48h are skipped.
+
+```bash
+docker compose --profile robinhood --profile mc-bridge up -d
+docker exec hermes-mc-bridge sh -c 'tail -n 5 /data/mc_bridge_ledger.jsonl'
+```
+
+Code: `engine/robinhood/mc_bridge.py`, loop: `scripts/run_mc_bridge.py`,
+tests: `tests/test_mc_bridge.py`.
+
 ## Safety defaults
 
 | Setting | Default | Meaning |

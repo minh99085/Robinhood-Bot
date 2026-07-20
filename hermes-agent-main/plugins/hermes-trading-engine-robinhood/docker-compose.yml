@@ -47,5 +47,29 @@ services:
     command: python scripts/run_robinhood_agent.py
     restart: unless-stopped
 
+  # Monte-Carlo-Sim → Robinhood paper bridge (co-hosted VPS only).
+  # Own profile so standalone bot deployments are unaffected. Phase 1 makes
+  # NO Robinhood calls: it maps MC verdict files through the safety gates
+  # and writes a paper ledger to /data/mc_bridge_ledger.jsonl.
+  #
+  #   docker compose --profile robinhood --profile mc-bridge up -d
+  #
+  # MC_OUTPUTS_DIR must point at the sim's outputs directory on the host
+  # (default matches the co-hosted layout).
+  hermes-mc-bridge:
+    profiles: ["mc-bridge"]
+    build: .
+    container_name: hermes-mc-bridge
+    volumes:
+      - rh_data:/data
+      - ${MC_OUTPUTS_DIR:-/opt/monte-carlo-sim/outputs}:/mc-outputs:ro
+    env_file:
+      - .env
+    environment:
+      RH_DATA_DIR: "/data"
+      MC_VERDICTS_DIRS: "/mc-outputs/verdicts:/mc-outputs/paper_verdicts"
+    command: python scripts/run_mc_bridge.py
+    restart: unless-stopped
+
 volumes:
   rh_data:
