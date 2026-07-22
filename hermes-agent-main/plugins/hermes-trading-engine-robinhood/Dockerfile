@@ -17,6 +17,14 @@ COPY engine /app/engine
 COPY scripts /app/scripts
 COPY pytest.ini /app/pytest.ini
 COPY tests /app/tests
+COPY tools.py /app/tools.py
+COPY plugin.yaml /app/plugin.yaml
+COPY __init__.py /app/__init__.py
+
+# Optional: mount Monte-Carlo-Sim at runtime via MONTE_CARLO_SIM_PATH
+ENV MONTE_CARLO_SIM_PATH=/opt/Monte-Carlo-Sim \
+    CHART_VISION_PROVIDER=mock \
+    CHART_VISION_EXECUTION_MODE=recommendation_only
 
 RUN mkdir -p /data
 EXPOSE 8810

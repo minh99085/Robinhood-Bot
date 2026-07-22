@@ -131,6 +131,22 @@ tests: `tests/test_mc_bridge.py`.
 
 Audit log: `/data/robinhood_audit.jsonl` (every tool call + safety decision).
 
+
+## Chart vision (secondary channel)
+
+Structured TradingView **webhook** remains the primary signal path. Chart images
+are a convenience channel:
+
+`image ? vision extract ? MCP cross-check ? Monte Carlo (100k paths) ? recommendation`
+
+- Hermes tool: `analyze_tradingview_chart`
+- HTTP: `POST /api/chart/analyze`, `POST /api/chart/extract`, `GET /api/chart/config`
+- Config: `CHART_VISION_*` and `MONTE_CARLO_SIM_PATH` in `.env.example`
+- Design + safety: `docs/CHART_VISION.md` and Monte-Carlo-Sim `DESIGN_CHART_VISION.md`
+- **Never** bypasses `SafeRobinhoodClient` / `review_*` for live orders
+
+Default provider is `mock` (offline). Set `CHART_VISION_PROVIDER=openai|anthropic|google|xai`
+and the matching API key for production vision.
 ## Tests
 
 ```bash

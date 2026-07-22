@@ -1,4 +1,4 @@
-"""Read-only health API for the Robinhood Agentic plugin (port 8810 by default)."""
+"""Health, options, and chart vision API for the Robinhood Agentic plugin (port 8810)."""
 
 from __future__ import annotations
 
@@ -6,15 +6,17 @@ import json
 import os
 import time
 from pathlib import Path
+from typing import Any, Optional
 
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel, Field
 
 from engine.robinhood.config import RobinhoodConfig
 from engine.robinhood.options_readiness import evaluate_readiness
 from engine.robinhood.options_state import load_chain_snapshot
 
-app = FastAPI(title="Hermes Robinhood Agentic", version="1.0")
+app = FastAPI(title="Hermes Robinhood Agentic", version="1.1")
 
 
 def _data_dir() -> Path:
@@ -160,6 +162,8 @@ def health_endpoint() -> dict:
         "status_fresh": fresh,
         "status_age_s": age,
         "tool_count": st.get("tool_count", 0),
+        "chart_vision_enabled": os.getenv("CHART_VISION_ENABLED", "1")
+        not in ("0", "false", "False"),
     }
 
 
@@ -204,12 +208,120 @@ def options_ledger() -> JSONResponse:
     return JSONResponse({"count": len(events), "events": events[-100:]})
 
 
-@app.get("/api/robinhood/mcp/catalog")
-def mcp_catalog() -> JSONResponse:
-    cat = _read_json("mcp_tool_catalog.json")
-    if not cat:
+# ---------------------------------------------------------------------------
+# Chart vision endpoints
+# ---------------------------------------------------------------------------
+
+
+class ChartAnalyzeBody(BaseModel):
+    image_base64: Optional[str] = None
+    image_url: Optional[str] = None
+    image_path: Optional[str] = None
+    mime_type: Optional[str] = None
+    ticker_hint: Optional[str] = None
+    run_validation: bool = True
+    run_monte_carlo: Optional[bool] = None
+    mc_paths: Optional[int] = Field(None, ge=100, le=2_000_000)
+    execution_mode: Optional[str] = None
+
+
+@app.get("/api/chart/config")
+def chart_config() -> dict:
+    from engine.chart_vision.config import ChartVisionConfig
+
+    cfg = ChartVisionConfig.from_env()
+    return {
+        "enabled": cfg.enabled,
+        "provider": cfg.provider,
+        "model": cfg.model,
+        "execution_mode": cfg.execution_mode,
+        "run_monte_carlo": cfg.run_monte_carlo,
+        "mc_paths": cfg.mc_paths,
+        "min_overall_confidence": cfg.min_overall_confidence,
+        "max_price_rel_error": cfg.max_price_rel_error,
+        "require_mcp": cfg.require_mcp,
+        "has_api_key": bool(cfg.api_key),
+        "monte_carlo_sim_path": cfg.monte_carlo_sim_path,
+    }
+
+
+@app.post("/api/chart/extract")
+async def chart_extract(body: ChartAnalyzeBody) -> JSONResponse:
+    """Vision extraction only (no MCP, no Monte Carlo)."""
+    from engine.chart_vision.config import ChartVisionConfig
+    from engine.chart_vision.extractor import analyze_tradingview_chart
+    from engine.robinhood.audit_log import AuditLog
+
+    if not any([body.image_base64, body.image_url, body.image_path]):
         return JSONResponse(
-            {"available": False, "reason": "MCP not connected yet — no tool catalog"},
-            status_code=503,
+            {"ok": False, "error": "Provide image_base64, image_url, or image_path"},
+            status_code=400,
         )
-    return JSONResponse({"available": True, **cat})
+    cfg = ChartVisionConfig.from_env()
+    audit = AuditLog(_data_dir())
+    try:
+        result = analyze_tradingview_chart(
+            image_base64=body.image_base64,
+            image_url=body.image_url,
+            image_path=body.image_path,
+            mime_type=body.mime_type,
+            ticker_hint=body.ticker_hint,
+            config=cfg,
+        )
+        audit.record(
+            "chart_vision_extract_api",
+            tool="analyze_tradingview_chart",
+            details={"ticker": result.ticker, "bias": result.bias.value},
+        )
+        return JSONResponse({"ok": True, "extraction": result.model_dump(mode="json")})
+    except Exception as exc:  # noqa: BLE001
+        audit.record(
+            "chart_vision_extract_api_error",
+            tool="analyze_tradingview_chart",
+            reason=str(exc),
+        )
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@app.post("/api/chart/analyze")
+async def chart_analyze(body: ChartAnalyzeBody) -> JSONResponse:
+    """
+    Full pipeline: extract → optional MCP validate → optional Monte Carlo decision.
+
+    Does **not** place orders. Recommendations only unless execution_mode is
+    gated_execution (still requires SafeRobinhoodClient for place_*).
+    """
+    from engine.chart_vision.config import ChartVisionConfig
+    from engine.chart_vision.pipeline import run_full_pipeline
+    from engine.robinhood.audit_log import AuditLog
+
+    if not any([body.image_base64, body.image_url, body.image_path]):
+        return JSONResponse(
+            {"ok": False, "error": "Provide image_base64, image_url, or image_path"},
+            status_code=400,
+        )
+
+    cfg = ChartVisionConfig.from_env()
+    audit = AuditLog(_data_dir())
+
+    # Optional live MCP client if agent process shared status / tokens exist.
+    mcp_client: Any = None
+    # API process typically has no live session; validation may skip unless
+    # operator injects a client. Tests pass mocks directly to pipeline.
+
+    resp = await run_full_pipeline(
+        image_base64=body.image_base64,
+        image_url=body.image_url,
+        image_path=body.image_path,
+        mime_type=body.mime_type,
+        ticker_hint=body.ticker_hint,
+        run_validation=body.run_validation,
+        run_monte_carlo=body.run_monte_carlo,
+        mc_paths=body.mc_paths,
+        execution_mode=body.execution_mode,
+        config=cfg,
+        mcp_client=mcp_client,
+        audit=audit,
+    )
+    status = 200 if resp.ok else 500
+    return JSONResponse(resp.model_dump(mode="json"), status_code=status)

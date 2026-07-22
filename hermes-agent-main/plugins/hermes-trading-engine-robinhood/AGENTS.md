@@ -72,6 +72,9 @@ To enable after OAuth + Agentic account onboarding:
 - Orders ≥ `RH_REVIEW_THRESHOLD_NOTIONAL_USD` must pass Robinhood `review_*` first
 - PDT, daily loss, concentration, and max-notional gates are enforced locally
 - Connectivity + safety layer (Phase 1). Add trading strategies deliberately, always behind the gates.
+- Chart vision adds **recommendation-only** analysis (secondary to TradingView webhooks)
+- Image numbers never set hard risk limits without MCP cross-validation
+- `analyze_tradingview_chart` must not call `place_*` directly
 
 ## Stop the bot
 
