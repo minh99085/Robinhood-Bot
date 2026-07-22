@@ -37,6 +37,7 @@ class FileTokenStorage(TokenStorage):
         self._cache = payload
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp.chmod(0o600)  # OAuth tokens: owner-only before it becomes visible
         tmp.replace(self.path)
 
     async def get_tokens(self) -> OAuthToken | None:

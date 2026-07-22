@@ -9,6 +9,11 @@ def gates(tmp_path, monkeypatch):
     monkeypatch.setenv("RH_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("RH_LIVE_TRADING_ENABLED", "1")
     monkeypatch.setenv("RH_OPTIONS_WATCHLIST", "SPY,QQQ")
+    # Option notional now correctly includes the 100x contract multiplier, so
+    # these $200-$1000 test orders would trip the generic per-order cap before
+    # reaching the option-specific gates under test. Raise the cap so each
+    # specific gate (watchlist / contracts / premium / long-only) is exercised.
+    monkeypatch.setenv("RH_MAX_ORDER_NOTIONAL_USD", "2000")
     monkeypatch.setenv("RH_OPTIONS_MAX_CONTRACTS", "2")
     monkeypatch.setenv("RH_OPTIONS_MAX_PREMIUM_USD", "300")
     cfg = RobinhoodConfig.from_env()

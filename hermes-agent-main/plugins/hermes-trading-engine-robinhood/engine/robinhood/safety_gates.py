@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from engine.robinhood.audit_log import AuditLog
@@ -12,6 +14,12 @@ from engine.robinhood.config import RobinhoodConfig
 from engine.robinhood.constants import ORDER_TOOLS, PLACE_TOOLS, REVIEW_TOOLS
 
 logger = logging.getLogger("hermes.robinhood.safety")
+
+# Standard US equity option contract: 1 contract controls 100 shares, so the
+# true dollar exposure of an option order is qty x price x 100.
+OPTION_CONTRACT_MULTIPLIER = 100.0
+
+SAFETY_STATE_FILENAME = "safety_state.json"
 
 
 @dataclass
@@ -25,21 +33,58 @@ class SafetyVerdict:
 
 @dataclass
 class DayTradeTracker:
-    """Rolling PDT-style day-trade counter (operator-configured limit)."""
+    """Rolling PDT-style day-trade counter (operator-configured limit).
+
+    Persists to ``safety_state.json`` when ``state_path`` is set, so a
+    container restart cannot grant a fresh day-trade allowance.
+    """
 
     trades: list[float] = field(default_factory=list)
+    state_path: Path | None = None
 
     def record(self) -> None:
         self.trades.append(time.time())
+        self._persist()
 
     def count_last_5_days(self) -> int:
         cutoff = time.time() - 5 * 86400
-        self.trades = [t for t in self.trades if t >= cutoff]
+        pruned = [t for t in self.trades if t >= cutoff]
+        if len(pruned) != len(self.trades):
+            self.trades = pruned
+            self._persist()
         return len(self.trades)
+
+    def _persist(self) -> None:
+        if self.state_path is not None:
+            _update_safety_state(self.state_path, day_trades=list(self.trades))
+
+
+def _load_safety_state(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return raw if isinstance(raw, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _update_safety_state(path: Path, **fields: Any) -> None:
+    state = _load_safety_state(path)
+    state.update(fields)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    tmp.replace(path)
 
 
 class RobinhoodSafetyGates:
-    """Enforces sizing, loss, concentration, PDT, and review-before-place rules."""
+    """Enforces sizing, loss, concentration, PDT, and review-before-place rules.
+
+    Day-trade history and the daily realized-P&L accumulator persist to
+    ``<data_dir>/safety_state.json`` — a restart must never reset the PDT
+    counter or forget today's losses.
+    """
 
     def __init__(
         self,
@@ -48,9 +93,15 @@ class RobinhoodSafetyGates:
     ) -> None:
         self.config = config
         self.audit = audit or AuditLog(config.data_dir)
-        self.day_trades = DayTradeTracker()
-        self._daily_realized_pnl_usd = 0.0
-        self._daily_pnl_day: str | None = None
+        self._state_path = Path(config.data_dir) / SAFETY_STATE_FILENAME
+        state = _load_safety_state(self._state_path)
+        self.day_trades = DayTradeTracker(
+            trades=[float(t) for t in (state.get("day_trades") or [])],
+            state_path=self._state_path,
+        )
+        pnl = state.get("daily_pnl") or {}
+        self._daily_pnl_day: str | None = pnl.get("day")
+        self._daily_realized_pnl_usd = float(pnl.get("usd") or 0.0)
 
     def _today_key(self) -> str:
         return time.strftime("%Y-%m-%d", time.gmtime())
@@ -61,9 +112,18 @@ class RobinhoodSafetyGates:
             self._daily_pnl_day = today
             self._daily_realized_pnl_usd = 0.0
         self._daily_realized_pnl_usd += pnl_usd
+        _update_safety_state(
+            self._state_path,
+            daily_pnl={"day": self._daily_pnl_day,
+                       "usd": self._daily_realized_pnl_usd},
+        )
 
     @staticmethod
-    def _order_notional(args: dict[str, Any]) -> float:
+    def _order_notional(args: dict[str, Any], *, contract_multiplier: float = 1.0) -> float:
+        """Dollar exposure of an order. Explicit notional keys are taken
+        as-is; qty x price is scaled by ``contract_multiplier`` (100 for
+        option contracts — without it an option order's true exposure is
+        under-counted 100x and the per-order cap is meaningless)."""
         for key in ("notional", "amount", "dollar_amount", "order_amount"):
             if key in args:
                 try:
@@ -74,7 +134,7 @@ class RobinhoodSafetyGates:
         price = args.get("price") or args.get("limit_price")
         if qty is not None and price is not None:
             try:
-                return abs(float(qty) * float(price))
+                return abs(float(qty) * float(price)) * float(contract_multiplier)
             except (TypeError, ValueError):
                 pass
         return 0.0
@@ -111,7 +171,11 @@ class RobinhoodSafetyGates:
             self.audit.record("safety_block", tool=tool, allowed=False, reason=verdict.reason)
             return verdict
 
-        notional = self._order_notional(args)
+        notional = self._order_notional(
+            args,
+            contract_multiplier=(OPTION_CONTRACT_MULTIPLIER
+                                 if "option" in tool else 1.0),
+        )
         if notional > self.config.max_order_notional_usd:
             verdict = SafetyVerdict(
                 False,

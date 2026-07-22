@@ -152,7 +152,10 @@ def parse_option_instruments(
             continue
         exp = _first_str(row, "expiration_date", "expiration", "expiry", "expires_at")
         dte = _dte(exp)
-        if dte is not None and (dte < min_dte or dte > max_dte):
+        # An unparseable expiration means we cannot verify the contract is
+        # inside the DTE window — treat it as untradable rather than letting
+        # it bypass the filter.
+        if dte is None or dte < min_dte or dte > max_dte:
             continue
         iid = _first_str(
             row,

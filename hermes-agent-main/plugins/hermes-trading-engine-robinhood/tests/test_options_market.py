@@ -37,6 +37,14 @@ def test_parse_equity_quotes_fixture():
 
 def test_parse_option_instruments_fixture(cfg):
     payload = json.loads((FIXTURES / "option_instruments_spy.json").read_text())
+    # The fixture's hardcoded expiration went stale on 2026-07-19 and the
+    # parser (correctly) dropped the expired contracts. Pin expirations to a
+    # rolling future date so the test exercises parsing, not the calendar.
+    from datetime import date, timedelta
+
+    future = (date.today() + timedelta(days=10)).isoformat()
+    for row in payload:
+        row["expiration_date"] = future
     lo, hi = strike_band(500.0, cfg.options_strike_band_pct)
     calls = parse_option_instruments(
         payload,

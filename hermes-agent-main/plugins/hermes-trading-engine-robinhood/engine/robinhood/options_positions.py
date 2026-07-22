@@ -89,13 +89,20 @@ def count_open_positions(positions: list[OptionPosition]) -> int:
     return sum(1 for p in positions if abs(p.quantity) > 0)
 
 
-async def fetch_option_positions(client: Any) -> list[OptionPosition]:
+async def fetch_option_positions(client: Any) -> list[OptionPosition] | None:
+    """Fetch open option positions.
+
+    Returns a list on a successful call (possibly empty — a confirmed
+    "no open positions"), or **None when every attempt failed**. Callers
+    must treat None as "positions unknown" and skip trading rather than
+    assume a flat book — an API hiccup must never disable the
+    already-open / max-open-positions guards.
+    """
     for args in ({}, {"state": "open"}, {"status": "open"}):
         try:
             raw = await client.call_tool("get_option_positions", args)
-            parsed = parse_option_positions(raw)
-            if parsed:
-                return parsed
         except Exception:  # noqa: BLE001
             continue
-    return []
+        # A successful call is authoritative, even when it parses to [].
+        return parse_option_positions(raw)
+    return None

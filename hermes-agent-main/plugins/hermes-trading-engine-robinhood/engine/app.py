@@ -42,6 +42,48 @@ def mcp_catalog() -> JSONResponse:
     return JSONResponse({"available": True, **cat})
 
 
+@app.get("/api/robinhood/mc-bridge")
+def mc_bridge() -> JSONResponse:
+    """MC → bot paper bridge state (ledger tail + aggregate counts).
+
+    Read by the Monte-Carlo-Sim dashboard on port 80 so it can display bridge
+    activity without needing filesystem access to this container's volume.
+    """
+    ledger = _data_dir() / "mc_bridge_ledger.jsonl"
+    counts = {"total": 0, "planned": 0, "skipped": 0, "gate_blocked": 0}
+    recent: list[dict] = []
+    if ledger.exists():
+        try:
+            for raw in ledger.read_text(encoding="utf-8").splitlines():
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    row = json.loads(raw)
+                except Exception:  # noqa: BLE001
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                counts["total"] += 1
+                outcome = str(row.get("outcome") or "")
+                if outcome.startswith("paper_planned"):
+                    counts["planned"] += 1
+                elif outcome.startswith("gate_blocked"):
+                    counts["gate_blocked"] += 1
+                else:
+                    counts["skipped"] += 1
+                recent.append(row)
+        except OSError:
+            pass
+    state = _read_json("mc_bridge_state.json") or {}
+    return JSONResponse({
+        "available": True,
+        "counts": counts,
+        "recent": recent[-40:],
+        "processed_ids": len(state.get("processed") or {}),
+    })
+
+
 @app.get("/api/robinhood/options/chain")
 def options_chain(symbol: str = Query(..., min_length=1, max_length=12)) -> JSONResponse:
     snap = load_chain_snapshot(_data_dir(), symbol.upper())

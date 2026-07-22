@@ -27,6 +27,23 @@ from engine.robinhood.oauth_storage import FileTokenStorage
 logger = logging.getLogger("hermes.robinhood.mcp")
 
 
+def _unwrap_block(block: Any) -> Any:
+    """Turn an MCP text content block carrying JSON into its payload."""
+    if isinstance(block, dict) and block.get("type") == "text":
+        text = block.get("text")
+        if isinstance(text, str):
+            stripped = text.strip()
+            if stripped.startswith(("{", "[")):
+                try:
+                    import json as _json
+
+                    return _json.loads(stripped)
+                except ValueError:
+                    return text
+            return text
+    return block
+
+
 @dataclass
 class MCPHealth:
     connected: bool = False
@@ -186,11 +203,21 @@ class RobinhoodMCPAdapter:
             if self._session is None:
                 raise RuntimeError("not connected")
             result = await self._session.call_tool(name, args)
-        # Normalize MCP content blocks to plain dict/list for callers.
+        # Normalize to plain dict/list for callers. Prefer the structured
+        # result when the server provides one; otherwise unwrap content
+        # blocks, JSON-decoding text blocks so downstream parsers see real
+        # payloads instead of {"type": "text", "text": "..."} wrappers.
+        structured = getattr(result, "structuredContent", None)
+        if structured is None:
+            structured = getattr(result, "structured_content", None)
+        if isinstance(structured, (dict, list)) and structured:
+            self.audit.record("mcp_tool_result", tool=name,
+                              details={"structured": True})
+            return structured
         payload: list[Any] = []
         for block in result.content:
             if hasattr(block, "model_dump"):
-                payload.append(block.model_dump(mode="json"))
+                payload.append(_unwrap_block(block.model_dump(mode="json")))
             else:
                 payload.append(str(block))
         self.audit.record("mcp_tool_result", tool=name, details={"blocks": len(payload)})
@@ -210,7 +237,7 @@ class RobinhoodMCPAdapter:
                 else:
                     await self.health_check()
                     if not self.health.connected:
-                        await self._disconnect_unlocked()
+                        await self.disconnect()
                 try:
                     await asyncio.wait_for(
                         self._stop.wait(), timeout=self.config.health_interval_s
@@ -221,7 +248,7 @@ class RobinhoodMCPAdapter:
                 self.health.reconnect_attempts += 1
                 self.health.last_error = str(exc)
                 self.health.connected = False
-                await self._disconnect_unlocked()
+                await self.disconnect()
                 self.audit.record(
                     "mcp_reconnect_backoff",
                     reason=str(exc),

@@ -141,8 +141,31 @@ async def run_options_tick(
         return payload
 
     positions = await fetch_option_positions(client)
+    if positions is None:
+        # Positions UNKNOWN (every fetch attempt failed) — trading blind
+        # would disable the already-open / max-open guards, so skip the scan.
+        funnel["positions_unavailable"] += 1
+        payload = {
+            "loop_enabled": config.options_loop_enabled,
+            "available": True,
+            "live_trading_enabled": config.live_trading_enabled,
+            "reason": "positions_unavailable",
+            "hint": "get_option_positions failed on every arg shape; "
+                    "not trading blind",
+            "active_symbols": [{"symbol": s, "bias": b} for s, b in active],
+            "results": [],
+            "funnel": dict(funnel),
+            "duration_s": round(time.time() - started, 2),
+        }
+        write_status(config.data_dir, payload)
+        append_event(
+            config.data_dir,
+            {"type": "scan_skipped", "reason": "positions_unavailable"},
+        )
+        return payload
     open_syms = open_underlyings(positions)
     open_count = count_open_positions(positions)
+    placed_this_tick = 0
     positions_summary = {
         "open_count": open_count,
         "max_open_positions": config.options_max_open_positions,
@@ -234,9 +257,20 @@ async def run_options_tick(
                 results.append(row)
                 continue
 
+            if (open_count + placed_this_tick
+                    >= config.options_max_open_positions):
+                # The pre-scan guard only checks the count at tick start;
+                # without this, one tick could place an order per symbol
+                # and blow through the cap.
+                funnel["max_open_positions_intratick"] += 1
+                row["action"] = "max_open_positions_reached"
+                results.append(row)
+                continue
+
             try:
                 await client.call_tool("place_option_order", args)
                 row["action"] = "placed"
+                placed_this_tick += 1
                 record_symbol_action(
                     config.data_dir, symbol, "placed", instrument_id=intent.instrument_id
                 )
