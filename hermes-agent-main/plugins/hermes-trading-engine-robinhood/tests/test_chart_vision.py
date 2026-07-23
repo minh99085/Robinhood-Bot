@@ -200,3 +200,32 @@ def test_tool_handler_mock(mock_cfg, monkeypatch, tmp_path):
     data = json.loads(out)
     assert data["ok"] is True
     assert data["extraction"]["ticker"] == "AAPL"
+
+
+@pytest.mark.asyncio
+async def test_equity_quotes_uses_clean_args_and_parses_price():
+    """Robinhood's strict MCP rejects unknown props: get_equity_quotes must
+    be called with ONLY 'symbols', and a realistic quote shape must parse."""
+    from engine.chart_vision.mcp_validator import fetch_mcp_snapshot
+
+    seen = []
+
+    class Recorder:
+        async def call_tool(self, name, arguments=None):
+            seen.append((name, arguments))
+            if name == "get_equity_quotes":
+                return {"results": [{"symbol": "NVDA",
+                                     "last_trade_price": "182.34"}]}
+            if "historical" in name:
+                return {"historicals": [{"close_price": 180.0 + i}
+                                        for i in range(30)]}
+            if name == "get_portfolio":
+                return {"equity": 10000.0, "buying_power": 5000.0}
+            raise RuntimeError(f"unknown tool {name}")
+
+    snap = await fetch_mcp_snapshot(Recorder(), "NVDA")
+
+    quote_calls = [a for (n, a) in seen if n == "get_equity_quotes"]
+    assert quote_calls == [{"symbols": ["NVDA"]}]     # no extra "symbol" key
+    assert snap.last_price == 182.34
+    assert not any("additional properties" in e for e in snap.errors)

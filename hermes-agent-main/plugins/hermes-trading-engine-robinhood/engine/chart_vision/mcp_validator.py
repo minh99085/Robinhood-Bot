@@ -160,9 +160,13 @@ async def fetch_mcp_snapshot(
     hist: Any = None
     portfolio: Any = None
 
+    # Robinhood's MCP validates arguments strictly and rejects any unknown
+    # property, so each tool gets ONLY the keys its schema declares — no
+    # belt-and-suspenders "symbol"+"symbols" (that fails with
+    # 'unexpected additional properties ["symbol"]').
     for tool, args in (
-        ("get_equity_quotes", {"symbols": [ticker], "symbol": ticker}),
-        ("get_quotes", {"symbols": [ticker], "symbol": ticker}),
+        ("get_equity_quotes", {"symbols": [ticker]}),
+        ("get_quotes", {"symbols": [ticker]}),
     ):
         try:
             quotes = await client.call_tool(tool, args)
