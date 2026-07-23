@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from pathlib import Path
@@ -16,7 +17,31 @@ from engine.robinhood.config import RobinhoodConfig
 from engine.robinhood.options_readiness import evaluate_readiness
 from engine.robinhood.options_state import load_chain_snapshot
 
+logger = logging.getLogger("hermes.robinhood.app")
+
 app = FastAPI(title="Hermes Robinhood Agentic", version="1.1")
+
+
+async def _live_mcp_client(audit: Any) -> Any:
+    """Build a short-lived Robinhood MCP client from the stored OAuth token.
+
+    The API process holds no persistent MCP session (that lives in the agent
+    container), but the OAuth tokens sit in the shared /data volume, so any
+    process can open a session non-interactively. Returns a connected adapter
+    or None — callers MUST disconnect() a returned adapter. Any failure (no
+    token yet, transport error) returns None so chart analysis degrades to
+    image-only rather than failing the request.
+    """
+    try:
+        from engine.robinhood.robinhood_mcp_adapter import RobinhoodMCPAdapter
+        adapter = RobinhoodMCPAdapter(RobinhoodConfig.from_env(), audit=audit)
+        if not adapter.storage.has_tokens():
+            return None
+        await adapter.connect(interactive_oauth=False)
+        return adapter
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chart analyze: live MCP unavailable (%s) — image-only", exc)
+        return None
 
 
 def _data_dir() -> Path:
@@ -304,24 +329,33 @@ async def chart_analyze(body: ChartAnalyzeBody) -> JSONResponse:
     cfg = ChartVisionConfig.from_env()
     audit = AuditLog(_data_dir())
 
-    # Optional live MCP client if agent process shared status / tokens exist.
+    # Fact-check against live Robinhood quotes when validation is on and a
+    # token exists. Built per request and torn down after; falls back to
+    # image-only (mcp_client=None) whenever the live session is unavailable.
     mcp_client: Any = None
-    # API process typically has no live session; validation may skip unless
-    # operator injects a client. Tests pass mocks directly to pipeline.
+    if body.run_validation is not False:
+        mcp_client = await _live_mcp_client(audit)
 
-    resp = await run_full_pipeline(
-        image_base64=body.image_base64,
-        image_url=body.image_url,
-        image_path=body.image_path,
-        mime_type=body.mime_type,
-        ticker_hint=body.ticker_hint,
-        run_validation=body.run_validation,
-        run_monte_carlo=body.run_monte_carlo,
-        mc_paths=body.mc_paths,
-        execution_mode=body.execution_mode,
-        config=cfg,
-        mcp_client=mcp_client,
-        audit=audit,
-    )
+    try:
+        resp = await run_full_pipeline(
+            image_base64=body.image_base64,
+            image_url=body.image_url,
+            image_path=body.image_path,
+            mime_type=body.mime_type,
+            ticker_hint=body.ticker_hint,
+            run_validation=body.run_validation,
+            run_monte_carlo=body.run_monte_carlo,
+            mc_paths=body.mc_paths,
+            execution_mode=body.execution_mode,
+            config=cfg,
+            mcp_client=mcp_client,
+            audit=audit,
+        )
+    finally:
+        if mcp_client is not None:
+            try:
+                await mcp_client.disconnect()
+            except Exception:  # noqa: BLE001
+                pass
     status = 200 if resp.ok else 500
     return JSONResponse(resp.model_dump(mode="json"), status_code=status)
