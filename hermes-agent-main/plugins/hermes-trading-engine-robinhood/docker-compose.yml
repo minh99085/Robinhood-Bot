@@ -15,10 +15,16 @@ services:
       - "${RH_API_PUBLISH:-127.0.0.1:8810}:8810"
     volumes:
       - rh_data:/data
+      # Monte-Carlo-Sim mounted read-only so the chart-vision full-MC
+      # handoff runs in-container (without it the pipeline silently falls
+      # back to the built-in sim). Override host path with MC_SIM_DIR.
+      - ${MC_SIM_DIR:-/opt/monte-carlo-sim}:/mc-sim:ro
     env_file:
       - .env
     environment:
       RH_DATA_DIR: "/data"
+      # Container path wins over any host-specific value in .env.
+      MONTE_CARLO_SIM_PATH: "/mc-sim"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8810/api/health').status==200 else 1)"]
       interval: 60s
@@ -39,11 +45,13 @@ services:
       - "127.0.0.1:53682:53682"
     volumes:
       - rh_data:/data
+      - ${MC_SIM_DIR:-/opt/monte-carlo-sim}:/mc-sim:ro
     env_file:
       - .env
     environment:
       RH_DATA_DIR: "/data"
       RH_OAUTH_BIND_HOST: "0.0.0.0"
+      MONTE_CARLO_SIM_PATH: "/mc-sim"
     command: python scripts/run_robinhood_agent.py
     restart: unless-stopped
 

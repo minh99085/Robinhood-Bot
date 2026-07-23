@@ -3,3 +3,9 @@ uvicorn[standard]>=0.27,<1
 httpx>=0.27,<1
 mcp>=1.9,<2
 pydantic>=2.5,<3
+# Chart-vision full-MC handoff: the mounted Monte-Carlo-Sim code imports
+# numpy (mc_core, tactical_simulator) and pandas (signal_calibration via
+# tv_integration.signal_to_drift). Without BOTH, the handoff silently
+# degrades to the built-in fallback sim.
+numpy>=1.24
+pandas>=2.0
