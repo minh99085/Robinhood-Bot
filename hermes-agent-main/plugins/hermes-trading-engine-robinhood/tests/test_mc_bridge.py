@@ -150,7 +150,7 @@ class TestProcessOnce:
         rows = [json.loads(l) for l in
                 (Path(cfg.data_dir) / LEDGER_FILENAME).read_text().splitlines()]
         assert len(rows) == 2
-        planned = next(r for r in rows if r["verdict_id"] == "a_AAPL.json")
+        planned = next(r for r in rows if r["verdict_id"] == "verdicts/a_AAPL.json")
         assert planned["gate_allowed"] is True
         assert "no order placed" in planned["outcome"]
         assert planned["order_plan"]["quantity"] == 3
@@ -164,7 +164,7 @@ class TestProcessOnce:
         assert s1["new"] == 1 and s2["new"] == 0
         # simulate restart: state reloaded from disk
         state = BridgeState.load(cfg.data_dir)
-        assert state.is_processed("a_AAPL.json")
+        assert state.is_processed("verdicts/a_AAPL.json")
         # ledger has exactly one row
         rows = (Path(cfg.data_dir) / LEDGER_FILENAME).read_text().splitlines()
         assert len(rows) == 1
@@ -194,7 +194,7 @@ class TestProcessOnce:
         summary = self._run(tmp_path, cfg, [vdir])
         assert summary["skipped"] == 1
         state = BridgeState.load(cfg.data_dir)
-        assert state.is_processed("broken.json")
+        assert state.is_processed("verdicts/broken.json")
 
     def test_missing_dir_is_tolerated(self, tmp_path):
         cfg = make_config(tmp_path)

@@ -71,8 +71,30 @@ class OrderPlan:
 
 
 def verdict_id(path: Path) -> str:
-    """Stable identity of one verdict file (filenames embed timestamp+ticker)."""
-    return path.name
+    """Stable identity of one verdict file, qualified by its directory.
+
+    ``verdicts/`` and ``paper_verdicts/`` are merged in one pass, so a bare
+    filename could collide across dirs; ``parent/name`` keeps them distinct.
+    (Entries recorded under the old bare-filename scheme are still honoured
+    by the legacy check in :func:`process_once` — no reprocessing.)
+    """
+    return f"{path.parent.name}/{path.name}"
+
+
+def execution_allowed(verdict: dict[str, Any]) -> tuple[bool, str]:
+    """Hard gate for phase 2: may this verdict EVER become a real order?
+
+    A verdict is execution-eligible only when it explicitly carries
+    ``gauntlet_pass: true`` — stamped by Monte-Carlo-Sim's decision path
+    only while the full validation gauntlet (all six gates) currently
+    passes. No marker (all of today's verdicts) → paper-log freely, but
+    never executable. This check must be called by any future code that
+    maps a verdict to a live ``place_*`` call.
+    """
+    if verdict.get("gauntlet_pass") is True:
+        return True, "gauntlet_pass marker present"
+    return False, ("no gauntlet-pass marker — verdict is paper-only and may "
+                   "never be executed")
 
 
 def _verdict_age_hours(verdict: dict[str, Any], *, now: datetime | None = None) -> float | None:
@@ -339,7 +361,9 @@ def process_once(
         for path in sorted(vdir.glob("*.json")):
             summary["seen"] += 1
             vid = verdict_id(path)
-            if state.is_processed(vid):
+            # Legacy fallback: entries recorded before ids were
+            # dir-qualified used the bare filename.
+            if state.is_processed(vid) or state.is_processed(path.name):
                 continue
             summary["new"] += 1
             try:
@@ -355,6 +379,7 @@ def process_once(
 
             plan, reason = map_verdict(
                 verdict, config, max_age_hours=max_age_hours, now=now)
+            eligible, eligibility_reason = execution_allowed(verdict)
             row: dict[str, Any] = {
                 "verdict_id": vid,
                 "ticker": verdict.get("ticker"),
@@ -362,6 +387,10 @@ def process_once(
                 "mc_side": verdict.get("side"),
                 "mode": "paper",
                 "map_reason": reason,
+                # Paper logging proceeds regardless; this flag is what any
+                # future phase-2 (real-order) code must require to be True.
+                "execution_eligible": eligible,
+                "eligibility_reason": eligibility_reason,
             }
             if plan is None:
                 outcome = f"skipped: {reason}"
