@@ -359,3 +359,164 @@ async def chart_analyze(body: ChartAnalyzeBody) -> JSONResponse:
                 pass
     status = 200 if resp.ok else 500
     return JSONResponse(resp.model_dump(mode="json"), status_code=status)
+
+
+# ---------------------------------------------------------------------------
+# Paper trading book + scout (weekly/monthly operator loop)
+# ---------------------------------------------------------------------------
+
+
+class PaperOpenBody(BaseModel):
+    symbol: str
+    stop_pct: Optional[float] = None
+    horizon_days: float = 5
+    thesis: str = ""
+
+
+class PaperCloseBody(BaseModel):
+    symbol: str
+    reason: str = ""
+
+
+def _prices_by_symbol(reply: Any, symbols: list[str]) -> dict[str, float]:
+    """Best-effort per-symbol price extraction from a multi-quote reply."""
+    from engine.chart_vision.mcp_validator import _dig_price
+
+    want = {s.upper() for s in symbols}
+    out: dict[str, float] = {}
+    rows: Any = reply
+    if isinstance(reply, dict):
+        for k in ("results", "quotes", "data"):
+            if isinstance(reply.get(k), list):
+                rows = reply[k]
+                break
+    if isinstance(rows, list):
+        for item in rows:
+            if isinstance(item, dict):
+                s = str(item.get("symbol") or "").upper()
+                if s in want:
+                    p = _dig_price(item)
+                    if p:
+                        out[s] = float(p)
+    if not out and len(symbols) == 1:
+        p = _dig_price(reply)
+        if p:
+            out[symbols[0].upper()] = float(p)
+    return out
+
+
+async def _fetch_live_prices(symbols: list[str]) -> dict[str, float]:
+    """Live quotes for symbols via a short-lived MCP session; {} on failure."""
+    if not symbols:
+        return {}
+    from engine.robinhood.audit_log import AuditLog
+
+    client = await _live_mcp_client(AuditLog(_data_dir()))
+    if client is None:
+        return {}
+    try:
+        reply = await client.call_tool(
+            "get_equity_quotes", {"symbols": [s.upper() for s in symbols]})
+        return _prices_by_symbol(reply, symbols)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("live price fetch failed: %s", exc)
+        return {}
+    finally:
+        try:
+            await client.disconnect()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+@app.get("/api/paper/book")
+async def paper_book() -> JSONResponse:
+    """Paper portfolio: cash, positions, holding time, review-due prompts."""
+    from engine.robinhood.paper_book import PaperBook
+
+    book = PaperBook(_data_dir())
+    symbols = [p["symbol"] for p in book.state["positions"]]
+    marks = await _fetch_live_prices(symbols)
+    snap = book.snapshot(marks)
+    snap["marks_live"] = bool(marks)
+    return JSONResponse({"ok": True, **snap})
+
+
+@app.post("/api/paper/open")
+async def paper_open(body: PaperOpenBody) -> JSONResponse:
+    """Open a PAPER long at the live Robinhood price (never a real order)."""
+    from engine.robinhood.audit_log import AuditLog
+    from engine.robinhood.paper_book import PaperBook
+
+    sym = body.symbol.strip().upper()
+    prices = await _fetch_live_prices([sym])
+    px = prices.get(sym)
+    if not px:
+        return JSONResponse(
+            {"ok": False,
+             "error": "live Robinhood price unavailable — paper trades only "
+                      "execute at verified live prices; try again"},
+            status_code=502)
+    cfg = RobinhoodConfig.from_env()
+    book = PaperBook(_data_dir())
+    res = book.open_position(
+        sym, px, stop_pct=body.stop_pct, horizon_days=body.horizon_days,
+        thesis=body.thesis,
+        max_order_notional=cfg.max_order_notional_usd,
+    )
+    AuditLog(_data_dir()).record(
+        "paper_open", tool="paper_book",
+        details={"symbol": sym, "ok": res.get("ok"),
+                 "qty": (res.get("position") or {}).get("qty")})
+    return JSONResponse(res, status_code=200 if res.get("ok") else 400)
+
+
+@app.post("/api/paper/close")
+async def paper_close(body: PaperCloseBody) -> JSONResponse:
+    """Close a PAPER position at the live price; realized P&L feeds the
+    same daily-loss halt live trading uses."""
+    from engine.robinhood.audit_log import AuditLog
+    from engine.robinhood.paper_book import PaperBook
+    from engine.robinhood.safety_gates import RobinhoodSafetyGates
+
+    sym = body.symbol.strip().upper()
+    prices = await _fetch_live_prices([sym])
+    px = prices.get(sym)
+    if not px:
+        return JSONResponse(
+            {"ok": False,
+             "error": "live Robinhood price unavailable — try again"},
+            status_code=502)
+    book = PaperBook(_data_dir())
+    res = book.close_position(sym, px, reason=body.reason)
+    if res.get("ok"):
+        cfg = RobinhoodConfig.from_env()
+        audit = AuditLog(_data_dir())
+        RobinhoodSafetyGates(cfg, audit).record_realized_pnl(
+            float(res["trade"]["pnl_usd"]))
+        audit.record("paper_close", tool="paper_book",
+                     details=res["trade"])
+    return JSONResponse(res, status_code=200 if res.get("ok") else 400)
+
+
+@app.get("/api/scout/run")
+async def scout_run() -> JSONResponse:
+    """Scan the fixed broad universe with real data; suggest 5–10 charts."""
+    from engine.robinhood.audit_log import AuditLog
+    from engine.robinhood.scout import run_scout
+
+    client = await _live_mcp_client(AuditLog(_data_dir()))
+    if client is None:
+        return JSONResponse(
+            {"ok": False,
+             "error": "Robinhood live data unavailable (no OAuth session)"},
+            status_code=503)
+    try:
+        result = await run_scout(client)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+    finally:
+        try:
+            await client.disconnect()
+        except Exception:  # noqa: BLE001
+            pass
+    return JSONResponse({"ok": True, **result})
