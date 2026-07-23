@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Protocol
 
 from engine.chart_vision.config import ChartVisionConfig
@@ -150,6 +151,93 @@ def _closes_from_historicals(payload: Any) -> List[float]:
     return closes
 
 
+def _dig_account_number(payload: Any) -> Optional[str]:
+    """Pull the first brokerage account_number out of a get_accounts reply."""
+    if payload is None:
+        return None
+    if isinstance(payload, dict):
+        if payload.get("account_number"):
+            return str(payload["account_number"])
+        for key in ("accounts", "results", "data"):
+            if isinstance(payload.get(key), list):
+                return _dig_account_number(payload[key])
+        if isinstance(payload.get("text"), str):
+            try:
+                import json
+
+                return _dig_account_number(json.loads(payload["text"]))
+            except Exception:  # noqa: BLE001
+                return None
+        return None
+    if isinstance(payload, list):
+        for item in payload:
+            acc = _dig_account_number(item)
+            if acc:
+                return acc
+    return None
+
+
+def _ema(values: List[float], period: int) -> Optional[float]:
+    if len(values) < period:
+        return None
+    k = 2.0 / (period + 1.0)
+    ema = sum(values[:period]) / period  # seed with SMA
+    for v in values[period:]:
+        ema = v * k + ema * (1.0 - k)
+    return ema
+
+
+def indicators_from_closes(closes: List[float]) -> Dict[str, Any]:
+    """Compute the battery's indicators from REAL closing prices.
+
+    This is the ground truth the vision read is checked against: RSI(14,
+    Wilder), EMA(9)/EMA(21) + cross direction, MACD(12,26,9) histogram.
+    Deterministic, dependency-free. Returns {} when history is too short.
+    """
+    out: Dict[str, Any] = {}
+    if len(closes) < 30:
+        return out
+
+    # RSI(14), Wilder smoothing
+    period = 14
+    deltas = [closes[i + 1] - closes[i] for i in range(len(closes) - 1)]
+    gains = [max(d, 0.0) for d in deltas]
+    losses = [max(-d, 0.0) for d in deltas]
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    for g, l in zip(gains[period:], losses[period:]):
+        avg_gain = (avg_gain * (period - 1) + g) / period
+        avg_loss = (avg_loss * (period - 1) + l) / period
+    if avg_loss == 0.0:
+        rsi = 50.0 if avg_gain == 0.0 else 100.0
+    else:
+        rs = avg_gain / avg_loss
+        rsi = 100.0 - 100.0 / (1.0 + rs)
+    out["rsi14"] = round(rsi, 2)
+
+    ema9 = _ema(closes, 9)
+    ema21 = _ema(closes, 21)
+    if ema9 is not None and ema21 is not None:
+        out["ema9"] = round(ema9, 4)
+        out["ema21"] = round(ema21, 4)
+        out["ema_cross"] = "bullish" if ema9 > ema21 else "bearish"
+
+    # MACD(12,26,9) histogram: signal line needs the MACD series, so walk
+    # the last 9 windows.
+    if len(closes) >= 26 + 9:
+        macd_series = []
+        for i in range(9, 0, -1):
+            window = closes[: len(closes) - i + 1]
+            e12, e26 = _ema(window, 12), _ema(window, 26)
+            if e12 is not None and e26 is not None:
+                macd_series.append(e12 - e26)
+        if len(macd_series) == 9:
+            signal = sum(macd_series) / 9.0
+            out["macd_hist"] = round(macd_series[-1] - signal, 4)
+
+    return out
+
+
 async def fetch_mcp_snapshot(
     client: MCPClientProto,
     ticker: str,
@@ -174,24 +262,32 @@ async def fetch_mcp_snapshot(
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{tool}: {exc}")
 
-    for tool, args in (
-        (
-            "get_equity_historicals",
-            {"symbol": ticker, "interval": "day", "span": "3month"},
-        ),
-        (
-            "get_historicals",
-            {"symbol": ticker, "interval": "day", "span": "3month"},
-        ),
-    ):
+    # Schema (from the live catalog): symbols[] + REQUIRED start_time
+    # (RFC3339) + optional interval/end_time. 150 calendar days ≈ 100 daily
+    # bars — enough for RSI(14), EMA(21), MACD(26,9) and the 60-day vol.
+    start_time = (
+        datetime.now(timezone.utc) - timedelta(days=150)
+    ).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    for tool in ("get_equity_historicals", "get_historicals"):
         try:
-            hist = await client.call_tool(tool, args)
+            hist = await client.call_tool(
+                tool,
+                {"symbols": [ticker], "start_time": start_time,
+                 "interval": "day"},
+            )
             break
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{tool}: {exc}")
 
+    # get_portfolio requires an account_number (from get_accounts).
     try:
-        portfolio = await client.call_tool("get_portfolio", {})
+        accounts = await client.call_tool("get_accounts", {})
+        account_number = _dig_account_number(accounts)
+        if account_number:
+            portfolio = await client.call_tool(
+                "get_portfolio", {"account_number": account_number})
+        else:
+            errors.append("get_accounts: no account_number found in response")
     except Exception as exc:  # noqa: BLE001
         errors.append(f"get_portfolio: {exc}")
 
@@ -203,6 +299,7 @@ async def fetch_mcp_snapshot(
 
     closes = _closes_from_historicals(hist)
     rvol = realized_vol_from_closes(closes) if closes else None
+    computed = indicators_from_closes(closes) if closes else {}
 
     equity = buying_power = None
     if isinstance(portfolio, dict):
@@ -234,6 +331,7 @@ async def fetch_mcp_snapshot(
         realized_vol_annual=rvol,
         portfolio_equity=equity,
         buying_power=buying_power,
+        computed_indicators=computed or None,
         raw_quotes=quotes if isinstance(quotes, dict) else {"raw": quotes},
         raw_historicals=hist if isinstance(hist, dict) else {"raw": hist},
         errors=errors,
@@ -352,6 +450,30 @@ def validate_extraction(
             )
         )
         adj *= 0.7
+
+    # Indicator cross-check: Grok's RSI read vs RSI computed from real
+    # closing prices. A vision misread cannot survive this — the computed
+    # value is authoritative downstream regardless.
+    computed_rsi = (mcp.computed_indicators or {}).get("rsi14")
+    image_rsi = extraction.indicators.rsi.value
+    if computed_rsi is not None and image_rsi is not None:
+        rsi_diff = abs(float(image_rsi) - float(computed_rsi))
+        if rsi_diff > 10.0:
+            discs.append(
+                ValidationDiscrepancy(
+                    code="rsi_mismatch",
+                    message=(f"image RSI {image_rsi:.0f} vs computed "
+                             f"{computed_rsi:.0f} (diff {rsi_diff:.0f} > 10)"),
+                    severity="warning",
+                    image_value=image_rsi,
+                    mcp_value=computed_rsi,
+                )
+            )
+            adj *= 0.7
+        else:
+            notes.append(
+                f"RSI check OK (image {image_rsi:.0f} ≈ computed "
+                f"{computed_rsi:.0f})")
 
     # Confidence floors
     status = ValidationStatus.PASSED

@@ -163,6 +163,9 @@ class MCPMarketSnapshot(BaseModel):
     portfolio_equity: Optional[float] = None
     buying_power: Optional[float] = None
     existing_position_qty: Optional[float] = None
+    # Indicators computed from REAL price history (RSI/EMA/MACD) — the
+    # ground truth the vision read is cross-checked against.
+    computed_indicators: Optional[Dict[str, Any]] = None
     raw_quotes: Optional[Dict[str, Any]] = None
     raw_historicals: Optional[Dict[str, Any]] = None
     errors: List[str] = Field(default_factory=list)

@@ -66,6 +66,10 @@ class ChartVisionConfig:
     # Timeouts
     vision_timeout_s: float
 
+    # Double reading: independent vision reads per chart, merged under
+    # agreement rules (2 = radiology-style double read; 1 = off).
+    ensemble_reads: int = 2
+
     @classmethod
     def from_env(cls) -> "ChartVisionConfig":
         provider_raw = _env("CHART_VISION_PROVIDER", "mock").lower()
@@ -142,4 +146,5 @@ class ChartVisionConfig:
             ),
             risk_per_trade_pct=_env_float("CHART_VISION_RISK_PER_TRADE_PCT", 0.5),
             vision_timeout_s=_env_float("CHART_VISION_TIMEOUT_S", 90.0),
+            ensemble_reads=max(1, _env_int("CHART_VISION_READS", 2)),
         )
