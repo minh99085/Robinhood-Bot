@@ -200,7 +200,8 @@ class TestProcessOnce:
         cfg = make_config(tmp_path)
         summary = self._run(tmp_path, cfg, [tmp_path / "nope"])
         assert summary == {"seen": 0, "new": 0, "planned": 0,
-                           "gate_blocked": 0, "skipped": 0}
+                           "gate_blocked": 0, "skipped": 0,
+                           "settled_seen": 0, "ingested": 0, "unsizable": 0}
 
     def test_no_place_tool_is_ever_evaluated(self, tmp_path, monkeypatch):
         """Phase-1 invariant: the bridge must never even *evaluate* a

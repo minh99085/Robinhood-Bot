@@ -41,6 +41,11 @@ from engine.robinhood.safety_gates import RobinhoodSafetyGates
 DEFAULT_MAX_AGE_HOURS = 48.0
 STATE_FILENAME = "mc_bridge_state.json"
 LEDGER_FILENAME = "mc_bridge_ledger.jsonl"
+# Monte-Carlo-Sim's settled paper-trade log (outcome_tracker.py), visible to
+# the bridge container at /mc-outputs/trade_log.jsonl. Settled entries carry
+# realized_pnl_pct — the bridge feeds them into the daily-loss accumulator so
+# the halt gate is exercised by real (paper) settlements, not dead code.
+SETTLE_LOG_FILENAME = "trade_log.jsonl"
 
 
 @dataclass
@@ -150,10 +155,11 @@ def map_verdict(
 
 @dataclass
 class BridgeState:
-    """Processed-verdict registry so each file is handled exactly once."""
+    """Processed-verdict + ingested-settlement registry (each exactly once)."""
 
     path: Path
     processed: dict[str, dict[str, Any]] = field(default_factory=dict)
+    settlements: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @classmethod
     def load(cls, data_dir: str | Path) -> "BridgeState":
@@ -161,7 +167,11 @@ class BridgeState:
         if path.exists():
             try:
                 raw = json.loads(path.read_text(encoding="utf-8"))
-                return cls(path=path, processed=dict(raw.get("processed") or {}))
+                return cls(
+                    path=path,
+                    processed=dict(raw.get("processed") or {}),
+                    settlements=dict(raw.get("settlements") or {}),
+                )
             except (json.JSONDecodeError, OSError):
                 pass
         return cls(path=path)
@@ -176,10 +186,108 @@ class BridgeState:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(
-            json.dumps({"processed": self.processed}, indent=2),
+            json.dumps({"processed": self.processed,
+                        "settlements": self.settlements}, indent=2),
             encoding="utf-8",
         )
         tmp.replace(self.path)
+
+
+def _paper_notional(entry: dict[str, Any], config: RobinhoodConfig) -> float | None:
+    """Dollar exposure the bridge would have paper-planned for this entry.
+
+    Mirrors :func:`map_verdict`'s clamp (min of MC shares and the per-order
+    notional cap) so settled paper P&L is measured on the same position size
+    the bridge actually planned, not the MC's unclamped size.
+    """
+    try:
+        s0 = float(entry.get("s0") or 0.0)
+        shares = int((entry.get("sizing") or {}).get("shares") or 0)
+    except (TypeError, ValueError):
+        return None
+    if s0 <= 0.0 or shares <= 0:
+        return None
+    max_qty = int(math.floor(float(config.max_order_notional_usd) / s0))
+    if max_qty < 1:
+        return None
+    return min(shares, max_qty) * s0
+
+
+def ingest_settlements(
+    trade_log: Path,
+    config: RobinhoodConfig,
+    *,
+    gates: RobinhoodSafetyGates,
+    state: BridgeState,
+    audit: AuditLog | None = None,
+) -> dict[str, int]:
+    """Feed settled paper trades into the daily-loss accumulator.
+
+    Reads Monte-Carlo-Sim's ``trade_log.jsonl`` (written by
+    ``outcome_tracker.py settle``) and calls
+    :meth:`RobinhoodSafetyGates.record_realized_pnl` once per newly settled
+    TRADE. This is what makes the daily-loss halt real in phase 1: paper
+    losses accumulate exactly like live ones will, and the same gate trips.
+    Each settlement is ingested exactly once (tracked in bridge state).
+    """
+    audit = audit or AuditLog(config.data_dir)
+    summary = {"settled_seen": 0, "ingested": 0, "unsizable": 0}
+    if not trade_log.is_file():
+        return summary
+    for line in trade_log.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(entry, dict) or not entry.get("settled"):
+            continue
+        if entry.get("verdict") != "TRADE":
+            continue
+        settlement = entry.get("settlement")
+        if not isinstance(settlement, dict):
+            continue
+        summary["settled_seen"] += 1
+        ticker = str(entry.get("ticker") or "").upper()
+        ts = str(entry.get("timestamp_utc")
+                 or entry.get("signal_received_at_utc") or "")
+        sid = f"{ts}_{ticker}"
+        if sid in state.settlements:
+            continue
+        notional = _paper_notional(entry, config)
+        if notional is None:
+            # Entry the bridge could never have planned (no price/size or
+            # over-cap) — record it as seen so it is not retried forever.
+            state.settlements[sid] = {"ts": time.time(), "pnl_usd": None,
+                                      "reason": "unsizable"}
+            summary["unsizable"] += 1
+            continue
+        try:
+            pnl_pct = float(settlement.get("realized_pnl_pct"))
+        except (TypeError, ValueError):
+            state.settlements[sid] = {"ts": time.time(), "pnl_usd": None,
+                                      "reason": "no realized_pnl_pct"}
+            summary["unsizable"] += 1
+            continue
+        pnl_usd = round(pnl_pct * notional, 2)
+        gates.record_realized_pnl(pnl_usd)
+        state.settlements[sid] = {"ts": time.time(), "pnl_usd": pnl_usd}
+        summary["ingested"] += 1
+        _append_ledger(config.data_dir, {
+            "type": "paper_settlement",
+            "settlement_id": sid,
+            "ticker": ticker,
+            "pnl_usd": pnl_usd,
+            "notional": round(notional, 2),
+            "realized_pnl_pct": pnl_pct,
+            "exit_reason": settlement.get("exit_reason"),
+            "mode": "paper",
+        })
+        audit.record("mc_bridge_settlement", tool="mc_bridge",
+                     details={"settlement_id": sid, "pnl_usd": pnl_usd})
+    return summary
 
 
 def _append_ledger(data_dir: str | Path, row: dict[str, Any]) -> None:
@@ -199,18 +307,32 @@ def process_once(
     audit: AuditLog | None = None,
     max_age_hours: float = DEFAULT_MAX_AGE_HOURS,
     now: datetime | None = None,
+    trade_log: Path | None = None,
 ) -> dict[str, Any]:
-    """One bridge pass: map + gate + ledger every unseen verdict file.
+    """One bridge pass: settlements first, then map + gate + ledger every
+    unseen verdict file.
 
     Purely local — no Robinhood calls. Gate evaluation uses the *review*
     tool name so the (deliberately) disabled live-trading flag does not mask
-    the informative gates (notional cap, daily loss halt).
+    the informative gates (notional cap, daily loss halt). Settled paper
+    P&L is ingested *before* verdicts so today's losses already count
+    against the daily-loss halt when new orders are gated.
     """
     audit = audit or AuditLog(config.data_dir)
     gates = gates or RobinhoodSafetyGates(config, audit)
     state = BridgeState.load(config.data_dir)
 
+    if trade_log is None and verdicts_dirs:
+        # Co-hosted layout: verdicts dirs live inside MC's outputs/, and the
+        # settled trade log sits beside them.
+        trade_log = verdicts_dirs[0].parent / SETTLE_LOG_FILENAME
+    settle_summary = {"settled_seen": 0, "ingested": 0, "unsizable": 0}
+    if trade_log is not None:
+        settle_summary = ingest_settlements(
+            trade_log, config, gates=gates, state=state, audit=audit)
+
     summary = {"seen": 0, "new": 0, "planned": 0, "gate_blocked": 0, "skipped": 0}
+    summary.update(settle_summary)
     for vdir in verdicts_dirs:
         if not vdir.is_dir():
             continue
