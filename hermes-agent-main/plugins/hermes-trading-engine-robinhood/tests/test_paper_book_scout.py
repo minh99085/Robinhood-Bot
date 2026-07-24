@@ -169,3 +169,50 @@ def test_dust_trades_are_refused(tmp_path):
     plan = book.size_buy(100.0, 0.05)
     assert plan["qty"] == 0.0
     assert "minimum" in plan["reason"]
+
+
+# ---------------------------------------------------------------------------
+# Broad universe, inverse ETFs, liquidity screen, downside ideas
+# ---------------------------------------------------------------------------
+
+
+def test_universe_is_broad_and_never_leveraged():
+    from engine.robinhood.scout import (
+        INVERSE_ETFS, LEVERAGED_BLACKLIST, SCOUT_UNIVERSE)
+    assert len(SCOUT_UNIVERSE) >= 250
+    assert not set(SCOUT_UNIVERSE) & LEVERAGED_BLACKLIST
+    for inv in INVERSE_ETFS:                 # all 1x inverse are scannable
+        assert inv in SCOUT_UNIVERSE
+
+
+def test_leveraged_symbols_are_ignored_even_if_data_arrives():
+    up = [100.0 * (1.01 ** i) for i in range(60)]
+    out = rank_candidates({"SQQQ": up, "SPY": up})
+    assert all(r["symbol"] != "SQQQ"
+               for r in out["suggest"] + out["avoid"])
+
+
+def test_illiquid_names_are_filtered():
+    up = [100.0 * (1.01 ** i) for i in range(60)]
+    out = rank_candidates(
+        {"THIN": up, "FAT": up},
+        dollar_volumes={"THIN": 50_000.0, "FAT": 50_000_000.0})
+    assert [r["symbol"] for r in out["suggest"]] == ["FAT"]
+    assert out["illiquid_filtered"] == 1
+
+
+def test_falling_index_emits_inverse_downside_idea():
+    down = [100.0 * (0.99 ** i) for i in range(60)]
+    up = [100.0 * (1.005 ** i) for i in range(60)]
+    out = rank_candidates({"SPY": down, "XLE": up})
+    ideas = out["downside_ideas"]
+    assert len(ideas) == 1
+    assert ideas[0]["inverse"] == "SH" and ideas[0]["underlying"] == "SPY"
+    assert "chart SH" in ideas[0]["why"]
+
+
+def test_rising_inverse_etf_is_suggestable_itself():
+    up = [100.0 * (1.01 ** i) for i in range(60)]
+    out = rank_candidates({"SH": up})
+    assert out["suggest"][0]["symbol"] == "SH"
+    assert out["suggest"][0]["inverse_of"] == "SPY"

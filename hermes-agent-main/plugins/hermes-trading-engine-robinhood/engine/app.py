@@ -498,11 +498,24 @@ async def paper_close(body: PaperCloseBody) -> JSONResponse:
     return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
 
+_SCOUT_CACHE: dict[str, Any] = {"ts": 0.0, "result": None}
+_SCOUT_CACHE_TTL_S = 300.0
+
+
 @app.get("/api/scout/run")
 async def scout_run() -> JSONResponse:
-    """Scan the fixed broad universe with real data; suggest 5–10 charts."""
+    """Scan the fixed broad universe with real data; suggest 5–10 charts.
+
+    ~250 names ≈ 26 batched historicals calls (~40–90s), so results are
+    cached for 5 minutes — an immediate re-scan returns instantly.
+    """
     from engine.robinhood.audit_log import AuditLog
     from engine.robinhood.scout import run_scout
+
+    if (_SCOUT_CACHE["result"] is not None
+            and time.time() - _SCOUT_CACHE["ts"] < _SCOUT_CACHE_TTL_S):
+        return JSONResponse({"ok": True, "cached": True,
+                             **_SCOUT_CACHE["result"]})
 
     client = await _live_mcp_client(AuditLog(_data_dir()))
     if client is None:
@@ -519,4 +532,6 @@ async def scout_run() -> JSONResponse:
             await client.disconnect()
         except Exception:  # noqa: BLE001
             pass
-    return JSONResponse({"ok": True, **result})
+    _SCOUT_CACHE["ts"] = time.time()
+    _SCOUT_CACHE["result"] = result
+    return JSONResponse({"ok": True, "cached": False, **result})
