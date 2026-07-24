@@ -200,6 +200,110 @@ def _ema(values: List[float], period: int) -> Optional[float]:
     return ema
 
 
+def _ohlc_from_bars(bars: List[Any]) -> tuple[List[float], List[float], List[float]]:
+    """Pull aligned (highs, lows, closes) out of OHLCV bar dicts.
+
+    Only bars that carry all three prices are kept, so the three lists stay
+    index-aligned for the Wilder true-range math.
+    """
+    highs: List[float] = []
+    lows: List[float] = []
+    closes: List[float] = []
+    for row in bars:
+        if not isinstance(row, dict):
+            continue
+        h = l = c = None
+        for k in ("high_price", "high", "h"):
+            if k in row:
+                h = _as_float(row[k])
+                break
+        for k in ("low_price", "low", "l"):
+            if k in row:
+                l = _as_float(row[k])
+                break
+        for k in ("close_price", "close", "c", "price"):
+            if k in row:
+                c = _as_float(row[k])
+                break
+        if h is not None and l is not None and c is not None:
+            highs.append(h)
+            lows.append(l)
+            closes.append(c)
+    return highs, lows, closes
+
+
+def adx_atr_from_bars(bars: List[Any], period: int = 14) -> Dict[str, Any]:
+    """Compute ADX(14) trend strength and ATR(14) from real OHLC bars.
+
+    Wilder smoothing, dependency-free. ADX gates whether the Monte-Carlo
+    drift is trusted (a real trend, ~>=20-25) or the market is choppy noise;
+    ATR sizes volatility-adaptive stops. Returns {} when history is too short
+    (needs ~2*period+1 bars for a stable ADX). ``atr14`` is in price units;
+    ``atr14_pct`` is ATR / last close.
+    """
+    highs, lows, closes = _ohlc_from_bars(bars)
+    n = len(closes)
+    if n < 2 * period + 1:
+        return {}
+
+    trs: List[float] = []
+    plus_dm: List[float] = []
+    minus_dm: List[float] = []
+    for i in range(1, n):
+        up_move = highs[i] - highs[i - 1]
+        down_move = lows[i - 1] - lows[i]
+        plus_dm.append(up_move if (up_move > down_move and up_move > 0) else 0.0)
+        minus_dm.append(down_move if (down_move > up_move and down_move > 0) else 0.0)
+        trs.append(max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i] - closes[i - 1]),
+        ))
+    if len(trs) < 2 * period:
+        return {}
+
+    def _wilder(seq: List[float]) -> List[float]:
+        """Wilder-smoothed running totals of ``seq`` over ``period``."""
+        smoothed: List[float] = []
+        run = sum(seq[:period])
+        smoothed.append(run)
+        for v in seq[period:]:
+            run = run - (run / period) + v
+            smoothed.append(run)
+        return smoothed
+
+    sm_tr = _wilder(trs)
+    sm_plus = _wilder(plus_dm)
+    sm_minus = _wilder(minus_dm)
+
+    dxs: List[float] = []
+    for tr, pdm, mdm in zip(sm_tr, sm_plus, sm_minus):
+        if tr <= 0:
+            dxs.append(0.0)
+            continue
+        plus_di = 100.0 * pdm / tr
+        minus_di = 100.0 * mdm / tr
+        denom = plus_di + minus_di
+        dxs.append(100.0 * abs(plus_di - minus_di) / denom if denom > 0 else 0.0)
+
+    out: Dict[str, Any] = {}
+    if len(dxs) >= period:
+        adx = sum(dxs[:period]) / period
+        for dx in dxs[period:]:
+            adx = (adx * (period - 1) + dx) / period
+        out["adx14"] = round(adx, 2)
+
+    # ATR(14), Wilder: seed with the SMA of the first `period` TRs.
+    atr = sum(trs[:period]) / period
+    for tr in trs[period:]:
+        atr = (atr * (period - 1) + tr) / period
+    out["atr14"] = round(atr, 4)
+    last_close = closes[-1]
+    if last_close > 0:
+        out["atr14_pct"] = round(atr / last_close, 4)
+    return out
+
+
 def indicators_from_closes(closes: List[float]) -> Dict[str, Any]:
     """Compute the battery's indicators from REAL closing prices.
 
@@ -313,6 +417,11 @@ async def fetch_mcp_snapshot(
     closes = _closes_from_historicals(hist)
     rvol = realized_vol_from_closes(closes) if closes else None
     computed = indicators_from_closes(closes) if closes else {}
+    # ADX(14)/ATR(14) need OHLC bars, not just closes — compute from the
+    # raw historicals and merge in (trend-strength gate + adaptive stops).
+    bars = bars_from_historicals(hist) if hist is not None else []
+    if bars:
+        computed.update(adx_atr_from_bars(bars))
 
     equity = buying_power = None
     if isinstance(portfolio, dict):

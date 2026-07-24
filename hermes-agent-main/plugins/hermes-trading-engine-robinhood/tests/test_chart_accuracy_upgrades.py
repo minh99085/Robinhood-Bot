@@ -93,6 +93,52 @@ def test_indicators_flat_series_is_neutral_and_short_history_empty():
 
 
 # ---------------------------------------------------------------------------
+# ADX(14) trend strength + ATR(14) from OHLC bars
+# ---------------------------------------------------------------------------
+
+
+def _bar(c, spread=0.5):
+    return {"high_price": c + spread, "low_price": c - spread,
+            "close_price": c}
+
+
+def test_adx_high_on_clean_trend_low_on_chop():
+    from engine.chart_vision.mcp_validator import adx_atr_from_bars
+
+    trend = [_bar(100.0 + i) for i in range(60)]        # one-directional climb
+    chop = [_bar(100.0 + (i % 2)) for i in range(60)]   # oscillates, no trend
+
+    ind_trend = adx_atr_from_bars(trend)
+    ind_chop = adx_atr_from_bars(chop)
+    assert ind_trend["adx14"] >= 25.0                   # real trend
+    assert ind_chop["adx14"] < 20.0                     # choppy → gate trips
+    # ATR present and positive in both, expressed in price + pct
+    assert ind_trend["atr14"] > 0
+    assert ind_trend["atr14_pct"] > 0
+
+
+def test_adx_atr_short_history_is_empty():
+    from engine.chart_vision.mcp_validator import adx_atr_from_bars
+
+    assert adx_atr_from_bars([_bar(100.0 + i) for i in range(10)]) == {}
+
+
+@pytest.mark.asyncio
+async def test_snapshot_merges_adx_atr_from_ohlc_bars():
+    class OHLCRecorder(Recorder):
+        async def call_tool(self, name, arguments=None):
+            if name == "get_equity_historicals":
+                return {"data": {"results": [{"symbol": "NVDA", "bars": [
+                    _bar(100.0 + i * 0.5) for i in range(60)]}]}}
+            return await super().call_tool(name, arguments)
+
+    snap = await fetch_mcp_snapshot(OHLCRecorder(), "NVDA")
+    assert snap.computed_indicators is not None
+    assert "adx14" in snap.computed_indicators
+    assert "atr14" in snap.computed_indicators
+
+
+# ---------------------------------------------------------------------------
 # RSI cross-check in validation
 # ---------------------------------------------------------------------------
 
