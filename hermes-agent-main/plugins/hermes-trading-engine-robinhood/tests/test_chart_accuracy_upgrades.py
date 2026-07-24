@@ -160,3 +160,62 @@ def test_rsi_and_ticker_disagreement_stack_penalties():
     # ticker split (×0.5) + rsi spread 20 (×0.7)
     assert merged.confidence.overall == pytest.approx(0.8 * 0.5 * 0.7)
     assert merged.indicators.rsi.value == 50.0
+
+
+# ---------------------------------------------------------------------------
+# Real Robinhood historicals shape: data.results[].bars[].close_price
+# ---------------------------------------------------------------------------
+
+
+def _rh_reply(symbols_bars):
+    """Build a reply in Robinhood's real shape."""
+    return {"data": {"results": [
+        {"symbol": s, "interval": "day",
+         "bars": [{"begins_at": f"2026-07-{i+1:02d}T00:00:00Z",
+                   "open_price": f"{c-1:.4f}", "close_price": f"{c:.4f}",
+                   "high_price": f"{c+1:.4f}", "low_price": f"{c-2:.4f}",
+                   "volume": 1_000_000 + i, "session": "reg"}
+                  for i, c in enumerate(bars)]}
+        for s, bars in symbols_bars.items()]},
+        "guide": {}}
+
+
+def test_bars_parse_from_real_robinhood_shape():
+    from engine.chart_vision.mcp_validator import (
+        _closes_from_historicals, bars_from_historicals)
+
+    reply = _rh_reply({"AAPL": [100.0, 101.0, 102.5]})
+    bars = bars_from_historicals(reply)
+    assert len(bars) == 3
+    closes = _closes_from_historicals(reply)
+    assert closes == [100.0, 101.0, 102.5]   # string close_price coerced
+
+
+def test_scout_splits_and_series_from_real_shape():
+    from engine.robinhood.scout import _series_from_historicals, _split_by_symbol
+
+    reply = _rh_reply({"AAPL": [10.0, 11.0], "MSFT": [20.0, 22.0]})
+    parts = _split_by_symbol(reply, ["AAPL", "MSFT"])
+    assert set(parts) == {"AAPL", "MSFT"}
+    series = _series_from_historicals(parts["MSFT"])
+    assert series["closes"] == [20.0, 22.0]
+    assert len(series["dollar_volume"]) == 2
+    assert series["dollar_volume"][0] == 20.0 * 1_000_000       # close × volume
+
+
+@pytest.mark.asyncio
+async def test_run_scout_end_to_end_real_shape():
+    """The whole scout path over the real reply shape finds a candidate."""
+    from engine.robinhood.scout import run_scout
+
+    up = [100.0 * (1.01 ** i) for i in range(130)]
+    flat = [100.0 for _ in range(130)]
+
+    class FakeClient:
+        async def call_tool(self, name, arguments=None):
+            syms = arguments["symbols"]
+            return _rh_reply({s: (up if s == "NVDA" else flat) for s in syms})
+
+    out = await run_scout(FakeClient(), universe=["NVDA", "KO", "PG"])
+    assert out["scanned"] == 3          # not zero — the real bug's fingerprint
+    assert any(r["symbol"] == "NVDA" for r in out["suggest"])

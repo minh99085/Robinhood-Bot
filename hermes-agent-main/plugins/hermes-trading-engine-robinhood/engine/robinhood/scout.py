@@ -18,7 +18,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from engine.chart_vision.mcp_validator import _closes_from_historicals
+from engine.chart_vision.mcp_validator import (
+    _as_float,
+    _closes_from_historicals,
+    bars_from_historicals,
+)
 from engine.robinhood.scout_factors import (
     MIN_ABS_MOM63,
     compute_factors,
@@ -76,39 +80,18 @@ def rank_candidates(
 def _series_from_historicals(payload: Any) -> Dict[str, List[float]]:
     """Extract {closes, dollar_volume} series from one symbol's payload."""
     closes = _closes_from_historicals(payload)
-    rows = payload
-    if isinstance(payload, dict):
-        if isinstance(payload.get("text"), str):
-            try:
-                import json
-                payload = json.loads(payload["text"])
-            except Exception:  # noqa: BLE001
-                pass
-        for key in ("historicals", "data", "results", "candles", "bars"):
-            if isinstance(payload.get(key), list):
-                rows = payload[key]
-                break
     dvol: List[float] = []
-    if isinstance(rows, list):
-        for row in rows:
-            if isinstance(row, dict):
-                v = c = None
-                for k in ("volume", "v"):
-                    if k in row:
-                        try:
-                            v = float(row[k])
-                        except (TypeError, ValueError):
-                            v = None
-                        break
-                for k in ("close_price", "close", "c", "price"):
-                    if k in row:
-                        try:
-                            c = float(row[k])
-                        except (TypeError, ValueError):
-                            c = None
-                        break
-                if v is not None and c is not None:
-                    dvol.append(v * c)
+    for row in bars_from_historicals(payload):
+        if not isinstance(row, dict):
+            continue
+        v = _as_float(row.get("volume") if "volume" in row else row.get("v"))
+        c = None
+        for k in ("close_price", "close", "c", "price"):
+            if k in row:
+                c = _as_float(row[k])
+                break
+        if v is not None and c is not None:
+            dvol.append(v * c)
     return {"closes": closes, "dollar_volume": dvol}
 
 
@@ -152,19 +135,31 @@ async def run_scout(client: Any, *, top_n: int = 8,
 
 
 def _split_by_symbol(reply: Any, batch: List[str]) -> Dict[str, Any]:
-    """Best-effort split of a multi-symbol historicals reply."""
-    out: Dict[str, Any] = {}
-    if isinstance(reply, dict):
-        direct = {k.upper(): v for k, v in reply.items()
+    """Split a multi-symbol historicals reply into {symbol: per-symbol node}.
+
+    Robinhood shape: {"data": {"results": [{"symbol": "AAPL", "bars": [...]},
+    ...]}}. Each per-symbol node keeps its own "bars" so downstream bar
+    extraction works unchanged.
+    """
+    node = reply
+    if isinstance(node, dict) and isinstance(node.get("text"), str):
+        try:
+            import json
+            node = json.loads(node["text"])
+        except Exception:  # noqa: BLE001
+            pass
+    if isinstance(node, dict):
+        # {"AAPL": {...}} keyed directly?
+        direct = {k.upper(): v for k, v in node.items()
                   if isinstance(k, str) and k.upper() in batch}
         if direct:
             return direct
-        for key in ("results", "historicals", "data"):
-            if isinstance(reply.get(key), list):
-                reply = reply[key]
-                break
-    if isinstance(reply, list):
-        for item in reply:
+        if isinstance(node.get("data"), dict):
+            node = node["data"]
+    results = node.get("results") if isinstance(node, dict) else node
+    out: Dict[str, Any] = {}
+    if isinstance(results, list):
+        for item in results:
             if not isinstance(item, dict):
                 continue
             sym = str(item.get("symbol") or item.get("ticker") or "").upper()

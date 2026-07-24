@@ -116,27 +116,40 @@ def realized_vol_from_closes(closes: List[float], *, trading_days: int = 252) ->
     return math.sqrt(var * trading_days)
 
 
-def _closes_from_historicals(payload: Any) -> List[float]:
-    closes: List[float] = []
-    if payload is None:
-        return closes
-    # Unwrap MCP text blocks
-    if isinstance(payload, dict) and "text" in payload:
+def bars_from_historicals(payload: Any) -> List[Any]:
+    """Descend to the OHLCV bar list for a single symbol.
+
+    Robinhood shape: {"data": {"results": [{"symbol": ..., "bars": [...]}]}}.
+    Also tolerates MCP text blocks, a bare {"bars": [...]}/{"historicals":
+    [...]} dict, or a bare list.
+    """
+    if isinstance(payload, dict) and isinstance(payload.get("text"), str):
         try:
             import json
 
             payload = json.loads(payload["text"])
         except Exception:  # noqa: BLE001
             pass
-    rows = payload
-    if isinstance(payload, dict):
-        for key in ("historicals", "data", "results", "candles", "bars"):
-            if key in payload and isinstance(payload[key], list):
-                rows = payload[key]
-                break
-    if not isinstance(rows, list):
-        return closes
-    for row in rows:
+    node = payload
+    if isinstance(node, dict) and isinstance(node.get("data"), dict):
+        node = node["data"]
+    if isinstance(node, dict):
+        results = node.get("results")
+        if isinstance(results, list) and results:
+            first = results[0]
+            if isinstance(first, dict) and isinstance(first.get("bars"), list):
+                return first["bars"]
+        for key in ("bars", "historicals", "candles", "results", "data"):
+            if isinstance(node.get(key), list):
+                return node[key]
+    if isinstance(node, list):
+        return node
+    return []
+
+
+def _closes_from_historicals(payload: Any) -> List[float]:
+    closes: List[float] = []
+    for row in bars_from_historicals(payload):
         if isinstance(row, (int, float)):
             closes.append(float(row))
             continue
