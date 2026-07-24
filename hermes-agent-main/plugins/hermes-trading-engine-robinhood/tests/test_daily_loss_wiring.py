@@ -69,6 +69,7 @@ def fresh_verdict(ticker="MSFT") -> dict:
     now = datetime.now(timezone.utc).replace(microsecond=0)
     return {
         "timestamp_utc": now.isoformat(),
+        "engine": "meta_label_v2",
         "ticker": ticker,
         "verdict": "TRADE",
         "side": "long",

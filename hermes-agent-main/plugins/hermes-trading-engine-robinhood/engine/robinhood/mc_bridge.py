@@ -26,6 +26,7 @@ Phase-1 guarantees (deliberate):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import time
@@ -81,20 +82,58 @@ def verdict_id(path: Path) -> str:
     return f"{path.parent.name}/{path.name}"
 
 
-def execution_allowed(verdict: dict[str, Any]) -> tuple[bool, str]:
+CANONICAL_ENGINE = "meta_label_v2"
+
+
+def execution_allowed(
+    verdict: dict[str, Any],
+    report_path: Path | None = None,
+) -> tuple[bool, str]:
     """Hard gate for phase 2: may this verdict EVER become a real order?
 
-    A verdict is execution-eligible only when it explicitly carries
-    ``gauntlet_pass: true`` — stamped by Monte-Carlo-Sim's decision path
-    only while the full validation gauntlet (all six gates) currently
-    passes. No marker (all of today's verdicts) → paper-log freely, but
-    never executable. This check must be called by any future code that
-    maps a verdict to a live ``place_*`` call.
+    A bare ``gauntlet_pass: true`` flag is not enough (a plain JSON field
+    proves nothing). Eligibility requires a verifiable certificate:
+
+      * verdict.engine == "meta_label_v2" (the one canonical engine),
+      * verdict.gauntlet_pass is True,
+      * verdict.certificate carries report_hash + universe,
+      * the actual gauntlet report on disk (``report_path``) hashes to
+        certificate.report_hash, currently shows ready: true, and lists
+        this verdict's ticker in its validated universe.
+
+    Any missing piece → paper-only. This check must be called by any
+    future code that maps a verdict to a live ``place_*`` call.
     """
-    if verdict.get("gauntlet_pass") is True:
-        return True, "gauntlet_pass marker present"
-    return False, ("no gauntlet-pass marker — verdict is paper-only and may "
-                   "never be executed")
+    if str(verdict.get("engine") or "") != CANONICAL_ENGINE:
+        return False, (f"engine {verdict.get('engine')!r} is not the "
+                       f"canonical {CANONICAL_ENGINE} — never executable")
+    if verdict.get("gauntlet_pass") is not True:
+        return False, ("no gauntlet-pass marker — verdict is paper-only and "
+                       "may never be executed")
+    cert = verdict.get("certificate")
+    if not isinstance(cert, dict) or not cert.get("report_hash"):
+        return False, ("gauntlet_pass without a certificate (report_hash) — "
+                       "unverifiable, paper-only")
+    if report_path is None or not Path(report_path).is_file():
+        return False, ("gauntlet report not available to verify the "
+                       "certificate — paper-only")
+    try:
+        raw = Path(report_path).read_bytes()
+        actual_hash = hashlib.sha256(raw).hexdigest()
+        report = json.loads(raw.decode("utf-8"))
+    except (OSError, ValueError) as exc:
+        return False, f"gauntlet report unreadable ({exc}) — paper-only"
+    if actual_hash != str(cert.get("report_hash")):
+        return False, ("certificate hash does not match the current gauntlet "
+                       "report — stale or tampered verdict, paper-only")
+    if report.get("ready") is not True:
+        return False, "gauntlet report is not ready:true — paper-only"
+    ticker = str(verdict.get("ticker") or "").upper()
+    universe = [str(t).upper() for t in (report.get("tickers") or [])]
+    if ticker not in universe:
+        return False, (f"{ticker} is not in the validated universe "
+                       f"{universe} — paper-only")
+    return True, "certificate verified against the live gauntlet report"
 
 
 def _verdict_age_hours(verdict: dict[str, Any], *, now: datetime | None = None) -> float | None:
@@ -377,9 +416,27 @@ def process_once(
                 state.mark(vid, outcome)
                 continue
 
+            engine = str(verdict.get("engine") or "")
+            if engine != CANONICAL_ENGINE:
+                outcome = (f"skipped: legacy engine quarantined "
+                           f"({engine or 'unstamped'}) — only "
+                           f"{CANONICAL_ENGINE} verdicts are processed")
+                summary["skipped"] += 1
+                _append_ledger(config.data_dir, {
+                    "verdict_id": vid, "ticker": verdict.get("ticker"),
+                    "mc_verdict": verdict.get("verdict"), "mode": "paper",
+                    "execution_eligible": False,
+                    "eligibility_reason": outcome,
+                    "outcome": outcome,
+                })
+                state.mark(vid, outcome)
+                continue
+
+            report_path = vdir.parent / "gauntlet_report.json"
             plan, reason = map_verdict(
                 verdict, config, max_age_hours=max_age_hours, now=now)
-            eligible, eligibility_reason = execution_allowed(verdict)
+            eligible, eligibility_reason = execution_allowed(
+                verdict, report_path=report_path)
             row: dict[str, Any] = {
                 "verdict_id": vid,
                 "ticker": verdict.get("ticker"),

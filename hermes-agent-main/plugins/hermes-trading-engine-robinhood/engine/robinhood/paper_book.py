@@ -16,7 +16,6 @@ Sizing (fixed, no knobs to tune):
 from __future__ import annotations
 
 import json
-import math
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -30,6 +29,11 @@ DEFAULT_EQUITY_START = 10_000.0
 RISK_PCT = 0.02            # 2% of equity at risk per trade (owner's limit)
 MAX_POSITION_PCT = 0.10    # no position above 10% of equity
 DEFAULT_STOP_PCT = 0.05    # if the analysis supplied no stop
+# Fractional shares (Robinhood supports them): sizing is DOLLAR-based so a
+# $600 or $2,000 asset deploys the same capital as a $50 one on a $10k
+# account. Below this notional a trade is dust — refuse instead.
+MIN_NOTIONAL_USD = 5.0
+QTY_DECIMALS = 4
 # horizon_days is in TRADING days; calendar conversion for review prompts
 _CAL_PER_TRADING_DAY = 7.0 / 5.0
 
@@ -139,31 +143,42 @@ class PaperBook:
 
     def size_buy(self, price: float, stop_pct: float,
                  max_order_notional: Optional[float] = None) -> Dict[str, Any]:
-        """Fixed-risk sizing: 2% of equity at risk over the stop distance."""
+        """Fixed-risk, DOLLAR-based sizing with fractional shares.
+
+        target dollars = (equity × 2%) / stop_pct, then capped by the 10%
+        position cap, any per-order cap, and available cash. Fractional
+        qty = dollars / price — so any asset price deploys the intended
+        capital (a $2,000 stock gets 0.5 sh, not zero).
+        """
+        if price <= 0:
+            return {"qty": 0.0, "reason": "bad price", "capped_by": []}
         equity = self.equity()
         stop_pct = float(stop_pct) if stop_pct and stop_pct > 0 else DEFAULT_STOP_PCT
         risk_usd = equity * RISK_PCT
-        per_share_risk = price * stop_pct
-        if per_share_risk <= 0:
-            return {"qty": 0, "reason": "bad stop"}
-        qty = math.floor(risk_usd / per_share_risk)
+        target = risk_usd / stop_pct
         capped_by: List[str] = []
         cap_notional = equity * MAX_POSITION_PCT
         if max_order_notional:
             cap_notional = min(cap_notional, float(max_order_notional))
-        if qty * price > cap_notional:
-            qty = math.floor(cap_notional / price)
+        if target > cap_notional:
+            target = cap_notional
             capped_by.append(f"position cap ${cap_notional:.0f}")
-        if qty * price > self.state["cash"]:
-            qty = math.floor(self.state["cash"] / price)
+        if target > self.state["cash"]:
+            target = float(self.state["cash"])
             capped_by.append("available cash")
+        if target < MIN_NOTIONAL_USD:
+            return {"qty": 0.0, "risk_usd": round(risk_usd, 2),
+                    "stop_pct": stop_pct, "notional": 0.0,
+                    "capped_by": capped_by,
+                    "reason": f"sized under ${MIN_NOTIONAL_USD:.0f} minimum"}
+        qty = round(target / price, QTY_DECIMALS)
         return {
-            "qty": max(qty, 0),
+            "qty": qty,
             "risk_usd": round(risk_usd, 2),
             "stop_pct": stop_pct,
-            "notional": round(max(qty, 0) * price, 2),
+            "notional": round(qty * price, 2),
             "capped_by": capped_by,
-            "reason": "ok" if qty > 0 else "sized to zero",
+            "reason": "ok",
         }
 
     # ---------------- trades ----------------
@@ -185,7 +200,7 @@ class PaperBook:
             return {"ok": False, "error": "bad price"}
         plan = self.size_buy(price, stop_pct or DEFAULT_STOP_PCT,
                              max_order_notional)
-        if plan["qty"] < 1:
+        if plan["qty"] <= 0:
             return {"ok": False, "error": f"sized to zero ({plan.get('capped_by') or plan['reason']})"}
         pos = {
             "symbol": sym,

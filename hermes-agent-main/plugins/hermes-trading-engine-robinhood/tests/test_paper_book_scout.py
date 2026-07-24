@@ -136,3 +136,36 @@ def test_paper_open_requires_live_price(tmp_path, monkeypatch):
     r = c.post("/api/paper/open", json={"symbol": "NVDA"})
     assert r.status_code == 502
     assert "live" in r.json()["error"]
+
+
+# ---------------------------------------------------------------------------
+# Fractional / dollar-based sizing (small-account fix)
+# ---------------------------------------------------------------------------
+
+
+def test_expensive_asset_gets_fractional_shares(tmp_path):
+    book = PaperBook(tmp_path)
+    # $2,000 stock: whole-share sizing would buy 0 — fractional deploys $1,000.
+    plan = book.size_buy(2000.0, 0.05)
+    assert plan["qty"] == 0.5
+    assert plan["notional"] == 1000.0
+
+    res = book.open_position("PRCY", 2000.0, stop_pct=0.05)
+    assert res["ok"] and res["position"]["qty"] == 0.5
+    out = book.close_position("PRCY", 2200.0)
+    assert out["ok"] and out["trade"]["pnl_usd"] == 100.0  # 0.5 × $200
+
+
+def test_mid_price_deploys_full_cap(tmp_path):
+    book = PaperBook(tmp_path)
+    plan = book.size_buy(600.0, 0.05)     # SPY-like price
+    assert plan["notional"] == pytest.approx(1000.0, abs=0.5)
+    assert plan["qty"] == pytest.approx(1.6667, abs=0.001)
+
+
+def test_dust_trades_are_refused(tmp_path):
+    book = PaperBook(tmp_path)
+    book.state["cash"] = 3.0              # nearly broke
+    plan = book.size_buy(100.0, 0.05)
+    assert plan["qty"] == 0.0
+    assert "minimum" in plan["reason"]

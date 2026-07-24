@@ -41,6 +41,7 @@ def make_verdict(**overrides) -> dict:
     now = datetime.now(timezone.utc).replace(microsecond=0)
     v = {
         "timestamp_utc": now.isoformat(),
+        "engine": "meta_label_v2",
         "ticker": "AAPL",
         "verdict": "TRADE",
         "side": "long",
