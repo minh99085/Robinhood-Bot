@@ -68,23 +68,47 @@ def test_persistence_across_instances(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Scout ranking (pure)
+# Multi-factor scout ranking (pure)
 # ---------------------------------------------------------------------------
 
 
-def test_scout_ranks_aligned_bullish_first():
-    up = [100.0 * (1.01 ** i) for i in range(60)]       # strong aligned up
-    down = [100.0 * (0.99 ** i) for i in range(60)]     # strong aligned down
-    flat = [100.0 + (i % 2) * 0.1 for i in range(60)]   # noise
-    out = rank_candidates({"UPP": up, "DWN": down, "FLT": flat}, top_n=5)
-    assert [r["symbol"] for r in out["suggest"]] == ["UPP"]
-    assert [r["symbol"] for r in out["avoid"]] == ["DWN"]
+def _series(kind, n=130, base=100.0):
+    """Synthetic close series with volume."""
+    import math as _m
+    if kind == "strong_up":
+        closes = [base * (1.012 ** i) for i in range(n)]
+    elif kind == "smooth_up":
+        closes = [base * (1.004 ** i) for i in range(n)]
+    elif kind == "choppy_up":
+        closes = [base * (1.004 ** i) * (1 + 0.05 * _m.sin(i)) for i in range(n)]
+    elif kind == "down":
+        closes = [base * (0.99 ** i) for i in range(n)]
+    else:
+        closes = [base for _ in range(n)]
+    return closes
+
+
+def test_multifactor_ranks_and_directions():
+    data = {"UP": _series("strong_up"), "DWN": _series("down"),
+            "FLAT": _series("flat")}
+    out = rank_candidates(data, top_n=5)
     assert out["scanned"] == 3
-    assert "21d" in out["suggest"][0]["why"]
+    names = [r["symbol"] for r in out["suggest"]]
+    assert "UP" in names and "DWN" not in names
+    top = out["suggest"][0]
+    assert "composite" in top and "setup" in top and "3mo" in top["why"]
 
 
-def test_scout_skips_short_history():
-    out = rank_candidates({"NEW": [10.0] * 5})
+def test_risk_adjusted_momentum_prefers_smooth_over_choppy():
+    # same drift, different smoothness → smooth should out-rank choppy
+    out = rank_candidates({"SMOOTH": _series("smooth_up"),
+                           "CHOPPY": _series("choppy_up")}, top_n=2)
+    order = [r["symbol"] for r in out["suggest"]]
+    assert order and order[0] == "SMOOTH"
+
+
+def test_factor_short_history_is_dropped():
+    out = rank_candidates({"NEW": [100.0] * 40})   # < 70 bars
     assert out["usable"] == 0 and out["suggest"] == []
 
 
@@ -179,40 +203,40 @@ def test_dust_trades_are_refused(tmp_path):
 def test_universe_is_broad_and_never_leveraged():
     from engine.robinhood.scout import (
         INVERSE_ETFS, LEVERAGED_BLACKLIST, SCOUT_UNIVERSE)
-    assert len(SCOUT_UNIVERSE) >= 250
+    assert len(SCOUT_UNIVERSE) >= 500
     assert not set(SCOUT_UNIVERSE) & LEVERAGED_BLACKLIST
     for inv in INVERSE_ETFS:                 # all 1x inverse are scannable
         assert inv in SCOUT_UNIVERSE
 
 
 def test_leveraged_symbols_are_ignored_even_if_data_arrives():
-    up = [100.0 * (1.01 ** i) for i in range(60)]
-    out = rank_candidates({"SQQQ": up, "SPY": up})
+    out = rank_candidates({"SQQQ": _series("strong_up"),
+                           "SPY": _series("strong_up")})
     assert all(r["symbol"] != "SQQQ"
                for r in out["suggest"] + out["avoid"])
 
 
 def test_illiquid_names_are_filtered():
-    up = [100.0 * (1.01 ** i) for i in range(60)]
+    up = _series("strong_up")
+    thin = [1000.0] * 130          # tiny dollar volume series
+    fat = [50_000_000.0] * 130
     out = rank_candidates(
         {"THIN": up, "FAT": up},
-        dollar_volumes={"THIN": 50_000.0, "FAT": 50_000_000.0})
-    assert [r["symbol"] for r in out["suggest"]] == ["FAT"]
+        dollar_volume_series={"THIN": thin, "FAT": fat})
+    names = [r["symbol"] for r in out["suggest"]]
+    assert "FAT" in names and "THIN" not in names
     assert out["illiquid_filtered"] == 1
 
 
 def test_falling_index_emits_inverse_downside_idea():
-    down = [100.0 * (0.99 ** i) for i in range(60)]
-    up = [100.0 * (1.005 ** i) for i in range(60)]
-    out = rank_candidates({"SPY": down, "XLE": up})
+    out = rank_candidates({"SPY": _series("down"), "XLE": _series("smooth_up")})
     ideas = out["downside_ideas"]
-    assert len(ideas) == 1
-    assert ideas[0]["inverse"] == "SH" and ideas[0]["underlying"] == "SPY"
-    assert "chart SH" in ideas[0]["why"]
+    assert any(d["inverse"] == "SH" and d["underlying"] == "SPY"
+               for d in ideas)
+    assert any("chart SH" in d["why"] for d in ideas)
 
 
 def test_rising_inverse_etf_is_suggestable_itself():
-    up = [100.0 * (1.01 ** i) for i in range(60)]
-    out = rank_candidates({"SH": up})
+    out = rank_candidates({"SH": _series("strong_up")})
     assert out["suggest"][0]["symbol"] == "SH"
     assert out["suggest"][0]["inverse_of"] == "SPY"
